@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\RunResumeGuardInterface;
@@ -23,8 +24,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * profile again (spec 051 A2A-MT4): the client record is still enabled,
  * unexpired and allowed the profile, its technical backend user is the one
  * the run acts as and is still usable, its pinned workspace is the one the
- * run recorded, and the profile still exists and is public. Otherwise the
- * run, and with it the task, fails.
+ * run recorded, the profile still exists and is public, and the run's LLM
+ * configuration is switched on and one the technical user may use with the
+ * groups it has now. Otherwise the run, and with it the task, fails.
  *
  * A writing profile resumes only in a draft workspace (A2A-MT5).
  *
@@ -50,6 +52,7 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
         private A2aProfileToolList $toolList,
         private AgentRunPersister $persister,
         private ConnectionPool $connectionPool,
+        private A2aClientAccess $access,
     ) {}
 
     public function refusal(AgentRunHandle $handle, AiActorContext $owner): ?string
@@ -129,6 +132,14 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
 
         if ($profile->mayWrite && $client->workspaceId < 1) {
             return ['a writing skill runs only in a draft workspace', null];
+        }
+
+        // The check a new task gets (A2aSendMessageHandler), again for every
+        // resume: access revoked or a configuration switched off since the
+        // task started stops the run.
+        $run = $this->persister->findRun($handle->uuid);
+        if (!$run instanceof AgentRun || !$this->access->mayRun($run->configurationUid, $this->access->actor($client))) {
+            return ["the LLM configuration is switched off or not available to the client's technical user", null];
         }
 
         return [null, $profile];

@@ -42,7 +42,6 @@ use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\Agent\PendingPause;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
-use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -112,7 +111,7 @@ final readonly class A2aSendMessageHandler
         private A2aTaskWaiter $waiter,
         private ConnectionPool $connectionPool,
         private DurableDecisionIntakeInterface $intake,
-        private ConfigurationResolver $access,
+        private A2aClientAccess $access,
         ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
     ) {
@@ -177,8 +176,8 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill writes and needs a client pinned to a draft workspace.');
         }
 
-        $actor = $this->actor($client);
-        if (!$llm->isActive() || !$this->access->actorMayUse($llm, $actor)) {
+        $actor = $this->access->actor($client);
+        if (!$this->access->mayRun($profile->configurationUid, $actor)) {
             // Every entry point that starts a run checks the configuration
             // for its actor; here the actor is the client's technical user.
             $this->logger->warning("A2A profile cannot be executed: its LLM configuration is switched off or not available to the client's technical user", ['profile' => $profile->uid, 'client' => $client->uid]);
@@ -441,8 +440,18 @@ final readonly class A2aSendMessageHandler
 
         $runUid  = is_numeric($row['run_uid'] ?? null) ? (int) $row['run_uid'] : 0;
         $runUuid = $this->runUuid($runUid);
-        $actor   = $this->actor($client);
-        $pause   = $runUuid !== '' ? $this->intake->pendingPause($actor, $runUuid) : null;
+        $actor   = $this->access->actor($client);
+        // The check a new task gets, for the configuration the run resumes
+        // with: a client whose access was revoked, or a configuration
+        // switched off, since the task paused does not continue it.
+        $run = $runUuid !== '' ? $this->persister->findRun($runUuid) : null;
+        if (!$run instanceof AgentRun || !$this->access->mayRun($run->configurationUid, $actor)) {
+            $this->logger->warning("An A2A task cannot be continued: its LLM configuration is switched off or not available to the client's technical user", ['client' => $client->uid, 'run' => $runUuid]);
+
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
+        }
+
+        $pause = $runUuid !== '' ? $this->intake->pendingPause($actor, $runUuid) : null;
         if (!$pause instanceof PendingPause || !$pause->isInput()) {
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is not waiting for a message from the client.');
         }
@@ -803,19 +812,6 @@ final readonly class A2aSendMessageHandler
      * The client's technical backend user in the client's pinned workspace
      * (A2A-SEC3, ADR-280); its groups decide which configurations it may use.
      */
-    private function actor(A2aInboundClient $client): AiActorContext
-    {
-        $builder = $this->connectionPool->getQueryBuilderForTable('be_users');
-        $builder->getRestrictions()->removeAll();
-        $groups = $builder->select('usergroup')->from('be_users')
-            ->where($builder->expr()->eq('uid', $builder->createNamedParameter($client->backendUserUid, Connection::PARAM_INT)))
-            ->executeQuery()
-            ->fetchOne();
-        $groupIds = array_values(array_filter(array_map(intval(...), explode(',', is_string($groups) ? $groups : '')), static fn (int $uid): bool => $uid > 0));
-
-        return AiActorContext::backendUser($client->backendUserUid, false, $groupIds, [], $client->workspaceId);
-    }
-
     /**
      * The profile's tools: all of them for a writing profile (A2A-MT5),
      * otherwise those that declare that they only read (A2A-SV4). A tool

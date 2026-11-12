@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aClientAccess;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aProfileToolList;
@@ -42,7 +43,6 @@ use Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -441,7 +441,7 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
             $this->getService(A2aTaskWaiter::class),
             $pool ?? $this->getService(ConnectionPool::class),
             $this->getService(DurableDecisionIntakeInterface::class),
-            $this->getService(ConfigurationResolver::class),
+            $this->getService(A2aClientAccess::class),
             null,
             $bus,
         );

@@ -40,6 +40,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use ReflectionProperty;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
  * Multi-turn tasks of the server role (spec 051 A2A-MT1 to A2A-MT4): a run
@@ -171,6 +172,61 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
 
         self::assertSame([-32602, 'PROFILE_NOT_ALLOWED'], array_slice(array_values($this->errorOf($reply)), 0, 2));
         self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($taskId)->statusEnum());
+    }
+
+    /**
+     * The check a new task gets, at intake: a client whose technical user
+     * lost access to the run's configuration, or a configuration switched off,
+     * since the task paused does not continue it.
+     */
+    #[Test]
+    public function aContinuationIsRefusedWhenTheConfigurationAccessIsGone(): void
+    {
+        $taskId = $this->pausedTask();
+        $this->restrictConfigurationToAnotherGroup();
+
+        $reply = $this->call('SendMessage', ['message' => $this->message('Home', 'm-revoked', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]);
+
+        self::assertSame([-32004, 'PROFILE_UNAVAILABLE'], array_slice(array_values($this->errorOf($reply)), 0, 2));
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_dedup', ['message_id' => 'm-revoked']));
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($taskId)->statusEnum());
+    }
+
+    #[Test]
+    public function aContinuationIsRefusedWhenTheConfigurationIsSwitchedOff(): void
+    {
+        $taskId = $this->pausedTask();
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 1]);
+        $this->getService(PersistenceManagerInterface::class)->clearState();
+
+        $reply = $this->call('SendMessage', ['message' => $this->message('Home', 'm-off', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]);
+
+        self::assertSame([-32004, 'PROFILE_UNAVAILABLE'], array_slice(array_values($this->errorOf($reply)), 0, 2));
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($taskId)->statusEnum());
+    }
+
+    /**
+     * The same check on every resume: access revoked or a configuration
+     * switched off since the task started refuses the resume.
+     */
+    #[Test]
+    public function everyResumeChecksTheConfigurationAgain(): void
+    {
+        $taskId = $this->pausedTask();
+        $run    = $this->runOf($taskId);
+        $guard  = $this->getService(A2aResumeGuard::class);
+        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        $owner  = AiActorContext::backendUser(7, false, [], [], 0);
+        self::assertNull($guard->refusal($handle, $owner));
+
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 1]);
+        $this->getService(PersistenceManagerInterface::class)->clearState();
+        self::assertNotNull($guard->refusal($handle, $owner), 'switched off');
+
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['is_active' => 1], ['uid' => 1]);
+        $this->restrictConfigurationToAnotherGroup();
+        self::assertNotNull($guard->refusal($handle, $owner), 'access revoked');
+        self::assertNotNull($guard->startRefusal($handle, $owner, ['ask_choice']), 'access revoked, at the claim');
     }
 
     /**
@@ -564,6 +620,18 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
         )));
 
         return self::text($task['id'] ?? '');
+    }
+
+    /**
+     * The configuration is restricted to a backend group the client's
+     * technical user (7) is not in.
+     */
+    private function restrictConfigurationToAnotherGroup(): void
+    {
+        $this->db('be_groups')->insert('be_groups', ['uid' => 40, 'pid' => 0, 'title' => 'LLM users']);
+        $this->db('tx_nrllm_configuration_begroups_mm')->insert('tx_nrllm_configuration_begroups_mm', ['uid_local' => 1, 'uid_foreign' => 40, 'sorting' => 1]);
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['allowed_groups' => 1], ['uid' => 1]);
+        $this->getService(PersistenceManagerInterface::class)->clearState();
     }
 
     private function runOf(string $taskId): AgentRun
