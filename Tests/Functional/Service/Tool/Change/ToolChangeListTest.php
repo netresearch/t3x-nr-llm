@@ -380,7 +380,7 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
         foreach ([[10, 'before'], [11, 'after']] as [$uid, $label]) {
             $history->insert('sys_history', [
                 'uid'          => $uid, 'tstamp' => 1, 'actiontype' => 4, 'usertype' => 'BE', 'userid' => 1, 'recuid' => $uid, 'tablename' => 'tt_content',
-                'history_data' => '[]', 'workspace' => 0, 'correlation_id' => '0000$scope1:' . md5($label),
+                'history_data' => '[]', 'workspace' => 0, 'correlation_id' => '0000$scope1:subject' . $label,
             ]);
         }
 

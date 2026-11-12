@@ -102,7 +102,7 @@ final class ToolChangeCollector
     public static function record(string $table, int $uid, ChangeAction $action, int $workspace, ?string $scope): void
     {
         $last = array_key_last(self::$frames);
-        if ($last === null || $uid < 1 || preg_match('/\A[A-Za-z0-9_]{1,64}\z/', $table) !== 1) {
+        if ($last === null || $uid < 1 || preg_match('/\A\w{1,64}\z/', $table) !== 1) {
             return;
         }
 

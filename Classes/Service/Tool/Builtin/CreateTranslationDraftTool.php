@@ -761,7 +761,7 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     public function pendingLanguage(array $arguments): ?int
     {
         $language = $arguments['language'] ?? null;
-        if (is_string($language) && preg_match('/\A[1-9][0-9]{0,9}\z/', $language) === 1) {
+        if (is_string($language) && preg_match('/\A[1-9]\d{0,9}\z/', $language) === 1) {
             $language = (int) $language;
         }
 

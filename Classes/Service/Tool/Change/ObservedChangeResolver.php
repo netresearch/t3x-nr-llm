@@ -85,46 +85,69 @@ final readonly class ObservedChangeResolver
     {
         $found = [];
         foreach ($scopes as $scope) {
-            try {
-                $query = $this->connectionPool->getQueryBuilderForTable('sys_history');
-                $rows  = $query
-                    ->select('tablename', 'recuid', 'actiontype', 'workspace')
-                    ->from('sys_history')
-                    ->where(
-                        $query->expr()->gt('uid', $query->createNamedParameter($after, Connection::PARAM_INT)),
-                        $query->expr()->like('correlation_id', $query->createNamedParameter('%$' . $query->escapeLikeWildcards($scope) . ':%')),
-                    )
-                    ->orderBy('uid')
-                    ->setMaxResults(self::HISTORY_LIMIT)
-                    ->executeQuery()
-                    ->fetchAllAssociative();
-            } catch (Throwable) {
-                // History is a second source; the hooks' records stand alone.
-                continue;
-            }
-
-            foreach ($rows as $row) {
-                $table  = is_string($row['tablename'] ?? null) ? $row['tablename'] : '';
-                $uid    = is_numeric($row['recuid'] ?? null) ? (int) $row['recuid'] : 0;
-                $action = self::HISTORY_ACTIONS[is_numeric($row['actiontype'] ?? null) ? (int) $row['actiontype'] : 0] ?? null;
-                if ($uid < 1 || $table === '' || !$action instanceof ChangeAction || preg_match('/\A[A-Za-z0-9_]{1,64}\z/', $table) !== 1) {
+            foreach ($this->historyRows($scope, $after) as $row) {
+                $entry = $this->historyEntry($row);
+                if ($entry === null) {
                     continue;
                 }
 
-                $key  = $table . ':' . $uid;
-                $was  = $found[$key]['action'] ?? null;
-                $work = is_numeric($row['workspace'] ?? null) ? max(0, (int) $row['workspace']) : 0;
-
-                $found[$key] = [
-                    'table'     => $table,
-                    'uid'       => $uid,
-                    'action'    => $was instanceof ChangeAction ? ToolChangeCollector::stronger($was, $action) : $action,
-                    'workspace' => $work,
-                ];
+                $key         = $entry['table'] . ':' . $entry['uid'];
+                $was         = $found[$key]['action'] ?? null;
+                $found[$key] = $was instanceof ChangeAction ? [...$entry, 'action' => ToolChangeCollector::stronger($was, $entry['action'])] : $entry;
             }
         }
 
         return $found;
+    }
+
+    /**
+     * The history rows of one DataHandler chain written after `$after`, oldest
+     * first; none where the history cannot be read, and the hooks' records
+     * stand alone.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function historyRows(string $scope, int $after): array
+    {
+        try {
+            $query = $this->connectionPool->getQueryBuilderForTable('sys_history');
+
+            return $query
+                ->select('tablename', 'recuid', 'actiontype', 'workspace')
+                ->from('sys_history')
+                ->where(
+                    $query->expr()->gt('uid', $query->createNamedParameter($after, Connection::PARAM_INT)),
+                    $query->expr()->like('correlation_id', $query->createNamedParameter('%$' . $query->escapeLikeWildcards($scope) . ':%')),
+                )
+                ->orderBy('uid')
+                ->setMaxResults(self::HISTORY_LIMIT)
+                ->executeQuery()
+                ->fetchAllAssociative();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array{table: string, uid: int, action: ChangeAction, workspace: int}|null
+     */
+    private function historyEntry(array $row): ?array
+    {
+        $table  = is_string($row['tablename'] ?? null) ? $row['tablename'] : '';
+        $uid    = is_numeric($row['recuid'] ?? null) ? (int) $row['recuid'] : 0;
+        $action = self::HISTORY_ACTIONS[is_numeric($row['actiontype'] ?? null) ? (int) $row['actiontype'] : 0] ?? null;
+        if ($uid < 1 || !$action instanceof ChangeAction || preg_match('/\A\w{1,64}\z/', $table) !== 1) {
+            return null;
+        }
+
+        return [
+            'table'     => $table,
+            'uid'       => $uid,
+            'action'    => $action,
+            'workspace' => is_numeric($row['workspace'] ?? null) ? max(0, (int) $row['workspace']) : 0,
+        ];
     }
 
     /**
@@ -144,13 +167,29 @@ final readonly class ObservedChangeResolver
 
         // The row says where it is stored. The writer's workspace does not: a
         // user in a draft workspace writes a table without versioning live.
-        $rowWorkspace = is_numeric($row['t3ver_wsid'] ?? null) ? max(0, (int) $row['t3ver_wsid']) : 0;
-        $liveUid      = is_numeric($row['t3ver_oid'] ?? null) && (int) $row['t3ver_oid'] > 0 ? (int) $row['t3ver_oid'] : null;
+        $workspace = is_numeric($row['t3ver_wsid'] ?? null) ? max(0, (int) $row['t3ver_wsid']) : 0;
+        $liveUid   = is_numeric($row['t3ver_oid'] ?? null) && (int) $row['t3ver_oid'] > 0 ? (int) $row['t3ver_oid'] : null;
 
         $languageField = is_string($ctrl['languageField'] ?? null) ? $ctrl['languageField'] : null;
         $language      = $languageField !== null && is_numeric($row[$languageField] ?? null) ? (int) $row[$languageField] : null;
 
-        $enable   = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
+        $enable                  = is_array($ctrl['enablecolumns'] ?? null) ? $ctrl['enablecolumns'] : [];
+        [$hidden, $restrictions] = $this->enableState($row, $enable);
+
+        return new ObservedChange($record, $entry['action'], $workspace, $liveUid, $language, false, $hidden, $restrictions);
+    }
+
+    /**
+     * The row's own disable flag and its time and group restrictions, by the
+     * columns its table's `enablecolumns` name.
+     *
+     * @param array<string, mixed> $row
+     * @param array<mixed>         $enable
+     *
+     * @return array{0: bool|null, 1: list<string>}
+     */
+    private function enableState(array $row, array $enable): array
+    {
         $disabled = is_string($enable['disabled'] ?? null) ? $enable['disabled'] : null;
         $hidden   = $disabled !== null && array_key_exists($disabled, $row) ? (bool) $row[$disabled] : null;
 
@@ -167,16 +206,7 @@ final readonly class ObservedChangeResolver
             $restrictions[] = 'fe_group';
         }
 
-        return new ObservedChange(
-            $record,
-            $entry['action'],
-            $rowWorkspace,
-            $liveUid,
-            $language,
-            false,
-            $hidden,
-            $restrictions,
-        );
+        return [$hidden, $restrictions];
     }
 
     /**
@@ -187,10 +217,12 @@ final readonly class ObservedChangeResolver
         // @phpstan-ignore-next-line TCA access returns mixed at each nesting level
         $ctrl = $GLOBALS['TCA'][$table]['ctrl'] ?? null;
 
-        /** @var array<string, mixed> $known */
-        $known = is_array($ctrl) ? $ctrl : [];
+        if (!is_array($ctrl)) {
+            return [];
+        }
 
-        return $known;
+        /** @var array<string, mixed> $ctrl */
+        return $ctrl;
     }
 
     /**

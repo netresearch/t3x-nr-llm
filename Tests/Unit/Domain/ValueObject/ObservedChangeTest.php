@@ -167,6 +167,6 @@ final class ObservedChangeTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, observedChanges: new ObservedChangeSet());
+        self::assertSame(RunStep::KIND_TOOL, (new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, observedChanges: new ObservedChangeSet()))->kind);
     }
 }
