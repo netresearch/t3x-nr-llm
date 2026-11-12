@@ -60,6 +60,7 @@ Import the agent card
 =====================
 
 ..  code-block:: bash
+    :caption: Import or re-import the agent card
 
     vendor/bin/typo3 nrllm:a2a:import <identifier>
 
@@ -137,6 +138,7 @@ and the user owns the tasks the commands create. Without one configured the
 commands refuse.
 
 ..  code-block:: bash
+    :caption: Send a message, then read the task
 
     vendor/bin/typo3 nrllm:a2a:send <identifier> "Summarise the release notes"
     # prints the remote task id and exits
@@ -177,7 +179,10 @@ of the request. The intent then ends in exactly one state:
    response of a kind A2A 1.0 does not know.
 
 **An unknown outcome is never sent again**, by the client or anything else.
-The remote may well have created a task. Look the task up before resending;
+The remote may well have created a task, but no task id came back, so
+``nrllm:a2a:get`` and ``listTasks()`` cannot find it: they know only tasks
+with a local handle. Check on the remote agent's side, with its operator or
+its own tools, whether the message id created a task before sending again;
 a resend is a new message with a new message id.
 
 The same owner sending the same request under the same message id again gets
@@ -190,6 +195,7 @@ PHP API
 ``Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient`` is a public service:
 
 ..  code-block:: php
+    :caption: Send a message and read the task from PHP
 
     $outcome = $client->sendMessage(
         $agent,                       // A2aRemoteAgent record

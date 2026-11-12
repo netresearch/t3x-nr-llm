@@ -42,12 +42,22 @@ final class A2aTaskPrinter
         return OutputFormatter::escape((string) preg_replace('/(?!\n)[\p{Cc}\p{Cf}]/u', '', mb_scrub($remote, 'UTF-8')));
     }
 
+    /**
+     * A remote identifier, state or name on one line: {@see self::plain()}
+     * with the line break removed as well, so a remote id cannot start a line
+     * of its own that reads like the command's output.
+     */
+    public static function line(string $remote): string
+    {
+        return str_replace("\n", '', self::plain($remote));
+    }
+
     public static function print(SymfonyStyle $io, A2aTask $task): void
     {
         $io->definitionList(
-            ['Task' => self::plain($task->id)],
-            ['Context' => $task->contextId !== '' ? self::plain($task->contextId) : '-'],
-            ['State' => self::plain($task->status->rawState) . ($task->status->isKnown() ? '' : ' (not part of protocol 1.0)')],
+            ['Task' => self::line($task->id)],
+            ['Context' => $task->contextId !== '' ? self::line($task->contextId) : '-'],
+            ['State' => self::line($task->status->rawState) . ($task->status->isKnown() ? '' : ' (not part of protocol 1.0)')],
             ['Status time' => $task->status->timestamp instanceof DateTimeImmutable ? A2aTimestamp::format($task->status->timestamp) : '-'],
         );
 
@@ -58,7 +68,7 @@ final class A2aTaskPrinter
         }
 
         foreach ($task->artifacts as $artifact) {
-            $io->writeln(sprintf('Artifact %s%s:', self::plain($artifact->artifactId), $artifact->name !== '' ? ' (' . self::plain($artifact->name) . ')' : ''));
+            $io->writeln(sprintf('Artifact %s%s:', self::line($artifact->artifactId), $artifact->name !== '' ? ' (' . self::line($artifact->name) . ')' : ''));
             $io->writeln($artifact->text() !== '' ? self::plain($artifact->text()) : '(no text part)');
         }
     }

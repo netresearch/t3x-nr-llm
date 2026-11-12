@@ -14,6 +14,7 @@ use InvalidArgumentException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchTarget;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
+use Netresearch\NrVault\Exception\AuditWriteException;
 use Netresearch\NrVault\Exception\VaultException;
 use Netresearch\NrVault\Http\PinnedAddressHttpClientInterface;
 use Netresearch\NrVault\Http\SecretPlacement;
@@ -123,6 +124,10 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         $deadline = microtime(true) + max(1, $request->timeoutSeconds);
         try {
             $response = $streaming ? $client->sendStreaming($psr) : $client->sendRequest($psr);
+        } catch (AuditWriteException $e) {
+            // nr-vault writes its audit row after the transfer; when that write
+            // fails, the request may already have reached the remote.
+            return A2aTransportResult::maybeSent('AUDIT_WRITE_FAILED', $this->sanitizeErrorMessage($e->getMessage()));
         } catch (VaultException $e) {
             if ($streaming) {
                 // sendStreaming() also throws this when a time or buffer bound
@@ -157,10 +162,11 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         }
 
         if ($errno === self::CURLE_OPERATION_TIMEDOUT) {
-            // curl says "Connection timed out after …" (or "Resolving timed
-            // out") while connecting, "Operation timed out after … bytes
-            // received" once the request is under way.
-            return preg_match('/(?:connection|resolving) tim(?:ed|e)[ -]?out/i', $e->getMessage()) === 1
+            // curl says "Connection timed out after …", "Resolving timed out"
+            // or, from curl 8, "Failed to connect to … after … ms: Timeout was
+            // reached" while connecting, and "Operation timed out after …
+            // bytes received" once the request is under way.
+            return preg_match('/(?:connection|resolving) tim(?:ed|e)[ -]?out|failed to connect to /i', $e->getMessage()) === 1
                 ? A2aTransportResult::notSent('CONNECT_TIMEOUT', $message)
                 : A2aTransportResult::maybeSent('TIMEOUT_AFTER_SEND', $message);
         }

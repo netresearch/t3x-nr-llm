@@ -85,8 +85,8 @@ final class A2aSendCommand extends Command
         $intent = $outcome->intent;
         switch ($intent->state) {
             case A2aSendState::ACCEPTED:
-                $io->writeln(A2aTaskPrinter::plain($intent->remoteTaskId));
-                $io->writeln(sprintf('<comment>Task state %s. Read it later with nrllm:a2a:get.</comment>', A2aTaskPrinter::plain($intent->lastRemoteState)));
+                $io->writeln(A2aTaskPrinter::line($intent->remoteTaskId));
+                $io->writeln(sprintf('<comment>Task state %s. Read it later with nrllm:a2a:get.</comment>', A2aTaskPrinter::line($intent->lastRemoteState)));
 
                 return Command::SUCCESS;
 
@@ -100,7 +100,7 @@ final class A2aSendCommand extends Command
                 $io->error(sprintf(
                     'Refused%s: %s %s (message id %s)',
                     $intent->errorCode !== null ? ' with JSON-RPC ' . $intent->errorCode : '',
-                    A2aTaskPrinter::plain($intent->errorReason),
+                    A2aTaskPrinter::line($intent->errorReason),
                     A2aTaskPrinter::plain($intent->errorMessage),
                     $intent->messageId,
                 ));
@@ -109,8 +109,8 @@ final class A2aSendCommand extends Command
 
             case A2aSendState::OUTCOME_UNKNOWN:
                 $io->warning(sprintf(
-                    'Outcome unknown (%s): the message may have reached the agent. It is not sent again; look the task up before resending. Message id %s.',
-                    A2aTaskPrinter::plain($intent->errorReason),
+                    "Outcome unknown (%s): the message may have reached the agent, and no task id came back. It is not sent again. Check on the remote agent's side, with its operator or its own tools, whether message id %s created a task before sending again; nrllm:a2a:get cannot find it without a task id.",
+                    A2aTaskPrinter::line($intent->errorReason),
                     $intent->messageId,
                 ));
 

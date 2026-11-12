@@ -62,9 +62,9 @@ final class A2aImportCardCommand extends Command
         }
 
         $io->definitionList(
-            ['Agent' => A2aTaskPrinter::plain($result->card->name . ' ' . $result->card->version)],
-            ['Interface' => A2aTaskPrinter::plain($result->interface->url)],
-            ['Tenant' => $result->interface->tenant !== '' ? A2aTaskPrinter::plain($result->interface->tenant) : '-'],
+            ['Agent' => A2aTaskPrinter::line($result->card->name . ' ' . $result->card->version)],
+            ['Interface' => A2aTaskPrinter::line($result->interface->url)],
+            ['Tenant' => $result->interface->tenant !== '' ? A2aTaskPrinter::line($result->interface->tenant) : '-'],
             ['Capabilities' => $result->card->capabilities->fingerprint()],
         );
         if ($result->confirmationRequired) {

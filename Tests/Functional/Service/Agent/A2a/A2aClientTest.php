@@ -370,6 +370,45 @@ final class A2aClientTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anAnswerAboutAnotherTaskIsRefusedAndRecordedNowhere(): void
+    {
+        $agent = $this->agent();
+        $this->acceptTask($agent, 'task-1');
+        $this->acceptTask($agent, 'task-2');
+
+        foreach ([
+            fn (): mixed => $this->client->getTask($agent, self::OWNER, 'task-1'),
+            fn (): mixed => $this->client->cancelTask($agent, self::OWNER, 'task-1'),
+        ] as $call) {
+            $this->transport->thenJson(['result' => ['id' => 'task-2', 'status' => ['state' => 'TASK_STATE_COMPLETED']]]);
+            try {
+                $call();
+                self::fail('The answer about another task was accepted');
+            } catch (A2aCallFailedException $e) {
+                self::assertSame('INVALID_AGENT_RESPONSE', $e->reason);
+            }
+        }
+
+        foreach (['task-1', 'task-2'] as $taskId) {
+            self::assertSame('TASK_STATE_SUBMITTED', $this->journal()->findByRemoteTask(self::OWNER, (int) $agent->getUid(), $taskId)?->lastRemoteState);
+        }
+    }
+
+    #[Test]
+    public function aTaskIdTheJournalCannotHoldLeavesNoResultToActOn(): void
+    {
+        $this->transport->thenJson(['result' => ['task' => [
+            'id'     => str_repeat('t', 256),
+            'status' => ['state' => 'TASK_STATE_SUBMITTED'],
+        ]]]);
+
+        $outcome = $this->client->sendMessage($this->agent(), self::OWNER, A2aMessage::userText('m-1', 'hello'));
+
+        self::assertSame(A2aSendState::OUTCOME_UNKNOWN, $outcome->state());
+        self::assertNull($outcome->result);
+    }
+
+    #[Test]
     public function aRemoteErrorOnGetTaskIsReportedWithItsCode(): void
     {
         $agent = $this->agent();

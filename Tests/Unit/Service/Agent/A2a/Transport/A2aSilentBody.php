@@ -31,7 +31,7 @@ final class A2aSilentBody implements StreamInterface
         $this->closed = true;
     }
 
-    public function detach()
+    public function detach(): mixed
     {
         $this->closed = true;
 

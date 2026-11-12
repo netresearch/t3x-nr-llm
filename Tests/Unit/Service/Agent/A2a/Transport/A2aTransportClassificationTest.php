@@ -47,6 +47,7 @@ final class A2aTransportClassificationTest extends TestCase
         yield 'certificate refused' => ['cURL error 60: SSL certificate problem: self-signed certificate' . $tail, A2aTransportOutcome::NOT_SENT, 'CONNECT_FAILED'];
         yield 'timeout while connecting' => ['cURL error 28: Connection timed out after 5001 milliseconds' . $tail, A2aTransportOutcome::NOT_SENT, 'CONNECT_TIMEOUT'];
         yield 'timeout while resolving' => ['cURL error 28: Resolving timed out after 5000 milliseconds' . $tail, A2aTransportOutcome::NOT_SENT, 'CONNECT_TIMEOUT'];
+        yield 'timeout while connecting, curl 8' => ['cURL error 28: Failed to connect to agent.example port 443 after 10002 ms: Timeout was reached' . $tail, A2aTransportOutcome::NOT_SENT, 'CONNECT_TIMEOUT'];
         yield 'timeout after the request went out' => ['cURL error 28: Operation timed out after 30001 milliseconds with 0 bytes received' . $tail, A2aTransportOutcome::MAYBE_SENT, 'TIMEOUT_AFTER_SEND'];
         yield 'connection reset' => ['cURL error 56: Recv failure: Connection reset by peer' . $tail, A2aTransportOutcome::MAYBE_SENT, 'CONNECTION_LOST'];
         yield 'empty reply' => ['cURL error 52: Empty reply from server' . $tail, A2aTransportOutcome::MAYBE_SENT, 'CONNECTION_LOST'];

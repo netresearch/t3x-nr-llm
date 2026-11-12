@@ -59,14 +59,21 @@ final readonly class A2aCommandContext
     }
 
     /**
+     * Runs the work as the worker user; refuses, before any of it runs, when
+     * none is configured (the vault scope would otherwise run it as nobody).
+     *
      * @template T
      *
      * @param Closure(): T $work
      *
      * @return T
+     *
+     * @throws A2aException when `worker.technicalBeUserUid` is not set
      */
     public function asWorker(Closure $work): mixed
     {
+        $this->owner();
+
         return $this->vaultScope->call($work);
     }
 }

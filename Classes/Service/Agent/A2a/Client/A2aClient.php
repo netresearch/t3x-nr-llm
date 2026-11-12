@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aTaskHandleNotFoundException
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aUnknownPayloadException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
+use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendState;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aJsonRpcCodec;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aJsonRpcResponse;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aListTasksQuery;
@@ -67,8 +68,10 @@ use Symfony\Component\Uid\Uuid;
  *    is a new intent under a new message id.
  *
  * `GetTask` and `CancelTask` work only on a handle the calling owner holds
- * (A2A-C7) and record the remote state on it; `ListTasks` returns only tasks
- * the owner holds a handle for and creates none.
+ * (A2A-C7) and record the remote state on it; a response about another task
+ * than the one asked for is refused (`INVALID_AGENT_RESPONSE`) and recorded
+ * nowhere. `ListTasks` returns only tasks the owner holds a handle for and
+ * creates none.
  *
  * Every request carries `A2A-Version: 1.0` (A2A-P2) and, when the selected
  * interface names one, the `tenant` (A2A-C2).
@@ -140,6 +143,7 @@ final readonly class A2aClient
         }
 
         $task = $this->parsed(A2aProtocol::METHOD_GET_TASK, fn (): A2aTask => $this->parser->parseTask($this->call($agent, A2aProtocol::METHOD_GET_TASK, $params), 'result'));
+        $this->assertSameTask(A2aProtocol::METHOD_GET_TASK, $remoteTaskId, $task);
         $this->journal->recordRemoteState($handle, $task->status->rawState);
 
         return $task;
@@ -157,9 +161,24 @@ final readonly class A2aClient
     {
         $handle = $this->handle($agent, $ownerUid, $remoteTaskId);
         $task   = $this->parsed(A2aProtocol::METHOD_CANCEL_TASK, fn (): A2aTask => $this->parser->parseTask($this->call($agent, A2aProtocol::METHOD_CANCEL_TASK, ['id' => $remoteTaskId]), 'result'));
+        $this->assertSameTask(A2aProtocol::METHOD_CANCEL_TASK, $remoteTaskId, $task);
         $this->journal->recordRemoteState($handle, $task->status->rawState);
 
         return $task;
+    }
+
+    /**
+     * A remote that answers about another task than the one asked for would
+     * hand this owner that task's content and file its state on this handle.
+     * The ids are compared byte for byte.
+     *
+     * @throws A2aCallFailedException
+     */
+    private function assertSameTask(string $method, string $remoteTaskId, A2aTask $task): void
+    {
+        if ($task->id !== $remoteTaskId) {
+            throw A2aCallFailedException::local($method, 'INVALID_AGENT_RESPONSE', 'the agent answered with another task than the one asked for');
+        }
     }
 
     /**
@@ -228,6 +247,21 @@ final readonly class A2aClient
             return new A2aSendOutcome($this->journal->refuse($intent, null, $refusal[0], $refusal[1]), true);
         }
 
+        return $this->settleResponse($intent, $result, $id);
+    }
+
+    /**
+     * Settles an intent on a response the client reads: an error, a task, a
+     * message, or something it cannot use.
+     *
+     * The result goes back only when the intent settled as `accepted` or
+     * `answered`: an id the journal cannot hold settles it as unknown, and
+     * then there is no result to act on.
+     *
+     * @throws A2aJournalException
+     */
+    private function settleResponse(A2aSendIntent $intent, A2aTransportResult $result, string $id): A2aSendOutcome
+    {
         try {
             $response = A2aJsonRpcCodec::decodeResponse($result->body, $id);
             if ($response->isError()) {
@@ -247,13 +281,11 @@ final readonly class A2aClient
             return new A2aSendOutcome($this->journal->refuse($intent, null, 'INVALID_AGENT_RESPONSE', $e->getMessage()), true);
         }
 
-        if ($sent->isTask()) {
-            $task = $sent->task;
+        $settled = $sent->isTask()
+            ? $this->journal->accept($intent, $sent->task->id, $sent->task->contextId, $sent->task->status->rawState)
+            : $this->journal->answer($intent, $sent->message->contextId);
 
-            return new A2aSendOutcome($this->journal->accept($intent, $task->id, $task->contextId, $task->status->rawState), true, $sent);
-        }
-
-        return new A2aSendOutcome($this->journal->answer($intent, $sent->message->contextId), true, $sent);
+        return new A2aSendOutcome($settled, true, in_array($settled->state, [A2aSendState::ACCEPTED, A2aSendState::ANSWERED], true) ? $sent : null);
     }
 
     /**

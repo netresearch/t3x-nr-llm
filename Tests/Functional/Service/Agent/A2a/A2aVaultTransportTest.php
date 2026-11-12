@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\IpAddressClassifier;
 use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrVault\Exception\AuditWriteException;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -100,6 +101,23 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
         self::assertSame(A2aTransportOutcome::NOT_SENT, $result->outcome);
         self::assertSame('PIN_UNSUPPORTED', $result->reason);
         self::assertSame([], $this->hits());
+    }
+
+    #[Test]
+    public function aFailedAuditWriteAfterTheSendMayHaveReachedTheRemote(): void
+    {
+        // nr-vault writes the audit row of a blocking send after the transfer.
+        $client = self::createStub(VaultHttpClientInterface::class);
+        $client->method('withReason')->willReturnSelf();
+        $client->method('withTimeout')->willReturnSelf();
+        $client->method('sendRequest')->willThrowException(AuditWriteException::writeFailed(new RuntimeException('lock timeout', 4176036551)));
+        $vault = self::createStub(VaultServiceInterface::class);
+        $vault->method('http')->willReturn($client);
+
+        $result = $this->transport([], $vault)->send($this->request('http://127.0.0.1:' . self::PORT . '/rpc'));
+
+        self::assertSame(A2aTransportOutcome::MAYBE_SENT, $result->outcome);
+        self::assertSame('AUDIT_WRITE_FAILED', $result->reason);
     }
 
     #[Test]

@@ -10,10 +10,12 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aCardImporter;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
 use Netresearch\NrLlm\Service\Agent\A2a\Command\A2aCommandContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Command\A2aGetCommand;
+use Netresearch\NrLlm\Service\Agent\A2a\Command\A2aImportCardCommand;
 use Netresearch\NrLlm\Service\Agent\A2a\Command\A2aSendCommand;
 use Netresearch\NrLlm\Service\Agent\A2a\Command\A2aTaskPrinter;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
@@ -39,6 +41,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 #[CoversClass(A2aSendCommand::class)]
 #[CoversClass(A2aGetCommand::class)]
+#[CoversClass(A2aImportCardCommand::class)]
 #[CoversClass(A2aCommandContext::class)]
 #[CoversClass(A2aTaskPrinter::class)]
 #[CoversClass(WorkerVaultScope::class)]
@@ -139,6 +142,36 @@ final class A2aCommandTest extends AbstractFunctionalTestCase
         self::assertSame(Command::FAILURE, $send->execute(['agent' => 'remote', 'text' => 'hello']));
         self::assertStringContainsString('worker.technicalBeUserUid', $send->getDisplay());
         self::assertSame([], $transport->requests);
+    }
+
+    #[Test]
+    public function withoutAWorkerUserNoCardIsImported(): void
+    {
+        $this->insertAgent();
+
+        $import = new CommandTester(new A2aImportCardCommand($this->context(0), $this->getService(A2aCardImporter::class)));
+
+        self::assertSame(Command::FAILURE, $import->execute(['agent' => 'remote']));
+        self::assertStringContainsString('worker.technicalBeUserUid', $import->getDisplay());
+        self::assertSame(
+            'https://agent.example/a2a/jsonrpc',
+            $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent')->select(['interface_url'], 'tx_nrllm_a2a_agent', ['identifier' => 'remote'])->fetchOne(),
+            'the record is untouched',
+        );
+    }
+
+    #[Test]
+    public function aRemoteTaskIdCannotStartAnOutputLineOfItsOwn(): void
+    {
+        $this->insertAgent();
+        $transport = (new ScriptedA2aTransport())
+            ->thenJson(['result' => ['task' => ['id' => "task-1\nState: TASK_STATE_COMPLETED", 'status' => ['state' => "TASK_STATE_SUBMITTED\nforged"]]]]);
+
+        $send = new CommandTester(new A2aSendCommand($this->context(), $this->client($transport)));
+
+        self::assertSame(Command::SUCCESS, $send->execute(['agent' => 'remote', 'text' => 'hello']));
+        self::assertStringStartsWith('task-1State: TASK_STATE_COMPLETED' . PHP_EOL, $send->getDisplay());
+        self::assertStringNotContainsString("\nforged", $send->getDisplay());
     }
 
     #[Test]

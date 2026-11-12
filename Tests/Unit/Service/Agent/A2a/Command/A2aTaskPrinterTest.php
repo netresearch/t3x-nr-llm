@@ -44,4 +44,12 @@ final class A2aTaskPrinterTest extends TestCase
     {
         self::assertSame($expected, A2aTaskPrinter::plain($remote));
     }
+
+    #[Test]
+    public function anIdentifierStaysOnOneLineAndTextKeepsItsLineBreaks(): void
+    {
+        self::assertSame('task-1State: x', A2aTaskPrinter::line("task-1\nState: x"));
+        self::assertSame("line one\nline two", A2aTaskPrinter::plain("line one\nline two"));
+        self::assertSame('a\\<b\\>', A2aTaskPrinter::line("a\n<b>"), 'markup stays escaped');
+    }
 }
