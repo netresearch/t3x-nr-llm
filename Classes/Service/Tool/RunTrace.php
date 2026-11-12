@@ -10,17 +10,21 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Closure;
+use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\Tool\Change\ChangeSets;
+use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
 
 /**
  * Opt-in recorder that captures each step of a {@see ToolLoopService} run for
@@ -343,22 +347,36 @@ final class RunTrace
             ));
         }
 
-        if (!$result->writeTarget instanceof RecordReference) {
-            return;
+        if ($result->writeTarget instanceof RecordReference) {
+            $this->add(new RunStep(
+                kind: RunStep::KIND_WRITE,
+                round: $round,
+                durationMs: 0.0,
+                toolName: $name,
+                writeTarget: $result->writeTarget,
+                // Copied as the tool and the loop stated them (ADR-214); a
+                // consumer reads whether the write was applied from these two and
+                // from nothing else.
+                writeCompleteness: $result->writeCompleteness,
+                hookFailedAfterWrite: $result->hookFailedAfterWrite,
+            ));
         }
 
-        $this->add(new RunStep(
-            kind: RunStep::KIND_WRITE,
-            round: $round,
-            durationMs: 0.0,
-            toolName: $name,
-            writeTarget: $result->writeTarget,
-            // Copied as the tool and the loop stated them (ADR-214); a
-            // consumer reads whether the write was applied from these two and
-            // from nothing else.
-            writeCompleteness: $result->writeCompleteness,
-            hookFailedAfterWrite: $result->hookFailedAfterWrite,
-        ));
+        // What the call's DataHandler runs wrote (ADR-292), after the steps
+        // that name the call and its target. Also for a call that failed:
+        // the records it wrote before it did are the ones a reader must check.
+        $changes = ToolChangeCollector::releaseHeld();
+        // A call whose capture failed or missed a write it stated is recorded
+        // even with an empty list: that absence is the statement.
+        if ($changes instanceof ObservedChangeSet && (!ChangeSets::isEmpty($changes) || $changes->coverage !== ChangeCoverage::DATAHANDLER)) {
+            $this->add(new RunStep(
+                kind: RunStep::KIND_CHANGES,
+                round: $round,
+                durationMs: 0.0,
+                toolName: $name,
+                observedChanges: $changes,
+            ));
+        }
     }
 
     /**

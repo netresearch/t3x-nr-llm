@@ -58,6 +58,17 @@ use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
  * structured target and preview are empty, and the call is refused when the
  * turn is approved. The explanation holds no record data, so it is shown to
  * every viewer.
+ *
+ * `$workspaceId`, `$workspaceTitle` and `$language` state, as values, where the
+ * call writes (ADR-292), so a consumer shows them without parsing the preview
+ * prose that says the same. `$workspaceId` is the workspace the run writes
+ * into, as the run's initiator pinned it (ADR-260): 0 is live, and also what a
+ * run that recorded none writes into. `$workspaceTitle` is that workspace's
+ * title, empty for live, for a workspace that has none and where the viewer
+ * may not work in the workspace; the id is not withheld. `$language` is the
+ * `sys_language_uid` the call writes into where the tool names one
+ * ({@see \Netresearch\NrLlm\Service\Tool\PendingLanguageInterface}), and null
+ * where the call states none, which is not "the default language".
  */
 final readonly class PendingCallView
 {
@@ -76,6 +87,9 @@ final readonly class PendingCallView
         public bool $declaresWrite = true,
         public array $structuredPreview = [],
         public bool $refusedByRule = false,
+        public int $workspaceId = 0,
+        public string $workspaceTitle = '',
+        public ?int $language = null,
     ) {}
 
     /**

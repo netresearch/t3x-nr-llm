@@ -98,7 +98,12 @@ per-record authorization for tools available to editors.
 
 Writers also implement :php:`ToolEffectInterface` and the relevant approval
 preview contract. A record writer reports its target and write kind through
-``ToolResult::withWriteTarget()``. A creator implements
+``ToolResult::withWriteTarget()``. The records a call wrote beyond that one
+are recorded by the loop itself, as a ``tool_changes`` step
+(:ref:`adr-292`); a tool does nothing for it, as long as it writes through a
+DataHandler. A tool that takes a target language implements
+:php:`PendingLanguageInterface`, so the approval card states it as a value. A
+creator implements
 :php:`RecordCreatorInterface::getCreatedTables()` so the generic creator can
 step back from its tables. See :ref:`tool-workspaces` and the contracts in
 ``Classes/Service/Tool/`` before adding writes; a plain read-tool example is

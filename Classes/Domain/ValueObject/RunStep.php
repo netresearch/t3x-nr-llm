@@ -101,6 +101,18 @@ final readonly class RunStep
     public const KIND_HIGHLIGHT = 'highlight';
 
     /**
+     * The records the DataHandler runs of one tool call wrote, as far as the
+     * capture saw them (ADR-292).
+     *
+     * Its own kind, recorded after the tool step it belongs to, and only for a
+     * call that wrote or that the capture could not observe: the step's
+     * presence is the signal, and its absence says no DataHandler run reported
+     * a write, never that none happened. Identity and stored state only, no
+     * value a record holds.
+     */
+    public const KIND_CHANGES = 'tool_changes';
+
+    /**
      * Every kind a step can carry, as the class's own statement of its
      * vocabulary.
      *
@@ -128,6 +140,7 @@ final readonly class RunStep
             self::KIND_DROPPED,
             self::KIND_WRITE,
             self::KIND_HIGHLIGHT,
+            self::KIND_CHANGES,
         ];
     }
 
@@ -208,7 +221,19 @@ final readonly class RunStep
          * it survives the metadata-only privacy level. Null on every other step.
          */
         public ?string $toolRefusal = null,
+        /**
+         * @var ObservedChangeSet|null the records the tool call's DataHandler
+         *                             runs wrote (ADR-292); null on every other kind
+         */
+        public ?ObservedChangeSet $observedChanges = null,
     ) {
+        if ($observedChanges instanceof ObservedChangeSet && $kind !== self::KIND_CHANGES) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step states no observed changes; only a changes step does.', $kind),
+                1794200292,
+            );
+        }
+
         if ($toolRefusal !== null && $kind !== self::KIND_TOOL) {
             throw new InvalidArgumentException(
                 sprintf('A %s step states no tool refusal; only a tool step does.', $kind),
@@ -328,6 +353,12 @@ final readonly class RunStep
             if ($value !== null) {
                 $out[$key] = $value;
             }
+        }
+
+        // A list of identities and stored flags (ADR-292): no title and no field
+        // value, so the privacy filter has nothing to strip at any level.
+        if ($this->observedChanges instanceof ObservedChangeSet) {
+            $out = [...$out, ...$this->observedChanges->toArray()];
         }
 
         return $out;

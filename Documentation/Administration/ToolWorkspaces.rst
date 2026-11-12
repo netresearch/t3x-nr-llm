@@ -48,6 +48,41 @@ workspace view. They do not treat another workspace's version UID as a live
 record identity. Missing recorded workspace on legacy runs does not mean the
 editor's currently selected draft workspace.
 
+.. _tool-workspaces-changes:
+
+What a run records of its changes
+=================================
+
+For every tool call that wrote, the run records a ``tool_changes`` step beside
+the tool step (:ref:`adr-292`). It lists the records the DataHandler runs of
+that call wrote, copies, translations and records written by a hook of the
+installation included, with these facts per record:
+
+- the table and uid, and what happened: created, updated, moved, deleted or
+  restored;
+- the workspace the row is stored in, the live uid it is a version of, and its
+  language;
+- whether it is the record the tool named as its target;
+- the row's own ``hidden`` flag and the time and group restrictions it
+  carries.
+
+These are separate facts. A record that is not hidden can still be a draft in a
+workspace, and nothing in the list says a record is visible in the frontend.
+The list holds identities and flags only, no title and no field value, and at
+most 50 records; a count says how many more there were.
+
+The list says what DataHandler runs reported, and never that it is complete. A
+write past the DataHandler, such as a query in a hook or a file written through
+FAL, is not in it. When a tool states a record that no DataHandler run
+reported, the step says ``not_captured``. A call that failed after it wrote
+keeps its list, and the error the model reads names the records written before
+the failure.
+
+The approval card of a pending call states the workspace the run writes into,
+its title where the viewer may work in it, and for a translation the language,
+as values (``PendingCallView::$workspaceId``, ``$workspaceTitle`` and
+``$language``).
+
 .. _tool-workspaces-limits:
 
 Limits to review before approval
@@ -72,6 +107,9 @@ Limits to review before approval
 - Copy readback checks the main record and returned translations. It does not
   prove every inline child or reference was copied. A valid hidden main copy
   can survive a core complaint about another copied record.
+- The list of changes comes from the DataHandler's hooks and its
+  ``sys_history`` rows. Where history is switched off or pruned, only the
+  hooks' records are listed, and the inline children of a delete are missing.
 - A core translation copy can be visible briefly before the second write
   hides it. Do not interpret the hidden-draft workflow as zero visibility at
   every intermediate instant.

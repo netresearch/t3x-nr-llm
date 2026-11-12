@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Hook\TranslationCacheFlushHook;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentSaveHook;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook;
+use Netresearch\NrLlm\Service\Tool\Change\ObservedChangeHook;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 
 defined('TYPO3') || exit;
@@ -133,6 +134,15 @@ defined('TYPO3') || exit;
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][]
         = TranslationCacheFlushHook::class;
+
+    // Record the rows a tool call's DataHandler runs write, while the tool
+    // loop has a call armed (ADR-292). Inert outside a tool call.
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = ObservedChangeHook::class;
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][]
+        = ObservedChangeHook::class;
 
     // A disable through the DataHandler is an administrator's decision; a
     // re-enable clears the sync's mark (ADR-214 item 3).

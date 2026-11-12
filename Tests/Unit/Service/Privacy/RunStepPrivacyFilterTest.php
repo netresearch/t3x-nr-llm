@@ -10,12 +10,17 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Privacy;
 
 use Netresearch\NrLlm\Domain\Enum\ArtifactType;
+use Netresearch\NrLlm\Domain\Enum\ChangeAction;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChange;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Service\Privacy\RunStepPrivacyFilter;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -51,6 +56,58 @@ final class RunStepPrivacyFilterTest extends TestCase
         self::assertSame(1, $filtered['messagesSentCount']);
         self::assertSame(mb_strlen('the answer is 42'), $filtered['contentLength']);
         self::assertSame(['nrllm_get_page'], $filtered['requestedToolNames']);
+    }
+
+    /**
+     * The change list is identities and stored flags (ADR-292), so every level
+     * keeps it: it is what lets an operator find what a call changed, and it
+     * holds nothing the privacy level exists to withhold.
+     */
+    #[Test]
+    #[DataProvider('everyLevel')]
+    public function aChangeListSurvivesEveryLevelAndHoldsNoRecordValue(PrivacyLevel $level): void
+    {
+        $step = new RunStep(
+            kind: RunStep::KIND_CHANGES,
+            round: 1,
+            durationMs: 0.0,
+            toolName: 'update_page_metadata',
+            observedChanges: new ObservedChangeSet([
+                new ObservedChange(
+                    new RecordReference('pages', 12),
+                    ChangeAction::UPDATED,
+                    2,
+                    4,
+                    1,
+                    true,
+                    false,
+                    ['starttime'],
+                ),
+            ]),
+        );
+
+        $filtered = FixedPrivacyPolicy::filterAt($level)->filter($step->toArray());
+
+        self::assertSame($step->toArray()['changes'], $filtered['changes']);
+        self::assertSame('datahandler', $filtered['changeCoverage']);
+        self::assertSame(1, $filtered['changeCount']);
+        self::assertIsArray($filtered['changes']);
+        self::assertIsArray($filtered['changes'][0]);
+        self::assertSame(
+            ['table', 'uid', 'action', 'workspace', 'draft', 'liveUid', 'language', 'writeTarget', 'hidden', 'restrictions'],
+            array_keys($filtered['changes'][0]),
+            'identities and stored flags, and no title or field value',
+        );
+    }
+
+    /**
+     * @return iterable<string, array{PrivacyLevel}>
+     */
+    public static function everyLevel(): iterable
+    {
+        foreach (PrivacyLevel::cases() as $level) {
+            yield $level->value => [$level];
+        }
     }
 
     #[Test]
