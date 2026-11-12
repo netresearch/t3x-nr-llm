@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Provider\Middleware\CacheMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\CircuitBreakerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\EmptyAnswerMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\FallbackMiddleware;
+use Netresearch\NrLlm\Provider\Middleware\GenAiTracingMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\IdempotencyMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
@@ -59,6 +60,7 @@ final class MiddlewarePipelineOrderTest extends AbstractFunctionalTestCase
                 EmptyAnswerMiddleware::class,    //  85 an answer that ran out of tokens before its first word is no answer (ADR-241)
                 BudgetMiddleware::class,         //  75 pre-flight budget gate on a miss
                 FallbackMiddleware::class,       //  50 swaps configuration on retryable failure
+                GenAiTracingMiddleware::class,   //  30 one OpenTelemetry span per attempt, inside the fallback walk (ADR-291)
                 UsageMiddleware::class,          //  25 records the served call
                 CircuitBreakerMiddleware::class, //  20 innermost: guards the provider call (ADR-063)
             ],

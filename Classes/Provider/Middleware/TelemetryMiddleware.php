@@ -45,9 +45,10 @@ use function is_string;
  *         GuardrailMiddleware  <-- screens/redacts the response      (priority 90)
  *           BudgetMiddleware   <-- pre-flight denial                 (priority 75)
  *             FallbackMiddleware <-- swaps config on retryable failure (priority 50)
- *               UsageMiddleware  <-- records the call that ran       (priority 25)
- *                 CircuitBreaker <-- guards the provider call        (priority 20)
- *                   <terminal>
+ *               GenAiTracingMiddleware <-- one span per attempt      (priority 30)
+ *                 UsageMiddleware  <-- records the call that ran     (priority 25)
+ *                   CircuitBreaker <-- guards the provider call      (priority 20)
+ *                     <terminal>
  *
  * The guardrail sits INSIDE this layer, so a guardrail policy outcome
  * ({@see GuardrailPolicyException}) is recorded as a SUCCESSFUL provider run (the

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Closure;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
@@ -260,6 +261,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // The evaluations that measured a skill version (ADR-322). Optional
         // for the lean test wiring; absent it no evidence step is recorded.
         private ?SkillEvidenceLookupInterface $skillEvidence = null,
+        // Wraps a segment of the loop and each tool execution in OpenTelemetry
+        // spans (ADR-291). Optional like the other observability sinks: absent
+        // it, which only the lean test wiring does, nothing is traced.
+        private ?ToolTelemetry $tracing = null,
     ) {}
 
     /**
@@ -436,24 +441,28 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $skillAllowList = $skillAllowList?->withDeclaration($processVersion->allowedTools ?? []);
         }
 
-        return $this->loop(
-            $messages,
+        return $this->traced(
             $configuration,
-            $context,
-            $allowedToolNames,
-            $options,
-            $maxIterations,
-            $runTrace,
-            $augmentation,
-            $skipAssembly,
-            $seedIterations,
-            $seedPromptTokens,
-            $seedCompletionTokens,
-            $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
-            $skillAllowList ?? $live,
-            processVersion: $processVersion,
-            // Tokens carried in without a cost were spent at an unknown price.
-            seedCost: $seedPromptTokens === 0 && $seedCompletionTokens === 0 ? 0.0 : null,
+            $context->run?->uuid,
+            fn (): ToolLoopResult => $this->loop(
+                $messages,
+                $configuration,
+                $context,
+                $allowedToolNames,
+                $options,
+                $maxIterations,
+                $runTrace,
+                $augmentation,
+                $skipAssembly,
+                $seedIterations,
+                $seedPromptTokens,
+                $seedCompletionTokens,
+                $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
+                $skillAllowList ?? $live,
+                processVersion: $processVersion,
+                // Tokens carried in without a cost were spent at an unknown price.
+                seedCost: $seedPromptTokens === 0 && $seedCompletionTokens === 0 ? 0.0 : null,
+            ),
         );
     }
 
@@ -3282,6 +3291,30 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             );
         }
 
+        // One execute_tool span (ADR-291) around everything that decides the
+        // call's result: the scope check, a rollback or the commit can turn a
+        // result the tool returned as ok into an error after it returned.
+        $invoke = function () use ($call, $tool, $configuration, $context, $runTrace, &$executed): ToolResult {
+            return $this->runInvocation($call, $tool, $configuration, $context, $runTrace, $executed);
+        };
+
+        return $this->tracing instanceof ToolTelemetry
+            ? $this->tracing->traceTool($call, $tool instanceof RemoteToolInterface, $invoke)
+            : $invoke();
+    }
+
+    /**
+     * The call itself, after its remote budget was charged: the scope
+     * transaction, the execution and the judgement of what it wrote.
+     */
+    private function runInvocation(
+        ToolCall $call,
+        ToolInterface $tool,
+        LlmConfiguration $configuration,
+        ToolExecutionContext $context,
+        ?RunTrace $runTrace,
+        bool &$executed,
+    ): ToolResult {
         $runTrace?->beforeToolExecution($call->name);
 
         // A failure a DataHandler recorded outside this call is not this
@@ -4275,26 +4308,45 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         array $pins,
         ?SkillUsageLedger $skillUsage = null,
     ): ToolLoopResult {
-        return $this->loop(
-            $messages,
+        return $this->traced(
             $environment->configuration,
-            $environment->execution,
-            $state->allowedToolNames,
-            $resume->options,
-            $maxIterations,
-            $environment->trace,
-            $resume->augmentation,
-            true,
-            $state->iterations,
-            $state->promptTokens,
-            $state->completionTokens,
-            $resume->skillAllowList,
-            $resume->storedAllowList,
-            $pins,
-            $history,
-            seedCost: $state->estimatedCost,
-            skillUsage: $skillUsage,
+            $environment->execution->run?->uuid,
+            fn (): ToolLoopResult => $this->loop(
+                $messages,
+                $environment->configuration,
+                $environment->execution,
+                $state->allowedToolNames,
+                $resume->options,
+                $maxIterations,
+                $environment->trace,
+                $resume->augmentation,
+                true,
+                $state->iterations,
+                $state->promptTokens,
+                $state->completionTokens,
+                $resume->skillAllowList,
+                $resume->storedAllowList,
+                $pins,
+                $history,
+                seedCost: $state->estimatedCost,
+                skillUsage: $skillUsage,
+            ),
         );
+    }
+
+    /**
+     * One segment of a run inside an `invoke_agent` span (ADR-291), or the
+     * segment itself where no instrumentation is wired.
+     *
+     * @param Closure(): ToolLoopResult $segment
+     */
+    private function traced(LlmConfiguration $configuration, ?string $runUuid, Closure $segment): ToolLoopResult
+    {
+        if (!$this->tracing instanceof ToolTelemetry) {
+            return $segment();
+        }
+
+        return $this->tracing->traceAgent($configuration->getIdentifier(), $runUuid, $segment);
     }
 
     /**

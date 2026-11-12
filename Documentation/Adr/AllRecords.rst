@@ -296,6 +296,7 @@ All decision records
    Adr288ARuleSetCanBeJudgedByASecondModel
    Adr289AutotranslateTranslatesThroughNrLlm
    Adr290ACallerAddsTheTermListsOfAnotherConfiguration
+   Adr291ModelCallsAreTracedThroughTheOpenTelemetryApi
    Adr292ARunRecordsTheRecordsItsToolCallsChanged
    Adr293AConfigurationCanRequireADraftWorkspace
    Adr294AnEditorMayIssueA2aTokensThatActAsThemselves
