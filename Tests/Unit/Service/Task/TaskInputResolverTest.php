@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Model\Task;
 use Netresearch\NrLlm\Service\Task\DeprecationLogReaderInterface;
 use Netresearch\NrLlm\Service\Task\RecordTableReaderInterface;
 use Netresearch\NrLlm\Service\Task\SystemLogReaderInterface;
+use Netresearch\NrLlm\Service\Task\TableInputEncoder;
 use Netresearch\NrLlm\Service\Task\TaskInputResolver;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -304,6 +305,37 @@ final class TaskInputResolverTest extends AbstractUnitTestCase
         $decoded = json_decode($output, true);
         self::assertIsArray($decoded);
         self::assertCount(2, $decoded);
+    }
+
+    /**
+     * @return iterable<string, array{string, bool}>
+     */
+    public static function tableFormatOptions(): iterable
+    {
+        yield 'format toon' => ['{"table":"be_users","format":"toon"}', true];
+        yield 'format json' => ['{"table":"be_users","format":"json"}', false];
+        yield 'no format' => ['{"table":"be_users"}', false];
+        yield 'unknown format' => ['{"table":"be_users","format":"yaml"}', false];
+    }
+
+    #[Test]
+    #[DataProvider('tableFormatOptions')]
+    public function tableFormatOptionDecidesBetweenToonAndJson(string $inputSource, bool $toon): void
+    {
+        $rows = [
+            ['uid' => 1, 'username' => 'admin'],
+            ['uid' => 2, 'username' => 'editor'],
+        ];
+        $this->recordTableReader->method('fetchAll')->willReturn($rows);
+
+        $output = $this->subject->resolve($this->makeTask(Task::INPUT_TABLE, $inputSource));
+
+        self::assertSame(
+            $toon
+                ? TableInputEncoder::TOON_NOTE . "\n```toon\n[2]{uid,username}:\n  1,admin\n  2,editor\n```"
+                : json_encode($rows, JSON_PRETTY_PRINT),
+            $output,
+        );
     }
 
     #[Test]
