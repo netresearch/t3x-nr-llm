@@ -48,6 +48,16 @@ Which nr-llm translator does the work is the setting
 the identifier of another registered translator. Empty uses the language model. The DeepL translator of
 nr-llm reads its key from nr-vault, not from autotranslate's configuration.
 
+autotranslate caches each translation for a day (its setting ``caching``, on
+by default), keyed by the text and the languages but not by the translator. After
+routing autotranslate through nr-llm, or after changing
+:confval:`autotranslate.translator <ext-nr-llm-autotranslate-translator>`, flush
+the cache ``autotranslate_cache`` (:guilabel:`Admin Tools > Maintenance > Flush
+TYPO3 and PHP Cache`, or ``vendor/bin/typo3 cache:flush``); until then a cached
+text from the previous translator is stored without asking nr-llm, and nr-llm's
+markers below are set on it. Turn ``caching`` off if the translator changes
+often.
+
 autotranslate's console command ``autotranslate:batch:run`` reads the provider
 key on the command line. Set :confval:`worker.technicalBeUserUid
 <ext-nr-llm-worker-technical-be-user-uid>` to a backend user with read access to
@@ -63,7 +73,8 @@ What nr-llm changes
 - autotranslate shows no DeepL quota; nr-llm counts the usage, for the editor
   who started the translation in the backend, or for ``_cli_`` on the command
   line.
-- A blank answer, or one the model cut off at its output limit, fails the
+- A blank answer, an answer of markup without visible text for a text that
+  has some, or one the model cut off at its output limit, fails the
   translation instead of being stored.
 - DeepL glossaries managed by autotranslate do not apply, and neither does
   nr-llm's site glossary: autotranslate does not tell the translator which page
