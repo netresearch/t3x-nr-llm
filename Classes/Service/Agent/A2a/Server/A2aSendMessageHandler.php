@@ -452,7 +452,18 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::invalidParams('message.parts', 'the text does not answer the question the task asks');
         }
 
-        $this->checkCapacity($client, $profile, $now);
+        try {
+            $this->checkCapacity($client, $profile, $now);
+        } catch (A2aRpcError $refused) {
+            // As for a new task: a concurrent repeat may have taken the capacity.
+            $winner = $this->deduplicated($client, $message, $digest);
+            if ($winner !== null) {
+                return $this->respond($client, $winner, $blocking, $historyLength, null);
+            }
+
+            throw $refused;
+        }
+
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {
@@ -497,15 +508,24 @@ final readonly class A2aSendMessageHandler
      */
     private function takeIn(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $digest, array $row, int $runUid, string $runUuid, AiActorContext $actor, PendingPause $pause, array $data): ?string
     {
-        $taskId  = is_string($row['task_id'] ?? null) ? $row['task_id'] : '';
-        $taskUid = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+        $taskId   = is_string($row['task_id'] ?? null) ? $row['task_id'] : '';
+        $taskUid  = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+        $repeated = false;
 
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
-                function (Connection $connection) use ($client, $profile, $message, $digest, $taskId, $taskUid, $runUid, $runUuid, $actor, $pause, $data): void {
+                function (Connection $connection) use ($client, $profile, $message, $digest, $taskId, $taskUid, $runUid, $runUuid, $actor, $pause, $data, &$repeated): void {
                     $this->lockRow($connection, A2aInboundClientRepository::TABLE, $client->uid);
                     if ($profile->maxActiveTasks > 0) {
                         $this->lockRow($connection, A2aSkillProfileRepository::TABLE, $profile->uid);
+                    }
+
+                    // As for a new task: a repeat that committed while this
+                    // one waited for the lock answers with its task.
+                    if ($connection->count('uid', self::DEDUP_TABLE, ['owner_client_uid' => $client->uid, 'message_id_sha256' => hash('sha256', $message->messageId)]) > 0) {
+                        $repeated = true;
+
+                        return;
                     }
 
                     $this->checkLimits($client, $profile);
@@ -544,7 +564,7 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::internal();
         }
 
-        return $taskId;
+        return $repeated ? null : $taskId;
     }
 
     private function runUuid(int $runUid): string
