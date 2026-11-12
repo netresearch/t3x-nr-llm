@@ -69,8 +69,8 @@ which autotranslate stores in the site configuration. The parent class is built
 with a placeholder key and a server under the reserved ``.invalid`` domain, so a
 method the class does not override fails without sending a text to DeepL. A
 translator that answers fewer texts than it was given fails the call: a missing
-answer would move every later text into the wrong field. So does a blank answer
-and one cut off at the output limit (``truncated``, :ref:`ADR-209 <adr-209>`):
+answer would move every later text into the wrong field. So does a blank answer,
+an answer of markup without visible text for a text that has some, and one cut off at the output limit (``truncated``, :ref:`ADR-209 <adr-209>`):
 autotranslate stores what it gets, and a half text in an unattended batch would
 stand as the translation.
 

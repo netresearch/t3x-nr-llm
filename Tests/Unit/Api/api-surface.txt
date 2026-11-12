@@ -1443,7 +1443,7 @@ Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator (class)
   method getTargetLanguages(): array
   method getUsage(): DeepL\Usage
   method listGlossaries(): array
-  method translateText(mixed $texts, ?string $sourceLang, string $targetLang, array $options = …): mixed
+  method translateText(mixed $texts, ?string $sourceLang, string $targetLang, array $options = …): DeepL\TextResult|array
 
 Netresearch\NrLlm\Provider\Contract\DecisionCapableInterface (interface)
   method decide(Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionSubject $subject, array $questions, array $options = …): Netresearch\NrLlm\Domain\Model\DecisionResponse

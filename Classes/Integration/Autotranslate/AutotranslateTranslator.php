@@ -26,14 +26,19 @@ use function array_key_exists;
 use function array_values;
 use function count;
 use function explode;
+use function html_entity_decode;
 use function in_array;
 use function is_array;
 use function is_string;
 use function mb_strlen;
 use function sprintf;
+use function str_replace;
+use function strip_tags;
 use function strtolower;
 use function trim;
 
+use const ENT_HTML5;
+use const ENT_QUOTES;
 use const PHP_SAPI;
 
 /**
@@ -117,7 +122,7 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
      *
      * @phpstan-return ($texts is array ? TextResult[] : TextResult)
      */
-    public function translateText($texts, ?string $sourceLang, string $targetLang, array $options = [])
+    public function translateText($texts, ?string $sourceLang, string $targetLang, array $options = []): TextResult|array
     {
         $list           = is_array($texts) ? array_values($texts) : [$texts];
         $sourceLanguage = $this->baseLanguage($sourceLang);
@@ -258,6 +263,13 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
             throw new RuntimeException('nr-llm returned a blank translation for autotranslate; nothing is stored.', 1798100002);
         }
 
+        // Rich text arrives as HTML: markup around nothing (`<p> </p>`) is as
+        // blank as an empty answer, unless the source had no visible text
+        // either (an image alone, say).
+        if (self::visibleText($answer->translatedText) === '' && self::visibleText($text) !== '') {
+            throw new RuntimeException('nr-llm returned a translation without visible text for autotranslate; nothing is stored.', 1798100004);
+        }
+
         if (($answer->metadata['truncated'] ?? false) === true) {
             throw new RuntimeException('nr-llm returned a translation cut off at its output limit for autotranslate; nothing is stored.', 1798100003);
         }
@@ -267,6 +279,17 @@ final class AutotranslateTranslator extends Translator // @phpstan-ignore class.
             $answer->sourceLanguage !== '' ? $answer->sourceLanguage : ($sourceLanguage ?? ''),
             $answer->charactersUsed ?? mb_strlen($text),
         );
+    }
+
+    /**
+     * The text a reader sees: without tags and entities, trimmed, with no-break
+     * spaces counted as space.
+     */
+    private static function visibleText(string $text): string
+    {
+        $plain = html_entity_decode(strip_tags($text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return trim(str_replace("\u{00A0}", ' ', $plain));
     }
 
     /**

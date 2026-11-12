@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Specialized\Translation\TranslatorResult;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -91,6 +92,37 @@ final class AutotranslateTranslatorTest extends AbstractUnitTestCase
         $this->expectExceptionCode(1798100002);
 
         $translator->translateText(['Hello'], 'EN', 'DE');
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function answersWithoutVisibleText(): iterable
+    {
+        yield 'an empty paragraph' => ['<p> </p>'];
+        yield 'a no-break space' => ['<p>&nbsp;</p>'];
+        yield 'a line break' => ['<p><br></p>'];
+    }
+
+    #[Test]
+    #[DataProvider('answersWithoutVisibleText')]
+    public function markupWithoutVisibleTextStoresNothing(string $answer): void
+    {
+        $translator = $this->translator(answer: $answer);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionCode(1798100004);
+
+        $translator->translateText(['<p>Hello</p>'], 'EN', 'DE', [TranslateTextOptions::TAG_HANDLING => 'html']);
+    }
+
+    #[Test]
+    public function markupWithoutTextIsAnsweredWithMarkupWithoutText(): void
+    {
+        $result = $this->translator(answer: '<p><img src="a.png" alt=""></p>')
+            ->translateText('<p><img src="a.png" alt=""></p>', 'EN', 'DE', [TranslateTextOptions::TAG_HANDLING => 'html']);
+
+        self::assertSame('<p><img src="a.png" alt=""></p>', $result->text);
     }
 
     #[Test]
