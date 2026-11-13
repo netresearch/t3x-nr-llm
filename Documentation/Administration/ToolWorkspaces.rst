@@ -109,7 +109,9 @@ Limits to review before approval
   can survive a core complaint about another copied record.
 - The list of changes comes from the DataHandler's hooks and its
   ``sys_history`` rows. Where history is switched off or pruned, only the
-  hooks' records are listed, and the inline children of a delete are missing.
+  hooks' records are listed, a delete of a row that no longer exists is not
+  listed, and the inline children of a delete are missing. A chain with more
+  than 5000 history rows is cut off and counted as at least one more.
 - A core translation copy can be visible briefly before the second write
   hides it. Do not interpret the hidden-draft workflow as zero visibility at
   every intermediate instant.

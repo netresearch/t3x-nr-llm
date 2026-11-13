@@ -28,7 +28,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * takes along. `sys_history` names every record a DataHandler chain logged
  * under one correlation scope, and is empty where logging is off or the table
  * was pruned. The union is the list; with the history gone the hooks stand
- * alone. `history_data` is never selected (ADR-185).
+ * alone, except for one rule: a delete of a row that no longer exists is listed
+ * only where the history names it, because a command for a uid that never
+ * existed reaches the hook the same way and leaves the same trace. Without
+ * history a hard delete is therefore not listed. `history_data` is never
+ * selected (ADR-185).
  *
  * The stored state — workspace, live uid, language, the disable flag and the
  * row's own time and group restrictions — is read from the row, not from what
@@ -39,8 +43,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  */
 final readonly class ObservedChangeResolver
 {
-    /** History rows read per call; the set is bounded far below this. */
+    /** History rows read per query. */
     private const HISTORY_LIMIT = 500;
+
+    /** Queries per DataHandler chain; a chain with more rows is truncated. */
+    private const HISTORY_PAGES = 10;
 
     private const HISTORY_ACTIONS = [
         1 => ChangeAction::CREATED,
@@ -56,10 +63,12 @@ final readonly class ObservedChangeResolver
      * @param array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}> $records the hooks' records by `table:uid`
      * @param list<string>                                                                        $scopes  the correlation scopes of the DataHandler chains that wrote them
      * @param int|null                                                                            $after   the highest `sys_history` uid before the call; null reads no history
+     * @param RecordReference|null                                                                $target  the record the tool named: kept among the entries however many there are
      */
-    public function resolve(array $records, array $scopes, ?int $after = null): ObservedChangeSet
+    public function resolve(array $records, array $scopes, ?int $after = null, ?RecordReference $target = null): ObservedChangeSet
     {
-        $confirmed = $after === null ? [] : $this->fromHistory($scopes, $after);
+        $truncated = false;
+        $confirmed = $after === null ? [] : $this->fromHistory($scopes, $after, $truncated);
         foreach ($confirmed as $key => $entry) {
             $was           = $records[$key]['action'] ?? null;
             $records[$key] = $was instanceof ChangeAction ? [...$entry, 'action' => ToolChangeCollector::stronger($was, $entry['action'])] : $entry;
@@ -80,9 +89,49 @@ final readonly class ObservedChangeResolver
             $settled[$key] = $was instanceof ChangeAction ? [...$applied, 'action' => ToolChangeCollector::stronger($was, $applied['action'])] : $applied;
         }
 
-        $changes = array_map($this->change(...), array_slice(array_values($settled), 0, ObservedChangeSet::LIMIT));
+        $entries = array_values($settled);
+        $changes = array_map($this->change(...), array_slice($entries, 0, ObservedChangeSet::LIMIT));
+        if ($target instanceof RecordReference && count($entries) > count($changes)) {
+            $changes = $this->keepingTarget($changes, array_slice($entries, count($changes)), $target);
+        }
 
-        return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($settled) - count($changes));
+        // A history read that stopped at its cap lost rows nobody can count.
+        return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($entries) - count($changes) + ($truncated ? 1 : 0));
+    }
+
+    /**
+     * The retained changes with the one for the tool's target among them, when
+     * the target is one of the entries that did not fit: it takes the place of
+     * the last one. Only entries of the target's table are looked at.
+     *
+     * @param list<ObservedChange>                                                       $changes
+     * @param list<array{table: string, uid: int, action: ChangeAction, workspace: int}> $rest
+     *
+     * @return list<ObservedChange>
+     */
+    private function keepingTarget(array $changes, array $rest, RecordReference $target): array
+    {
+        foreach ($changes as $change) {
+            if ($change->record->table === $target->table && ($change->record->uid === $target->uid || $change->liveUid === $target->uid)) {
+                return $changes;
+            }
+        }
+
+        foreach ($rest as $entry) {
+            if ($entry['table'] !== $target->table) {
+                continue;
+            }
+
+            $change = $this->change($entry);
+            if ($change->record->uid === $target->uid || $change->liveUid === $target->uid) {
+                array_pop($changes);
+                $changes[] = $change;
+
+                return $changes;
+            }
+        }
+
+        return $changes;
     }
 
     /**
@@ -90,11 +139,11 @@ final readonly class ObservedChangeResolver
      *
      * @return array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}>
      */
-    private function fromHistory(array $scopes, int $after): array
+    private function fromHistory(array $scopes, int $after, bool &$truncated): array
     {
         $found = [];
         foreach ($scopes as $scope) {
-            foreach ($this->historyRows($scope, $after) as $row) {
+            foreach ($this->historyRows($scope, $after, $truncated) as $row) {
                 $entry = $this->historyEntry($row);
                 if ($entry === null) {
                     continue;
@@ -111,30 +160,45 @@ final readonly class ObservedChangeResolver
 
     /**
      * The history rows of one DataHandler chain written after `$after`, oldest
-     * first; none where the history cannot be read, and the hooks' records
-     * stand alone.
+     * first, read in pages up to a cap; none where the history cannot be read,
+     * and the hooks' records stand alone. A read that reaches the cap marks the
+     * history as truncated.
      *
      * @return list<array<string, mixed>>
      */
-    private function historyRows(string $scope, int $after): array
+    private function historyRows(string $scope, int $after, bool &$truncated): array
     {
-        try {
-            $query = $this->connectionPool->getQueryBuilderForTable('sys_history');
+        $rows = [];
+        for ($page = 0; $page < self::HISTORY_PAGES; ++$page) {
+            try {
+                $query = $this->connectionPool->getQueryBuilderForTable('sys_history');
+                $batch = $query
+                    ->select('uid', 'tablename', 'recuid', 'actiontype', 'workspace')
+                    ->from('sys_history')
+                    ->where(
+                        $query->expr()->gt('uid', $query->createNamedParameter($after, Connection::PARAM_INT)),
+                        $query->expr()->like('correlation_id', $query->createNamedParameter('%$' . $query->escapeLikeWildcards($scope) . ':%')),
+                    )
+                    ->orderBy('uid')
+                    ->setMaxResults(self::HISTORY_LIMIT)
+                    ->executeQuery()
+                    ->fetchAllAssociative();
+            } catch (Throwable) {
+                return $rows;
+            }
 
-            return $query
-                ->select('tablename', 'recuid', 'actiontype', 'workspace')
-                ->from('sys_history')
-                ->where(
-                    $query->expr()->gt('uid', $query->createNamedParameter($after, Connection::PARAM_INT)),
-                    $query->expr()->like('correlation_id', $query->createNamedParameter('%$' . $query->escapeLikeWildcards($scope) . ':%')),
-                )
-                ->orderBy('uid')
-                ->setMaxResults(self::HISTORY_LIMIT)
-                ->executeQuery()
-                ->fetchAllAssociative();
-        } catch (Throwable) {
-            return [];
+            $rows = [...$rows, ...$batch];
+            if (count($batch) < self::HISTORY_LIMIT) {
+                return $rows;
+            }
+
+            $last  = end($batch);
+            $after = is_numeric($last['uid'] ?? null) ? (int) $last['uid'] : $after;
         }
+
+        $truncated = true;
+
+        return $rows;
     }
 
     /**

@@ -147,7 +147,7 @@ final class ToolChangeCollector
 
         try {
             $set = ChangeSets::withTargetMarked(
-                (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->resolve($frame['records'], array_keys($frame['scopes']), $frame['watermark']),
+                (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->resolve($frame['records'], array_keys($frame['scopes']), $frame['watermark'], $writeTarget),
                 $writeTarget,
             );
         } catch (Throwable $failure) {

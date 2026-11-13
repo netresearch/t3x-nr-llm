@@ -508,6 +508,51 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
         self::assertSame('WROTE', $this->stepOfKind($trace, RunStep::KIND_TOOL)->toolResult);
     }
 
+    /**
+     * The tool's target is kept among the entries however many there are, and
+     * so decides the coverage on the full list.
+     */
+    #[Test]
+    public function theTargetSurvivesTheLimitOfTheList(): void
+    {
+        $records = [];
+        for ($uid = 1000; $uid < 1060; ++$uid) {
+            $records['tt_content:' . $uid] = ['table' => 'tt_content', 'uid' => $uid, 'action' => ChangeAction::UPDATED, 'workspace' => 0];
+        }
+
+        $set = (new ObservedChangeResolver($this->connectionPool))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+
+        self::assertCount(ObservedChangeSet::LIMIT, $set->changes);
+        self::assertSame(10, $set->omitted);
+        self::assertContains('tt_content:1059', array_map(static fn (ObservedChange $change): string => (string) $change->record, $set->changes));
+    }
+
+    /**
+     * A history read that reaches its cap says it lost rows; one below it does not.
+     */
+    #[Test]
+    public function aHistoryReadThatHitItsCapIsCountedAsTruncated(): void
+    {
+        $history = $this->connectionPool->getConnectionForTable('sys_history');
+        $history->bulkInsert('sys_history', array_map(
+            static fn (int $uid): array => [$uid, 1, 1, 'BE', 1, $uid, 'tt_content', '[]', 0, '0000$scopeA:subject' . $uid],
+            range(100, 599),
+        ), ['uid', 'tstamp', 'actiontype', 'usertype', 'userid', 'recuid', 'tablename', 'history_data', 'workspace', 'correlation_id']);
+
+        $resolver = new ObservedChangeResolver($this->connectionPool);
+        $few      = $resolver->resolve([], ['scopeA'], 0);
+        self::assertSame(500 - ObservedChangeSet::LIMIT, $few->omitted, 'every row was read and counted');
+
+        $history->bulkInsert('sys_history', array_map(
+            static fn (int $uid): array => [$uid, 1, 1, 'BE', 1, $uid, 'tt_content', '[]', 0, '0000$scopeB:subject' . $uid],
+            range(1000, 6100),
+        ), ['uid', 'tstamp', 'actiontype', 'usertype', 'userid', 'recuid', 'tablename', 'history_data', 'workspace', 'correlation_id']);
+
+        $many = $resolver->resolve([], ['scopeB'], 0);
+        // Ten pages of 500 rows are read, 50 are kept, and the loss past the cap is marked by one more.
+        self::assertSame(5000 - ObservedChangeSet::LIMIT + 1, $many->omitted);
+    }
+
     #[Test]
     public function aTranslationNamesItsLanguage(): void
     {

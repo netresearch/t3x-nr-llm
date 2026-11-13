@@ -72,7 +72,9 @@ the row is stored in, not the one the writer works in: a user in a draft
 workspace writes a table without versioning live. They are separate fields: a
 row that is not hidden can still be a draft, and nothing states that it is
 public. Frontend visibility is not checked and has no field. The list holds at
-most 50 entries and counts the rest in ``changesOmitted``. No title and no
+most 50 entries, keeps the tool's own target among them, and counts the rest in
+``changesOmitted``; a history chain of more than 5000 rows is cut off and counted
+as at least one more. No title and no
 field value is stored, so the run-step privacy filter has nothing to strip at
 any level, and the step is persisted as it is.
 
@@ -132,7 +134,9 @@ Consequences
   whoever may read the run. A consumer shows a record only to a viewer who may
   read it; nr-mcp-agent decides that where it builds its view.
 - ◑ The list is as old as the history it joins: where ``sys_history`` is off
-  or pruned, the hooks' records stand alone and the inline children of a
+  or pruned, the hooks' records stand alone, a delete of a row that no longer
+  exists is not listed (a command for a uid that never existed leaves the same
+  trace), and the inline children of a
   delete are missing.
 - ✕ A tool that names a target and writes through a query is shown as
   ``not_captured`` even when its write is correct. Such a tool reports no
