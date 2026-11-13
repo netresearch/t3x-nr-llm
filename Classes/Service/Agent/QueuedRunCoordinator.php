@@ -251,29 +251,9 @@ final readonly class QueuedRunCoordinator
             );
         }
 
-        // A grant withdrawn while the run waited in the queue (spec 051
-        // A2A-MT4): fail it before anything runs. Waiting would not bring the
-        // grant back, so it is not retried.
-        try {
-            $refusal = $this->executor->startRefusal($handle, $request);
-        } catch (Throwable $e) {
-            // A guard that could not decide (a database error): the run holds
-            // the claim, so it goes through the failure recovery like any
-            // failure after the claim and is not left RUNNING until the lease
-            // expires.
-            return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, []);
-        }
-
-        if ($refusal !== null) {
-            $error = new RuntimeException(sprintf('Run %s may not start: %s', $runUuid, $refusal), 1799400302);
-            $this->persister->settleFailed($handle, $error, $workerIdentity);
-            $this->recordDiagnostic(
-                function () use ($refusal, $runUuid): void {
-                    $this->logger?->notice('A queued agent run was refused at its start and failed', ['run' => $runUuid, 'reason' => $refusal]);
-                },
-            );
-
-            return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
+        $refusedAtStart = $this->refusedAtStart($handle, $request, $runUuid, $workerIdentity);
+        if ($refusedAtStart instanceof AgentRunResult) {
+            return $refusedAtStart;
         }
 
         // The heartbeat renews the lease under this worker's identity, and the
@@ -327,6 +307,37 @@ final readonly class QueuedRunCoordinator
         $this->fillField($request, $handle, $result);
 
         return $result;
+    }
+
+    /**
+     * A grant withdrawn while the run waited in the queue (spec 051 A2A-MT4):
+     * the result of failing it before anything runs, or null when the start
+     * guards let it through. Waiting would not bring the grant back, so it is
+     * not retried. A guard that could not decide (a database error) sends the
+     * claimed run through the failure recovery like any failure after the
+     * claim, so it is not left RUNNING until the lease expires.
+     */
+    private function refusedAtStart(AgentRunHandle $handle, AgentRunRequest $request, string $runUuid, string $workerIdentity): ?AgentRunResult
+    {
+        try {
+            $refusal = $this->executor->startRefusal($handle, $request);
+        } catch (Throwable $e) {
+            return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, []);
+        }
+
+        if ($refusal === null) {
+            return null;
+        }
+
+        $error = new RuntimeException(sprintf('Run %s may not start: %s', $runUuid, $refusal), 1799400302);
+        $this->persister->settleFailed($handle, $error, $workerIdentity);
+        $this->recordDiagnostic(
+            function () use ($refusal, $runUuid): void {
+                $this->logger?->notice('A queued agent run was refused at its start and failed', ['run' => $runUuid, 'reason' => $refusal]);
+            },
+        );
+
+        return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
     }
 
     /**

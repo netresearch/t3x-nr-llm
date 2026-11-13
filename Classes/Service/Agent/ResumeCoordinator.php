@@ -1134,15 +1134,8 @@ final readonly class ResumeCoordinator
             return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $stop);
         } catch (AgentRuntimeException $refusal) {
             $this->logger?->warning('A stored decision was refused by the worker; the run waits again', ['run' => $runUuid, 'decision' => $decision->id, 'reason' => $refusal->getMessage()]);
-            $unreleased = $this->release($handle, $state, $runUuid, $leaseOwner);
 
-            return new AgentRunResult(
-                outcome: $unreleased ?? ($decision->isInput() ? AgentRunOutcome::AWAITING_INPUT : AgentRunOutcome::AWAITING_APPROVAL),
-                runUuid: $runUuid,
-                steps: [],
-                suspendedState: $unreleased instanceof AgentRunOutcome ? null : $state,
-                error: $refusal,
-            );
+            return $this->backToThePause($handle, $state, $runUuid, $leaseOwner, $decision->isInput() ? AgentRunOutcome::AWAITING_INPUT : AgentRunOutcome::AWAITING_APPROVAL, $refusal);
         }
 
         if ($decision->isInput()) {
@@ -1169,10 +1162,7 @@ final readonly class ResumeCoordinator
         $approval = $decision->approvalDecision();
         $recorded = $this->persister->recordApproval($handle, $approval->approved, $approval->decidedByBeUser);
         if (!$recorded && $approval->approved && $this->turnDeclaresWrite($state)) {
-            $unreleased = $this->release($handle, $state, $runUuid, $leaseOwner);
-            $refusal    = ApprovalNotAuditableException::forRun($runUuid);
-
-            return new AgentRunResult(outcome: $unreleased ?? AgentRunOutcome::AWAITING_APPROVAL, runUuid: $runUuid, steps: [], suspendedState: $unreleased instanceof AgentRunOutcome ? null : $state, error: $refusal);
+            return $this->backToThePause($handle, $state, $runUuid, $leaseOwner, AgentRunOutcome::AWAITING_APPROVAL, ApprovalNotAuditableException::forRun($runUuid));
         }
 
         return $this->executor->executeResume(
@@ -1190,6 +1180,25 @@ final readonly class ResumeCoordinator
                 $approval->denialReason,
             ),
             $leaseOwner,
+        );
+    }
+
+    /**
+     * The result of a stored decision the worker refused: the run is released
+     * back to its pause, and the result says it waits again (`$waiting`) only
+     * when that worked; a pause that could not be restored is reported as the
+     * failure or the lost claim it is.
+     */
+    private function backToThePause(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid, string $leaseOwner, AgentRunOutcome $waiting, Throwable $refusal): AgentRunResult
+    {
+        $unreleased = $this->release($handle, $state, $runUuid, $leaseOwner);
+
+        return new AgentRunResult(
+            outcome: $unreleased ?? $waiting,
+            runUuid: $runUuid,
+            steps: [],
+            suspendedState: $unreleased instanceof AgentRunOutcome ? null : $state,
+            error: $refusal,
         );
     }
 

@@ -397,13 +397,13 @@ final class DurableDecisionTest extends AbstractFunctionalTestCase
             self::assertInstanceOf(PendingPause::class, $pause);
             $runtime->storeInput($this->owner(), $run->uuid, new InputSubmission(['answer' => 'B'], self::OWNER, $pause->turnDigest), $pause->generation);
 
-            $steps           = 0;
+            $steps           = [];
             $this->responses = [$this->finalTurn('You picked B.')];
             $runtime->runQueued($run->uuid, static function (RunStep $step) use (&$steps): void {
-                ++$steps;
+                $steps[] = $step;
             });
 
-            self::assertGreaterThan(0, $steps, $vaultScope instanceof WorkerVaultScope ? 'with the worker scope' : 'without it');
+            self::assertNotSame([], $steps, $vaultScope instanceof WorkerVaultScope ? 'with the worker scope' : 'without it');
         }
     }
 
