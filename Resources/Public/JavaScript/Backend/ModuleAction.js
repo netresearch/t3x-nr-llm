@@ -74,13 +74,15 @@ export function postUidAndReload(urlKey, btn) {
  * @param {FormData} formData POST payload
  * @param {HTMLButtonElement} btn Triggering button; disabled while the request is in flight
  * @param {(data: object) => void} [onSuccess] Callback run with the resolved response payload
- * @param {{onFailure?: (data: object) => void, reenableOnSuccess?: boolean}} [options]
+ * @param {{onFailure?: (data: object) => void, onError?: (data: object) => void, reenableOnSuccess?: boolean}} [options]
+ *        `onError` runs after the error notification of a request that was refused with a
+ *        non-2xx status or failed on the network, with the parsed body, or `{}` without one;
  *        `onFailure` runs with the payload of a `{ success: false }` answer, after the
  *        error notification; `reenableOnSuccess` (default `true`) re-enables the button
  *        on success
  */
 export function post(url, formData, btn, onSuccess, options = {}) {
-    const { onFailure, reenableOnSuccess = true } = options;
+    const { onFailure, onError, reenableOnSuccess = true } = options;
 
     btn.disabled = true;
     new AjaxRequest(url)
@@ -103,7 +105,18 @@ export function post(url, formData, btn, onSuccess, options = {}) {
             }
         })
         .catch(async err => {
-            Notification.error('Error', await readAjaxError(err));
+            // A refusal arrives as a non-2xx response whose body is read once:
+            // for the notification and for `onError`, which a caller that paints
+            // the answer into the page needs for an HTTP refusal as well.
+            let body = null;
+            if (err && typeof err.resolve === 'function') {
+                body = await err.resolve().catch(() => null);
+            }
+            const known = body !== null && typeof body === 'object';
+            Notification.error('Error', known ? (body.error || body.message || 'Unknown error') : await readAjaxError(err));
+            if (onError) {
+                onError(known ? body : {});
+            }
             btn.disabled = false;
         });
 }

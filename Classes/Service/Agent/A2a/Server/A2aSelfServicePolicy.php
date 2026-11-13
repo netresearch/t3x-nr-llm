@@ -109,7 +109,7 @@ final readonly class A2aSelfServicePolicy
             return $reason;
         }
 
-        if ($candidate->expires <= $now && !$limits->allowNoExpiry) {
+        if ($candidate->expires <= $now && ($candidate->expires !== 0 || !$limits->allowNoExpiry)) {
             return 'the expiry must lie in the future';
         }
 

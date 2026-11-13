@@ -149,10 +149,11 @@ On every request
    whose owner lost the permission, became an administrator, cannot work in
    the pinned workspace any more, or whose expiry lies beyond the maximum,
    is refused like an unknown token. The same check runs when a worker
-   starts a queued run of the token and on every resume of a suspended run,
-   so a run in progress stops too. A profile the groups no longer allow is
-   taken out of the token, and the remaining profiles stay callable.
-   When the groups allow it again, the token works again.
+   starts a queued run of the token and on every resume of a suspended run.
+   A run that is already executing is not interrupted; it stops at its next
+   resume. A profile the groups no longer allow is taken out of the token,
+   and the remaining profiles stay callable. When the groups allow it again,
+   the token works again.
 
 Lowering the maximum validity affects tokens that already exist: a token
 whose expiry now lies further ahead than the maximum is refused until the

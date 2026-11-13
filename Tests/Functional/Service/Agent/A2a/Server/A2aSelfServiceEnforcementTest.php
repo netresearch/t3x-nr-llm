@@ -146,6 +146,16 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anExpiryInThePastIsRefusedEvenWhereNoExpiryIsAllowed(): void
+    {
+        $this->group(['tx_nrllm_a2a_allow_no_expiry' => 1]);
+        $now = time();
+
+        $this->expectRefusal(fn (): mixed => $this->getService(A2aSelfServiceTokens::class)->create($this->user(20), 'Past', 1, [1], $now - 10, $now), 'a token that is unusable at once', 'future');
+        self::assertGreaterThan(0, $this->issue(20, days: 0), 'no expiry itself stays allowed');
+    }
+
+    #[Test]
     public function loweringTheMaximumStopsATokenThatNowReachesBeyondItAndRaisingItRestoresIt(): void
     {
         $uid = $this->issue(20, days: 60);

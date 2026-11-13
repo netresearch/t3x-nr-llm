@@ -176,6 +176,23 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         self::assertSame(403, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => 1]))->getStatusCode());
     }
 
+    #[Test]
+    public function aRecordIdentifierThatIsNotAWholeNumberNamesNoRecord(): void
+    {
+        $this->setUpBackendUser(1);
+        $before = $this->db('tx_nrllm_a2a_client')->select(['enabled', 'token_hash'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative();
+
+        foreach (['1.9', '1e0', ' 1x', '-1', '0', '', '0x1'] as $uid) {
+            self::assertSame(422, $this->controller()->issueAction($this->postTo('issue', ['uid' => $uid]))->getStatusCode(), 'issue ' . $uid);
+            self::assertSame(422, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => $uid]))->getStatusCode(), 'revoke ' . $uid);
+        }
+
+        self::assertSame($before, $this->db('tx_nrllm_a2a_client')->select(['enabled', 'token_hash'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative(), 'client 1 was neither rotated nor revoked');
+
+        // The same value as a whole number does act on the record.
+        self::assertSame(200, $this->controller()->issueAction($this->postTo('issue', ['uid' => '1']))->getStatusCode());
+    }
+
     private function controller(): A2aTokenAjaxController
     {
         $controller = $this->get(A2aTokenAjaxController::class);

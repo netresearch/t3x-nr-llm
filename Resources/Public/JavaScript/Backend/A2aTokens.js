@@ -105,12 +105,39 @@ class A2aTokens {
 
     issue(btn) {
         const url = resolveAjaxUrl('nrllm_a2a_token_issue');
-        if (!url) {
+        if (!url || !this.beginIssuing()) {
             return;
         }
         const data = new FormData();
         data.append('uid', btn.dataset.uid);
-        post(url, data, btn, (response) => this.reveal(response.token));
+        const release = () => this.endIssuing();
+        post(url, data, btn, (response) => this.reveal(response.token), { onFailure: release, onError: release, reenableOnSuccess: false });
+    }
+
+    /**
+     * One issuing at a time, and none while a token is on screen: a second
+     * response would replace the token the first one showed, which is then
+     * issued and lost. Every control that issues is disabled until the panel is
+     * closed, or until a failed request releases them.
+     */
+    beginIssuing() {
+        if (this.issuing || !this.panel.hidden) {
+            return false;
+        }
+        this.issuing = true;
+        this.setIssuingControls(true);
+        return true;
+    }
+
+    endIssuing() {
+        this.issuing = false;
+        this.setIssuingControls(false);
+    }
+
+    setIssuingControls(disabled) {
+        this.root.querySelectorAll('.js-a2a-issue, #nrllm-a2a-token-create button[type="submit"]').forEach((control) => {
+            control.disabled = disabled;
+        });
     }
 
     confirmRevoke(btn) {
@@ -156,18 +183,21 @@ class A2aTokens {
             return;
         }
 
+        if (!this.beginIssuing()) {
+            return;
+        }
         const submit = form.querySelector('button[type="submit"]');
         const data = new FormData(form);
+        const refuse = (response) => {
+            this.endIssuing();
+            error.textContent = response.error || '';
+            error.hidden = false;
+            error.focus?.();
+        };
         post(url, data, submit, (response) => {
             form.reset();
             this.reveal(response.token);
-        }, {
-            onFailure: (response) => {
-                error.textContent = response.error || '';
-                error.hidden = false;
-                error.focus?.();
-            },
-        });
+        }, { onFailure: refuse, onError: refuse, reenableOnSuccess: false });
     }
 
     reveal(token) {

@@ -163,8 +163,14 @@ final readonly class A2aTokenAjaxController
         return is_array($body) ? $this->int($body['uid'] ?? 0) : 0;
     }
 
+    /**
+     * A whole number as an int; anything else, "1.9" and "1e3" included, is 0
+     * and so names no record. Truncating would let "1.9" act on record 1.
+     */
     private function int(mixed $value): int
     {
-        return is_numeric($value) ? (int) $value : 0;
+        $int = filter_var($value, FILTER_VALIDATE_INT);
+
+        return is_int($int) && $int > 0 ? $int : 0;
     }
 }

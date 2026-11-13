@@ -2407,8 +2407,8 @@
                 <target>Maximale Gültigkeit eines Tokens (Tage)</target>
             </trans-unit>
             <trans-unit id="be_groups.tx_nrllm_a2a_max_expiry_days.description">
-                <source>0: the default of 90 days. The largest value among the groups of a user that set one applies; at most 730.</source>
-                <target>0: der Standard von 90 Tagen. Es gilt der größte Wert unter den Gruppen eines Benutzers, die einen setzen; höchstens 730.</target>
+                <source>0: the default of 90 days. Of the groups of a user that hold the permission, the largest value that one sets applies; at most 730.</source>
+                <target>0: der Standard von 90 Tagen. Unter den Gruppen eines Benutzers, die die Berechtigung besitzen, gilt der größte Wert, den eine von ihnen setzt; höchstens 730.</target>
             </trans-unit>
             <trans-unit id="be_groups.tx_nrllm_a2a_allow_no_expiry">
                 <source>Allow tokens that never expire</source>
@@ -2423,8 +2423,8 @@
                 <target>A2A-Profile, die Tokens aufrufen dürfen</target>
             </trans-unit>
             <trans-unit id="be_groups.tx_nrllm_a2a_profiles.description">
-                <source>The union over the groups of a user applies. Empty: no profile, so a token can do nothing.</source>
-                <target>Es gilt die Vereinigung über die Gruppen eines Benutzers. Leer: kein Profil, ein Token kann also nichts tun.</target>
+                <source>The union over the groups of a user that hold the permission applies; a group without it contributes nothing. Empty: no profile, so a token can do nothing.</source>
+                <target>Es gilt die Vereinigung über die Gruppen eines Benutzers, die die Berechtigung besitzen; eine Gruppe ohne sie trägt nichts bei. Leer: kein Profil, ein Token kann also nichts tun.</target>
             </trans-unit>
         </body>
     </file>
