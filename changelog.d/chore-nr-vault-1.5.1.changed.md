@@ -1,0 +1,1 @@
+- nr-llm requires nr-vault 1.5.1 or later. From that release the shared secret-pattern catalogue masks TYPO3 workspace preview tokens (`ADMCMD_prev=<token>`), so every nr-llm redactor and error-message sanitizer that reads the catalogue masks them too.
