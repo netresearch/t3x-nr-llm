@@ -587,7 +587,21 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         $logger->method('warning')->willReturnCallback(function (string $message, array $logContext) use (&$context): void {
             $context = $logContext;
         });
-        $subject = $this->createSubject(logger: $logger);
+        $extConf = self::createStub(ExtensionConfiguration::class);
+        $extConf->method('get')->willReturn(['apiKeyIdentifier' => 'test-key', 'baseUrl' => 'https://api.example.test']);
+
+        $subject = new TestableSpecializedService(
+            vault: $this->createVaultServiceMock(),
+            requestFactory: $this->passthroughRequestFactory(),
+            streamFactory: $this->passthroughStreamFactory(),
+            extensionConfiguration: $extConf,
+            usageTracker: self::createStub(UsageTrackerServiceInterface::class),
+            logger: $logger,
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: new InputGuardrailScreener([]),
+        );
 
         (new ReflectionMethod($subject, 'decodeErrorMessage'))->invoke($subject, $body);
 
@@ -1401,7 +1415,6 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         ?LlmConfigurationRepository $configurationRepository = null,
         ?BudgetServiceInterface $budgetService = null,
         ?InputGuardrailScreener $inputGuardrailScreener = null,
-        ?LoggerInterface $logger = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
         $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
@@ -1412,7 +1425,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             streamFactory: $this->passthroughStreamFactory(),
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
-            logger: $logger ?? self::createStub(LoggerInterface::class),
+            logger: self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: $budgetService ?? new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),
