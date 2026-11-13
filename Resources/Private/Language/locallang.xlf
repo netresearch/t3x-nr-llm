@@ -4751,6 +4751,174 @@
             <trans-unit id="approvalPreview.redirect.timed">
                 <source>Visitors are redirected this way only between its start time %s and its stop time %s (UTC).</source>
             </trans-unit>
+            <trans-unit id="grants.a2aTokenSelfService">
+                <source>Issue A2A tokens for my own account</source>
+            </trans-unit>
+            <trans-unit id="grants.a2aTokenSelfService.description">
+                <source>Create A2A tokens that act as this user, and see and revoke them. The limits are fields of this group (tab &quot;A2A tokens&quot;); without them a token runs in a draft workspace, expires within 90 days and may call no profile. A token bypasses the interactive login, including multi-factor authentication.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.error.refused">
+                <source>The request was refused.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.title">
+                <source>A2A tokens</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.intro.admin">
+                <source>Every A2A client record. Generate or rotate the token of a technical-user client, and revoke any record at once. A token that an editor created for their own account can be revoked here, but only its owner issues it.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.mfa.title">
+                <source>A token replaces your login</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.mfa.message">
+                <source>Whoever holds a token acts as you, without a password, multi-factor authentication or passkey. That is why a token expires, runs in a draft workspace unless an administrator allowed live, and reaches only the profiles your groups allow. Keep it as secret as a password.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.reveal.title">
+                <source>Copy the token now</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.reveal.warning">
+                <source>This token is shown once. It is not stored and cannot be shown again; if you lose it, revoke it and create a new one.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.reveal.label">
+                <source>Token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.copy">
+                <source>Copy</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.copied">
+                <source>Token copied</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.copyFailed">
+                <source>Copying failed; the token is selected, copy it by hand</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.reveal.done">
+                <source>I have stored the token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.create.title">
+                <source>Create a token for my account</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.create.submit">
+                <source>Create token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.unavailable.title">
+                <source>You cannot create tokens</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.list.title">
+                <source>Tokens</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.list.empty">
+                <source>There are no tokens yet.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.kind">
+                <source>Kind</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.owner">
+                <source>Owner</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.created">
+                <source>Created</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.expires">
+                <source>Expires</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.lastTask">
+                <source>Last task</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.status">
+                <source>Status</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.col.actions">
+                <source>Actions</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.kind.selfService">
+                <source>Own account of an editor</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.kind.technical">
+                <source>Technical user</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.never">
+                <source>Never</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.status.active">
+                <source>Active</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.status.withdrawn">
+                <source>Withdrawn</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.status.noToken">
+                <source>No token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.status.disabled">
+                <source>Revoked or disabled</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.status.expired">
+                <source>Expired</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.generate">
+                <source>Generate token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.rotate">
+                <source>Rotate token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.revoke">
+                <source>Revoke</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.cancel">
+                <source>Cancel</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.revoke.confirmTitle">
+                <source>Revoke this token?</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.revoke.confirmMessage">
+                <source>The token stops working at once and cannot be restored.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.rotate.confirmTitle">
+                <source>Rotate this token?</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.rotate.confirmMessage">
+                <source>The current token stops working at once; the client keeps its tasks.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.lastTask.note">
+                <source>Last task is the time the newest task of the token was created. A token that only reads existing tasks does not appear there.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.title">
+                <source>Title</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.title.help">
+                <source>Names the token in this list, for example the agent that uses it.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.workspace">
+                <source>Workspace</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.workspace.none">
+                <source>You cannot work in any workspace a token may use.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.workspace.helpLive">
+                <source>The token works in this workspace. Live is allowed for your groups.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.workspace.helpDraft">
+                <source>The token works in this workspace, so its changes are drafts you review. Live is not allowed for your groups.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.days">
+                <source>Valid for (days)</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.days.help">
+                <source>At most %s days.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.days.helpNever">
+                <source>Leave empty for a token that never expires.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.profiles">
+                <source>Profiles the token may call</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.profiles.none">
+                <source>An administrator has not allowed any profile for your groups yet.</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.field.profiles.help">
+                <source>Choose at least one. Only the profiles your groups allow are listed.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

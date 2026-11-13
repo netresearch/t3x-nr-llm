@@ -144,6 +144,12 @@ command again rotates the token: the old one stops working at once, and the
 client keeps its tasks, which belong to the record, not to the token. The
 client sends the token as ``Authorization: Bearer <token>``.
 
+In the backend the module :guilabel:`AI > A2A tokens` does the same without a
+shell: :guilabel:`Generate token` and :guilabel:`Rotate token` per record, and
+:guilabel:`Revoke`. Editors can also issue tokens that act as their own
+account, within limits that you set per backend group; see
+:ref:`administration-a2a-tokens`.
+
 What a client gets
 ==================
 

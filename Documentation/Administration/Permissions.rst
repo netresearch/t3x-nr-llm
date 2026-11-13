@@ -81,6 +81,21 @@ See the AI usage of assigned groups (``usage_view_groups``)
         protection officer before you grant it
         (:ref:`administration-group-usage-privacy`). Part of no preset.
 
+Issue A2A tokens for my own account (``a2a_token_self_service``)
+    Create A2A tokens that act as the holder's own backend account, and see
+    and revoke them, in the module :guilabel:`AI > A2A tokens`
+    (:ref:`ADR-294 <adr-294>`). The limits are fields on the same group
+    (workspace, validity, profiles) and every one starts at its strict
+    value, so the grant alone allows a token that works in a draft workspace,
+    expires within 90 days and calls no profile. Administrators do not use
+    it: an administrator cannot be the acting user of a client.
+
+    ..  warning::
+        A token **bypasses the interactive login**, including multi-factor
+        authentication and passkeys. Read
+        :ref:`administration-a2a-tokens-security` before you grant it. Part
+        of no preset.
+
 Recommended presets
 ===================
 
@@ -112,7 +127,8 @@ record picker has no read boundary yet and stays admin-only).
 
 Holders of ``usage_view_groups`` use the module **AI usage of my groups**
 under the same **AI** group, with the same two switches: the module ticked
-in the group's module list AND the grant held.
+in the group's module list AND the grant held. Holders of
+``a2a_token_self_service`` use the module **A2A tokens** the same way.
 
 Everything else — configuration, providers, models, the playground,
 record browsing, the Analytics module with its billing report and export —

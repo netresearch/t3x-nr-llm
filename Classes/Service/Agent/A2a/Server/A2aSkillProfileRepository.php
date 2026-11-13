@@ -55,7 +55,19 @@ final readonly class A2aSkillProfileRepository
      */
     public function findAllowedFor(A2aInboundClient $client): array
     {
-        if ($client->profileUids === []) {
+        return $this->findPublicByUids($client->profileUids);
+    }
+
+    /**
+     * The public profiles among the given uids.
+     *
+     * @param list<int> $uids
+     *
+     * @return list<A2aSkillProfile>
+     */
+    public function findPublicByUids(array $uids): array
+    {
+        if ($uids === []) {
             return [];
         }
 
@@ -65,7 +77,7 @@ final readonly class A2aSkillProfileRepository
             ->from(self::TABLE)
             ->where(
                 $builder->expr()->eq('public', 1),
-                $builder->expr()->in('uid', $builder->createNamedParameter($client->profileUids, Connection::PARAM_INT_ARRAY)),
+                $builder->expr()->in('uid', $builder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)),
             )
             ->orderBy('skill_id')
             ->executeQuery()

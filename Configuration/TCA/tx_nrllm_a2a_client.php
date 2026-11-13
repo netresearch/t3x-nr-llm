@@ -14,6 +14,10 @@ $ll = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_a2a_
  * ADR-280). Only administrators edit it. The token is never a form field:
  * `nrllm:a2a:client:token <uid>` issues it and shows it once; the record
  * keeps its public prefix and its hash. enabled starts at 0.
+ *
+ * A record with `self_service` was issued by an editor for their own account
+ * (ADR-294) and is written by the editor's module only; the flag is read-only
+ * here and the save hook strips it from a write.
  */
 return [
     'ctrl' => [
@@ -46,6 +50,7 @@ return [
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     enabled,
                     expires,
+                    self_service,
 ',
         ],
     ],
@@ -104,6 +109,11 @@ return [
             'label'       => $ll . '.task_limit',
             'description' => $ll . '.task_limit.description',
             'config'      => ['type' => 'number', 'default' => 4, 'range' => ['lower' => 1, 'upper' => 1000]],
+        ],
+        'self_service' => [
+            'label'       => $ll . '.self_service',
+            'description' => $ll . '.self_service.description',
+            'config'      => ['type' => 'check', 'default' => 0, 'readOnly' => true],
         ],
         'enabled' => [
             'label'  => $ll . '.enabled',

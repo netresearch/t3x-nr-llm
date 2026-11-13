@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Controller\Backend\A2aTokenController;
 use Netresearch\NrLlm\Controller\Backend\AgentRunController;
 use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\AnalyticsController;
@@ -43,6 +44,8 @@ use Netresearch\NrLlm\Controller\Backend\UseCasePackController;
  *   ├── nrllm_aitasks         editor surface        (access => user)
  *   ├── nrllm_groupusage      a head editor's view of his groups' AI usage
  *   │                         (access => user, ADR-277)
+ *   ├── nrllm_a2atokens       A2A tokens: an editor's own, every one for an
+ *   │                         administrator (access => user, ADR-294)
  *   ├── nrllm_overview        landing page          (access => admin)
  *   ├── nrllm_setup           setup wizard, providers, models, configurations,
  *   │                         use-case packs
@@ -567,6 +570,23 @@ return [
         'extensionName'     => 'NrLlm',
         'controllerActions' => [
             GroupUsageController::class => ['index'],
+        ],
+    ],
+    // A2A tokens (ADR-294): an administrator sees every client record and
+    // issues, rotates and revokes tokens; an editor holding the
+    // `a2a_token_self_service` grant sees and revokes their own tokens and
+    // creates new ones. `access => user` like the usage view: the module
+    // switch alone grants nothing, the controller checks the grant, and the
+    // changes are AJAX routes that check it again.
+    'nrllm_a2atokens' => [
+        'parent'            => 'netresearch_ai',
+        'access'            => 'user',
+        'iconIdentifier'    => 'module-nrllm',
+        'path'              => '/module/nrllm/a2a-tokens',
+        'labels'            => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_a2atokens.xlf',
+        'extensionName'     => 'NrLlm',
+        'controllerActions' => [
+            A2aTokenController::class => ['index'],
         ],
     ],
 ];

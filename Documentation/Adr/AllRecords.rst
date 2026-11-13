@@ -298,3 +298,4 @@ All decision records
    Adr290ACallerAddsTheTermListsOfAnotherConfiguration
    Adr292ARunRecordsTheRecordsItsToolCallsChanged
    Adr293AConfigurationCanRequireADraftWorkspace
+   Adr294AnEditorMayIssueA2aTokensThatActAsThemselves

@@ -1795,6 +1795,39 @@
             <trans-unit id="tx_nrllm_a2a_profile.public.description">
                 <source>Listed on the agent card and callable by the clients that are allowed it. A profile that is not public cannot be called.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.self_service">
+                <source>Issued by an editor for their own account</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.self_service.description">
+                <source>Read-only. The owner is the technical backend user. The limits of the owner&#x27;s backend groups apply at every request, so the record loses what the groups stop allowing.</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tab.a2a">
+                <source>A2A tokens</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_live">
+                <source>Allow tokens in the live workspace</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_live.description">
+                <source>Applies to the members who hold the permission &quot;Issue A2A tokens for my own account&quot;. Off: such a token must run in a draft workspace.</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_max_expiry_days">
+                <source>Maximum validity of a token (days)</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_max_expiry_days.description">
+                <source>0: the default of 90 days. Of the groups of a user that hold the permission, the largest value that one sets applies; at most 730.</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_no_expiry">
+                <source>Allow tokens that never expire</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_no_expiry.description">
+                <source>Off: every token needs an expiry within the maximum. On is an explicit choice: a token that never expires is a permanent credential without a login.</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_profiles">
+                <source>A2A profiles tokens may call</source>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_profiles.description">
+                <source>The union over the groups of a user that hold the permission applies; a group without it contributes nothing. Empty: no profile, so a token can do nothing.</source>
+            </trans-unit>
         </body>
     </file>
 </xliff>

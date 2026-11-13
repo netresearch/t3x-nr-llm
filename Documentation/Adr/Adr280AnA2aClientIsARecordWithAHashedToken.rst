@@ -9,9 +9,10 @@
 ADR-280: An inbound A2A client is a record with a hashed token
 ====================================================================
 
-:Status: Accepted
+:Status: Accepted (the rejection of "Map a client to an editor's account" is amended)
 :Date: 2026-11-10
 :Authors: Netresearch DTT GmbH
+:Amended: 2026-11-13 by :ref:`ADR-294 <adr-294>` (an editor may issue tokens that act as themselves, within group limits)
 
 Context
 =======

@@ -172,6 +172,7 @@ Netresearch\NrLlm\Domain\Enum\ArtifactType (enum)
   property readonly value: string
 
 Netresearch\NrLlm\Domain\Enum\BackendUserGrant (enum)
+  case A2A_TOKEN_SELF_SERVICE = "a2a_token_self_service"
   case AGENT_APPROVE = "agent_approve"
   case TASKS_USE = "tasks_use"
   case USAGE_VIEW_GROUPS = "usage_view_groups"

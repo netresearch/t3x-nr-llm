@@ -7,6 +7,7 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Controller\Backend\A2aTokenAjaxController;
 use Netresearch\NrLlm\Controller\Backend\AiTaskController;
 use Netresearch\NrLlm\Controller\Backend\ConfigurationController;
 use Netresearch\NrLlm\Controller\Backend\LlmModuleController;
@@ -35,6 +36,21 @@ use Netresearch\NrLlm\Controller\Backend\ToolPlaygroundController;
 $toggleActiveAction = '::toggleActiveAction';
 
 return [
+    // A2A tokens (ADR-294). The core checks each route's token before the
+    // controller runs; every action then checks who may call it itself.
+    'nrllm_a2a_token_create' => [
+        'path'   => '/nrllm/a2a-token/create',
+        'target' => A2aTokenAjaxController::class . '::createAction',
+    ],
+    'nrllm_a2a_token_issue' => [
+        'path'   => '/nrllm/a2a-token/issue',
+        'target' => A2aTokenAjaxController::class . '::issueAction',
+    ],
+    'nrllm_a2a_token_revoke' => [
+        'path'   => '/nrllm/a2a-token/revoke',
+        'target' => A2aTokenAjaxController::class . '::revokeAction',
+    ],
+
     // Main module
     'nrllm_test' => [
         'path'   => '/nrllm/test',
