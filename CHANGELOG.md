@@ -8,6 +8,45 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-11-13
+
+### Upgrading from 0.44
+
+- Schema: the table `tx_nrllm_a2a_write` is new (the writes of a writing A2A task). Run the database analyzer.
+- An A2A client answers a task only when its technical backend user may run the tool that asked; enable `ask_choice` in the tool management for profiles that ask questions.
+
+- Run the database analyzer: stage 3 of A2A adds the tables `tx_nrllm_a2a_client`, `tx_nrllm_a2a_profile`, `tx_nrllm_a2a_dedup` and `tx_nrllm_a2a_wait_slot`. The server role is off until `a2a.server.enabled` is set and a site names `nrllm.a2a.baseUrl`. It accepts a task only while a worker can be shown to run: a `messenger:consume` consumer, or `nrllm:agent:work` scheduled every minute with a time limit below the minute, for example `--time-limit=50`; the server counts a worker only while its last heartbeat is less than two minutes old, and a run that takes longer writes the heartbeat at its steps. Keep `a2a.server.blockingWaitSeconds` (default 20) below the read timeout of every proxy in front of PHP-FPM.
+
+### Added
+
+- A2A server, stage 4 of spec 051: a task whose run asks the client a question (`ask_choice`) is `INPUT_REQUIRED` with the question as its status message, and the client answers with a `SendMessage` that names the task. The answer is checked like one from the backend, stored durably and carried out by the worker; the request runs nothing. Every resume of an A2A task checks the client record, its technical user, its workspace and the skill again.
+- A publication profile can be marked *May write*: its runs may use the profile's writing tools, which write drafts into the calling client's pinned draft workspace only, and the task's result lists the writes that were executed.
+- A decision on a waiting run can be stored durably and carried out by the queue worker (`DurableDecisionIntakeInterface`, ADR-281): it makes the checks of `approve()` and `submitInput()`, and the two paths cannot both win one pause.
+
+- A2A server, stage 3 of spec 051: a site that names an A2A base URL in its settings (`nrllm.a2a.baseUrl`) answers registered A2A 1.0 clients over JSON-RPC once the server role is switched on (`a2a.server.enabled`). It publishes an agent card at `<base>/.well-known/agent-card.json` with one skill per public publication profile (`tx_nrllm_a2a_profile`) and answers `SendMessage`, `GetTask`, `ListTasks` and `CancelTask`. A client is a record (`tx_nrllm_a2a_client`) with a bearer token that `nrllm:a2a:client:token <uid>` issues and that is stored as a hash; its tasks run as its technical backend user in its pinned workspace, queued for the worker. The first domain handler, `nr_llm.text`, runs the client's text through the profile's LLM configuration with read-only tools and returns the answer as a text artifact.
+- `nrllm:agent:work` records each tick as a heartbeat of transport `sweep`; `nrllm:agent:status --transport=sweep` shows it.
+
+- A configuration can require a draft workspace for changes (`require_draft_workspace`, off by default; ADR-293). With it on, a write by a run that does not work in a draft workspace is refused before an approval card is shown and again right before the call runs, administrators included; the refusal tells the editor to switch to a draft workspace and send the request again. It is the first built-in invocation rule (`RequireDraftWorkspaceRule`). Invocation rules may opt in to being asked before the card through the new marker `PreApprovalInvocationRuleInterface`, and `ToolInvocationDecision` takes an optional `explanation`.
+
+- Run steps: a call that wrote records a `tool_changes` step listing the records the DataHandler runs of that call wrote (table, uid, action, workspace, live uid, language, hidden flag, restrictions, and whether it is the tool's target), also when the tool then fails, together with `ObservedChangeSet::tryFromEventPayload()` for readers of `AgentRuntimeInterface::events()` (ADR-292). The list says what DataHandler runs reported and never that it is complete.
+- Approval card: `PendingCallView` states `workspaceId`, `workspaceTitle` and `language` as values; `PendingLanguageInterface` lets a tool that takes a target language name it (ADR-292).
+
+### Changed
+
+- nr-llm requires nr-vault 1.5.1 or later. From that release the shared secret-pattern catalogue masks TYPO3 workspace preview tokens (`ADMCMD_prev=<token>`), so every nr-llm redactor and error-message sanitizer that reads the catalogue masks them too.
+
+- A tool call that fails after it wrote now answers the model with the records it changed before it failed (ADR-292); the answer is the same as before when it changed none.
+
+### Fixed
+
+- A2A task view: a bound run that fails, is cancelled, ends while it waits, or is claimed by a worker now reaches `tx_nrllm_a2a_task` in the same transaction; before, only its completion did.
+
+- Queue worker: `nrllm:agent:work` and the Messenger handler of a queued run on the command line set `EXEC_TIME`, `SIM_EXEC_TIME`, `ACCESS_TIME`, `SIM_ACCESS_TIME` and the `date` aspect before every run, so records and history rows written by a later run of one tick carry that run's time and not the time the tick started.
+
+- A2A task store: at the `redacted` answer level a string under a structural member (`messageId`, `contextId`, `role`, `state`, `kind`, `mediaType`, extension URIs) is kept only in the member's protocol form, and any other string goes through the level's text redaction; a part's `mediaType` of another form is dropped. Before, such a string was kept unchanged whatever it contained.
+
+- Secret-shaped strings, including TYPO3 preview tokens (`ADMCMD_prev=<token>`), are now masked with the shared secret catalogue on paths that skipped it: the `probe_url` report, the `get_last_exception` report, MCP tool results and failure messages, A2A delegation (the message sent, the remote answer and the failure reasons), the Responses API failure message, specialized-service error messages and log lines, the provider connection test message, the stored conversation transcript, the Tool Playground guardrail reason, and embedding input (through the input guardrails, like every other prompt). The approval card of `fetch_external_url` still shows the real URL to the approver.
+
 ## [0.44.0] - 2026-11-12
 
 ### Upgrading from 0.43
@@ -5272,7 +5311,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.42.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.45.0...HEAD
+[0.45.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.44.0...v0.45.0
 [0.42.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.18...v0.42.0
 [0.41.18]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.17...v0.41.18
 [0.41.17]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.16...v0.41.17

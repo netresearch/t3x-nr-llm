@@ -1,1 +1,0 @@
-- Queue worker: `nrllm:agent:work` and the Messenger handler of a queued run on the command line set `EXEC_TIME`, `SIM_EXEC_TIME`, `ACCESS_TIME`, `SIM_ACCESS_TIME` and the `date` aspect before every run, so records and history rows written by a later run of one tick carry that run's time and not the time the tick started.

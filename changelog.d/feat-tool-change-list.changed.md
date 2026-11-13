@@ -1,1 +1,0 @@
-- A tool call that fails after it wrote now answers the model with the records it changed before it failed (ADR-292); the answer is the same as before when it changed none.
