@@ -42,10 +42,16 @@ Revoke
    temporarily instead.
 
 An administrator cannot generate or rotate the token of an editor's own
-record. Such a token acts as the editor, and only the editor issues it.
+record, and ``nrllm:a2a:client:token`` refuses it as well. Such a token acts
+as the editor, and only the editor issues it. An editor holds at most ten
+active tokens (enabled, with a token, not expired); a revoked or expired token
+does not count.
 
 Every issuing, rotation and revocation is logged at level ``info`` by the
-channel of ``A2aTokenAudit`` with the actor, the record and the time. In
+channel of ``A2aTokenAudit`` with the actor, the record and the time. TYPO3
+drops that level by default, so the extension writes the channel to its own
+file, ``var/log/typo3_nrllm-a2a-token-audit_*.log``; an installation changes
+that through ``$GLOBALS['TYPO3_CONF_VARS']['LOG']`` like any other channel. In
 switch-user mode the administrator who switched is named as well. A token
 and its hash are never part of a log line.
 

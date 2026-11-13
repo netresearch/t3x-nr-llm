@@ -153,6 +153,31 @@ final readonly class A2aInboundClientRepository
     }
 
     /**
+     * How many self-service tokens of the owner can act now: enabled, with a
+     * token, not expired. A revoked or expired one does not count.
+     */
+    public function countActiveSelfService(int $ownerUid, int $now): int
+    {
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $builder->getRestrictions()->removeAll()->add(new DeletedRestriction());
+        $count = $builder->count('uid')->from(self::TABLE)
+            ->where(
+                $builder->expr()->eq('self_service', 1),
+                $builder->expr()->eq('be_user', $builder->createNamedParameter($ownerUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('enabled', 1),
+                $builder->expr()->neq('token_hash', $builder->createNamedParameter('')),
+                $builder->expr()->or(
+                    $builder->expr()->eq('expires', 0),
+                    $builder->expr()->gt('expires', $builder->createNamedParameter($now, Connection::PARAM_INT)),
+                ),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
      * Store a self-service record without a token (ADR-294). The caller has
      * run {@see A2aSelfServicePolicy::refusal()}; the owner is the editor, and
      * the task limit is the default, not the editor's choice.

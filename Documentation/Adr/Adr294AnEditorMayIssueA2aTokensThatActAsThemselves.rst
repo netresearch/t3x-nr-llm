@@ -124,8 +124,11 @@ Every read and write by an editor carries the owner in the ``WHERE`` clause, and
 a record of someone else answers exactly like a missing record. An
 administrator sees every record with owner, kind, creation, expiry, status and
 the time of the last task, and revokes any of them at once. Revoking disables
-the record and deletes the token hash; a new token needs a new record or a
-rotation by an administrator.
+the record and deletes the token hash; a new token needs a new record. Nobody
+rotates a self-service token for its owner: the administrator's operation and
+the CLI command both refuse it, because an operator who could issue it would
+hold a credential that acts as the editor. An editor holds at most ten active
+tokens, so the task limit of each record cannot be multiplied without bound.
 
 **Scope that is not in this record.** OAuth 2.0 Authorization Code with PKCE
 would let the editor authorise a client interactively, with the login

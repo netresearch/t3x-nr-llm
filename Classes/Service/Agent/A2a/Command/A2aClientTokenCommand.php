@@ -54,6 +54,15 @@ final class A2aClientTokenCommand extends Command
             return Command::INVALID;
         }
 
+        // The token of an editor's own record is issued by its owner (ADR-294):
+        // an operator who could issue it would hold a credential that acts as
+        // that editor, with no owner asking for it.
+        if ($this->clients->findRawByUid((int) $uid)?->selfService === true) {
+            $output->writeln('<error>This client record belongs to an editor\'s own account; its owner issues the token in the backend module.</error>');
+
+            return Command::FAILURE;
+        }
+
         try {
             $token = $this->clients->issueToken((int) $uid);
         } catch (A2aException $exception) {

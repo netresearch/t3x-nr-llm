@@ -24,6 +24,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  *   same policy applies to the record at every later read.
  * - A live workspace and a writing profile do not go together (A2A-MT5), as
  *   for a record an administrator saves.
+ * - An editor holds at most {@see self::MAX_ACTIVE_PER_OWNER} active tokens, so
+ *   the task limit of each record cannot be multiplied without bound.
  * - Listing and revoking carry the owner in the query: a record of somebody
  *   else is answered like a missing one.
  *
@@ -31,6 +33,9 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  */
 final readonly class A2aSelfServiceTokens
 {
+    /** Active tokens one editor may hold; each has its own task limit. */
+    public const MAX_ACTIVE_PER_OWNER = 10;
+
     public function __construct(
         private A2aInboundClientRepository $clients,
         private A2aSelfServicePolicy $policy,
@@ -51,6 +56,10 @@ final readonly class A2aSelfServiceTokens
         $title = trim($title);
         if ($title === '') {
             throw new A2aTokenRefusedException('A token needs a title.', 1799300301);
+        }
+
+        if ($this->clients->countActiveSelfService($owner, $now) >= self::MAX_ACTIVE_PER_OWNER) {
+            throw new A2aTokenRefusedException(sprintf('You already hold %d active tokens; revoke one first.', self::MAX_ACTIVE_PER_OWNER), 1799300306);
         }
 
         $profileUids = array_values(array_unique(array_filter($profileUids, static fn (int $uid): bool => $uid > 0)));

@@ -54,7 +54,7 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(1);
         $old = $this->tokens[1];
 
-        $response = $this->controller()->issueAction($this->post('issue', ['uid' => 1]));
+        $response = $this->controller()->issueAction($this->postTo('issue', ['uid' => 1]));
         $payload  = $this->payload($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -80,7 +80,7 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(20);
         $before = $this->db('tx_nrllm_a2a_client')->select(['token_hash'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchOne();
 
-        $response = $this->controller()->issueAction($this->post('issue', ['uid' => 1]));
+        $response = $this->controller()->issueAction($this->postTo('issue', ['uid' => 1]));
 
         self::assertSame(403, $response->getStatusCode());
         self::assertArrayNotHasKey('token', $this->payload($response));
@@ -91,14 +91,14 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
     public function anAdministratorCannotIssueTheTokenOfASelfServiceRecordOrOfAMissingOne(): void
     {
         $this->setUpBackendUser(20);
-        $created = $this->payload($this->controller()->createAction($this->post('create', $this->form())));
+        $created = $this->payload($this->controller()->createAction($this->postTo('create', $this->form())));
         self::assertTrue($created['success']);
         $uid  = (int) $created['uid'];
         $hash = $this->db('tx_nrllm_a2a_client')->select(['token_hash'], 'tx_nrllm_a2a_client', ['uid' => $uid])->fetchOne();
 
         $this->setUpBackendUser(1);
         foreach ([$uid, 9999] as $target) {
-            $response = $this->controller()->issueAction($this->post('issue', ['uid' => $target]));
+            $response = $this->controller()->issueAction($this->postTo('issue', ['uid' => $target]));
             self::assertSame(422, $response->getStatusCode(), (string) $target);
             self::assertArrayNotHasKey('token', $this->payload($response));
         }
@@ -111,7 +111,7 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
     {
         $this->setUpBackendUser(20);
 
-        $response = $this->controller()->createAction($this->post('create', $this->form() + ['be_user' => 7, 'self_service' => 0, 'uid' => 1, 'task_limit' => 1000, 'enabled' => 0]));
+        $response = $this->controller()->createAction($this->postTo('create', $this->form() + ['be_user' => 7, 'self_service' => 0, 'uid' => 1, 'task_limit' => 1000, 'enabled' => 0]));
         $payload  = $this->payload($response);
 
         self::assertSame(200, $response->getStatusCode());
@@ -120,7 +120,8 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         $row = $this->db('tx_nrllm_a2a_client')->select(['*'], 'tx_nrllm_a2a_client', ['uid' => $payload['uid']])->fetchAssociative();
         self::assertIsArray($row);
         self::assertSame([20, 1, 4, 1, '1'], [(int) $row['be_user'], (int) $row['self_service'], (int) $row['task_limit'], (int) $row['enabled'], $row['profiles']]);
-        self::assertSame(hash('sha256', (string) $payload['token']), $row['token_hash']);
+        self::assertIsString($payload['token']);
+        self::assertSame(hash('sha256', $payload['token']), $row['token_hash']);
     }
 
     #[Test]
@@ -129,8 +130,8 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         $this->setUpBackendUser(20);
         $before = $this->rows('tx_nrllm_a2a_client');
 
-        foreach ([['profiles' => [3]], ['days' => 500], ['days' => 0], ['workspace' => 0], ['title' => ' ']] as $override) {
-            $response = $this->controller()->createAction($this->post('create', $override + $this->form()));
+        foreach ([['profiles' => [3]], ['days' => 500], ['days' => 0], ['days' => 10 ** 15], ['workspace' => 0], ['title' => ' ']] as $override) {
+            $response = $this->controller()->createAction($this->postTo('create', $override + $this->form()));
             self::assertSame(422, $response->getStatusCode(), json_encode($override, JSON_THROW_ON_ERROR));
             self::assertArrayNotHasKey('token', $this->payload($response));
         }
@@ -144,11 +145,11 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         $before = $this->rows('tx_nrllm_a2a_client');
 
         $this->setUpBackendUser(24);
-        self::assertSame(403, $this->controller()->createAction($this->post('create', $this->form()))->getStatusCode());
+        self::assertSame(403, $this->controller()->createAction($this->postTo('create', $this->form()))->getStatusCode());
 
         // The administrator passes the grant check and is refused by the service.
         $this->setUpBackendUser(1);
-        self::assertSame(422, $this->controller()->createAction($this->post('create', $this->form()))->getStatusCode());
+        self::assertSame(422, $this->controller()->createAction($this->postTo('create', $this->form()))->getStatusCode());
 
         self::assertSame($before, $this->rows('tx_nrllm_a2a_client'));
     }
@@ -157,22 +158,22 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
     public function anEditorRevokesOnlyTheirOwnTokenAndAnAdministratorAnyToken(): void
     {
         $this->setUpBackendUser(21);
-        $theirs = (int) $this->payload($this->controller()->createAction($this->post('create', $this->form())))['uid'];
+        $theirs = (int) $this->payload($this->controller()->createAction($this->postTo('create', $this->form())))['uid'];
 
         $this->setUpBackendUser(20);
         foreach ([$theirs, 1] as $foreign) {
-            self::assertSame(422, $this->controller()->revokeAction($this->post('revoke', ['uid' => $foreign]))->getStatusCode(), (string) $foreign);
+            self::assertSame(422, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => $foreign]))->getStatusCode(), (string) $foreign);
             self::assertSame(1, (int) $this->db('tx_nrllm_a2a_client')->select(['enabled'], 'tx_nrllm_a2a_client', ['uid' => $foreign])->fetchOne(), (string) $foreign);
         }
 
         $this->setUpBackendUser(1);
-        self::assertSame(200, $this->controller()->revokeAction($this->post('revoke', ['uid' => $theirs]))->getStatusCode());
+        self::assertSame(200, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => $theirs]))->getStatusCode());
         $row = $this->db('tx_nrllm_a2a_client')->select(['enabled', 'token_hash'], 'tx_nrllm_a2a_client', ['uid' => $theirs])->fetchAssociative();
         self::assertIsArray($row);
         self::assertSame([0, ''], [(int) $row['enabled'], $row['token_hash']]);
 
         $this->setUpBackendUser(24);
-        self::assertSame(403, $this->controller()->revokeAction($this->post('revoke', ['uid' => 1]))->getStatusCode());
+        self::assertSame(403, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => 1]))->getStatusCode());
     }
 
     private function controller(): A2aTokenAjaxController
@@ -194,7 +195,7 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
     /**
      * @param array<string, mixed> $body
      */
-    private function post(string $action, array $body): ServerRequest
+    private function postTo(string $action, array $body): ServerRequest
     {
         return (new ServerRequest('https://typo3-testing.local/typo3/ajax/nrllm/a2a-token/' . $action, 'POST'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Service\Agent\A2a\Command\A2aClientTokenCommand;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aClientTokenAdministration;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClient;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
@@ -28,8 +29,11 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\AbstractLogger;
 use Stringable;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Tester\CommandTester;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -385,6 +389,55 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         }
     }
 
+    #[Test]
+    public function anEditorHoldsAtMostTenActiveTokensAndARevokedOrExpiredOneFreesASlot(): void
+    {
+        $uids = [];
+        for ($i = 0; $i < A2aSelfServiceTokens::MAX_ACTIVE_PER_OWNER; ++$i) {
+            $uids[] = $this->issue(20);
+        }
+
+        $this->expectRefusal(fn () => $this->issue(20), 'the eleventh token', 'already hold');
+        self::assertGreaterThan(0, $this->issue(21), 'the cap is per owner');
+
+        $this->getService(A2aSelfServiceTokens::class)->revokeOwn($this->user(20), $uids[0]);
+        $uids[0] = $this->issue(20);
+
+        $this->expectRefusal(fn () => $this->issue(20), 'full again', 'already hold');
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['expires' => time() - 10], ['uid' => $uids[1]]);
+        self::assertGreaterThan(0, $this->issue(20), 'an expired token does not count');
+    }
+
+    #[Test]
+    public function theCommandIssuesTechnicalClientsAndRefusesAnEditorsOwnRecord(): void
+    {
+        $self   = $this->issue(20);
+        $hash   = $this->db('tx_nrllm_a2a_client')->select(['token_hash'], 'tx_nrllm_a2a_client', ['uid' => $self])->fetchOne();
+        $tester = new CommandTester(new A2aClientTokenCommand($this->getService(A2aInboundClientRepository::class)));
+
+        self::assertSame(Command::FAILURE, $tester->execute(['client' => (string) $self]));
+        self::assertStringContainsString('owner', $tester->getDisplay());
+        self::assertSame($hash, $this->db('tx_nrllm_a2a_client')->select(['token_hash'], 'tx_nrllm_a2a_client', ['uid' => $self])->fetchOne(), 'nothing was issued');
+        self::assertTrue($this->accepted($this->send($self)), 'the editor\'s token still works');
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['client' => '1']));
+        $this->tokens[1] = trim($tester->getDisplay());
+        self::assertTrue($this->accepted($this->send(1)), 'a technical client gets a working token');
+    }
+
+    #[Test]
+    public function theAuditLineReachesAFileUnderTheDefaultLoggingConfiguration(): void
+    {
+        $this->getService(A2aTokenAudit::class)->record('issued for the actor own account', $this->user(20), 4711);
+
+        $files = glob(Environment::getVarPath() . '/log/*nrllm-a2a-token-audit*.log');
+        self::assertIsArray($files);
+        self::assertNotSame([], $files, 'TYPO3 drops INFO by default; the extension configures the channel');
+        $content = implode("\n", array_map(static fn (string $file): string => (string) file_get_contents($file), $files));
+        self::assertStringContainsString('A2A client token issued for the actor own account', $content);
+        self::assertStringContainsString('"client":4711', $content);
+    }
+
     // --- helpers -------------------------------------------------------
 
     /**
@@ -430,6 +483,9 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         return is_array($reply['result'] ?? null);
     }
 
+    /**
+     * @param callable(): mixed $call
+     */
     private function expectRefusal(callable $call, string $case, string $messageContains = ''): void
     {
         try {

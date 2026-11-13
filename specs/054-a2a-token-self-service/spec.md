@@ -11,11 +11,13 @@ administrator-made technical user per editor.
 ## Requirements
 
 - **T1 Issue and rotate.** An administrator issues and rotates the token of
-  any client record from the backend module `nrllm_a2atokens`, through an AJAX
+  any technical-user client record from the backend module `nrllm_a2atokens`, through an AJAX
   route that checks the administrator flag itself and carries the core's route
   token. The token is shown once, in the response (`no-store`), never in a
   flash message or a redirect. The CLI command stays. Each issuing is logged
-  with actor, original user, record and time, never the token.
+  at level INFO, in a file of its own that the extension configures (TYPO3's
+  default drops INFO), with actor, original user, record and time, never the
+  token.
 - **T2 Self-service record.** A record with `self_service = 1` and `be_user` =
   the editor who created it, written only by `A2aSelfServiceTokens`. The owner
   comes from the session. The table stays `adminOnly`; a DataHandler write
@@ -35,9 +37,13 @@ administrator-made technical user per editor.
 - **T6 Scoping.** An editor sees and revokes only their own records; another
   user's record answers like a missing one. An administrator sees every record
   with owner, kind, creation, expiry, status and last task, and revokes any.
-- **T7 Unchanged.** Technical-user records, the CLI command, the owner scoping
-  of tasks by the record's uid, and the rule that an administrator cannot be
-  the acting user.
+- **T7 Unchanged.** Technical-user records, the CLI command for them, the
+  owner scoping of tasks by the record's uid, and the rule that an
+  administrator cannot be the acting user. The CLI command and the
+  administrator's operation refuse a self-service record: its token is issued
+  by its owner.
+- **T8 Bounded.** An editor holds at most ten active self-service tokens
+  (enabled, with a token, not expired).
 
 ## Not in scope
 
@@ -54,4 +60,5 @@ administrator-made technical user per editor.
 | T2, T3 | `A2aSelfServiceEnforcementTest` (functional): owner from the session, administrator and a user without the grant refused, the flag stripped from a DataHandler write; `A2aTokenAjaxControllerTest`: a claimed owner in the request is ignored |
 | T4, T5 | `A2aSelfServiceLimitsTest` and `A2aSelfServicePolicyTest` (unit): the merge and each limit in both directions; `A2aSelfServiceEnforcementTest` (functional): save time and request time per limit, start and resume of a run, a grant on a subgroup |
 | T6 | `A2aSelfServiceEnforcementTest`, `A2aTokenControllerTest`, `A2aTokenAjaxControllerTest` (functional) |
+| T8 | `A2aSelfServiceEnforcementTest::anEditorHoldsAtMostTenActiveTokens...` |
 | T7 | existing `A2aEndpointTest`, `A2aSendMessageTest`, `A2aMultiTurnTest`, unchanged, and `A2aSelfServiceEnforcementTest::aTechnicalUserRecordIsReadAsStored` |

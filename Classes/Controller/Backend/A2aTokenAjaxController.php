@@ -45,6 +45,8 @@ final class A2aTokenAjaxController
     use DefensiveLocalizationTrait;
     use RequiresBackendAdminTrait;
 
+    private const MAX_REQUESTED_DAYS = 36500;
+
     public function __construct(
         private readonly A2aSelfServiceTokens $selfService,
         private readonly A2aClientTokenAdministration $administration,
@@ -63,7 +65,9 @@ final class A2aTokenAjaxController
         $body = $request->getParsedBody();
         $body = is_array($body) ? $body : [];
         $now  = time();
-        $days = $this->int($body['days'] ?? 0);
+        // Far beyond any limit, so the product below stays an int; the policy
+        // refuses what the groups do not allow.
+        $days = min(max($this->int($body['days'] ?? 0), 0), self::MAX_REQUESTED_DAYS);
         $uids = $body['profiles'] ?? [];
 
         try {

@@ -22,7 +22,9 @@ use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentSaveHook;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook;
 use Netresearch\NrLlm\Service\Tool\Change\ObservedChangeHook;
+use Psr\Log\LogLevel;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
+use TYPO3\CMS\Core\Log\Writer\FileWriter;
 
 defined('TYPO3') || exit;
 
@@ -186,6 +188,15 @@ defined('TYPO3') || exit;
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['dashboard']['widgetGroups']['nrllm'] ??= [
         'title' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_dashboard.xlf:widgetGroup.nrllm.title',
+    ];
+
+    // The audit line of every A2A token issuing, rotation and revocation
+    // (ADR-294) is level INFO, and TYPO3's default writes WARNING and above
+    // only, so without this it would be dropped. Its own file, so it is not
+    // lost among the rest; an installation overrides the channel like any other.
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['LOG']['Netresearch']['NrLlm']['Service']['Agent']['A2a']['Server']['A2aTokenAudit']['writerConfiguration'][LogLevel::INFO] ??= [
+        FileWriter::class => ['logFileInfix' => 'nrllm-a2a-token-audit'],
     ];
 
     // Capability grants for human backend users (ADR-130): assigned per
