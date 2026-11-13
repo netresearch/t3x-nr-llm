@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\Agent\Queue\WorkerClock;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -118,6 +119,7 @@ final class WorkAgentQueueCommand extends Command
                     continue;
                 }
 
+                WorkerClock::set();
                 $result = $this->runtime->runQueued($run->uuid, function (RunStep $step): void {
                     if (time() - $this->lastTick >= $this->stepTickInterval) {
                         $this->tick();

@@ -68,6 +68,12 @@ enum AgentEventKind: string
     // table and uid, recorded after the highlight builtin's tool step. A
     // RunStep kind.
     case HIGHLIGHT = 'highlight';
+    // The records the DataHandler runs of one tool call wrote (ADR-292):
+    // identity, stored workspace, language, hidden flag and restrictions, and
+    // the coverage the list claims. A RunStep kind, recorded after the tool
+    // step it belongs to. Read it back with
+    // {@see \Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet::tryFromEventPayload()}.
+    case TOOL_CHANGES = 'tool_changes';
 
     /**
      * @return list<string>

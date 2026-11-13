@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\BackendUserGrant;
+use Netresearch\NrLlm\Domain\Enum\ChangeAction;
+use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
@@ -24,6 +26,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
@@ -289,6 +292,20 @@ final class WritePathAcceptanceTest extends AbstractFunctionalTestCase
         self::assertSame('update_page_metadata', $tool->payload['toolName'] ?? null);
         self::assertNotTrue($tool->payload['toolIsError'] ?? null, 'the write itself must not be an error step');
         self::assertGreaterThan($approval->sequence, $tool->sequence, 'the decision precedes the execution it authorised');
+
+        // 9. The change list is a stored event after the tool step, and a consumer
+        //    of events() reads it back without parsing arrays (ADR-292).
+        $write   = $this->firstEventOfKind($events, AgentEventKind::TOOL_WRITE);
+        $changes = $this->firstEventOfKind($events, AgentEventKind::TOOL_CHANGES);
+        self::assertGreaterThan($write->sequence, $changes->sequence, 'the list follows the tool step and its write step');
+        $set = ObservedChangeSet::tryFromEventPayload($changes->payload);
+        self::assertInstanceOf(ObservedChangeSet::class, $set);
+        self::assertSame(ChangeCoverage::DATAHANDLER, $set->coverage);
+        self::assertCount(1, $set->changes);
+        self::assertSame('pages:' . self::PAGE, (string) $set->changes[0]->record);
+        self::assertSame(ChangeAction::UPDATED, $set->changes[0]->action);
+        self::assertTrue($set->changes[0]->isWriteTarget);
+        self::assertSame(0, $set->changes[0]->workspace);
     }
 
     /**

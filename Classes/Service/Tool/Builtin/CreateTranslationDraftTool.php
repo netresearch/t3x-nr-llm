@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
+use Netresearch\NrLlm\Service\Tool\PendingLanguageInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
@@ -98,7 +99,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
  * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, type:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, PendingLanguageInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use ErrorMessageSanitizerTrait;
@@ -750,6 +751,21 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;
+    }
+
+    /**
+     * The language the translation is written in, as the call names it
+     * (ADR-292): a positive `sys_language_uid`, the only value the call is
+     * accepted with.
+     */
+    public function pendingLanguage(array $arguments): ?int
+    {
+        $language = $arguments['language'] ?? null;
+        if (is_string($language) && preg_match('/\A[1-9]\d{0,9}\z/', $language) === 1) {
+            $language = (int) $language;
+        }
+
+        return is_int($language) && $language > 0 ? $language : null;
     }
 
     public function getEffect(): ToolEffect

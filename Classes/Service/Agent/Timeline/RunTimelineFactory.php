@@ -94,6 +94,11 @@ final readonly class RunTimelineFactory
         'hookFailedAfterWrite',
         // Why an offered tool did not run (ADR-246): a code, not the text.
         'toolRefusal',
+        // How many records a call's DataHandler runs wrote and how far that
+        // list reaches (ADR-292): counts and a code, never the records.
+        'changeCount',
+        'changeCoverage',
+        'changesOmitted',
     ];
 
     public function __construct(

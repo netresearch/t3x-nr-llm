@@ -104,7 +104,12 @@ Lifecycle methods
 
 ``events($actor, $runUuid, $afterSequence = -1)``
     Returns events in ascending sequence order, strictly after the supplied
-    cursor. An empty list alone does not prove that the run exists.
+    cursor. An empty list alone does not prove that the run exists. An event
+    of the kind ``tool_changes`` lists the records one tool call changed;
+    :php:`ObservedChangeSet::tryFromEventPayload()` reads its payload. The list
+    is what DataHandler runs reported and is never complete (:ref:`adr-292`).
+    It names table and uid of records the viewer of the run may not be able to
+    read: check the viewer's right to each record before showing it.
 
 .. _api-agent-runtime-boundaries:
 

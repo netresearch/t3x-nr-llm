@@ -76,6 +76,8 @@ use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
+use Netresearch\NrLlm\Service\Tool\Change\ChangeSets;
+use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
@@ -3095,12 +3097,21 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // call's to report (ADR-206).
         ToolDataHandler::takeFailures();
 
+        // The records the call's DataHandler runs write (ADR-292), taken on
+        // every way out of the call: a call that throws after it wrote is the
+        // one whose records a reader most needs to find.
+        ToolChangeCollector::arm();
+
         try {
             $executed = true;
             $result   = $this->writeEnvironment instanceof WorkerWriteEnvironment && !$this->effects()->declaresRead($call->name)
                 ? $this->writeEnvironment->around($context->actingBackendUser(), static fn (): ToolResult => $tool->execute($call->arguments, $context))
                 : $tool->execute($call->arguments, $context);
         } catch (ToolDependencyPendingException $pending) {
+            // Control flow, not a result: the call is not recorded, so neither
+            // are its changes.
+            ToolChangeCollector::take();
+
             // Control flow (ADR-281), not a failure of the tool: the caller
             // suspends the run. Only a dependency tool may raise it.
             if (!$tool instanceof DependencyToolInterface) {
@@ -3120,8 +3131,21 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 ['exception' => $e],
             );
 
-            return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name));
+            // The result stays an error and carries no target (ADR-182); what
+            // the call wrote before it failed is recorded beside it and named
+            // to the model, which would otherwise retry a half-done write.
+            $changes = ToolChangeCollector::take();
+            ToolChangeCollector::hold($changes);
+            $note = ChangeSets::failureNote($changes);
+
+            return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name) . ($note === '' ? '' : ' ' . $note));
         }
+
+        // A tool that returns an error after it wrote says so to the model as a
+        // thrown one does: the retry of a half-done write is the same mistake.
+        $changes = ToolChangeCollector::take($result->writeTarget);
+        ToolChangeCollector::hold($changes);
+        $writtenBeforeFailure = $result->isError ? ChangeSets::failureNote($changes) : '';
 
         // Transform, never rebuild (ADR-182). A ToolResult reconstructed from a
         // subset of its properties drops everything the subset omits — the shape
@@ -3137,7 +3161,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // as the tool stated it.
         $failures = ToolDataHandler::takeFailures();
         $bounded  = $result->withBoundedChannels(
-            $this->bounder->content($this->hookFailureNote($failures) . $result->content),
+            $this->bounder->content($this->hookFailureNote($failures) . ($writtenBeforeFailure === '' ? '' : $writtenBeforeFailure . ' ') . $result->content),
             $this->bounder->artifacts($result->artifacts),
         );
         if ($failures !== []) {

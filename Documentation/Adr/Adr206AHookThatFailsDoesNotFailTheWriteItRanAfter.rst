@@ -11,6 +11,7 @@ ADR-206: A hook that fails does not fail the write it ran after
 
 :Status: Accepted
 :Date: 2026-09-24
+:Amended: 2026-11-12 by :ref:`ADR-292 <adr-292>` (the answer of a call that failed after it wrote names the records written before the failure)
 :Authors: Netresearch DTT GmbH
 
 Context

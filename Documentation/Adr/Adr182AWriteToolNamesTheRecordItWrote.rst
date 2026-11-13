@@ -14,7 +14,7 @@ ADR-182: A write tool names the record it wrote
     decided by :ref:`ADR-214 <adr-214>`; implemented)
 :Date: 2026-08-21
 :Amends: :ref:`ADR-122 <adr-122>` (the deferral whose premise expired)
-:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (write completeness)
+:Amended: 2026-10-08 by :ref:`ADR-214 <adr-214>` (write completeness); 2026-11-12 by :ref:`ADR-292 <adr-292>` (a run step lists what the DataHandler runs of a call wrote; ``ToolResult`` stays one target)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-182-context:

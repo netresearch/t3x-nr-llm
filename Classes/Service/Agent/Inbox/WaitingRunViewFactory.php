@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\PendingLanguageInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
@@ -30,6 +31,8 @@ use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * Turns persisted {@see AgentRun}s into the logic-free view models the approvals
@@ -56,6 +59,9 @@ final readonly class WaitingRunViewFactory
         private PendingTurnDigest $digest,
         // Words the withheld-preview line for the viewer (ADR-213).
         private ApprovalPreviewTranslator $translator,
+        // Reads the title of the workspace a card names (ADR-292). Without it a
+        // card states the workspace by its id only.
+        private ?ConnectionPool $connectionPool = null,
     ) {}
 
     /**
@@ -244,6 +250,11 @@ final readonly class WaitingRunViewFactory
                     ? []
                     : $this->structuredPreview($tool, $call->arguments, $viewer),
                 refusedByRule: $refusedByRule,
+                // ADR-292: where the call writes, as values. The title only
+                // for a viewer who may work in that workspace, as the lines.
+                workspaceId: $runWorkspace,
+                workspaceTitle: $this->viewerMayWorkIn($runWorkspace, $viewer) ? $this->workspaceTitle($runWorkspace) : '',
+                language: $this->pendingLanguage($tool, $call->arguments),
             );
         }
 
@@ -259,6 +270,50 @@ final readonly class WaitingRunViewFactory
             turnDigest: $this->digest->forState($state),
             pendingCalls: $calls,
         );
+    }
+
+    /**
+     * The title of a workspace, or '' for live and for one that has none or
+     * cannot be read (ADR-292). One query per card.
+     */
+    private function workspaceTitle(int $workspace): string
+    {
+        if ($workspace < 1 || !$this->connectionPool instanceof ConnectionPool) {
+            return '';
+        }
+
+        try {
+            $query = $this->connectionPool->getQueryBuilderForTable('sys_workspace');
+            $title = $query
+                ->select('title')
+                ->from('sys_workspace')
+                ->where($query->expr()->eq('uid', $query->createNamedParameter($workspace, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne();
+        } catch (Throwable) {
+            return '';
+        }
+
+        return is_string($title) ? trim($title) : '';
+    }
+
+    /**
+     * The language a pending call writes in, where its tool names one, or null
+     * (ADR-292). A tool that throws here has no language on the card.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function pendingLanguage(?ToolInterface $tool, array $arguments): ?int
+    {
+        if (!$tool instanceof PendingLanguageInterface) {
+            return null;
+        }
+
+        try {
+            return $tool->pendingLanguage($arguments);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

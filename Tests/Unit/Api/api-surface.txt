@@ -197,6 +197,27 @@ Netresearch\NrLlm\Domain\Enum\CapabilitySource (enum)
   property readonly name: string
   property readonly value: string
 
+Netresearch\NrLlm\Domain\Enum\ChangeAction (enum)
+  case CREATED = "created"
+  case DELETED = "deleted"
+  case MOVED = "moved"
+  case RESTORED = "restored"
+  case UPDATED = "updated"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
+Netresearch\NrLlm\Domain\Enum\ChangeCoverage (enum)
+  case DATAHANDLER = "datahandler"
+  case NOT_CAPTURED = "not_captured"
+  method static cases(): array
+  method static from(int|string $value): static
+  method static tryFrom(int|string $value): ?static
+  property readonly name: string
+  property readonly value: string
+
 Netresearch\NrLlm\Domain\Enum\GuardrailVerdict (enum)
   case ALLOW = "allow"
   case DENY = "deny"
@@ -1199,6 +1220,30 @@ Netresearch\NrLlm\Domain\ValueObject\ModelResolution (class)
   method static withoutDecision(?Netresearch\NrLlm\Domain\Model\Model $model): self
   property readonly model: ?Netresearch\NrLlm\Domain\Model\Model
   property readonly routingSummary: ?Netresearch\NrLlm\Domain\ValueObject\RoutingSummary
+
+Netresearch\NrLlm\Domain\ValueObject\ObservedChange (class)
+  const RESTRICTIONS = array
+  constructor(Netresearch\NrLlm\Domain\ValueObject\RecordReference $record, Netresearch\NrLlm\Domain\Enum\ChangeAction $action, int $workspace = …, ?int $liveUid = …, ?int $language = …, bool $isWriteTarget = …, ?bool $hidden = …, array $restrictions = …)
+  method isDraft(): bool
+  method static tryFromArray(array $data): ?self
+  method toArray(): array
+  property readonly action: Netresearch\NrLlm\Domain\Enum\ChangeAction
+  property readonly hidden: ?bool
+  property readonly isWriteTarget: bool
+  property readonly language: ?int
+  property readonly liveUid: ?int
+  property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
+  property readonly restrictions: array
+  property readonly workspace: int
+
+Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet (class)
+  const LIMIT = 50
+  constructor(array $changes = …, Netresearch\NrLlm\Domain\Enum\ChangeCoverage $coverage = …, int $omitted = …)
+  method static tryFromEventPayload(array $payload): ?self
+  method toArray(): array
+  property readonly changes: array
+  property readonly coverage: Netresearch\NrLlm\Domain\Enum\ChangeCoverage
+  property readonly omitted: int
 
 Netresearch\NrLlm\Domain\ValueObject\OperationUsage (class)
   constructor(string $operation, int $calls, int $failedCalls, int $lastCallAt)
@@ -2366,6 +2411,9 @@ Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectCredential (class)
 
 Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectResolverInterface (interface)
   method resolve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpDelegationProfile $profile, string $audience, array $scopes): Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectCredential
+
+Netresearch\NrLlm\Service\Tool\PendingLanguageInterface (interface)
+  method pendingLanguage(array $arguments): ?int
 
 Netresearch\NrLlm\Service\Tool\PendingTargetInterface (interface)
   method pendingTarget(array $arguments): ?Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget
