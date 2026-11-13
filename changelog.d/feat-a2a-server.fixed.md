@@ -1,1 +1,0 @@
-- A2A task view: a bound run that fails, is cancelled, ends while it waits, or is claimed by a worker now reaches `tx_nrllm_a2a_task` in the same transaction; before, only its completion did.

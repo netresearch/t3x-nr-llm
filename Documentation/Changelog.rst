@@ -27,57 +27,49 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-44-0:
+.. _version-0-45-0:
 
-Version 0.44.0 (2026-11-12)
+Version 0.45.0 (2026-11-13)
 ===========================
 
-A configuration can have its texts checked against a rule set by a second
-model, a table task can send its rows as TOON, EXT:autotranslate can translate
-through nr-llm, and an agent run stores what its model calls cost. nr-llm
-now requires nr-vault 1.5. Run the TYPO3 database schema update after
-updating.
+nr-llm can now act as an A2A server: registered Agent2Agent 1.0 clients send
+tasks, answer a question the run asks, and, for a profile marked *May write*,
+have drafts written into a pinned draft workspace. A configuration can require
+a draft workspace for changes, and a run records which records a tool call
+changed. Secret-shaped strings, including TYPO3 preview tokens, are now masked
+on the paths that skipped the shared catalogue. nr-llm requires nr-vault 1.5.1.
+Run the TYPO3 database schema update after updating.
 
-- **Rule-set judge (ADR-288):** a configuration can have its texts checked
-  against a rule set by a second, small model. The rule set is the snippets
-  carrying the selected tags; mode ``report`` delivers the text with a hint
-  that quotes the broken rule and the passage, mode ``block`` stops it. Off by
-  default. ``tx_nrllm_configuration`` gains ``rule_judge_mode``,
-  ``rule_judge_tags`` and ``rule_judge_configuration``.
-- **Guardrail configurations (ADR-290):** a caller can name further
-  configurations with ``withGuardrailConfigurations()``; their term lists
-  screen the call as well, and the rule-set judge of each one applies, the
-  strictest mode deciding. The backend AI chat uses it so that a site with its
-  own configuration keeps the chat's bans.
-- **TOON table input (ADR-286):** with ``"format":"toon"`` in a table task's
-  ``input_source`` the rows go to the model in TOON instead of JSON; on the
-  first 50 rows of five demo tables this needed 45 to 71 % fewer tokens.
-- **EXT:autotranslate (ADR-289):** its ``translatorClass`` can name
-  ``Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator``,
-  which translates through the nr-llm translator in the setting
-  ``autotranslate.translator`` and refuses a blank, cut-off or markup-only
-  answer instead of storing it.
-- **A2A client (spec 051, stages 1 and 2):** an administrator can register a remote
-  agent that speaks Agent2Agent 1.0, import its card with
-  ``nrllm:a2a:import``, and send it a message with ``nrllm:a2a:send``. Nothing
-  is sent unless an agent is registered. Requests go through the address
-  guard and are pinned to the checked addresses, which needs
-  ``netresearch/nr-vault`` 1.5. Stage 2 lets an agent run delegate a step to
-  a skill of an enabled remote agent and wait in the new status
-  ``waiting_for_dependency`` until ``nrllm:a2a:poll`` continues it; while
-  nr_mcp_agent is installed no delegation tool is offered. New tables
-  ``tx_nrllm_a2a_task`` and ``tx_nrllm_a2a_event``.
-- **Run cost:** an agent run stores what its model calls cost, also across an
-  approval or input pause. Before, every run stored a cost of 0; a run whose
-  cost is unknown now shows "Unknown".
-- **Failed approved writes:** a background batch offers a record again when its
-  card was approved but the write failed, and the Agent Runs module marks a
-  finished run whose tool call failed.
-- **Head editors (ADR-277):** the new grant ``usage_view_groups`` and the group
-  field *AI usage visible for groups* open the module *AI usage of my groups*.
-  ``be_groups`` gains ``tx_nrllm_usage_visible_groups``.
-- An approval or input in the Agent Runs inbox streams a line per step, so a
-  reverse proxy's read timeout counts one step instead of the whole
-  continuation (ADR-276).
-- Workspace writers ask an inline owner as the run's workspace shows it, and
-  approval cards name a content element without a header by its type and UID.
+- **A2A server (spec 051, stages 3 and 4):** with ``a2a.server.enabled`` set and
+  a site that names ``nrllm.a2a.baseUrl``, registered clients reach an agent
+  card and the JSON-RPC methods ``SendMessage``, ``GetTask``, ``ListTasks`` and
+  ``CancelTask``. A client is a record with a bearer token (stored as a hash)
+  and runs its tasks as a technical backend user in its pinned workspace. A task
+  whose run asks a question is ``INPUT_REQUIRED``; the client answers with a
+  ``SendMessage`` that names the task. A profile marked *May write* may use the
+  profile's writing tools, which write drafts into the client's pinned draft
+  workspace only. The server role is off by default and accepts a task only
+  while a worker can be shown to run. New tables ``tx_nrllm_a2a_client``,
+  ``tx_nrllm_a2a_profile``, ``tx_nrllm_a2a_dedup``, ``tx_nrllm_a2a_wait_slot``
+  and ``tx_nrllm_a2a_write``.
+- **Durable decisions (ADR-281):** a decision on a waiting run can be stored and
+  carried out by the queue worker; the two paths cannot both win one pause.
+- **Draft workspace for changes (ADR-293):** a configuration can require a draft
+  workspace (``require_draft_workspace``, off by default). With it on, a write
+  by a run outside a draft workspace is refused before an approval card is
+  shown and again right before the call runs, administrators included.
+- **Changes of a tool call (ADR-292):** a run records a ``tool_changes`` step
+  that lists the records the call wrote, also when the call then fails, and the
+  approval card states workspace, workspace title and language of the call.
+- **Secret shapes masked on more paths (ADR-123):** the ``probe_url`` and
+  ``get_last_exception`` reports, MCP tool results, A2A delegation, the
+  Responses API failure message, specialized-service errors and log lines, the
+  provider connection test, the stored conversation transcript, the Tool
+  Playground guardrail reason and embedding input now pass through the shared
+  catalogue. The approval card of ``fetch_external_url`` still shows the real
+  URL to the approver.
+- **nr-vault 1.5.1** is required: its catalogue masks TYPO3 workspace preview
+  tokens (``ADMCMD_prev=<token>``).
+- **Fixes:** the queue worker refreshes the TYPO3 clock before every queued run,
+  a failed or cancelled run reaches the A2A task view, and the A2A task store
+  keeps a string under a structural member only in the member's protocol form.
