@@ -59,7 +59,8 @@ Run the TYPO3 database schema update after updating.
   by a run outside a draft workspace is refused before an approval card is
   shown and again right before the call runs, administrators included.
 - **Changes of a tool call (ADR-292):** a run records a ``tool_changes`` step
-  that lists the records the call wrote, also when the call then fails, and the
+  that lists the records the DataHandler runs of the call reported as written,
+  also when the call then fails; the list is not necessarily complete. The
   approval card states workspace, workspace title and language of the call.
 - **Secret shapes masked on more paths (ADR-123):** the ``probe_url`` and
   ``get_last_exception`` reports, MCP tool results, A2A delegation, the
