@@ -487,7 +487,7 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
         $tool = $this->stepOfKind($trace, RunStep::KIND_TOOL);
         self::assertTrue($tool->toolIsError);
-        self::assertStringStartsWith('Refused: the second step was not allowed. Before it failed this call changed: tt_content:' . self::ELEMENT . ' (updated)', (string) $tool->toolResult);
+        self::assertStringStartsWith('Before it failed this call changed: tt_content:' . self::ELEMENT . ' (updated). Check these records before retrying. Refused: the second step was not allowed.', (string) $tool->toolResult);
         $set = $this->changesStep($trace)->observedChanges;
         self::assertInstanceOf(ObservedChangeSet::class, $set);
         self::assertCount(1, $set->changes);

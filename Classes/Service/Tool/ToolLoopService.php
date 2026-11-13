@@ -3151,7 +3151,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // as the tool stated it.
         $failures = ToolDataHandler::takeFailures();
         $bounded  = $result->withBoundedChannels(
-            $this->bounder->content($this->hookFailureNote($failures) . $result->content . ($writtenBeforeFailure === '' ? '' : ' ' . $writtenBeforeFailure)),
+            $this->bounder->content($this->hookFailureNote($failures) . ($writtenBeforeFailure === '' ? '' : $writtenBeforeFailure . ' ') . $result->content),
             $this->bounder->artifacts($result->artifacts),
         );
         if ($failures !== []) {
