@@ -552,6 +552,50 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function executeRequestMasksSecretShapesInTheUpstreamErrorMessage(): void
+    {
+        $preview    = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat        = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['error' => ['message' => "rejected ?ADMCMD_prev={$preview} using {$pat}"]], 400));
+
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+        try {
+            $subject->callSendJsonRequest('endpoint', []);
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertStringContainsString('rejected', $e->getMessage());
+            self::assertStringNotContainsString($preview, $e->getMessage());
+            self::assertStringNotContainsString($pat, $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function executeRequestMasksSecretShapesInATransportFailureMessage(): void
+    {
+        $preview    = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat        = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException("cURL error for https://api.test/?ADMCMD_prev={$preview} {$pat}"));
+
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+        try {
+            $subject->callSendJsonRequest('endpoint', []);
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertStringContainsString('Failed to connect', $e->getMessage());
+            self::assertStringNotContainsString($preview, $e->getMessage());
+            self::assertStringNotContainsString($pat, $e->getMessage());
+        }
+    }
+
+    #[Test]
     public function executeRequestWrapsTransportExceptionAsServiceUnavailable(): void
     {
         $httpClient = $this->createMock(ClientInterface::class);

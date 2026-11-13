@@ -261,6 +261,26 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
     }
 
     /**
+     * Screen the text of an embedding request through the input guardrails
+     * before it reaches the provider and before the cache key is built from it.
+     * It leaves for a provider like a prompt does, so a REDACT rewrites it and a
+     * DENY / REQUIRE_APPROVAL throws; with no guardrails registered it is
+     * returned as it came.
+     *
+     * @param string|array<int, string> $input
+     *
+     * @return string|array<int, string>
+     */
+    private function screenEmbeddingInput(string|array $input): string|array
+    {
+        if (is_string($input)) {
+            return $this->screenInputPrompt($input);
+        }
+
+        return array_map($this->screenInputPrompt(...), $input);
+    }
+
+    /**
      * Apply the system prompt to the outgoing messages, then screen the final
      * assembled list through the input guardrails (ADR-089) — so a secret in the
      * system prompt is redacted before the provider sees it, closing the gap
@@ -745,6 +765,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function embed(string|array $input, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
+        $input = $this->screenEmbeddingInput($input);
         $options ??= new EmbeddingOptions();
         [$providerKey, $optionsArray]                 = $this->splitProviderKey($options->toArray());
         [$configuration, $providerKey, $optionsArray] = $this->applyDefaultConfiguration($providerKey, $optionsArray);
@@ -1169,6 +1190,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function embedForConfiguration(string|array $input, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
+        $input = $this->screenEmbeddingInput($input);
         $options ??= new EmbeddingOptions();
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);

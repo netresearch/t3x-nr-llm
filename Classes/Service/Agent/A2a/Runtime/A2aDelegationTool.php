@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\Tool\RemoteApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 
 /**
  * Delegates a step of a run to one skill of a remote A2A agent (spec 051
@@ -50,7 +51,8 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
  * 1. The record is read again and must be usable; the run must be persisted,
  *    because a checkpoint needs a run; the run's delegations to this agent
  *    must be below the record's limit (A2A-R7, counted in the journal).
- * 2. The message is sent with `return_immediately` true, through the
+ * 2. The message passes the shared secret redactor, because it leaves for a
+ *    third party, and is sent with `return_immediately` true, through the
  *    send-intent journal (A2A-C4).
  * 3. A message answer or a task already in a terminal or interrupted state is
  *    the tool result. A refusal and an unknown outcome are error results; an
@@ -64,6 +66,8 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
  */
 final readonly class A2aDelegationTool implements DependencyToolInterface, RemoteApprovalInterface, ToolDataClassInterface, ToolEffectInterface
 {
+    use SecretShapeRedactorTrait;
+
     public const NAME_PREFIX = 'a2a_';
 
     public function __construct(
@@ -158,7 +162,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             $outcome = $this->client->sendMessage(
                 $agent,
                 $owner,
-                A2aMessage::userText(A2aClient::newMessageId(), $text),
+                A2aMessage::userText(A2aClient::newMessageId(), $this->redactSecretShapes($text)),
                 A2aSendMessageConfiguration::returningImmediately(),
                 $run->uid,
             );

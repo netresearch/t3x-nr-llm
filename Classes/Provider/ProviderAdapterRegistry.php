@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException;
 use Netresearch\NrLlm\Provider\OpenAi\ModelRecordProfileResolver;
 use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use Netresearch\NrVault\Http\SecureHttpClientFactory;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -40,6 +41,8 @@ use TYPO3\CMS\Core\SingletonInterface;
  */
 final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface, SingletonInterface
 {
+    use SecretShapeRedactorTrait;
+
     /**
      * Mapping of adapter types to provider class names.
      *
@@ -385,12 +388,10 @@ final class ProviderAdapterRegistry implements ProviderAdapterRegistryInterface,
             // Use testConnection() which makes actual HTTP request and throws on failure
             return $adapter->testConnection();
         } catch (Throwable $e) {
-            // Sanitize error message to prevent leaking secrets (API keys in URLs, etc.)
-            $sanitized = (string) preg_replace(
-                '/([?&])(key|api_key|apikey|token|secret|access_token)=[^&\s]+/i',
-                '$1$2=***',
-                $e->getMessage(),
-            );
+            // The shared catalogue masks credential query parameters, bearer
+            // tokens and vendor key shapes; the registry used to carry one
+            // regex of its own for six parameter names.
+            $sanitized = $this->redactSecretShapes($e->getMessage());
 
             return [
                 'success' => false,

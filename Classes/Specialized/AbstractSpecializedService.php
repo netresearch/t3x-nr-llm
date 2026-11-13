@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Specialized\Exception\ServiceQuotaExceededException;
 use Netresearch\NrLlm\Specialized\Exception\ServiceUnavailableException;
 use Netresearch\NrLlm\Specialized\Exception\SpecializedServiceException;
 use Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use Netresearch\NrVault\Http\SecretPlacement;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Client\ClientInterface;
@@ -73,6 +74,7 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  */
 abstract class AbstractSpecializedService
 {
+    use SecretShapeRedactorTrait;
     use ServiceConfigurationTrait;
 
     protected string $apiKeyIdentifier = '';
@@ -884,7 +886,11 @@ abstract class AbstractSpecializedService
                 return $decoded;
             }
 
-            $errorMessage = $this->decodeErrorMessage($responseBody);
+            // Upstream error text can quote the credential or URL it rejected;
+            // it is masked once here, before the log line and the exception
+            // message built from it, and whatever a subclass's
+            // decodeErrorMessage() returned.
+            $errorMessage = $this->redactSecretShapes($this->decodeErrorMessage($responseBody));
 
             $this->logger->error(sprintf('%s API error', $this->getProviderLabel()), [
                 'status_code' => $statusCode,
@@ -899,12 +905,14 @@ abstract class AbstractSpecializedService
             // new subclass is covered by construction.
             throw $e;
         } catch (Throwable $e) {
+            $failure = $this->redactSecretShapes($e->getMessage());
+
             $this->logger->error(sprintf('%s API connection error', $this->getProviderLabel()), [
-                'exception' => $e->getMessage(),
+                'exception' => $failure,
             ]);
 
             throw new ServiceUnavailableException(
-                sprintf('Failed to connect to %s API: %s', $this->getProviderLabel(), $e->getMessage()),
+                sprintf('Failed to connect to %s API: %s', $this->getProviderLabel(), $failure),
                 $this->getServiceDomain(),
                 // A transport failure never reached the provider: status 0.
                 ['provider' => $this->getServiceProvider(), 'statusCode' => 0],
@@ -937,7 +945,7 @@ abstract class AbstractSpecializedService
             $this->logger->warning(sprintf('%s error response is not JSON', $this->getProviderLabel()), [
                 'provider' => $this->getServiceProvider(),
                 'message'  => $e->getMessage(),
-                'sample'   => substr($responseBody, 0, 200),
+                'sample'   => $this->redactSecretShapes(substr($responseBody, 0, 200)),
             ]);
 
             return sprintf('%s error response is not JSON', $this->getProviderLabel());

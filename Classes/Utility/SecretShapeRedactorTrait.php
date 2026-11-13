@@ -46,9 +46,18 @@ trait SecretShapeRedactorTrait
      */
     protected function redactSecretShapes(string $content): string
     {
+        return self::maskSecretShapes($content);
+    }
+
+    /**
+     * The fail-open masking of {@see self::redactSecretShapes()} for a static
+     * context, such as a result factory that has no instance to call it on.
+     */
+    protected static function maskSecretShapes(string $content): string
+    {
         $failed = false;
 
-        return $this->applySecretShapePatterns($content, $failed);
+        return self::applySecretShapePatterns($content, $failed);
     }
 
     /**
@@ -62,7 +71,7 @@ trait SecretShapeRedactorTrait
     protected function redactSecretShapesStrict(string $content): ?string
     {
         $failed   = false;
-        $redacted = $this->applySecretShapePatterns($content, $failed);
+        $redacted = self::applySecretShapePatterns($content, $failed);
 
         return $failed ? null : $redacted;
     }
@@ -84,7 +93,7 @@ trait SecretShapeRedactorTrait
      * dangling parameter name, and ``Bearer sk-…`` must collapse to a single mask
      * rather than two.
      */
-    private function applySecretShapePatterns(string $content, bool &$failed): string
+    private static function applySecretShapePatterns(string $content, bool &$failed): string
     {
         $redacted = $content;
 

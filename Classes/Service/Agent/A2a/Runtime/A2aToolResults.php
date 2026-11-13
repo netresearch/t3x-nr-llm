@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 
 /**
  * What the model reads as the result of a delegation (spec 051 A2A-R9,
@@ -21,15 +22,19 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
  *
  * Every text names its origin first: what follows was written by a remote
  * agent and is tool output, never an instruction of this installation
- * (A2A-SEC8). The loop bounds it like any tool output.
+ * (A2A-SEC8). The loop bounds it like any tool output, and every text passes
+ * the shared secret redactor first: a remote agent may echo what the delegated
+ * message carried, and the same text is stored as the step.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final class A2aToolResults
 {
+    use SecretShapeRedactorTrait;
+
     public static function message(string $agent, A2aMessage $message): ToolResult
     {
-        return ToolResult::text(self::origin($agent) . ' answered directly:' . "\n" . $message->text());
+        return self::text(self::origin($agent) . ' answered directly:' . "\n" . $message->text());
     }
 
     /**
@@ -45,11 +50,11 @@ final class A2aToolResults
         $status  = trim($task->status->message?->text() ?? '');
 
         if ($state === A2aTaskState::COMPLETED) {
-            return ToolResult::text($head . ($content !== '' ? "\n" . $content : ' It returned no artifact.'));
+            return self::text($head . ($content !== '' ? "\n" . $content : ' It returned no artifact.'));
         }
 
         if ($state instanceof A2aTaskState && $state->isInterrupted()) {
-            return ToolResult::text(sprintf(
+            return self::text(sprintf(
                 '%s task %s stopped in %s and waits for something this installation cannot give it yet; nothing was answered.%s',
                 self::origin($agent),
                 $task->id,
@@ -58,7 +63,7 @@ final class A2aToolResults
             ));
         }
 
-        return ToolResult::error($head . ($status !== '' ? "\nThe remote agent said:\n" . $status : ''));
+        return self::error($head . ($status !== '' ? "\nThe remote agent said:\n" . $status : ''));
     }
 
     public static function timedOut(string $agent, string $remoteTaskId, int $waitedSeconds): ToolResult
@@ -73,7 +78,7 @@ final class A2aToolResults
 
     public static function refused(string $agent, A2aSendIntent $intent): ToolResult
     {
-        return ToolResult::error(sprintf(
+        return self::error(sprintf(
             'Error: %s refused the request (%s%s). Nothing was done there.',
             self::origin($agent),
             $intent->errorReason !== '' ? $intent->errorReason : 'no reason given',
@@ -87,7 +92,7 @@ final class A2aToolResults
      */
     public static function outcomeUnknown(string $agent, A2aSendIntent $intent): ToolResult
     {
-        return ToolResult::error(sprintf(
+        return self::error(sprintf(
             'Error: outcome unknown. The request to %s may have arrived, but no answer was read (%s). It is not sent again; an operator can look it up by the message id %s.',
             self::origin($agent),
             $intent->errorReason,
@@ -97,7 +102,17 @@ final class A2aToolResults
 
     public static function unavailable(string $reason): ToolResult
     {
-        return ToolResult::error('Error: the remote agent cannot be used: ' . $reason . '. Nothing was sent.');
+        return self::error('Error: the remote agent cannot be used: ' . $reason . '. Nothing was sent.');
+    }
+
+    private static function text(string $content): ToolResult
+    {
+        return ToolResult::text(self::maskSecretShapes($content));
+    }
+
+    private static function error(string $content): ToolResult
+    {
+        return ToolResult::error(self::maskSecretShapes($content));
     }
 
     private static function origin(string $agent): string

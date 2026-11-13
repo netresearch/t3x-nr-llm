@@ -25,12 +25,17 @@ use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
  * non-routable address, which measures the runner: it passed alone and failed
  * under the four-way sharded run that gates every pull request (#868).
  *
- * The message carries a query-string secret on purpose, so the sanitiser the
- * registry applies has something to strip.
+ * The message carries a query-string secret, a TYPO3 preview token and a bare
+ * token on purpose, so the redactor the registry applies has something to strip.
  */
 final class UnreachableProvider extends AbstractProvider
 {
-    public const FAILURE_MESSAGE = 'cURL error 28: Operation timed out for https://provider.example.invalid/v1/models?api_key=SECRET-VALUE';
+    public const PREVIEW_VALUE = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
+    public const GITHUB_PAT = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+
+    public const FAILURE_MESSAGE = 'cURL error 28: Operation timed out for https://provider.example.invalid/v1/models?api_key=SECRET-VALUE'
+        . ' (referrer https://site.example/?ADMCMD_prev=' . self::PREVIEW_VALUE . ', authorization ' . self::GITHUB_PAT . ')';
 
     public function getName(): string
     {

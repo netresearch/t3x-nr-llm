@@ -32,6 +32,7 @@ use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInjectionService;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 
@@ -60,6 +61,8 @@ use Symfony\Component\Uid\Uuid;
  */
 final readonly class ConversationService implements ConversationServiceInterface
 {
+    use SecretShapeRedactorTrait;
+
     public function __construct(
         private LlmServiceManagerInterface $llmManager,
         private AiSessionRepositoryInterface $sessions,
@@ -226,7 +229,10 @@ final readonly class ConversationService implements ConversationServiceInterface
         $userSequence = $this->sessions->appendMessageAtNextSequence(
             $session->uid,
             MessageRole::USER->value,
-            $userMessage,
+            // The stored transcript is a record people read and an export
+            // reads: a secret-shaped string pasted into a turn is masked in
+            // it, whatever the input guardrails did to the copy that was sent.
+            $this->redactSecretShapes($userMessage),
             '',
             0,
             0,
@@ -240,7 +246,7 @@ final readonly class ConversationService implements ConversationServiceInterface
         $assistantSequence = $this->sessions->appendMessageAtNextSequence(
             $session->uid,
             MessageRole::ASSISTANT->value,
-            $response->content,
+            $this->redactSecretShapes($response->content),
             $response->model,
             $response->usage->promptTokens,
             $response->usage->completionTokens,

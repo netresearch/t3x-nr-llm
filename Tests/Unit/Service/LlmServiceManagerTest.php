@@ -899,6 +899,89 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function embedScreensEveryTextThroughTheInputGuardrails(): void
+    {
+        $preview  = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat      = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->embed(["index https://site.example/?ADMCMD_prev={$preview}", "and {$pat}", 'plain text'], new EmbeddingOptions(provider: 'openai'));
+
+        $sent = $provider->capturedEmbeddingInput;
+        self::assertIsArray($sent);
+        self::assertCount(3, $sent);
+        $joined = implode("\n", $sent);
+        self::assertStringContainsString('https://site.example/', $joined);
+        self::assertStringNotContainsString($preview, $joined);
+        self::assertStringNotContainsString($pat, $joined);
+        self::assertSame('plain text', $sent[2]);
+    }
+
+    #[Test]
+    public function embedScreensASingleTextThroughTheInputGuardrails(): void
+    {
+        $pat      = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $provider = new TestableProvider();
+        $manager  = $this->managerWithInputScreener($provider);
+
+        $manager->embed("token {$pat}", new EmbeddingOptions(provider: 'openai'));
+
+        self::assertIsString($provider->capturedEmbeddingInput);
+        self::assertStringNotContainsString($pat, $provider->capturedEmbeddingInput);
+    }
+
+    #[Test]
+    public function embedForConfigurationScreensTheInputThroughTheInputGuardrails(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $model   = self::createStub(Model::class);
+        $config  = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small', 'provider' => 'openai']);
+
+        $sent        = null;
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn (string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->method('embeddings')->willReturnCallback(
+            function (string|array $input) use (&$sent): EmbeddingResponse {
+                $sent = array_values(array_filter((array) $input, is_string(...)));
+
+                return new EmbeddingResponse([[0.1]], 'text-embedding-3-small', new UsageStatistics(1, 0, 1), 'openai');
+            },
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryMock,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            new InputGuardrailScreener([new SecretRedactionInputGuardrail()]),
+        );
+
+        $manager->embedForConfiguration(["page https://site.example/?ADMCMD_prev={$preview}", "key {$pat}"], $config);
+
+        self::assertIsArray($sent);
+        $joined = implode("\n", $sent);
+        self::assertStringContainsString('https://site.example/', $joined);
+        self::assertStringNotContainsString($preview, $joined);
+        self::assertStringNotContainsString($pat, $joined);
+    }
+
+    #[Test]
     public function chatScreensInputOnTheAdHocProviderKeyPath(): void
     {
         $provider = new TestableProvider();
@@ -3269,6 +3352,14 @@ class TestableProvider extends AbstractProvider
     public array $capturedMessages = [];
 
     /**
+     * The input the provider last embedded (for asserting input screening on
+     * the embedding paths).
+     *
+     * @var string|array<int, string>
+     */
+    public string|array $capturedEmbeddingInput = '';
+
+    /**
      * The options the last analyzeImage() call was handed — the caller's own,
      * plus whatever the manager resolved on their behalf.
      *
@@ -3327,7 +3418,8 @@ class TestableProvider extends AbstractProvider
 
     public function embeddings(string|array $input, array $options = []): EmbeddingResponse
     {
-        $this->lastOptions = $options;
+        $this->lastOptions            = $options;
+        $this->capturedEmbeddingInput = $input;
 
         return $this->nextEmbeddingResponse ?? new EmbeddingResponse(
             embeddings: [array_fill(0, 1536, 0.0)],

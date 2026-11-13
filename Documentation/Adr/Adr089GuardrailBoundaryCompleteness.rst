@@ -60,9 +60,11 @@ Consequences
 - A secret is now masked (or the prompt blocked) across answer, reasoning,
   user turn, system prompt and vision text — the "enumerate all boundaries"
   completion of ADR-085/087.
-- ``embed()`` remains unscreened: its input is embedding text, not a chat
-  prompt; screening/redacting it would corrupt the vector semantics. Documented
-  as out of scope.
+- ``embed()`` and ``embedForConfiguration()`` were left unscreened here, on the
+  argument that redaction would corrupt the vector semantics. That no longer
+  holds: embedding text leaves for a provider like a prompt does, and a masked
+  secret changes a vector far less than the secret itself leaks. Both screen
+  their input since 2026-11-13 (see :ref:`ADR-123 <adr-123-coverage>`).
 - Redacting reasoning depends on the provider populating ``thinking``
   (Ollama ``message.thinking``, ADR-016); providers that fold reasoning into
   the content are covered by the content redaction already.
