@@ -8,6 +8,17 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-11-13
+
+### Upgrading from 0.45
+
+- Run the database schema update: `tx_nrllm_a2a_client` gains the column `self_service`, and `be_groups` the columns `tx_nrllm_a2a_allow_live`, `tx_nrllm_a2a_max_expiry_days`, `tx_nrllm_a2a_allow_no_expiry` and `tx_nrllm_a2a_profiles`. Existing client records keep working unchanged; no group holds the new permission `a2a_token_self_service` until an administrator grants it. An editor reaches the module "A2A tokens" only when it is ticked in the group's module list.
+
+### Added
+
+- A2A tokens from the backend ([ADR-294](Documentation/Adr/Adr294AnEditorMayIssueA2aTokensThatActAsThemselves.rst), amends ADR-280): the module "A2A tokens" lets an administrator generate or rotate the token of a client record, see every record with owner, expiry and the time of the last task, and revoke any of them. The token is shown once, in the response of a route-token-protected AJAX action; every issuing, rotation and revocation is logged (level INFO, in the file `typo3_nrllm-a2a-token-audit_*.log`) with the actor and the record, never the token. `nrllm:a2a:client:token` stays.
+- Editor self-service for A2A tokens: an editor whose backend group holds the new permission "Issue A2A tokens for my own account" (`a2a_token_self_service`, held by no group after installation) creates tokens that act as their own account, and sees and revokes only their own (at most ten active tokens each). The limits are fields on the backend group, all strict by default: tokens run in a draft workspace (live only when the group allows it), expire within 90 days (maximum settable up to 730 days; no expiry only by an explicit choice) and may call only the A2A profiles the group lists, by default none. The limits are enforced when the token is created and again on every request and every start or resume of a run, so a token loses what its owner's groups stop allowing. A token bypasses MFA and passkey login; the user documentation says so and names OAuth 2.0 Authorization Code as a possible later step.
+
 ## [0.45.0] - 2026-11-13
 
 ### Upgrading from 0.44
@@ -5311,7 +5322,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.45.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.0...HEAD
+[0.46.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.44.0...v0.45.0
 [0.42.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.18...v0.42.0
 [0.41.18]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.17...v0.41.18
