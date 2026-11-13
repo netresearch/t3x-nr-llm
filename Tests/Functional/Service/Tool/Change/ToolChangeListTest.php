@@ -90,6 +90,10 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
     private const SUBPAGE = 7;
 
+    private const LOCKED_PAGE = 8;
+
+    private const LOCKED_ELEMENT = 33;
+
     private const ELEMENT = 31;
 
     private const ELEMENT_ON_PAGE_TO_COPY = 32;
@@ -149,8 +153,14 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
             ]);
         }
 
+        $pages->insert('pages', [
+            'uid'           => self::LOCKED_PAGE, 'pid' => self::ROOT, 'title' => 'Locked', 'doktype' => 1, 'slug' => '/locked', 'sorting' => 2048,
+            'perms_userid'  => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid' => 0, 'perms_group' => 0, 'perms_everybody' => 0,
+        ]);
+
         $content = $this->connectionPool->getConnectionForTable('tt_content');
-        foreach ([[self::ELEMENT, self::PAGE, 'Before'], [self::ELEMENT_ON_PAGE_TO_COPY, self::PAGE_TO_COPY, 'On the template']] as [$uid, $pid, $header]) {
+        foreach ([[self::ELEMENT, self::PAGE, 'Before'], [self::ELEMENT_ON_PAGE_TO_COPY, self::PAGE_TO_COPY, 'On the template'], [self::LOCKED_ELEMENT, self::LOCKED_PAGE, 'Locked']] as [$uid, $pid, $header]) {
             $content->insert('tt_content', ['uid' => $uid, 'pid' => $pid, 'colPos' => 0, 'CType' => 'text', 'header' => $header, 'sorting' => $uid * 256]);
         }
 
@@ -391,6 +401,111 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
         self::assertSame([], $resolver->resolve([], ['scope1'])->changes, 'without a watermark no history is read');
         self::assertSame([], $resolver->resolve([], ['otherscope'], 0)->changes, "another chain's rows are not this call's");
+    }
+
+    /**
+     * A delete the DataHandler refuses for lack of permission is not listed:
+     * core does not call the command hooks for it, which is what this pins.
+     */
+    #[Test]
+    public function aDeleteRefusedForPermissionIsNotListed(): void
+    {
+        $editor = $this->useASessionlessAmbientUser(2);
+        self::assertFalse($editor->isAdmin());
+
+        $trace = $this->runLoopWith($this->tool(static function (ToolExecutionContext $context): ToolResult {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([], ['tt_content' => [self::LOCKED_ELEMENT => ['delete' => 1]]], $context->actingBackendUser());
+            $dataHandler->process_cmdmap();
+
+            return ToolResult::text('TRIED');
+        }), user: $editor);
+
+        self::assertSame(0, $this->connectionPool->getConnectionForTable('tt_content')->count('uid', 'tt_content', ['uid' => self::LOCKED_ELEMENT, 'deleted' => 1]), 'positive control: the element was not deleted');
+        self::assertNotContains(RunStep::KIND_CHANGES, array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps()));
+    }
+
+    /**
+     * The hook of a command hears of the command, not of its outcome: a delete
+     * of a uid no row bears reaches it, and is not a change.
+     */
+    #[Test]
+    public function aDeleteOfAUidNoRowBearsIsNotListed(): void
+    {
+        $trace = $this->runLoopWith($this->tool(static function (ToolExecutionContext $context): ToolResult {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([], ['tt_content' => [9999 => ['delete' => 1]]], $context->actingBackendUser());
+            $dataHandler->process_cmdmap();
+
+            return ToolResult::text('TRIED');
+        }));
+
+        self::assertNotContains(RunStep::KIND_CHANGES, array_map(static fn (RunStep $step): string => $step->kind, $trace->getSteps()));
+    }
+
+    /**
+     * A delete in a draft workspace writes a version of the live row, and that
+     * version is what the list names, in the workspace it is stored in.
+     */
+    #[Test]
+    public function aDeleteInADraftWorkspaceNamesTheVersionAndTheWorkspace(): void
+    {
+        $admin = $this->useASessionlessAmbientUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace(self::DRAFT));
+
+        $trace = $this->runLoopWith($this->tool(static function (ToolExecutionContext $context): ToolResult {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([], ['tt_content' => [self::ELEMENT => ['delete' => 1]]], $context->actingBackendUser());
+            $dataHandler->process_cmdmap();
+
+            return ToolResult::text('DELETED');
+        }), user: $admin);
+
+        $set = $this->changesStep($trace)->observedChanges;
+        self::assertInstanceOf(ObservedChangeSet::class, $set);
+        $listed = implode(', ', array_map(static fn (ObservedChange $change): string => (string) $change->record, $set->changes));
+        self::assertCount(1, $set->changes, $listed);
+        self::assertSame(ChangeAction::DELETED, $set->changes[0]->action);
+        self::assertSame(self::ELEMENT, $set->changes[0]->liveUid, 'the live element it is the version of: ' . $listed);
+        self::assertNotSame(self::ELEMENT, $set->changes[0]->record->uid);
+        self::assertSame(self::DRAFT, $set->changes[0]->workspace);
+        self::assertSame(0, $this->connectionPool->getConnectionForTable('tt_content')->count('uid', 'tt_content', ['uid' => self::ELEMENT, 'deleted' => 1]), 'positive control: live is untouched');
+    }
+
+    /**
+     * A tool that returns an error after it wrote tells the model what it
+     * wrote, as one that throws does.
+     */
+    #[Test]
+    public function anErrorResultAfterAWriteNamesTheRecordsWritten(): void
+    {
+        $trace = $this->runLoopWith($this->tool(function (ToolExecutionContext $context): ToolResult {
+            $this->updateHeader(self::ELEMENT, 'Written before the refusal', $context);
+
+            return ToolResult::error('Refused: the second step was not allowed.');
+        }));
+
+        $tool = $this->stepOfKind($trace, RunStep::KIND_TOOL);
+        self::assertTrue($tool->toolIsError);
+        self::assertStringStartsWith('Refused: the second step was not allowed. Before it failed this call changed: tt_content:' . self::ELEMENT . ' (updated)', (string) $tool->toolResult);
+        $set = $this->changesStep($trace)->observedChanges;
+        self::assertInstanceOf(ObservedChangeSet::class, $set);
+        self::assertCount(1, $set->changes);
+    }
+
+    /**
+     * A call that succeeded gets no failure note.
+     */
+    #[Test]
+    public function aSuccessfulWriteGetsNoFailureNote(): void
+    {
+        $trace = $this->runLoopWith($this->tool(function (ToolExecutionContext $context): ToolResult {
+            $this->updateHeader(self::ELEMENT, 'Written once more', $context);
+
+            return ToolResult::text('WROTE');
+        }));
+
+        self::assertSame('WROTE', $this->stepOfKind($trace, RunStep::KIND_TOOL)->toolResult);
     }
 
     #[Test]

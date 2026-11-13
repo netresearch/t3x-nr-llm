@@ -3131,7 +3131,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name) . ($note === '' ? '' : ' ' . $note));
         }
 
-        ToolChangeCollector::hold(ToolChangeCollector::take($result->writeTarget));
+        // A tool that returns an error after it wrote says so to the model as a
+        // thrown one does: the retry of a half-done write is the same mistake.
+        $changes = ToolChangeCollector::take($result->writeTarget);
+        ToolChangeCollector::hold($changes);
+        $writtenBeforeFailure = $result->isError ? ChangeSets::failureNote($changes) : '';
 
         // Transform, never rebuild (ADR-182). A ToolResult reconstructed from a
         // subset of its properties drops everything the subset omits — the shape
@@ -3147,7 +3151,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // as the tool stated it.
         $failures = ToolDataHandler::takeFailures();
         $bounded  = $result->withBoundedChannels(
-            $this->bounder->content($this->hookFailureNote($failures) . $result->content),
+            $this->bounder->content($this->hookFailureNote($failures) . $result->content . ($writtenBeforeFailure === '' ? '' : ' ' . $writtenBeforeFailure)),
             $this->bounder->artifacts($result->artifacts),
         );
         if ($failures !== []) {

@@ -59,21 +59,30 @@ final readonly class ObservedChangeResolver
      */
     public function resolve(array $records, array $scopes, ?int $after = null): ObservedChangeSet
     {
-        foreach ($after === null ? [] : $this->fromHistory($scopes, $after) as $key => $entry) {
+        $confirmed = $after === null ? [] : $this->fromHistory($scopes, $after);
+        foreach ($confirmed as $key => $entry) {
             $was           = $records[$key]['action'] ?? null;
             $records[$key] = $was instanceof ChangeAction ? [...$entry, 'action' => ToolChangeCollector::stronger($was, $entry['action'])] : $entry;
         }
 
-        $changes = [];
+        // A command names the live row of a version it wrote, and the history
+        // names the version: after the entries are settled the two meet.
+        $settled = [];
         foreach ($records as $entry) {
-            if (count($changes) >= ObservedChangeSet::LIMIT) {
-                break;
+            $applied = $this->applied($entry, $confirmed);
+            if ($applied === null) {
+                continue;
             }
 
-            $changes[] = $this->change($entry);
+            $key = $applied['table'] . ':' . $applied['uid'];
+            $was = $settled[$key]['action'] ?? null;
+
+            $settled[$key] = $was instanceof ChangeAction ? [...$applied, 'action' => ToolChangeCollector::stronger($was, $applied['action'])] : $applied;
         }
 
-        return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($records) - count($changes));
+        $changes = array_map($this->change(...), array_slice(array_values($settled), 0, ObservedChangeSet::LIMIT));
+
+        return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($settled) - count($changes));
     }
 
     /**
@@ -148,6 +157,65 @@ final readonly class ObservedChangeResolver
             'action'    => $action,
             'workspace' => is_numeric($row['workspace'] ?? null) ? max(0, (int) $row['workspace']) : 0,
         ];
+    }
+
+    /**
+     * The entry as the stored rows bear it out, or null where they do not.
+     *
+     * The hook of a command hears of the command, not of its outcome: a delete
+     * of a uid that no row bears reaches it all the same. A delete or undelete
+     * of a row that is gone counts only where the DataHandler's own history
+     * names it. A delete in a draft workspace counts when a version of the live
+     * row was written, and the entry then names that version.
+     *
+     * @param array{table: string, uid: int, action: ChangeAction, workspace: int}                $entry
+     * @param array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}> $confirmed the history's entries by `table:uid`
+     *
+     * @return array{table: string, uid: int, action: ChangeAction, workspace: int}|null
+     */
+    private function applied(array $entry, array $confirmed): ?array
+    {
+        if ($entry['action'] !== ChangeAction::DELETED && $entry['action'] !== ChangeAction::RESTORED) {
+            return $entry;
+        }
+
+        $row = $this->row($entry['table'], $entry['uid']);
+        if ($row === null) {
+            return isset($confirmed[$entry['table'] . ':' . $entry['uid']]) ? $entry : null;
+        }
+
+        $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
+        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
+            $version = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace']);
+
+            return $version === null ? null : [...$entry, 'uid' => $version];
+        }
+
+        return $entry;
+    }
+
+    /**
+     * The uid of the version a draft workspace holds of a live row, or null.
+     */
+    private function versionIn(string $table, int $uid, int $workspace): ?int
+    {
+        try {
+            $query = $this->connectionPool->getQueryBuilderForTable($table);
+            $query->getRestrictions()->removeAll();
+            $version = $query
+                ->select('uid')
+                ->from($table)
+                ->where(
+                    $query->expr()->eq('t3ver_oid', $query->createNamedParameter($uid, Connection::PARAM_INT)),
+                    $query->expr()->eq('t3ver_wsid', $query->createNamedParameter($workspace, Connection::PARAM_INT)),
+                )
+                ->executeQuery()
+                ->fetchOne();
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_numeric($version) && (int) $version > 0 ? (int) $version : null;
     }
 
     /**
