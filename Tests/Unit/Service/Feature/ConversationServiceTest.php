@@ -85,6 +85,30 @@ final class ConversationServiceTest extends TestCase
     }
 
     #[Test]
+    public function theStoredTranscriptMasksSecretShapesInBothTurns(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+
+        $repository = new RecordingAiSessionRepository();
+        $llmManager = $this->createMock(LlmServiceManagerInterface::class);
+        $llmManager->method('chatForConfiguration')->willReturn($this->response("Open https://site.example/?ADMCMD_prev={$preview} with {$pat}"));
+        $service = $this->service($llmManager, $repository);
+
+        $actor   = $this->owner();
+        $session = $service->startSession($actor, 'secrets');
+        $service->send($actor, $session->uuid, "Check https://site.example/?ADMCMD_prev={$preview} and {$pat}");
+
+        $messages = $repository->findMessages($session->uid);
+        self::assertCount(2, $messages);
+        foreach ($messages as $message) {
+            self::assertStringContainsString('https://site.example/', $message->content);
+            self::assertStringNotContainsString($preview, $message->content);
+            self::assertStringNotContainsString($pat, $message->content);
+        }
+    }
+
+    #[Test]
     public function aForeignBackendUserCannotContinueSomebodyElsesSession(): void
     {
         $repository = new RecordingAiSessionRepository();

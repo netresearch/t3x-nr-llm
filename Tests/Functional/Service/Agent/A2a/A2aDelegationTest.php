@@ -478,6 +478,39 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The message leaves for a third party and the answer comes back from one:
+     * both pass the shared secret redactor, so a preview token or a bare token
+     * in either does not cross the boundary.
+     */
+    #[Test]
+    public function secretShapesAreMaskedInTheSentMessageAndInTheRemoteAnswer(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
+        $this->transport->thenJson(['result' => ['message' => ['messageId' => 'r', 'role' => 'ROLE_AGENT', 'parts' => [['text' => "echoing https://site.example/?ADMCMD_prev={$preview} and {$pat}"]]]]]);
+
+        $runtime = $this->runtime([
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => "check https://site.example/?ADMCMD_prev={$preview} using {$pat}"])]),
+            $this->finalTurn('answered'),
+        ]);
+
+        $result = $runtime->run($this->request());
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+        self::assertCount(1, $this->transport->requests);
+        $sent = $this->transport->requests[0]->body;
+        self::assertStringContainsString('check https://site.example/', $sent);
+        self::assertStringNotContainsString($preview, $sent);
+        self::assertStringNotContainsString($pat, $sent);
+
+        $results = $this->toolResultsOf($this->runOf($result->runUuid), $this->skillTool());
+        self::assertStringContainsString('echoing https://site.example/', $results[0]);
+        self::assertStringNotContainsString($preview, $results[0]);
+        self::assertStringNotContainsString($pat, $results[0]);
+    }
+
+    /**
      * A2A-R7, A2A-C6: the record's delegation limit counts this run's sends;
      * an unknown outcome is an error result and is never resent.
      */

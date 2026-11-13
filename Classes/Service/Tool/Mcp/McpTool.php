@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 
 /**
  * A catalogue-backed MCP tool with the operator's server data classification.
@@ -35,6 +36,8 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
  */
 final readonly class McpTool implements ToolInterface, RemoteToolInterface, RemoteApprovalInterface, ToolDataClassInterface, ToolEffectInterface
 {
+    use SecretShapeRedactorTrait;
+
     /**
      * @param array<string, mixed> $inputSchema      the normalised parameter schema
      * @param bool                 $requiresApproval the server's operator-declared approval flag,
@@ -88,9 +91,15 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
             // otherwise successful response is the ordinary one, and it is the
             // one a working server uses. Persisting it as a successful step
             // whose content reads like an error is the same defect either way.
+            //
+            // The text is written by the remote server and may echo what the
+            // call carried; it passes the shared redactor on its way to the
+            // model and to the stored step.
+            $text = $this->redactSecretShapes($outcome->text);
+
             return $outcome->isError
-                ? ToolResult::error($outcome->text)
-                : ToolResult::text($outcome->text);
+                ? ToolResult::error($text)
+                : ToolResult::text($text);
         } catch (McpTransportException $e) {
             // Returned rather than thrown: a server that is down is a fact
             // about this call, not a fault in the run. The loop can carry on
@@ -101,9 +110,11 @@ final readonly class McpTool implements ToolInterface, RemoteToolInterface, Remo
             // way, but says so (ADR-191): the run inspector would otherwise
             // show an operator's own cancel as a failure of a server that may
             // have been perfectly healthy.
+            $message = $this->redactSecretShapes($e->getMessage());
+
             return $e->isCancellation()
-                ? ToolResult::cancelled($e->getMessage())
-                : ToolResult::error($e->getMessage());
+                ? ToolResult::cancelled($message)
+                : ToolResult::error($message);
         }
     }
 

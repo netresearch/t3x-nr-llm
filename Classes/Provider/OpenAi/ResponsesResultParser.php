@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ReasoningEffort;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Provider\Exception\ProviderResponseException;
 use Netresearch\NrLlm\Provider\ResponseParserTrait;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 
 /**
  * Reads a `/v1/responses` reply (ADR-203).
@@ -39,6 +40,7 @@ use Netresearch\NrLlm\Provider\ResponseParserTrait;
 final class ResponsesResultParser
 {
     use ResponseParserTrait;
+    use SecretShapeRedactorTrait;
 
     /**
      * @param array<string, mixed> $response
@@ -54,7 +56,7 @@ final class ResponsesResultParser
             throw new ProviderResponseException(
                 sprintf(
                     'OpenAI Responses request failed: %s',
-                    $this->getString($error, 'message', $this->getString($error, 'code', 'no reason given')),
+                    $this->redactSecretShapes($this->getString($error, 'message', $this->getString($error, 'code', 'no reason given'))),
                 ),
                 0,
                 null,

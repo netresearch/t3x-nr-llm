@@ -753,6 +753,38 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertSame('blocked by test policy', $payload['error']);
     }
 
+    #[Test]
+    public function guardrailBlockedReasonMasksSecretShapes(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $preview   = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat       = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $guardrail = new class ($preview, $pat) implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public function __construct(private readonly string $preview, private readonly string $pat) {}
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::deny("blocked: matched https://site.example/?ADMCMD_prev={$this->preview} and {$this->pat}");
+            }
+        };
+        [$controller] = $this->guardedController($guardrail);
+
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/run'))
+            ->withParsedBody(['configuration' => 1, 'prompt' => 'do it']);
+        $payload = json_decode((string) $controller->runAction($request)->getBody(), true);
+
+        self::assertIsArray($payload);
+        self::assertSame('guardrail_blocked', $payload['status']);
+        self::assertIsString($payload['error']);
+        self::assertStringContainsString('blocked: matched', $payload['error']);
+        self::assertStringNotContainsString($preview, $payload['error']);
+        self::assertStringNotContainsString($pat, $payload['error']);
+    }
+
     /**
      * A guardrail that lets the run pass and reports a finding, such as the
      * rule-set judge in report mode (ADR-288), reaches the inspector.
@@ -865,6 +897,59 @@ final class ToolPlaygroundControllerTest extends AbstractFunctionalTestCase
         self::assertFalse($payload['success']);
         self::assertSame('guardrail_approval_required', $payload['status']);
         self::assertSame('needs a human', $payload['error']);
+    }
+
+    #[Test]
+    public function streamedGuardrailBlockedReasonMasksSecretShapes(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1);
+
+        $preview   = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat       = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $guardrail = new class ($preview, $pat) implements GuardrailInterface {
+            use GuardrailIdentityDoubleTrait;
+
+            public function __construct(private readonly string $preview, private readonly string $pat) {}
+
+            public function checkOutput(CompletionResponse $response): GuardrailResult
+            {
+                return GuardrailResult::deny("blocked: matched https://site.example/?ADMCMD_prev={$this->preview} and {$this->pat}");
+            }
+        };
+        [$controller, $config] = $this->guardedController($guardrail);
+
+        $events = [];
+        $emit   = static function (array $event) use (&$events): void {
+            $events[] = $event;
+        };
+
+        (new ReflectionMethod($controller, 'streamRun'))->invoke(
+            $controller,
+            $emit,
+            new AgentRunRequest(
+                configuration: $config,
+                messages: [ChatMessage::user('do it')],
+                actor: AiActorContext::anonymous(),
+                allowedToolNames: ['fetch_logs'],
+                options: new ToolOptions(),
+            ),
+            false,
+            $this->noContextClassification(),
+        );
+
+        $blocked = null;
+        foreach ($events as $event) {
+            if (($event['event'] ?? null) === 'guardrail_blocked') {
+                $blocked = $event;
+            }
+        }
+
+        self::assertIsArray($blocked);
+        self::assertIsString($blocked['error']);
+        self::assertStringContainsString('blocked: matched', $blocked['error']);
+        self::assertStringNotContainsString($preview, $blocked['error']);
+        self::assertStringNotContainsString($pat, $blocked['error']);
     }
 
     #[Test]

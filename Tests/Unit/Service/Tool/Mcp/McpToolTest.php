@@ -199,6 +199,39 @@ final class McpToolTest extends AbstractUnitTestCase
         self::assertSame('read_page', $fake->received[2]['body']['params']['name']);
     }
 
+    #[Test]
+    public function masksSecretShapesInTheRemoteAnswer(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $fake    = (new McpTestServer())
+            ->willHandshake()
+            ->willReturn(['content' => [['type' => 'text', 'text' => "see https://site.example/?ADMCMD_prev={$preview} and {$pat}"]]]);
+
+        $result = $this->toolFor($fake)->execute([], ToolExecutionContext::none());
+
+        self::assertStringContainsString('see https://site.example/', $result->content);
+        self::assertStringNotContainsString($preview, $result->content);
+        self::assertStringNotContainsString($pat, $result->content);
+    }
+
+    #[Test]
+    public function masksSecretShapesInATransportFailureMessage(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $fake    = (new McpTestServer())
+            ->willHandshake()
+            ->willReturnRpcError(-32000, "denied for ?ADMCMD_prev={$preview} {$pat}");
+
+        $result = $this->toolFor($fake)->execute([], ToolExecutionContext::none());
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('denied for', $result->content);
+        self::assertStringNotContainsString($preview, $result->content);
+        self::assertStringNotContainsString($pat, $result->content);
+    }
+
     /**
      * A server that is down is a fact about this call, not a fault in the run:
      * the loop carries on and the model is told plainly what failed.

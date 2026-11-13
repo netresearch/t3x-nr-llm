@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use Throwable;
 use TYPO3\CMS\Core\Http\RequestFactory;
 
@@ -45,6 +46,7 @@ final readonly class ProbeUrlTool implements ToolInterface, ToolEffectInterface
 
     use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
+    use SecretShapeRedactorTrait;
 
     private const TIMEOUT_SECONDS = 15;
 
@@ -114,12 +116,12 @@ final readonly class ProbeUrlTool implements ToolInterface, ToolEffectInterface
                 'http_errors'     => false,
             ]);
         } catch (Throwable $e) {
-            return ToolResult::text(sprintf(
+            return ToolResult::text($this->redactSecretShapes(sprintf(
                 'Probe of %s FAILED transport-level after %.0f ms: %s',
                 $url,
                 (microtime(true) - $started) * 1000,
-                $this->sanitizeErrorMessage($e->getMessage()),
-            ));
+                $e->getMessage(),
+            )));
         }
 
         $elapsedMs = (microtime(true) - $started) * 1000;
@@ -150,7 +152,10 @@ final readonly class ProbeUrlTool implements ToolInterface, ToolEffectInterface
             $lines[] = $this->correlateLogs($probeTime);
         }
 
-        return ToolResult::text(implode("\n", $lines));
+        // The whole report passes the shared redactor: the probed URL may carry
+        // a preview token, a Location header the same, and the body excerpt and
+        // the correlated log messages whatever the page or the logs held.
+        return ToolResult::text($this->redactSecretShapes(implode("\n", $lines)));
     }
 
     public function isEnabledByDefault(): bool
@@ -171,11 +176,12 @@ final readonly class ProbeUrlTool implements ToolInterface, ToolEffectInterface
 
     /**
      * Strip any userinfo (user:pass@) before a URL is echoed into tool output,
-     * so credentials in a rejected URL never reach the LLM or the logs.
+     * so credentials in a rejected URL never reach the LLM or the logs; a preview
+     * token or credential query parameter is masked the same way.
      */
     private function displayUrl(string $url): string
     {
-        return preg_replace('#://[^/@\s]*@#', '://', $url) ?? $url;
+        return $this->redactSecretShapes(preg_replace('#://[^/@\s]*@#', '://', $url) ?? $url);
     }
 
     private function bodyExcerpt(string $body): string

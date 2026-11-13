@@ -770,6 +770,31 @@ class ProviderAdapterRegistryTest extends AbstractUnitTestCase
         self::assertStringContainsString('api_key=***', $message);
     }
 
+    /**
+     * The registry reads the shared catalogue, not a regex of its own: a preview
+     * token and a bare token in the message are masked as well as the key
+     * parameter.
+     */
+    #[Test]
+    public function aFailureMessageDoesNotCarryAPreviewTokenOrABareToken(): void
+    {
+        $subject = new ProviderAdapterRegistry(
+            $this->createRequestFactoryMock(),
+            $this->createStreamFactoryMock(),
+            $this->loggerStub,
+            $this->createVaultServiceMock(),
+            $this->createSecureHttpClientFactoryMock(),
+            [AdapterType::Ollama->value => UnreachableProvider::class],
+        );
+
+        $message = $subject->testProviderConnection($this->unreachableProvider())['message'];
+
+        self::assertIsString($message);
+        self::assertStringContainsString('Operation timed out', $message);
+        self::assertStringNotContainsString(UnreachableProvider::PREVIEW_VALUE, $message);
+        self::assertStringNotContainsString(UnreachableProvider::GITHUB_PAT, $message);
+    }
+
     private function unreachableProvider(): Provider
     {
         $provider = new Provider();

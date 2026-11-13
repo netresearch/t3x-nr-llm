@@ -86,6 +86,53 @@ final class GetLastExceptionToolTest extends TestCase
     }
 
     #[Test]
+    public function secretShapesInTheLoggedMessageAreMasked(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $logDir  = $this->base . '/secret-log';
+        mkdir($logDir, 0o777, true);
+        file_put_contents(
+            $logDir . '/typo3_secret.log',
+            'Tue, 08 Jul 2026 10:00:00 +0200 [ERROR] request="r1" component="Acme.Demo": '
+            . "upstream said no for https://site.example/page?ADMCMD_prev={$preview} with {$pat}\n",
+        );
+        $tool = new GetLastExceptionTool(new LogExceptionReader($logDir), new SourcePathGuard($this->base . '/project'));
+
+        $output = $tool->execute([], ToolExecutionContext::none())->content;
+
+        self::assertStringContainsString('upstream said no', $output);
+        self::assertStringNotContainsString($preview, $output);
+        self::assertStringNotContainsString($pat, $output);
+    }
+
+    #[Test]
+    public function secretShapesInAFrameCallAreMasked(): void
+    {
+        $preview = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat     = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $logDir  = $this->base . '/frame-log';
+        mkdir($logDir, 0o777, true);
+        $frameFile = $this->base . '/project/Classes/Broken.php';
+        file_put_contents(
+            $logDir . '/typo3_frame.log',
+            'Tue, 08 Jul 2026 10:00:00 +0200 [ERROR] request="r1" component="Acme.Demo": it broke - '
+            . json_encode([
+                'exception' => "RuntimeException: kaboom in {$frameFile}:10\n"
+                    . "Stack trace:\n"
+                    . "#0 {$frameFile}(10): fetch('https://site.example/?ADMCMD_prev={$preview}', '{$pat}')",
+            ], JSON_THROW_ON_ERROR) . "\n",
+        );
+        $tool = new GetLastExceptionTool(new LogExceptionReader($logDir), new SourcePathGuard($this->base . '/project'));
+
+        $output = $tool->execute([], ToolExecutionContext::none())->content;
+
+        self::assertStringContainsString('Stack trace:', $output);
+        self::assertStringNotContainsString($preview, $output);
+        self::assertStringNotContainsString($pat, $output);
+    }
+
+    #[Test]
     public function indexOutOfRangeIsExplained(): void
     {
         self::assertStringContainsString('out of range', $this->tool->execute(['index' => 5], ToolExecutionContext::none())->content);

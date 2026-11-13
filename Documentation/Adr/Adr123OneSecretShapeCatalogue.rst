@@ -149,3 +149,56 @@ not the whole catalogue. It runs on error messages, where the job is to strip th
 credential a client library put into a request URL — not to scan arbitrary prose
 for every vendor token shape. Callers that want the full catalogue use
 :php:`SecretShapeRedactorTrait`, and the guardrails do.
+
+.. _adr-123-coverage:
+
+Where the catalogue is applied
+==============================
+
+Amendment of 2026-11-13, after nr-vault 1.5.1 added the TYPO3 workspace preview
+token (``ADMCMD_prev=<token>``) to the catalogue and a survey found paths that
+never read it. A path counts as covered when text that can carry a secret passes
+the catalogue before it reaches the model, a third party, a log, a stored row or
+the backend UI.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Path
+     - Treatment
+   * - Prompts, system prompt, vision text, tool results
+     - Input guardrails (:ref:`ADR-087 <adr-087>`, :ref:`ADR-089 <adr-089>`),
+       when a guardrail is configured.
+   * - Embedding input
+     - Input guardrails, once per text, before the cache key is built. A DENY
+       or REQUIRE_APPROVAL verdict throws like it does for a prompt.
+   * - Model answers and reasoning
+     - Output guardrails, and the streaming dispatcher.
+   * - Run steps
+     - :php:`ContentRedactor` at privacy level REDACTED; level FULL is raw by
+       design.
+   * - Stored conversation transcript
+     - :php:`SecretShapeRedactorTrait`, on the user turn and the answer, at the
+       moment the turn is written.
+   * - ``probe_url``, ``get_last_exception`` reports
+     - The whole report, through :php:`SecretShapeRedactorTrait`.
+   * - MCP tool results and failure messages
+     - :php:`SecretShapeRedactorTrait`, in :php:`McpTool`.
+   * - A2A delegation
+     - The message sent to the remote agent, the remote answer and every
+       failure reason, through :php:`SecretShapeRedactorTrait`.
+   * - Responses API failure message, specialized-service error messages and
+       log lines, provider connection test message
+     - :php:`SecretShapeRedactorTrait`. The connection test used a regex of its
+       own for six parameter names; the catalogue covers those names and more.
+   * - Tool Playground guardrail reason (batch and streamed)
+     - :php:`SecretShapeRedactorTrait`.
+   * - ``fetch_external_url`` approval card
+     - Not masked, on purpose: the approver judges what leaves the site, and the
+       full URL is that evidence. The card lives in the encrypted suspended
+       state and is never sent to a model. Every echo of the URL in the tool's
+       result is masked.
+   * - Tool-call arguments of a model answer
+     - Not masked: they are functional parameters the tool consumes
+       (:ref:`ADR-089 <adr-089>`).

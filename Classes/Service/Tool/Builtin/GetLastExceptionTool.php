@@ -19,8 +19,8 @@ use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
-use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 
 /**
  * The "why did that 500 / how do I fix this PHP error" tool (ADR-044).
@@ -33,15 +33,15 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
  *
  * Security contract: admin-only; source context flows through
  * {@see SourcePathGuard} (containment + denylists + secret-line
- * redaction); messages run through the URL-credential sanitizer; output is
- * line-capped.
+ * redaction); the whole report runs through the shared secret redactor; output
+ * is line-capped.
  */
 final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClassInterface, ToolEffectInterface
 {
     use DeclaresReadEffectTrait;
 
-    use ErrorMessageSanitizerTrait;
     use SafeCastTrait;
+    use SecretShapeRedactorTrait;
 
     private const CONTEXT_LINES = 6;
 
@@ -108,13 +108,13 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
             $lines[] = 'Exception: ' . $entry->exceptionClass;
         }
 
-        $lines[] = 'Message: ' . $this->sanitizeErrorMessage($entry->message);
+        $lines[] = 'Message: ' . $entry->message;
         $lines[] = '';
 
         if ($entry->frames === []) {
             $lines[] = 'No stack trace recorded for this entry.';
 
-            return ToolResult::text(implode("\n", $lines));
+            return $this->report($lines);
         }
 
         $lines[]  = 'Stack trace:';
@@ -154,7 +154,19 @@ final readonly class GetLastExceptionTool implements ToolInterface, ToolDataClas
             }
         }
 
-        return ToolResult::text(implode("\n", array_slice($lines, 0, self::MAX_OUTPUT_LINES)));
+        return $this->report(array_slice($lines, 0, self::MAX_OUTPUT_LINES));
+    }
+
+    /**
+     * The report as the model reads it, passed once through the shared secret
+     * redactor: the logged message, the frame call text and the source lines
+     * all come from places that hold what the application held.
+     *
+     * @param list<string> $lines
+     */
+    private function report(array $lines): ToolResult
+    {
+        return ToolResult::text($this->redactSecretShapes(implode("\n", $lines)));
     }
 
     public function isEnabledByDefault(): bool

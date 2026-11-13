@@ -51,6 +51,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionMethod;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -548,6 +549,86 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             self::fail('Expected ServiceUnavailableException');
         } catch (ServiceUnavailableException $e) {
             self::assertStringContainsString('bad request — prompt empty', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function executeRequestMasksSecretShapesInTheUpstreamErrorMessage(): void
+    {
+        $preview    = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat        = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->expects(self::once())
+            ->method('sendRequest')
+            ->willReturn($this->createJsonResponseMock(['error' => ['message' => "rejected ?ADMCMD_prev={$preview} using {$pat}"]], 400));
+
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+        try {
+            $subject->callSendJsonRequest('endpoint', []);
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertStringContainsString('rejected', $e->getMessage());
+            self::assertStringNotContainsString($preview, $e->getMessage());
+            self::assertStringNotContainsString($pat, $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function aNonJsonErrorSampleIsMaskedBeforeItIsCut(): void
+    {
+        $pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        // The credential starts inside the 200-byte window and ends outside it:
+        // cutting first would leave a prefix the catalogue no longer recognises.
+        $body = str_repeat(' ', 180) . $pat;
+
+        $context = null;
+        $logger  = $this->createMock(LoggerInterface::class);
+        $logger->method('warning')->willReturnCallback(function (string $message, array $logContext) use (&$context): void {
+            $context = $logContext;
+        });
+        $extConf = self::createStub(ExtensionConfiguration::class);
+        $extConf->method('get')->willReturn(['apiKeyIdentifier' => 'test-key', 'baseUrl' => 'https://api.example.test']);
+
+        $subject = new TestableSpecializedService(
+            vault: $this->createVaultServiceMock(),
+            requestFactory: $this->passthroughRequestFactory(),
+            streamFactory: $this->passthroughStreamFactory(),
+            extensionConfiguration: $extConf,
+            usageTracker: self::createStub(UsageTrackerServiceInterface::class),
+            logger: $logger,
+            costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
+            budgetService: new AllowingBudgetService(),
+            pipeline: new MiddlewarePipeline([]),
+            inputGuardrailScreener: new InputGuardrailScreener([]),
+        );
+
+        (new ReflectionMethod($subject, 'decodeErrorMessage'))->invoke($subject, $body);
+
+        self::assertIsArray($context);
+        self::assertIsString($context['sample']);
+        self::assertStringNotContainsString('ghp_abcdefghij', $context['sample']);
+    }
+
+    #[Test]
+    public function executeRequestMasksSecretShapesInATransportFailureMessage(): void
+    {
+        $preview    = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+        $pat        = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        $httpClient = $this->createMock(ClientInterface::class);
+        $httpClient->expects(self::once())
+            ->method('sendRequest')
+            ->willThrowException(new RuntimeException("cURL error for https://api.test/?ADMCMD_prev={$preview} {$pat}"));
+
+        $subject = $this->createSubject(apiKeyIdentifier: 'k', baseUrl: 'https://api.test', httpClient: $httpClient);
+
+        try {
+            $subject->callSendJsonRequest('endpoint', []);
+            self::fail('Expected ServiceUnavailableException');
+        } catch (ServiceUnavailableException $e) {
+            self::assertStringContainsString('Failed to connect', $e->getMessage());
+            self::assertStringNotContainsString($preview, $e->getMessage());
+            self::assertStringNotContainsString($pat, $e->getMessage());
         }
     }
 

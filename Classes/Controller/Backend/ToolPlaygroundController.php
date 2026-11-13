@@ -61,6 +61,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
+use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerAwareInterface;
@@ -100,6 +101,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
     use LoggerAwareTrait;
     use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
+    use SecretShapeRedactorTrait;
 
     /**
      * The 500 body when a run required approval but its state could not be
@@ -850,7 +852,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
             'success'   => false,
             'status'    => $result->outcome->value,
             'guardrail' => $result->guardrailClass ?? '',
-            'error'     => $result->error?->getMessage() ?? '',
+            'error'     => $this->redactSecretShapes($result->error?->getMessage() ?? ''),
             'steps'     => array_map(static fn (RunStep $step): array => $step->toArray(), $result->steps),
         ];
     }
@@ -1067,7 +1069,7 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                     'success'   => false,
                     'status'    => $result->outcome->value,
                     'guardrail' => $result->guardrailClass ?? '',
-                    'error'     => $result->error?->getMessage() ?? '',
+                    'error'     => $this->redactSecretShapes($result->error?->getMessage() ?? ''),
                 ]);
 
                 return;
