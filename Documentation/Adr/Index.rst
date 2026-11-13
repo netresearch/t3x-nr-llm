@@ -47,7 +47,8 @@ Integration
 :ref:`ADR-030 <adr-030>`,
 :ref:`ADR-066 <adr-066>`,
 :ref:`ADR-188 <adr-188>`,
-:ref:`ADR-278 <adr-278>`.
+:ref:`ADR-278 <adr-278>`,
+:ref:`ADR-294 <adr-294>`.
 
 .. _adr-api-design:
 
