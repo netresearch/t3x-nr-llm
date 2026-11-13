@@ -16,8 +16,8 @@ client sends a message to one of them. The message becomes an agent run that a
 worker executes; the client receives the result as an A2A task
 (:ref:`ADR-280 <adr-280>`, :ref:`ADR-282 <adr-282>`, :ref:`ADR-283 <adr-283>`).
 
-This page covers stage 3 of spec 051. A client cannot continue a task with a
-second message yet (stage 4), and streaming, push notifications and file
+This page covers stages 3 and 4 of spec 051: tasks, and a client that
+answers a task waiting for input. Streaming, push notifications and file
 parts are not offered (stages 5a to 5c).
 
 Switch it on
@@ -75,9 +75,24 @@ LLM configuration
    is switched on and keeps a result.
 
 Tools
-   Comma-separated tool names the run may use. A profile that may not write
-   offers only tools that declare that they only read: a list with any other
-   tool is not stored, and an existing list stays as it was. Empty: no tools.
+   Comma-separated tool names the run may use. Without :guilabel:`May write`,
+   a profile offers only tools that declare that they only read: a list with
+   any other tool is not stored, and an existing list stays as it was. Empty:
+   no tools. A run can ask the client a question with
+   ``ask_choice`` when the tool is listed here and enabled in the tool
+   management; the task then waits for the client's answer (see below).
+
+May write
+   The run may use the profile's writing tools too. They write drafts only,
+   into the pinned workspace of the calling client (:ref:`ADR-260 <adr-260>`);
+   a writer that does not support workspaces refuses there. A client pinned
+   to live cannot call a writing skill: the record is not saved that way, and
+   a call is refused with ``-32004``. A write that needs an approval waits for
+   a person of this installation, as in every run; the task stays
+   ``WORKING`` meanwhile. The result of a writing task carries a second
+   artifact, ``writes``, that lists every write the run executed (table,
+   record uid, workspace, kind), taken from the write events, not from the
+   model's answer; a run that wrote nothing says so.
 
 Active task quota
    How many tasks of this skill, from all clients together, may be queued or
@@ -87,7 +102,7 @@ Public
    Listed on the card and callable. A profile that is not public cannot be
    called by any client.
 
-Stage 3 accepts and returns ``text/plain`` only.
+Messages and results are ``text/plain`` only (files are stage 5c).
 
 Register a client
 =================
@@ -101,7 +116,8 @@ Technical backend user
    changed since. Prepare a user for this purpose.
 
 Workspace
-   The workspace the client's runs act in; ``0`` is live.
+   The workspace the client's runs act in; ``0`` is live. A client that may
+   call a writing skill needs a draft workspace.
 
 Skills it may call
    The publication profiles the client may use. A client allowed one skill
@@ -141,6 +157,30 @@ What a client gets
    read with ``GetTask``. A repeated ``messageId`` of the same client returns
    the task the first one created.
 
+Answering a task (``SendMessage`` with ``taskId``)
+   A task whose run asks a question is ``INPUT_REQUIRED``; its status
+   message holds the question and, where the question offers a choice, the
+   answers it accepts. The client answers with a message that carries the
+   task's ``taskId`` (and its ``contextId``, or none: the task's is used).
+   The text is the answer to a question with one free or chosen answer; a
+   question with several values takes a JSON object. The answer is checked
+   like one from the backend (:ref:`ADR-281 <adr-281>`): it must fit the
+   question, and the client's technical user must be allowed to run the
+   tool that asked. It is then stored, the run is handed to the worker and
+   the task is ``WORKING``; nothing runs in the request. A task that does
+   not wait for the client, or has ended, takes no message (``-32004``); a
+   finished task is never reopened. Only the client's own task can be
+   answered, in its own context and its own skill. Before the run goes on,
+   and at every later resume, the client record, its technical user, its
+   workspace and the skill are checked again; a client disabled or expired,
+   a skill withdrawn from it or no longer public, a changed technical user or
+   workspace, or a tool the run was given that the skill no longer grants
+   (removed from it, or a writing tool after :guilabel:`May write` was
+   cleared) fails the task. A repeated ``messageId`` returns the task.
+
+   ``AUTH_REQUIRED`` is never set: no run of this installation waits for a
+   credential that a client supplies out of band.
+
 ``GetTask``, ``ListTasks``, ``CancelTask``
    Only the client's own tasks. Another client's task and a task that does
    not exist are the same ``-32001``. ``ListTasks`` sorts by status time,
@@ -150,7 +190,9 @@ What a client gets
 
 Task states
    ``SUBMITTED`` while queued, ``WORKING`` while running (also while the run
-   waits for an approval in the backend or for a remote agent), ``COMPLETED``
+   waits for an approval in the backend or for a remote agent, and after the
+   client answered), ``INPUT_REQUIRED`` while the run waits for the client's
+   answer, ``COMPLETED``
    with the answer, ``FAILED`` with a fixed message that names no internal
    detail, ``CANCELED``, and ``REJECTED`` when the input was refused before
    the run started. The result is kept at the run's answer level and purged
@@ -169,7 +211,7 @@ Limits and protection
   ``returnImmediately`` takes no waiting slot.
 - **Request size.** A body above ``a2a.server.maxRequestBytes`` (default
   1 MiB) is refused with HTTP 413 before it is parsed; a message has at most
-  16 parts.
+  16 parts. A task's history keeps the most recent 100 messages.
 - **Failed logins.** A failed authentication is logged with the source
   address, never with the token, and counted per address: after 10 failures
   in 15 minutes a failed request from that address gets HTTP 429 until the

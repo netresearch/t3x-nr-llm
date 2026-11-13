@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetPageContentTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\UpdateContentElementTool;
@@ -18,6 +19,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -184,6 +186,36 @@ final class WritesIntoTheActorsWorkspaceTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('does not record which workspace', $result->content);
         self::assertSame('Live header', $this->header(self::ELEMENT));
         self::assertNull($this->versionOf(self::ELEMENT, self::DRAFT));
+    }
+
+    /**
+     * A write the worker carries out after a stored approval (ADR-281): the
+     * process has no backend user and no language service, and the writer
+     * refuses there (ADR-135). With the worker's environment around the call
+     * it stores the draft as the run's user, and the environment is gone again.
+     */
+    #[Test]
+    public function aWriteInABareWorkerNeedsTheWorkerEnvironment(): void
+    {
+        $tool    = $this->tool('update_content_element');
+        $user    = $this->adminIn(self::DRAFT);
+        $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true, [], [], self::DRAFT), $user);
+        $call    = ['uid' => self::ELEMENT, 'fields' => ['header' => 'Changed by the worker']];
+
+        unset($GLOBALS['BE_USER'], $GLOBALS['LANG']);
+        $refused = $tool->execute($call, $context);
+        self::assertTrue($refused->isError);
+        self::assertStringContainsString('writing needs a full backend environment', $refused->content);
+        self::assertNull($this->versionOf(self::ELEMENT, self::DRAFT), 'the refused write stored nothing');
+
+        $environment = new WorkerWriteEnvironment($this->getService(LanguageServiceFactory::class), true);
+        $result      = $environment->around($user, static fn (): ToolResult => $tool->execute($call, $context));
+
+        self::assertFalse($result->isError, $result->content);
+        self::assertSame('Changed by the worker', $this->versionOf(self::ELEMENT, self::DRAFT)['header'] ?? null);
+        self::assertSame('Live header', $this->header(self::ELEMENT), 'live is untouched');
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS);
+        self::assertArrayNotHasKey('LANG', $GLOBALS);
     }
 
     #[Test]

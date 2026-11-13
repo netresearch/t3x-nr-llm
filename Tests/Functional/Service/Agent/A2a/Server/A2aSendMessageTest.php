@@ -203,8 +203,9 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A2A-SV4a, A2A-SV6: a message naming a task is checked like a
-     * continuation and then refused in stage 3.
+     * A2A-SV4a, A2A-SV6, A2A-MT3: a message naming a task is checked in the
+     * order of a continuation; a task that does not wait for the client
+     * (here SUBMITTED) takes no message, a terminal one neither.
      */
     #[Test]
     public function aMessageNamingATaskIsCheckedAndRefused(): void
@@ -221,7 +222,8 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
         self::assertSame(-32001, self::j($this->errorOf($theirs), 'code'));
 
         $open = $this->call('SendMessage', ['message' => $this->message('More.', '', ['taskId' => $task['id']])], 2);
-        self::assertSame([-32004, 'CONTINUATION_NOT_SUPPORTED'], array_slice(array_values($this->errorOf($open)), 0, 2));
+        self::assertSame([-32004, 'UNSUPPORTED_OPERATION'], array_slice(array_values($this->errorOf($open)), 0, 2));
+        self::assertSame(1, $this->rows('tx_nrllm_a2a_dedup'), 'the refused message left no dedup record');
 
         $this->getService(AgentRunPersister::class)->cancel($this->runOfTask($this->taskRow($task['id']))->uuid);
         $terminal = $this->call('SendMessage', ['message' => $this->message('More.', '', ['taskId' => $task['id']])], 2);

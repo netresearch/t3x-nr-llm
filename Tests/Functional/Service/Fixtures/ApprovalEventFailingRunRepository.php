@@ -84,14 +84,14 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         return $this->inner->settleIfWaiting($runUid, $from, $to, $reason, $errorClass);
     }
 
-    public function suspendRun(int $runUid, string $stateJson): bool
+    public function suspendRun(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->inner->suspendRun($runUid, $stateJson);
+        return $this->inner->suspendRun($runUid, $stateJson, $claimGeneration);
     }
 
-    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    public function suspendRunForInput(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->inner->suspendRunForInput($runUid, $stateJson);
+        return $this->inner->suspendRunForInput($runUid, $stateJson, $claimGeneration);
     }
 
     public function claimForResume(int $runUid, string $claimedBy, int $leaseExpires): bool
@@ -257,6 +257,11 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
     public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
         return $this->inner->claimForResumeFromDependency($runUid, $claimedBy, $leaseExpires);
+    }
+
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson, ?string $expectedState = null): bool
+    {
+        return $this->inner->queueContinuation($runUid, $from, $pauseGeneration, $stateJson, $expectedState);
     }
 
     public function cancelWaitingForDependency(int $runUid): bool

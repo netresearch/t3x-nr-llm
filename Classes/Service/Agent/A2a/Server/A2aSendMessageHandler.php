@@ -25,21 +25,26 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPartKind;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRole;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aContinuationObserverInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aHandlerDecision;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aRunContext;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aInputMapping;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface;
+use Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException;
+use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
+use Netresearch\NrLlm\Service\Agent\PendingPause;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
-use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
-use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -60,8 +65,12 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * The run is queued with `defer()` as the client's technical backend user;
  * nothing here executes the agent loop (A2A-SV7).
  *
- * Stage 3 does not continue a task: a message that names a task is checked
- * like stage 4 will check it, and then refused as unsupported.
+ * A message that names a task continues it (A2A-MT3): it is checked in the
+ * order A2A-SV4a and A2A-SV6 give, then the task must wait for the client
+ * (INPUT_REQUIRED), and the client and the profile are checked again
+ * (A2A-MT4). The dedup record, the message in the task's history and the
+ * stored input (A2A-MT2) then commit in one transaction under the client's
+ * row lock; the worker carries the input out.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -95,13 +104,14 @@ final readonly class A2aSendMessageHandler
         private AgentRunPersister $persister,
         private LlmConfigurationRepository $configurations,
         private RunPrivacyLevelResolver $privacy,
-        private ToolEffectResolver $effects,
+        private A2aProfileToolList $toolList,
         private WorkerOperationsRepository $workers,
         private A2aWaitingSlots $slots,
         private A2aServerSettings $settings,
         private A2aTaskWaiter $waiter,
         private ConnectionPool $connectionPool,
-        private ConfigurationResolver $access,
+        private DurableDecisionIntakeInterface $intake,
+        private A2aClientAccess $access,
         ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
     ) {
@@ -135,12 +145,12 @@ final readonly class A2aSendMessageHandler
         }
 
         if ($message->taskId !== '') {
-            $this->refuseContinuation($client, $message, $named);
+            return $this->continueTask($client, $message, $named, $allowed, $configuration, $blocking, $historyLength, $now);
         }
 
         $profile = $this->selectProfile($allowed, $named);
         $this->checkOutputModes($configuration, $profile);
-        $contextId = $this->contextId($client, $message);
+        $contextId = $this->contextId($client, $message, $profile);
 
         $digest   = hash('sha256', json_encode($message->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
         $existing = $this->deduplicated($client, $message, $digest);
@@ -160,8 +170,14 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::internal();
         }
 
-        $actor = $this->actor($client);
-        if (!$llm->isActive() || !$this->access->actorMayUse($llm, $actor)) {
+        // A2A-MT5: a writing skill writes drafts only, into the client's
+        // pinned workspace; live is never a target.
+        if ($profile->mayWrite && $client->workspaceId < 1) {
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill writes and needs a client pinned to a draft workspace.');
+        }
+
+        $actor = $this->access->actor($client);
+        if (!$this->access->mayRun($profile->configurationUid, $actor)) {
             // Every entry point that starts a run checks the configuration
             // for its actor; here the actor is the client's technical user.
             $this->logger->warning("A2A profile cannot be executed: its LLM configuration is switched off or not available to the client's technical user", ['profile' => $profile->uid, 'client' => $client->uid]);
@@ -169,7 +185,7 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
         }
 
-        $decision = $handler->decide($message, $profile, new A2aRunContext($llm, $actor, $this->readOnlyTools($profile), ''));
+        $decision = $handler->decide($message, $profile, new A2aRunContext($llm, $actor, $this->allowedTools($profile), ''));
         if ($decision->reply instanceof A2aMessage) {
             return ['message' => $decision->reply->toArray()];
         }
@@ -254,6 +270,7 @@ final readonly class A2aSendMessageHandler
                     }
 
                     $this->checkLimits($client, $profile);
+                    $this->checkContextAgain($client, $profile, $contextId);
 
                     $runUuid = $this->runtime->defer($request);
                     $run     = $this->persister->findRun($runUuid);
@@ -369,18 +386,24 @@ final readonly class A2aSendMessageHandler
     }
 
     /**
-     * Stage 3 runs a task once; a later turn is stage 4 (A2A-MT3). The checks
-     * a continuation will need come first, in the order A2A-SV4a and
-     * A2A-SV6 give.
+     * A client's later message to one of its tasks (A2A-MT1 to A2A-MT4).
+     *
+     * @param list<A2aSkillProfile> $allowed
+     * @param array<string, mixed>  $configuration
+     *
+     * @return array<string, mixed>
+     *
+     * @throws A2aRpcError
      */
-    private function refuseContinuation(A2aInboundClient $client, A2aMessage $message, ?string $named): never
+    private function continueTask(A2aInboundClient $client, A2aMessage $message, ?string $named, array $allowed, array $configuration, bool $blocking, ?int $historyLength, int $now): array
     {
         $row = $this->view->find($client->uid, $message->taskId);
         if ($row === null) {
             throw A2aRpcError::a2a(A2aErrorCode::TASK_NOT_FOUND, 'Task not found.');
         }
 
-        if ($message->contextId !== '' && $message->contextId !== ($row['context_id'] ?? '')) {
+        $contextId = is_string($row['context_id'] ?? null) ? $row['context_id'] : '';
+        if ($message->contextId !== '' && $message->contextId !== $contextId) {
             throw A2aRpcError::invalidParams('message.contextId', 'the context does not match the task');
         }
 
@@ -390,12 +413,197 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::invalidParams(self::PROFILE_FIELD, "the skill differs from the task's", A2aRpcError::REASON_PROFILE_MISMATCH);
         }
 
+        // The message carries the task's context from here on (§3.4.3). A
+        // repeat of an answer already taken in returns the task, also once
+        // the task has ended: a client that lost the response retries.
+        $message = $message->withContextId($contextId);
+        $digest  = hash('sha256', json_encode($message->toArray(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $known   = $this->deduplicated($client, $message, $digest);
+        if ($known !== null) {
+            return $this->respond($client, $known, $blocking, $historyLength, null);
+        }
+
         $state = A2aTaskState::tryFrom(is_string($row['state'] ?? null) ? $row['state'] : '');
         if ($state instanceof A2aTaskState && $state->isTerminal()) {
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is in a terminal state.');
         }
 
-        throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'Continuing a task is not supported.', A2aRpcError::REASON_CONTINUATION_NOT_SUPPORTED);
+        // A2A-MT4: the profile is one this client may still call.
+        if (!$profile instanceof A2aSkillProfile || !$this->hasSkill($allowed, $profile->skillId)) {
+            throw A2aRpcError::invalidParams('metadata["' . self::PROFILE_EXTENSION . '"]', 'the skill of this task is not one this client may call', A2aRpcError::REASON_PROFILE_NOT_ALLOWED);
+        }
+
+        if ($state !== A2aTaskState::INPUT_REQUIRED && $state !== A2aTaskState::AUTH_REQUIRED) {
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is not waiting for a message from the client.');
+        }
+
+        $this->checkOutputModes($configuration, $profile);
+
+        $runUid  = is_numeric($row['run_uid'] ?? null) ? (int) $row['run_uid'] : 0;
+        $runUuid = $this->runUuid($runUid);
+        $actor   = $this->access->actor($client);
+        // The check a new task gets, for the configuration the run resumes
+        // with: a client whose access was revoked, or a configuration
+        // switched off, since the task paused does not continue it.
+        $run = $runUuid !== '' ? $this->persister->findRun($runUuid) : null;
+        if (!$run instanceof AgentRun || !$this->access->mayRun($run->configurationUid, $actor)) {
+            $this->logger->warning("An A2A task cannot be continued: its LLM configuration is switched off or not available to the client's technical user", ['client' => $client->uid, 'run' => $runUuid]);
+
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
+        }
+
+        $pause = $runUuid !== '' ? $this->intake->pendingPause($actor, $runUuid) : null;
+        if (!$pause instanceof PendingPause || !$pause->isInput()) {
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is not waiting for a message from the client.');
+        }
+
+        // The workspace the run was started in is the one it resumes in
+        // (A2aResumeGuard checks it again at the worker): a client moved to
+        // another workspace meanwhile cannot answer the question, and the task
+        // keeps waiting.
+        if ($pause->workspaceId !== null && $pause->workspaceId !== $actor->workspaceId) {
+            $this->logger->warning("An A2A task cannot be continued: the client's pinned workspace changed since it started", ['client' => $client->uid, 'run' => $runUuid]);
+
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, "The client's workspace changed since the task started.");
+        }
+
+        $data = A2aInputMapping::submission($message->text(), $pause->inputSchema);
+        if ($data === null) {
+            throw A2aRpcError::invalidParams('message.parts', 'the text does not answer the question the task asks');
+        }
+
+        try {
+            $this->checkCapacity($client, $profile, $now);
+        } catch (A2aRpcError $refused) {
+            // As for a new task: a concurrent repeat may have taken the capacity.
+            $winner = $this->deduplicated($client, $message, $digest);
+            if ($winner !== null) {
+                return $this->respond($client, $winner, $blocking, $historyLength, null);
+            }
+
+            throw $refused;
+        }
+
+        $slot = $blocking ? $this->takeSlot($now) : null;
+
+        try {
+            $taskId = $this->takeIn($client, $profile, $message, $digest, $row, $runUid, $runUuid, $actor, $pause, $data);
+            if ($taskId === null) {
+                $winner = $this->deduplicated($client, $message, $digest);
+                if ($winner === null) {
+                    throw A2aRpcError::internal();
+                }
+
+                return $this->respond($client, $winner, $blocking, $historyLength, $slot);
+            }
+
+            $handler = $this->handlers->get($profile->handler);
+            if ($handler instanceof A2aContinuationObserverInterface) {
+                try {
+                    $handler->continued($runUuid, $message);
+                } catch (Throwable $exception) {
+                    $this->logger->warning('The continuation step of an A2A handler failed', ['exception' => $exception]);
+                }
+            }
+
+            return $this->respond($client, $taskId, $blocking, $historyLength, $slot);
+        } finally {
+            if ($slot !== null) {
+                $this->slots->release($slot);
+            }
+        }
+    }
+
+    /**
+     * The intake transaction of a continuation (A2A-MT2, A2A-MT3): the dedup
+     * record, the message in the history and the stored input, or none of
+     * them. Concurrent messages of one client are serialised by its row lock;
+     * the stored input's guarded transition lets exactly one of several
+     * messages to the same pause through.
+     *
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $data
+     *
+     * @return string|null the task's id; null when the dedup record of a concurrent request won
+     */
+    private function takeIn(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $digest, array $row, int $runUid, string $runUuid, AiActorContext $actor, PendingPause $pause, array $data): ?string
+    {
+        $taskId   = is_string($row['task_id'] ?? null) ? $row['task_id'] : '';
+        $taskUid  = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+        $repeated = false;
+
+        try {
+            $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
+                function (Connection $connection) use ($client, $profile, $message, $digest, $taskId, $taskUid, $runUid, $runUuid, $actor, $pause, $data, &$repeated): void {
+                    $this->lockRow($connection, A2aInboundClientRepository::TABLE, $client->uid);
+                    if ($profile->maxActiveTasks > 0) {
+                        $this->lockRow($connection, A2aSkillProfileRepository::TABLE, $profile->uid);
+                    }
+
+                    // As for a new task: a repeat that committed while this
+                    // one waited for the lock answers with its task.
+                    if ($connection->count('uid', self::DEDUP_TABLE, ['owner_client_uid' => $client->uid, 'message_id_sha256' => hash('sha256', $message->messageId)]) > 0) {
+                        $repeated = true;
+
+                        return;
+                    }
+
+                    $this->checkLimits($client, $profile);
+
+                    $connection->insert(self::DEDUP_TABLE, [
+                        'owner_client_uid'  => $client->uid,
+                        'message_id'        => $message->messageId,
+                        'message_id_sha256' => hash('sha256', $message->messageId),
+                        'message_sha256'    => $digest,
+                        'task_uid'          => $taskUid,
+                        'crdate'            => time(),
+                    ]);
+
+                    $entry           = $message->toArray();
+                    $entry['taskId'] = $taskId;
+                    $this->store->appendHistory($runUid, $entry);
+
+                    $this->intake->storeInput($actor, $runUuid, new InputSubmission($data, $client->backendUserUid, $pause->turnDigest), $pause->generation);
+                },
+            );
+        } catch (UniqueConstraintViolationException) {
+            return null;
+        } catch (A2aRpcError $refusal) {
+            throw $refusal;
+        } catch (InvalidInputSubmissionException) {
+            throw A2aRpcError::invalidParams('message.parts', 'the text does not answer the question the task asks');
+        } catch (AgentRuntimeException $refusal) {
+            // The pause moved on, another message took it, or the client's
+            // user may no longer answer it: nothing was stored.
+            $this->logger->notice('A continuation of an A2A task was not taken in', ['client' => $client->uid, 'reason' => $refusal->getMessage()]);
+
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is not waiting for a message from the client.');
+        } catch (Throwable $exception) {
+            $this->logger->error('A continuation of an A2A task could not be stored; nothing was stored', ['client' => $client->uid, 'exception' => $exception]);
+
+            throw A2aRpcError::internal();
+        }
+
+        if ($repeated) {
+            return null;
+        }
+
+        // Once the transition is committed: a consumer woken inside the
+        // transaction can find the run still waiting (as in accept()).
+        $this->wake($runUuid);
+
+        return $taskId;
+    }
+
+    private function runUuid(int $runUid): string
+    {
+        if ($runUid < 1) {
+            return '';
+        }
+
+        $uuid = $this->connectionPool->getConnectionForTable('tx_nrllm_agentrun')->select(['uuid'], 'tx_nrllm_agentrun', ['uid' => $runUid])->fetchOne();
+
+        return is_string($uuid) ? $uuid : '';
     }
 
     /**
@@ -518,16 +726,42 @@ final readonly class A2aSendMessageHandler
     }
 
     /**
+     * {@see self::contextId()} again under the client's row lock: two requests
+     * that presented the same new context id for different skills both passed
+     * the first check, and the lock serialises only their inserts.
+     */
+    private function checkContextAgain(A2aInboundClient $client, A2aSkillProfile $profile, string $contextId): void
+    {
+        if ($this->view->ownsContext($client->uid, $contextId)) {
+            if (!$this->view->contextHoldsOnlyProfile($client->uid, $contextId, $profile->uid)) {
+                throw A2aRpcError::invalidParams('message.contextId', 'the context belongs to another skill', A2aRpcError::REASON_PROFILE_MISMATCH);
+            }
+
+            return;
+        }
+
+        if ($this->view->contextExists($contextId)) {
+            throw A2aRpcError::invalidParams('message.contextId', 'not a context of this client and not a new UUID');
+        }
+    }
+
+    /**
      * A client-supplied context is accepted when the client owns it or it is
      * a new UUID; otherwise one is generated (A2A-SV6, §3.4.1).
      */
-    private function contextId(A2aInboundClient $client, A2aMessage $message): string
+    private function contextId(A2aInboundClient $client, A2aMessage $message, A2aSkillProfile $profile): string
     {
         if ($message->contextId === '') {
             return Uuid::v4()->toRfc4122();
         }
 
         if ($this->view->ownsContext($client->uid, $message->contextId)) {
+            // A context is not crossed between the client's skills: a task of
+            // another profile in it would read as one conversation.
+            if (!$this->view->contextHoldsOnlyProfile($client->uid, $message->contextId, $profile->uid)) {
+                throw A2aRpcError::invalidParams('message.contextId', 'the context belongs to another skill', A2aRpcError::REASON_PROFILE_MISMATCH);
+            }
+
             return $message->contextId;
         }
 
@@ -617,29 +851,17 @@ final readonly class A2aSendMessageHandler
      * The client's technical backend user in the client's pinned workspace
      * (A2A-SEC3, ADR-280); its groups decide which configurations it may use.
      */
-    private function actor(A2aInboundClient $client): AiActorContext
-    {
-        $builder = $this->connectionPool->getQueryBuilderForTable('be_users');
-        $builder->getRestrictions()->removeAll();
-        $groups = $builder->select('usergroup')->from('be_users')
-            ->where($builder->expr()->eq('uid', $builder->createNamedParameter($client->backendUserUid, Connection::PARAM_INT)))
-            ->executeQuery()
-            ->fetchOne();
-        $groupIds = array_values(array_filter(array_map(intval(...), explode(',', is_string($groups) ? $groups : '')), static fn (int $uid): bool => $uid > 0));
-
-        return AiActorContext::backendUser($client->backendUserUid, false, $groupIds, [], $client->workspaceId);
-    }
-
     /**
-     * The profile's tools that declare that they only read; a write is stage
-     * 4 (A2A-SV4). A tool that declares no effect is left out: the resolver
-     * reads it as a read for its retry guards, but it may write (ADR-238).
+     * The profile's tools: all of them for a writing profile (A2A-MT5),
+     * otherwise those that declare that they only read (A2A-SV4). A tool
+     * that declares no effect is left out: the resolver reads it as a read
+     * for its retry guards, but it may write (ADR-238).
      *
      * @return list<string>
      */
-    private function readOnlyTools(A2aSkillProfile $profile): array
+    private function allowedTools(A2aSkillProfile $profile): array
     {
-        return array_values(array_filter($profile->tools, $this->effects->declaresRead(...)));
+        return $this->toolList->allowedFor($profile);
     }
 
     /**

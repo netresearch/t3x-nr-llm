@@ -47,6 +47,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_A2A_DEDUP = 'tx_nrllm_a2a_dedup';
 
+    private const TABLE_A2A_WRITE = 'tx_nrllm_a2a_write';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -514,14 +516,14 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         return $affected > 0;
     }
 
-    public function suspendRun(int $runUid, string $stateJson): bool
+    public function suspendRun(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_APPROVAL);
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_APPROVAL, false, $claimGeneration);
     }
 
-    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    public function suspendRunForInput(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
-        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT);
+        return $this->conditionalSuspend($runUid, $stateJson, AgentRunStatus::WAITING_FOR_INPUT, false, $claimGeneration);
     }
 
     public function suspendRunForDependency(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
@@ -565,6 +567,62 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 'uid'        => $runUid,
                 'status'     => AgentRunStatus::RUNNING->value,
                 'claimed_by' => $claimedBy,
+            ],
+        );
+
+        return $affected === 1;
+    }
+
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson, ?string $expectedState = null): bool
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_RUN);
+        $now        = time();
+
+        // Compare and swap on the stored value: the state is re-sealed at
+        // every suspension, so equality of the stored column is the identity
+        // of the pause, and the guard sits in the same statement as the write.
+        $sealed = null;
+        if ($expectedState !== null) {
+            $sealed = $connection->select(['suspended_state'], self::TABLE_RUN, ['uid' => $runUid])->fetchOne();
+            if (!is_string($sealed) || $sealed === '' || !hash_equals($expectedState, $this->suspendedStateOf($sealed, AgentStateCodec::PURPOSE_SUSPENDED_STATE) ?? '')) {
+                return false;
+            }
+        }
+
+        // One statement: the status, and the absence of any event at or past
+        // the pause generation, are checked where the row is written.
+        $affected = $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(self::TABLE_RUN)
+                . ' SET status = ?, suspended_state = ?, queued_request = ?, claimed_by = ?, lease_expires = 0, pending_effect = ?, queued_at = ?, tstamp = ?'
+                . ' WHERE uid = ? AND status = ? AND NOT EXISTS (SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE_EVENT) . ' e WHERE e.run = ? AND e.sequence >= ?)'
+                . ($sealed !== null ? ' AND suspended_state = ?' : ''),
+            [
+                AgentRunStatus::QUEUED->value,
+                $this->stateCodec->encode($stateJson, AgentStateCodec::PURPOSE_SUSPENDED_STATE),
+                '',
+                '',
+                '',
+                $now,
+                $now,
+                $runUid,
+                $from->value,
+                $runUid,
+                $pauseGeneration,
+                ...($sealed !== null ? [$sealed] : []),
+            ],
+            [
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_STR,
+                Connection::PARAM_INT,
+                Connection::PARAM_INT,
+                Connection::PARAM_INT,
+                Connection::PARAM_STR,
+                Connection::PARAM_INT,
+                Connection::PARAM_INT,
+                ...($sealed !== null ? [Connection::PARAM_STR] : []),
             ],
         );
 
@@ -1327,6 +1385,14 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         $dedup
             ->delete(self::TABLE_A2A_DEDUP)
             ->where($dedup->expr()->in('task_uid', $dedup->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
+
+        // The writes a task's run executed, listed in its artifact (spec 051
+        // A2A-MT6), go with the task; before it, for the same reason.
+        $writes = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_WRITE)->createQueryBuilder();
+        $writes
+            ->delete(self::TABLE_A2A_WRITE)
+            ->where($writes->expr()->in('task_uid', $writes->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
 
         // Then the tasks: the projector writes an event only under a lock on its

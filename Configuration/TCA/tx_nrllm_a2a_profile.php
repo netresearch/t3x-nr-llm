@@ -14,9 +14,10 @@ $ll = 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_a2a_
 /*
  * A publication profile of the A2A server role (spec 051 A2A-SV4, ADR-283):
  * one agent skill, bound to a domain handler, an LLM configuration and the
- * read-only tools its runs may use. Only administrators edit it. A profile
- * whose configuration cannot keep a result is not saved as public
- * (ADR-282), and a writing profile is stage 4.
+ * tools its runs may use: those that only read, and with "may write" also
+ * the writing ones, which then write drafts into the client's pinned
+ * workspace only (A2A-MT5). Only administrators edit it. A profile whose
+ * configuration cannot keep a result is not saved as public (ADR-282).
  */
 return [
     'ctrl' => [
@@ -52,6 +53,7 @@ return [
                     input_modes,
                     output_modes,
                     max_active_tasks,
+                    may_write,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     public,
                     hidden,
@@ -122,6 +124,11 @@ return [
             'label'       => $ll . '.max_active_tasks',
             'description' => $ll . '.max_active_tasks.description',
             'config'      => ['type' => 'number', 'default' => 0, 'range' => ['lower' => 0, 'upper' => 10000]],
+        ],
+        'may_write' => [
+            'label'       => $ll . '.may_write',
+            'description' => $ll . '.may_write.description',
+            'config'      => ['type' => 'check', 'default' => 0],
         ],
         'public' => [
             'label'       => $ll . '.public',

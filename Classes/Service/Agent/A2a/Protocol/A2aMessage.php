@@ -88,6 +88,24 @@ final readonly class A2aMessage
     }
 
     /**
+     * The same message in another context: a server fills in the context of
+     * the task a message names when the client left it out (§3.4.3).
+     */
+    public function withContextId(string $contextId): self
+    {
+        return new self(
+            $this->messageId,
+            $this->role,
+            $this->parts,
+            $contextId,
+            $this->taskId,
+            $this->metadata,
+            $this->extensions,
+            $this->referenceTaskIds,
+        );
+    }
+
+    /**
      * The text of every text part, in order, joined by a blank line.
      */
     public function text(): string

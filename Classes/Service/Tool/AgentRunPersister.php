@@ -696,7 +696,7 @@ final readonly class AgentRunPersister
             // Guarded transition (ADR-101): false when the run is no longer
             // RUNNING — a concurrent cancel or settle won the row first, and the
             // suspension must not resurrect it.
-            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRun($handle->runUid, $stateJson))) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRun($handle->runUid, $stateJson, $handle->claimGeneration))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -736,7 +736,7 @@ final readonly class AgentRunPersister
     {
         try {
             $stateJson = json_encode($state->toArray(), JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
-            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForInput($handle->runUid, $stateJson))) {
+            if (!$this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForInput($handle->runUid, $stateJson, $handle->claimGeneration))) {
                 $this->recordDiagnostic(
                     function () use ($handle): void {
                         $this->logger?->notice(
@@ -987,6 +987,32 @@ final readonly class AgentRunPersister
                 function () use ($exception): void {
                     $this->logger?->warning(
                         'A run waiting for a dependency could not be cancelled',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * Hand a paused run to the worker with a stored decision (ADR-281, spec
+     * 051 A2A-MT2). The guarded transition of
+     * {@see AgentRunRepositoryInterface::queueContinuation()}; it reaches the
+     * A2A task view like every transition. False when another decision, an
+     * in-request resume or a later pause won, or the store failed.
+     */
+    public function queueContinuation(AgentRun $run, AgentRunStatus $from, int $pauseGeneration, string $stateJson): bool
+    {
+        try {
+            // Bound to the pause `$run` was read in, by its stored state.
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->queueContinuation($run->uid, $from, $pauseGeneration, $stateJson, $run->suspendedState));
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'A decision could not be handed to the worker',
                         ['exception' => $exception],
                     );
                 },

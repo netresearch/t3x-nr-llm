@@ -1292,7 +1292,7 @@ Netresearch\NrLlm\Domain\ValueObject\SubjectRecord (class)
   property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …, ?int $maxIterations = …, ?float $estimatedCost = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …, ?int $maxIterations = …, ?float $estimatedCost = …, string $inputCallId = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -1306,6 +1306,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly forcedSnippetUids: array
   property readonly initiatingActor: ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext
   property readonly initiatingRunUuid: string
+  property readonly inputCallId: string
   property readonly inputSchema: array
   property readonly inputToolName: ?string
   property readonly invocationHistory: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
@@ -1725,6 +1726,19 @@ Netresearch\NrLlm\Service\Agent\ApprovalDecision (class)
   property readonly denialReason: ?Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason
   property readonly turnDigest: ?string
 
+Netresearch\NrLlm\Service\Agent\DecisionReceipt (class)
+  constructor(string $decisionId, string $runUuid, string $kind, int $pauseGeneration, int $storedAt)
+  property readonly decisionId: string
+  property readonly kind: string
+  property readonly pauseGeneration: int
+  property readonly runUuid: string
+  property readonly storedAt: int
+
+Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface (interface)
+  method pendingPause(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): ?Netresearch\NrLlm\Service\Agent\PendingPause
+  method storeApproval(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, int $pauseGeneration): Netresearch\NrLlm\Service\Agent\DecisionReceipt
+  method storeInput(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\InputSubmission $submission, int $pauseGeneration): Netresearch\NrLlm\Service\Agent\DecisionReceipt
+
 Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException (class)
   constructor(string $runUuid, string $message)
   property readonly runUuid: string
@@ -1739,6 +1753,19 @@ Netresearch\NrLlm\Service\Agent\InputSubmission (class)
   property readonly data: array
   property readonly submittedByBeUser: int
   property readonly turnDigest: ?string
+
+Netresearch\NrLlm\Service\Agent\PendingPause (class)
+  const KIND_APPROVAL = "approval"
+  const KIND_INPUT = "input"
+  constructor(string $runUuid, string $kind, int $generation, string $turnDigest, ?string $inputToolName = …, array $inputSchema = …, ?int $workspaceId = …)
+  method isInput(): bool
+  property readonly generation: int
+  property readonly inputSchema: array
+  property readonly inputToolName: ?string
+  property readonly kind: string
+  property readonly runUuid: string
+  property readonly turnDigest: string
+  property readonly workspaceId: ?int
 
 Netresearch\NrLlm\Service\Agent\Process\ProcessSkillCatalogue (class)
   constructor(Netresearch\NrLlm\Service\ConfigurationResolver $configurations, Netresearch\NrLlm\Service\Skill\SkillComposer $composer)

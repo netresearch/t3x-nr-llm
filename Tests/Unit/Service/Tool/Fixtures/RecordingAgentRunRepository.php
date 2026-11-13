@@ -155,7 +155,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return !$this->refuseSettleIfWaiting;
     }
 
-    public function suspendRun(int $runUid, string $stateJson): bool
+    public function suspendRun(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
         if ($this->throwOnSuspend) {
             throw new RuntimeException('suspendRun failed', 1784600401);
@@ -178,7 +178,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     /** Simulates a run no longer RUNNING, so the guarded input-suspend matches no row. */
     public bool $refuseSuspendForInput = false;
 
-    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    public function suspendRunForInput(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
         if ($this->throwOnSuspendForInput) {
             throw new RuntimeException('suspendRunForInput failed', 1784600402);
@@ -581,6 +581,11 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     }
 
     public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        return false;
+    }
+
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson, ?string $expectedState = null): bool
     {
         return false;
     }

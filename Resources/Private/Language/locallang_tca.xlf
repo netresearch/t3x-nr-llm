@@ -1783,6 +1783,12 @@
             <trans-unit id="tx_nrllm_a2a_profile.max_active_tasks.description">
                 <source>How many tasks of this skill, from all clients together, may be queued or running at the same time. 0: no limit of its own.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.may_write">
+                <source>May write</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.may_write.description">
+                <source>Runs of this skill may use its writing tools too. They write drafts only, into the pinned workspace of the calling client; a client pinned to live cannot call a writing skill. The task's result lists the writes that were executed.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.public">
                 <source>Public</source>
             </trans-unit>

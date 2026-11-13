@@ -77,13 +77,13 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         return false;
     }
 
-    public function suspendRun(int $runUid, string $stateJson): bool
+    public function suspendRun(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
         // Not needed by the command tests.
         return true;
     }
 
-    public function suspendRunForInput(int $runUid, string $stateJson): bool
+    public function suspendRunForInput(int $runUid, string $stateJson, ?int $claimGeneration = null): bool
     {
         // Not needed by the command tests.
         return true;
@@ -296,6 +296,11 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
     }
 
     public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
+    {
+        return false;
+    }
+
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson, ?string $expectedState = null): bool
     {
         return false;
     }

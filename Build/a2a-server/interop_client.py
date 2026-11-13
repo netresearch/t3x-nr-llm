@@ -61,6 +61,17 @@ async def main() -> None:
     rest = await client.list_tasks(ListTasksRequest(page_size=100, page_token=listed.next_page_token))
     check('ListTasks next page', rest.next_page_token == '' and len(rest.tasks) == listed.total_size - 1, f'{len(rest.tasks)} tasks')
 
+    # Stage 4 (A2A-MT3): a task waiting for input is answered with a message
+    # that names it; the fixture completes it once the answer is taken in.
+    event = await last(client.send_message(SendMessageRequest(message=msg('tck-input-required'), configuration=SendMessageConfiguration(return_immediately=True))))
+    asked = event.task
+    answer = msg('tck-complete-task', 'the answer')
+    answer.task_id = asked.id
+    answer.context_id = asked.context_id
+    event = await last(client.send_message(SendMessageRequest(message=answer)))
+    answered = event.task
+    check('SendMessage continuing a task', answered.id == asked.id and answered.status.state == TaskState.TASK_STATE_COMPLETED and [m.parts[0].text for m in answered.history][-1] == 'the answer', TaskState.Name(answered.status.state))
+
     cancelled = await client.cancel_task(CancelTaskRequest(id=waiting))
     check('CancelTask', cancelled.status.state == TaskState.TASK_STATE_CANCELED, TaskState.Name(cancelled.status.state))
 

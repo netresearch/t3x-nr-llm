@@ -20,8 +20,10 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aClientAccess;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aProfileToolList;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcError;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
@@ -37,10 +39,10 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\DurableDecisionIntakeInterface;
 use Netresearch\NrLlm\Service\Agent\Operations\WorkerOperationsRepository;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\BudgetServiceInterface;
-use Netresearch\NrLlm\Service\ConfigurationResolver;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
@@ -51,7 +53,6 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use ReflectionMethod;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Messenger\Envelope;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -362,26 +363,9 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
         $resolver = new ToolEffectResolver(new ToolRegistry([$silent, new FakeTool('reads'), new FakeTool('writes', effect: ToolEffect::IDEMPOTENT_WRITE)]));
         self::assertSame(ToolEffect::READ_ONLY, $resolver->effectFor('silent_tool'));
 
-        // The container's collaborators, with this resolver in place of its own.
-        $handler = new A2aSendMessageHandler(
-            $this->getService(A2aTaskView::class),
-            $this->getService(A2aSkillProfileRepository::class),
-            $this->getService(A2aDomainHandlerRegistry::class),
-            $this->getService(A2aTaskStore::class),
-            $this->getService(AgentRuntimeInterface::class),
-            $this->getService(AgentRunPersister::class),
-            $this->getService(LlmConfigurationRepository::class),
-            $this->getService(RunPrivacyLevelResolver::class),
-            $resolver,
-            $this->getService(WorkerOperationsRepository::class),
-            $this->getService(A2aWaitingSlots::class),
-            $this->getService(A2aServerSettings::class),
-            $this->getService(A2aTaskWaiter::class),
-            $this->getService(ConnectionPool::class),
-            $this->getService(ConfigurationResolver::class),
-        );
-
-        $granted = (new ReflectionMethod($handler, 'readOnlyTools'))->invoke($handler, A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool']));
+        $tools   = new A2aProfileToolList($resolver);
+        $granted = $tools->allowedFor(A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool']));
+        self::assertSame(['silent_tool', 'reads', 'writes', 'no_such_tool'], $tools->allowedFor(A2aSkillProfile::fromRow(['tools' => 'silent_tool,reads,writes,no_such_tool', 'may_write' => 1])));
 
         self::assertSame(['reads'], $granted);
     }
@@ -450,13 +434,14 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
             $this->getService(AgentRunPersister::class),
             $this->getService(LlmConfigurationRepository::class),
             $this->getService(RunPrivacyLevelResolver::class),
-            $this->getService(ToolEffectResolver::class),
+            $this->getService(A2aProfileToolList::class),
             $this->getService(WorkerOperationsRepository::class),
             $this->getService(A2aWaitingSlots::class),
             $this->getService(A2aServerSettings::class),
             $this->getService(A2aTaskWaiter::class),
             $pool ?? $this->getService(ConnectionPool::class),
-            $this->getService(ConfigurationResolver::class),
+            $this->getService(DurableDecisionIntakeInterface::class),
+            $this->getService(A2aClientAccess::class),
             null,
             $bus,
         );

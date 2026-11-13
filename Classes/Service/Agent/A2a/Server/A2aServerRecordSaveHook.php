@@ -36,10 +36,15 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  * - `public` is stored only when the profile's LLM configuration keeps a
  *   result (its answer level is neither `metadata` nor `none`).
  * - The handler must be one registered here.
- * - `may_write` stays 0 in stage 3 (A2A-MT5 is stage 4).
+ * - `may_write` is stored only while no client that may call the profile is
+ *   pinned to live (A2A-MT5): a writing profile writes drafts only.
  * - Every tool of a profile that may not write declares that it only reads;
  *   otherwise the tool list is not stored. The run would leave such a tool
  *   out anyway; the refusal says so where the list is entered.
+ *
+ * Client:
+ * - A client pinned to live (workspace 0) cannot be allowed a writing
+ *   profile; the profile list is then not stored (A2A-MT5).
  *
  * A refusal is written to the DataHandler log, which the backend shows.
  *
@@ -88,7 +93,9 @@ final readonly class A2aServerRecordSaveHook
             unset($fieldArray[$field]);
         }
 
-        $row  = $status === 'update' && is_numeric($id) ? (BackendUtility::getRecord(self::CLIENT_TABLE, (int) $id) ?? []) : [];
+        $row = $status === 'update' && is_numeric($id) ? (BackendUtility::getRecord(self::CLIENT_TABLE, (int) $id) ?? []) : [];
+        $this->clientWorkspace($id, $fieldArray, $row, $dataHandler);
+
         $user = array_key_exists('be_user', $fieldArray) ? $fieldArray['be_user'] : ($row['be_user'] ?? 0);
         if ($this->usableBackendUser(is_numeric($user) ? (int) $user : 0)) {
             return;
@@ -100,16 +107,84 @@ final readonly class A2aServerRecordSaveHook
     }
 
     /**
+     * A2A-MT5 on the client: live (workspace 0) and a writing profile do not
+     * go together.
+     *
+     * @param array<string, mixed>    $fieldArray
+     * @param array<array-key, mixed> $row
+     */
+    private function clientWorkspace(int|string $id, array &$fieldArray, array $row, DataHandler $dataHandler): void
+    {
+        $workspace = array_key_exists('workspace', $fieldArray) ? $fieldArray['workspace'] : ($row['workspace'] ?? 0);
+        $profiles  = array_key_exists('profiles', $fieldArray) ? $fieldArray['profiles'] : ($row['profiles'] ?? '');
+        if (is_numeric($workspace) && (int) $workspace > 0) {
+            return;
+        }
+
+        $uids = array_values(array_filter(array_map(intval(...), explode(',', is_scalar($profiles) ? (string) $profiles : '')), static fn (int $uid): bool => $uid > 0));
+        if ($uids === [] || $this->countWritingProfiles($uids) === 0) {
+            return;
+        }
+
+        unset($fieldArray['profiles'], $fieldArray['workspace']);
+        $this->refuse($dataHandler, self::CLIENT_TABLE, $id, 'A client pinned to live (workspace 0) cannot call a writing profile: a writing profile writes drafts only. Pin a draft workspace first; the profiles and the workspace were not stored.');
+    }
+
+    /**
+     * @param list<int> $uids
+     */
+    private function countWritingProfiles(array $uids): int
+    {
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::PROFILE_TABLE);
+        $builder->getRestrictions()->removeAll();
+        $count = $builder->count('uid')->from(self::PROFILE_TABLE)
+            ->where(
+                $builder->expr()->in('uid', $builder->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)),
+                $builder->expr()->eq('may_write', 1),
+                $builder->expr()->eq('deleted', 0),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
+     * Whether a client pinned to live may call the profile.
+     */
+    private function liveClientMayCall(int $profileUid): bool
+    {
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::CLIENT_TABLE);
+        $builder->getRestrictions()->removeAll();
+        $rows = $builder->select('profiles')->from(self::CLIENT_TABLE)
+            ->where($builder->expr()->eq('workspace', 0), $builder->expr()->eq('deleted', 0))
+            ->executeQuery()
+            ->fetchFirstColumn();
+        foreach ($rows as $profiles) {
+            if (in_array($profileUid, array_map(intval(...), explode(',', is_scalar($profiles) ? (string) $profiles : '')), true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param array<string, mixed> $fieldArray
      */
     private function profile(string $status, int|string $id, array &$fieldArray, DataHandler $dataHandler): void
     {
-        unset($fieldArray['may_write']);
-
         $row = $status === 'update' && is_numeric($id) ? (BackendUtility::getRecord(self::PROFILE_TABLE, (int) $id) ?? []) : [];
 
+        $this->checkMayWrite($id, $fieldArray, $dataHandler);
         $this->checkHandler($id, $fieldArray, $dataHandler);
-        $this->checkTools($id, $fieldArray, $dataHandler);
+
+        // A writing profile offers its tools as they are (A2A-MT5); the check
+        // is for a profile that stays or becomes one that may not write.
+        $writes = array_key_exists('may_write', $fieldArray) ? $fieldArray['may_write'] : ($row['may_write'] ?? 0);
+        if (!is_numeric($writes) || (int) $writes !== 1) {
+            $this->checkTools($id, $fieldArray, $dataHandler);
+        }
 
         $public = array_key_exists('public', $fieldArray) ? $fieldArray['public'] : ($row['public'] ?? 0);
         if (!is_numeric($public) || (int) $public !== 1) {
@@ -124,6 +199,20 @@ final readonly class A2aServerRecordSaveHook
 
         $fieldArray['public'] = 0;
         $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The LLM configuration of this profile keeps no result under the privacy policy (its answer level is metadata or none), so the profile cannot be public (ADR-282).');
+    }
+
+    /**
+     * A2A-MT5 on the profile: a profile a live client may call cannot write.
+     *
+     * @param array<string, mixed> $fieldArray
+     */
+    private function checkMayWrite(int|string $id, array &$fieldArray, DataHandler $dataHandler): void
+    {
+        $mayWrite = $fieldArray['may_write'] ?? null;
+        if (is_numeric($mayWrite) && (int) $mayWrite === 1 && is_numeric($id) && $this->liveClientMayCall((int) $id)) {
+            unset($fieldArray['may_write']);
+            $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'A client pinned to live (workspace 0) may call this profile, so it cannot write: a writing profile writes drafts only. "May write" was not stored.');
+        }
     }
 
     /**

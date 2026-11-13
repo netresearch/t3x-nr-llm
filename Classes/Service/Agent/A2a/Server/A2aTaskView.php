@@ -82,6 +82,25 @@ final readonly class A2aTaskView
     }
 
     /**
+     * Whether every task of the client in the context belongs to the profile:
+     * a context is not crossed between skills.
+     */
+    public function contextHoldsOnlyProfile(int $ownerClientUid, string $contextId, int $profileUid): bool
+    {
+        $builder = $this->builder();
+        $count   = $builder->count('uid')->from(A2aTaskStore::TABLE)
+            ->where(
+                $builder->expr()->eq('owner_client_uid', $builder->createNamedParameter($ownerClientUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('context_id', $builder->createNamedParameter($contextId)),
+                $builder->expr()->neq('profile_uid', $builder->createNamedParameter($profileUid, Connection::PARAM_INT)),
+            )
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($count) && (int) $count === 0;
+    }
+
+    /**
      * Whether any task of any client carries the context: a client-supplied
      * context that is "new" must not be one (A2A-SV6).
      */

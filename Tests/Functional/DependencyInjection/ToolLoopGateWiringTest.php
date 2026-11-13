@@ -44,6 +44,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
@@ -186,6 +187,21 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         self::assertInstanceOf(ToolLoopService::class, $loop);
 
         self::assertInstanceOf(ModelSelectionServiceInterface::class, (new ReflectionProperty(ToolLoopService::class, 'modelSelection'))->getValue($loop));
+    }
+
+    /**
+     * A write the worker carries out after a stored approval needs the backend
+     * environment around that call (ADR-281). The collaborator is optional on
+     * the loop, so a container that left it null would compile and refuse every
+     * such write in the worker; pinned here.
+     */
+    #[Test]
+    public function productionWiresTheWorkerWriteEnvironmentIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(WorkerWriteEnvironment::class, (new ReflectionProperty(ToolLoopService::class, 'writeEnvironment'))->getValue($loop));
     }
 
     /**

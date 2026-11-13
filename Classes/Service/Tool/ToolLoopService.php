@@ -226,6 +226,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // default of a run that asks for no cap. Optional for the lean test
         // wiring; a null gives the fallback default of 5.
         private ?AgentRoundLimitsInterface $roundLimits = null,
+        // The backend environment a writing tool needs when a worker carries
+        // out its call (ADR-281). Optional for the lean test wiring; absent
+        // it, a write in a bare process is refused as ADR-135 says.
+        private ?WorkerWriteEnvironment $writeEnvironment = null,
     ) {}
 
     /**
@@ -1016,6 +1020,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                                 // the answer gets it too (ADR-101).
                                 maxIterations: $maxIterations,
                                 estimatedCost: $cost,
+                                inputCallId: $call->id,
                             ),
                         );
                     }
@@ -2465,7 +2470,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $call->name,
                 );
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
-            } elseif ($call->name === $state->inputToolName) {
+            } elseif ($call->name === $state->inputToolName && ($state->inputCallId === '' || $call->id === $state->inputCallId)) {
+                // The call the pause belongs to; another call of the same tool
+                // in the turn falls to the refusal below. A state stored before
+                // the call id existed gives the input to every call of the tool.
                 $tr = $this->invokeResumed(
                     $this->withInput($call, $state->inputSchema, $inputData),
                     $call,
@@ -3089,7 +3097,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         try {
             $executed = true;
-            $result   = $tool->execute($call->arguments, $context);
+            $result   = $this->writeEnvironment instanceof WorkerWriteEnvironment && !$this->effects()->declaresRead($call->name)
+                ? $this->writeEnvironment->around($context->actingBackendUser(), static fn (): ToolResult => $tool->execute($call->arguments, $context))
+                : $tool->execute($call->arguments, $context);
         } catch (ToolDependencyPendingException $pending) {
             // Control flow (ADR-281), not a failure of the tool: the caller
             // suspends the run. Only a dependency tool may raise it.

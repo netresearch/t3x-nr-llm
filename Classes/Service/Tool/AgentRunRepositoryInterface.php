@@ -69,9 +69,12 @@ interface AgentRunRepositoryInterface
      * from finishRun which sets a terminal status and finished_at. Guarded on
      * the run still being RUNNING (ADR-101): false when the transition was
      * refused because a concurrent cancel (or settle) got there first, so a
-     * cancelled run is never resurrected into an approval queue.
+     * cancelled run is never resurrected into an approval queue. With
+     * `$claimGeneration` the write is fenced on the claim as well: false when
+     * the run was reclaimed since, so a segment that lost its lease cannot
+     * replace the pause a newer claim holds.
      */
-    public function suspendRun(int $runUid, string $stateJson): bool;
+    public function suspendRun(int $runUid, string $stateJson, ?int $claimGeneration = null): bool;
 
     /**
      * End a run that is still waiting for a human, in one conditional UPDATE
@@ -96,9 +99,10 @@ interface AgentRunRepositoryInterface
      * Suspend a run for typed user input (ADR-105): the input sibling of
      * {@see suspendRun()} — persist the serialised state (carrying the tool's
      * declared input schema) and move RUNNING -> WAITING_FOR_INPUT, same
-     * anti-resurrection guard. False when a concurrent cancel/settle won first.
+     * anti-resurrection guard. False when a concurrent cancel/settle won first,
+     * or, with `$claimGeneration`, when the run was reclaimed since.
      */
-    public function suspendRunForInput(int $runUid, string $stateJson): bool;
+    public function suspendRunForInput(int $runUid, string $stateJson, ?int $claimGeneration = null): bool;
 
     /**
      * Atomically claim a WAITING_FOR_APPROVAL run for resume (move it to RUNNING);
@@ -152,6 +156,26 @@ interface AgentRunRepositoryInterface
      * run is not this caller's to give back.
      */
     public function releaseDependencyClaim(int $runUid, string $claimedBy): bool;
+
+    /**
+     * Hand a paused run to the worker with a stored decision (ADR-281, spec
+     * 051 A2A-MT2): the guarded $from -> QUEUED transition, written only while
+     * the run is still in $from AND no event with a sequence of at least
+     * $pauseGeneration exists, so the pause is the one the decision was made
+     * for. The state, which carries the decision, replaces the suspended
+     * state; the queued request is cleared, so a continuation the reaper finds
+     * abandoned is dead-lettered and never run again from the start. True for
+     * exactly one caller; an in-request resume that claimed the run first, or
+     * a later pause, makes it false.
+     *
+     * The event sequence alone cannot tell two pauses apart, because a
+     * suspension writes no event and an event write can fail without stopping
+     * the run. With `$expectedState`, the suspended state the decision was
+     * built from, the write is also refused unless the row still holds exactly
+     * that stored state, so a later pause is never replaced by an earlier
+     * one's.
+     */
+    public function queueContinuation(int $runUid, AgentRunStatus $from, int $pauseGeneration, string $stateJson, ?string $expectedState = null): bool;
 
     /**
      * Insert a QUEUED run carrying its serialised request, so a worker in

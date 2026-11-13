@@ -517,8 +517,11 @@ the proto column. Where the proto is silent, the tie-breaker is named.
   carrying the task's `task_id` and `context_id`; the server takes it in
   through A2A-MT2.
 - **A2A-MT4 Rights on resume.** On every resume the client record, its
-  technical backend user, its pinned workspace and the profile are checked
-  again; a revoked client or profile fails the task.
+  technical backend user (enabled, inside its start and end time), its pinned
+  workspace, the profile and the run's LLM configuration (switched on and
+  usable by that user with the groups it has now, as for a new task) are
+  checked again; a revoked client or profile fails the task. A continuation
+  is refused with the same checks before it is stored.
 - **A2A-MT5 First write capability.** A profile may write only drafts, only in
   the client's pinned workspace, never live (ADR-260, ADR-265). A pinned
   workspace of 0 (live) refuses a writing profile at configuration time.

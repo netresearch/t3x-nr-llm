@@ -13,7 +13,9 @@ ADR-281: A run waits durably for a dependency or a decision
 :Date: 2026-11-10
 :Amends: :ref:`ADR-081 <adr-081>` (the run status vocabulary gains a waiting
     state that no person decides); :ref:`ADR-276 <adr-276>` (a decision can
-    also be stored and continued by the worker)
+    also be stored and continued by the worker); :ref:`ADR-135 <adr-135>` and
+    :ref:`ADR-237 <adr-237>` (a write the worker carries out after a stored
+    approval gets the backend environment around that call)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -114,6 +116,19 @@ rights again before the first effect. The synchronous path of ADR-276 stays and
 uses the same checks and the same atomic claim: exactly one of the two wins a
 pause. The recorded, unexecuted decision is the QUEUED run with its continuation
 reference; it needs no further status.
+
+**A write the worker carries out gets the backend environment around that
+call.** :ref:`ADR-135 <adr-135>` makes a writing tool refuse in a process
+without ``$GLOBALS['BE_USER']`` and ``$GLOBALS['LANG']``, on the ground that its
+writes happen after an approval in a backend request, and :ref:`ADR-237
+<adr-237>` narrowed that for the field fill alone. A stored approval is carried
+out by the worker, so every approved write there was refused with "writing needs
+a full backend environment". :php:`WorkerWriteEnvironment` sets both globals
+around the execution of a tool that does not declare a read, as the run's acting
+user, and restores them in ``finally``, as the field fill does. It does so only
+in a process that has no backend user of its own: the command line's booted user
+counts as none, a request's user is left alone. The leak ADR-135 feared, the
+globals staying behind for later hooks, is closed the same way as for the fill.
 
 Consequences
 ============
