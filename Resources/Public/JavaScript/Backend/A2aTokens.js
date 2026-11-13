@@ -54,7 +54,7 @@ class A2aTokens {
             }
             if (event.target.closest('.js-a2a-copy')) {
                 event.preventDefault();
-                this.copy();
+                void this.copy();
                 return;
             }
             if (event.target.closest('.js-a2a-done')) {
