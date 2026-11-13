@@ -31,6 +31,9 @@ final readonly class A2aInboundClient
         public int $taskLimit,
         public bool $enabled,
         public int $expires,
+        public bool $selfService = false,
+        public int $createdAt = 0,
+        public ?string $withdrawnReason = null,
     ) {}
 
     /**
@@ -58,6 +61,53 @@ final readonly class A2aInboundClient
             $int('task_limit'),
             $int('enabled') === 1,
             $int('expires'),
+            $int('self_service') === 1,
+            $int('crdate'),
+        );
+    }
+
+    /**
+     * The same record, inactive for the reason given: what a self-service
+     * record becomes when its owner's rights no longer cover it (ADR-294).
+     */
+    public function withdrawn(string $reason): self
+    {
+        return new self(
+            $this->uid,
+            $this->title,
+            $this->tokenPrefix,
+            $this->tokenHash,
+            $this->backendUserUid,
+            $this->workspaceId,
+            $this->profileUids,
+            $this->taskLimit,
+            false,
+            $this->expires,
+            $this->selfService,
+            $this->createdAt,
+            $reason,
+        );
+    }
+
+    /**
+     * @param list<int> $profileUids
+     */
+    public function withProfiles(array $profileUids): self
+    {
+        return new self(
+            $this->uid,
+            $this->title,
+            $this->tokenPrefix,
+            $this->tokenHash,
+            $this->backendUserUid,
+            $this->workspaceId,
+            $profileUids,
+            $this->taskLimit,
+            $this->enabled,
+            $this->expires,
+            $this->selfService,
+            $this->createdAt,
+            $this->withdrawnReason,
         );
     }
 

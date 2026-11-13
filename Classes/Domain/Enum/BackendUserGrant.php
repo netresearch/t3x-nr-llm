@@ -67,6 +67,16 @@ enum BackendUserGrant: string
     case USAGE_VIEW_GROUPS = 'usage_view_groups';
 
     /**
+     * Issue A2A tokens for the holder's own backend account and see and revoke
+     * them ({@see \Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSelfServiceTokens},
+     * ADR-294). The grant alone allows a token that runs in a draft workspace,
+     * expires within 90 days and calls no profile: the limits are fields on
+     * the group (`tx_nrllm_a2a_*`), and every one of them defaults to the
+     * strict value. No group holds this grant after installation.
+     */
+    case A2A_TOKEN_SELF_SERVICE = 'a2a_token_self_service';
+
+    /**
      * The `customPermOptions` value TYPO3 stores in `be_groups.custom_options`
      * for this grant, checked via
      * `BackendUserAuthentication::check('custom_options', ...)`.

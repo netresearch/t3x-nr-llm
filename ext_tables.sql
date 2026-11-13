@@ -453,7 +453,15 @@ CREATE TABLE tt_content (
 # `subgroup`.
 #
 CREATE TABLE be_groups (
-    tx_nrllm_usage_visible_groups text
+    tx_nrllm_usage_visible_groups text,
+
+    -- Limits of the A2A tokens an editor of this group may issue for their own
+    -- account (ADR-294). Zero or empty is the strict value of each: no live
+    -- workspace, the default maximum expiry, no expiry-free token, no profile.
+    tx_nrllm_a2a_allow_live tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    tx_nrllm_a2a_max_expiry_days smallint(5) unsigned DEFAULT '0' NOT NULL,
+    tx_nrllm_a2a_allow_no_expiry tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    tx_nrllm_a2a_profiles text
 );
 
 #
@@ -1769,13 +1777,19 @@ CREATE TABLE tx_nrllm_a2a_client (
     -- 0 = never.
     expires int(11) unsigned DEFAULT '0' NOT NULL,
 
+    -- 1 = issued by an editor for their own account (ADR-294): be_user is the
+    -- owner and the limits of their groups apply at every request. Written by
+    -- A2aSelfServiceTokens only, never by a form.
+    self_service tinyint(1) unsigned DEFAULT '0' NOT NULL,
+
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
     deleted tinyint(4) unsigned DEFAULT '0' NOT NULL,
 
     PRIMARY KEY (uid),
     KEY parent (pid),
-    KEY token (token_prefix)
+    KEY token (token_prefix),
+    KEY owner (self_service, be_user)
 );
 
 #

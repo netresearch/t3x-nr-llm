@@ -2382,6 +2382,50 @@
                 <source>Listed on the agent card and callable by the clients that are allowed it. A profile that is not public cannot be called.</source>
                 <target>Auf der Agent Card aufgeführt und von den berechtigten Clients aufrufbar. Ein nicht öffentliches Profil kann nicht aufgerufen werden.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.self_service">
+                <source>Issued by an editor for their own account</source>
+                <target>Von einem Redakteur für das eigene Konto ausgestellt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_client.self_service.description">
+                <source>Read-only. The owner is the technical backend user. The limits of the owner&#x27;s backend groups apply at every request, so the record loses what the groups stop allowing.</source>
+                <target>Nur lesbar. Besitzer ist der technische Backend-Benutzer. Die Grenzen der Backend-Gruppen des Besitzers gelten bei jeder Anfrage; der Datensatz verliert, was die Gruppen nicht mehr erlauben.</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tab.a2a">
+                <source>A2A tokens</source>
+                <target>A2A-Tokens</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_live">
+                <source>Allow tokens in the live workspace</source>
+                <target>Tokens im Live-Workspace erlauben</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_live.description">
+                <source>Applies to the members who hold the permission &quot;Issue A2A tokens for my own account&quot;. Off: such a token must run in a draft workspace.</source>
+                <target>Gilt für Mitglieder mit der Berechtigung „A2A-Tokens für das eigene Konto ausstellen“. Aus: ein solches Token muss in einem Entwurfs-Workspace laufen.</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_max_expiry_days">
+                <source>Maximum validity of a token (days)</source>
+                <target>Maximale Gültigkeit eines Tokens (Tage)</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_max_expiry_days.description">
+                <source>0: the default of 90 days. The largest value among the groups of a user that set one applies; at most 730.</source>
+                <target>0: der Standard von 90 Tagen. Es gilt der größte Wert unter den Gruppen eines Benutzers, die einen setzen; höchstens 730.</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_no_expiry">
+                <source>Allow tokens that never expire</source>
+                <target>Tokens ohne Ablauf erlauben</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_allow_no_expiry.description">
+                <source>Off: every token needs an expiry within the maximum. On is an explicit choice: a token that never expires is a permanent credential without a login.</source>
+                <target>Aus: jedes Token braucht ein Ablaufdatum innerhalb des Maximums. An ist eine bewusste Entscheidung: ein Token ohne Ablauf ist ein dauerhafter Zugang ohne Anmeldung.</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_profiles">
+                <source>A2A profiles tokens may call</source>
+                <target>A2A-Profile, die Tokens aufrufen dürfen</target>
+            </trans-unit>
+            <trans-unit id="be_groups.tx_nrllm_a2a_profiles.description">
+                <source>The union over the groups of a user applies. Empty: no profile, so a token can do nothing.</source>
+                <target>Es gilt die Vereinigung über die Gruppen eines Benutzers. Leer: kein Profil, ein Token kann also nichts tun.</target>
+            </trans-unit>
         </body>
     </file>
 </xliff>

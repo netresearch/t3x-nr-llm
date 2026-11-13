@@ -116,6 +116,10 @@ final readonly class A2aResumeGuard implements RunResumeGuardInterface, RunStart
 
     private function clientRefusal(?A2aInboundClient $client, int $profileUid): ?string
     {
+        if ($client instanceof A2aInboundClient && $client->withdrawnReason !== null) {
+            return 'the self-service A2A client is withdrawn: ' . $client->withdrawnReason;
+        }
+
         if (!$client instanceof A2aInboundClient || !$client->isActive(time())) {
             return 'the A2A client is gone, disabled or expired';
         }

@@ -216,6 +216,13 @@ defined('TYPO3') || exit;
                 'module-nrllm-analytics',
                 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.usageViewGroups.description',
             ],
+            // ADR-294: A2A tokens that act as the holder. The limits are the
+            // `tx_nrllm_a2a_*` fields of the same group, all strict by default.
+            BackendUserGrant::A2A_TOKEN_SELF_SERVICE->value => [
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.a2aTokenSelfService',
+                'module-nrllm',
+                'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:grants.a2aTokenSelfService.description',
+            ],
         ],
     ];
 })();

@@ -28,7 +28,9 @@ use TYPO3\CMS\Core\Http\NormalizedParams;
  *   with the stored one by `hash_equals()`.
  * - A missing, malformed, unknown, wrong, disabled or expired credential, and
  *   a record whose technical backend user is no longer usable, all get the
- *   same refusal. Nothing in it says which.
+ *   same refusal. Nothing in it says which. That includes a self-service
+ *   record its owner's groups no longer cover (ADR-294): the repository
+ *   returns it withdrawn, and the log line, never the response, says why.
  * - A failure is logged with the source address, never with the token, and
  *   counted per source address; a failure from an address over the limit is
  *   refused as rate limited and not logged again. Only failures are counted
@@ -89,6 +91,7 @@ final readonly class A2aAuthenticator
                 $token === ''                        => 'no bearer credential',
                 !$client instanceof A2aInboundClient => 'unknown credential',
                 !$valid                              => 'wrong credential',
+                $client->withdrawnReason !== null    => 'self-service token withdrawn: ' . $client->withdrawnReason,
                 !$client->isActive($now)             => 'disabled or expired client',
                 default                              => 'unusable technical backend user',
             },

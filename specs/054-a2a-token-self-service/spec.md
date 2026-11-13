@@ -50,8 +50,8 @@ administrator-made technical user per editor.
 
 | Requirement | Suite |
 |-------------|-------|
-| T1 | `A2aTokenAjaxControllerTest` (functional): admin only, token shown once; `A2aTokenRouteTokenTest`: route token |
-| T2, T3 | `A2aSelfServiceTokensTest` (functional): owner from session, admin refused, grant needed; `A2aServerRecordSaveHookTest`: flag stripped |
-| T4, T5 | `A2aSelfServicePolicyTest` (unit): merge both directions; `A2aSelfServiceEnforcementTest` (functional): save time and request time per limit |
-| T6 | `A2aSelfServiceTokensTest`, `A2aTokenControllerTest` (functional) |
-| T7 | existing `A2aEndpointTest`, `A2aSendMessageTest`, unchanged |
+| T1 | `A2aTokenAjaxControllerTest` (functional): administrator only, token shown once and stored as a hash; `A2aTokenRouteTokenTest`: route token; `A2aSelfServiceEnforcementTest`: audit line without the token |
+| T2, T3 | `A2aSelfServiceEnforcementTest` (functional): owner from the session, administrator and a user without the grant refused, the flag stripped from a DataHandler write; `A2aTokenAjaxControllerTest`: a claimed owner in the request is ignored |
+| T4, T5 | `A2aSelfServiceLimitsTest` and `A2aSelfServicePolicyTest` (unit): the merge and each limit in both directions; `A2aSelfServiceEnforcementTest` (functional): save time and request time per limit, start and resume of a run, a grant on a subgroup |
+| T6 | `A2aSelfServiceEnforcementTest`, `A2aTokenControllerTest`, `A2aTokenAjaxControllerTest` (functional) |
+| T7 | existing `A2aEndpointTest`, `A2aSendMessageTest`, `A2aMultiTurnTest`, unchanged, and `A2aSelfServiceEnforcementTest::aTechnicalUserRecordIsReadAsStored` |

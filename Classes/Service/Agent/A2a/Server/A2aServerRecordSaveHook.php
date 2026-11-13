@@ -27,7 +27,10 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  *
  * Client:
  * - The token's prefix, hash and issue time are written by the token
- *   command only; a DataHandler write cannot set them.
+ *   command only; a DataHandler write cannot set them. The same holds for the
+ *   `self_service` flag (ADR-294): only the editor's own module writes a
+ *   self-service record, so no form turns a technical-user record into one or
+ *   the reverse.
  * - The technical backend user must exist, be enabled, have a uid above 0
  *   and not be an administrator; otherwise the field is not stored and the
  *   record cannot be enabled.
@@ -56,7 +59,7 @@ final readonly class A2aServerRecordSaveHook
 
     public const PROFILE_TABLE = 'tx_nrllm_a2a_profile';
 
-    private const TOKEN_FIELDS = ['token_prefix', 'token_hash', 'token_issued'];
+    private const TOKEN_FIELDS = ['token_prefix', 'token_hash', 'token_issued', 'self_service'];
 
     public function __construct(
         private A2aDomainHandlerRegistry $handlers,

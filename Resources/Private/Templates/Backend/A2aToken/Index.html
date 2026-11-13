@@ -1,0 +1,213 @@
+<html xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
+      xmlns:be="http://typo3.org/ns/TYPO3/CMS/Backend/ViewHelpers"
+      data-namespace-typo3-fluid="true">
+<!--
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+-->
+
+<f:layout name="Module" />
+
+<f:section name="Content">
+    <f:comment>
+        The A2A tokens of the backend (ADR-294). Every figure and every row was
+        chosen on the server from the session user; this page decides nothing.
+        A token appears only in the panel the script fills from the response of
+        the action that issued it, and is never part of this markup.
+    </f:comment>
+    <div class="nrllm-a2a-tokens"
+         data-label-revoke-title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.revoke.confirmTitle')}"
+         data-label-revoke-message="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.revoke.confirmMessage')}"
+         data-label-revoke-button="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.revoke')}"
+         data-label-rotate-title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate.confirmTitle')}"
+         data-label-rotate-message="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate.confirmMessage')}"
+         data-label-rotate-button="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate')}"
+         data-label-cancel="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.cancel')}"
+         data-label-copied="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.copied')}"
+         data-label-copy-failed="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.copyFailed')}">
+
+        <h1><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.title" /></h1>
+
+        <f:if condition="{isAdmin}">
+            <f:then>
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.intro.admin" /></p>
+            </f:then>
+            <f:else>
+                <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.mfa.title')}" state="1">
+                    <p class="mb-0"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.mfa.message" /></p>
+                </f:be.infobox>
+            </f:else>
+        </f:if>
+
+        <section id="nrllm-a2a-token-reveal" class="mb-4" aria-labelledby="nrllm-a2a-token-reveal-title" tabindex="-1" hidden>
+            <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.reveal.title')}" state="1">
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.reveal.warning" /></p>
+                <div class="form-group">
+                    <label for="nrllm-a2a-token-value" id="nrllm-a2a-token-reveal-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.reveal.label" /></label>
+                    <div class="input-group">
+                        <input type="text" id="nrllm-a2a-token-value" class="form-control font-monospace" readonly autocomplete="off" spellcheck="false" value="" />
+                        <button type="button" class="btn btn-default js-a2a-copy"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.copy" /></button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary js-a2a-done"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.reveal.done" /></button>
+            </f:be.infobox>
+        </section>
+
+        <f:if condition="!{isAdmin}">
+            <f:then>
+                <f:if condition="{canCreate}">
+                    <f:then>
+                        <h2><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.create.title" /></h2>
+                        <f:render section="CreateForm" arguments="{_all}" />
+                    </f:then>
+                    <f:else>
+                        <f:be.infobox title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.unavailable.title')}" state="-1">
+                            <p class="mb-0">{limits.deniedReason}</p>
+                        </f:be.infobox>
+                    </f:else>
+                </f:if>
+            </f:then>
+        </f:if>
+
+        <h2 id="nrllm-a2a-token-list-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.list.title" /></h2>
+        <f:if condition="{rows}">
+            <f:then>
+                <div class="table-fit">
+                    <table class="table table-striped table-hover" aria-labelledby="nrllm-a2a-token-list-title">
+                        <thead>
+                            <tr>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.title" /></th>
+                                <f:if condition="{isAdmin}">
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.kind" /></th>
+                                    <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.owner" /></th>
+                                </f:if>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.created" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.expires" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.lastTask" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.status" /></th>
+                                <th scope="col"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.col.actions" /></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <f:for each="{rows}" as="row">
+                                <tr>
+                                    <th scope="row">{row.title}</th>
+                                    <f:if condition="{isAdmin}">
+                                        <td>
+                                            <f:if condition="{row.selfService}">
+                                                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.kind.selfService" /></f:then>
+                                                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.kind.technical" /></f:else>
+                                            </f:if>
+                                        </td>
+                                        <td>{row.owner}</td>
+                                    </f:if>
+                                    <td><f:if condition="{row.created}"><f:then><f:format.date format="Y-m-d H:i">{row.created}</f:format.date></f:then><f:else>-</f:else></f:if></td>
+                                    <td>
+                                        <f:if condition="{row.expires}">
+                                            <f:then><f:format.date format="Y-m-d H:i">{row.expires}</f:format.date></f:then>
+                                            <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.never" /></f:else>
+                                        </f:if>
+                                    </td>
+                                    <td><f:if condition="{row.lastTask}"><f:then><f:format.date format="Y-m-d H:i">{row.lastTask}</f:format.date></f:then><f:else>-</f:else></f:if></td>
+                                    <td>
+                                        <span class="badge badge-{row.badge}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.status.{row.status}" /></span>
+                                        <f:if condition="{row.reason}"><div class="form-text text-variant">{row.reason}</div></f:if>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group" aria-label="{row.title}">
+                                            <f:if condition="{row.canIssue}">
+                                                <button type="button" class="btn btn-default js-a2a-issue" data-uid="{row.uid}" data-title="{row.title}" data-has-token="{f:if(condition: row.hasToken, then: '1', else: '0')}">
+                                                    <f:if condition="{row.hasToken}">
+                                                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate" /></f:then>
+                                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.generate" /></f:else>
+                                                    </f:if>
+                                                    <span class="visually-hidden">: {row.title}</span>
+                                                </button>
+                                            </f:if>
+                                            <f:if condition="{row.canRevoke}">
+                                                <button type="button" class="btn btn-default js-a2a-revoke" data-uid="{row.uid}" data-title="{row.title}">
+                                                    <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.revoke" />
+                                                    <span class="visually-hidden">: {row.title}</span>
+                                                </button>
+                                            </f:if>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </f:for>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="form-text text-variant"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.lastTask.note" /></p>
+            </f:then>
+            <f:else>
+                <p><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.list.empty" /></p>
+            </f:else>
+        </f:if>
+    </div>
+</f:section>
+
+<f:section name="CreateForm">
+    <form id="nrllm-a2a-token-create" class="mb-4" novalidate>
+        <div class="form-group mb-3">
+            <label class="form-label" for="nrllm-a2a-title"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.title" /></label>
+            <input type="text" id="nrllm-a2a-title" name="title" class="form-control" maxlength="255" required aria-describedby="nrllm-a2a-title-help" />
+            <div id="nrllm-a2a-title-help" class="form-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.title.help" /></div>
+        </div>
+
+        <div class="form-group mb-3">
+            <label class="form-label" for="nrllm-a2a-workspace"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.workspace" /></label>
+            <f:if condition="{workspaces}">
+                <f:then>
+                    <select id="nrllm-a2a-workspace" name="workspace" class="form-select" required aria-describedby="nrllm-a2a-workspace-help">
+                        <f:for each="{workspaces}" as="workspace">
+                            <option value="{workspace.uid}">{workspace.title}</option>
+                        </f:for>
+                    </select>
+                </f:then>
+                <f:else>
+                    <p id="nrllm-a2a-workspace-none" class="form-control-plaintext"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.workspace.none" /></p>
+                </f:else>
+            </f:if>
+            <div id="nrllm-a2a-workspace-help" class="form-text">
+                <f:if condition="{limits.allowLive}">
+                    <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.workspace.helpLive" /></f:then>
+                    <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.workspace.helpDraft" /></f:else>
+                </f:if>
+            </div>
+        </div>
+
+        <div class="form-group mb-3">
+            <label class="form-label" for="nrllm-a2a-days"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.days" /></label>
+            <input type="number" id="nrllm-a2a-days" name="days" class="form-control" min="1" max="{maxDays}" value="{defaultDays}" inputmode="numeric" aria-describedby="nrllm-a2a-days-help"{f:if(condition: limits.allowNoExpiry, else: ' required')} />
+            <div id="nrllm-a2a-days-help" class="form-text">
+                <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.days.help" arguments="{0: maxDays}" />
+                <f:if condition="{limits.allowNoExpiry}"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.days.helpNever" /></f:if>
+            </div>
+        </div>
+
+        <fieldset class="mb-3" aria-describedby="nrllm-a2a-profiles-help">
+            <legend class="form-label fs-6"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.profiles" /></legend>
+            <f:if condition="{profiles}">
+                <f:then>
+                    <f:for each="{profiles}" as="profile">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="nrllm-a2a-profile-{profile.uid}" name="profiles[]" value="{profile.uid}" />
+                            <label class="form-check-label" for="nrllm-a2a-profile-{profile.uid}">{profile.name}</label>
+                        </div>
+                    </f:for>
+                </f:then>
+                <f:else>
+                    <p class="form-control-plaintext"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.profiles.none" /></p>
+                </f:else>
+            </f:if>
+            <div id="nrllm-a2a-profiles-help" class="form-text"><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.field.profiles.help" /></div>
+        </fieldset>
+
+        <div id="nrllm-a2a-form-error" class="alert alert-danger" role="alert" hidden></div>
+
+        <button type="submit" class="btn btn-primary"{f:if(condition: '{profiles} && {workspaces}', else: ' disabled')}>
+            <f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.create.submit" />
+        </button>
+    </form>
+</f:section>
+</html>
