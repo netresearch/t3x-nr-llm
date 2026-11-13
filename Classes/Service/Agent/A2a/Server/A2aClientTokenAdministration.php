@@ -35,7 +35,7 @@ final readonly class A2aClientTokenAdministration
     /**
      * @throws A2aTokenRefusedException for a non-administrator, an unknown record or a self-service record
      */
-    public function issue(BackendUserAuthentication $actor, int $clientUid, int $now): A2aIssuedToken
+    public function issue(BackendUserAuthentication $actor, int $clientUid): A2aIssuedToken
     {
         $this->assertAdministrator($actor);
 

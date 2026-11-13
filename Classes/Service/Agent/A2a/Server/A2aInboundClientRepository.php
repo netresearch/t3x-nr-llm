@@ -153,8 +153,10 @@ final readonly class A2aInboundClientRepository
     }
 
     /**
-     * How many self-service tokens of the owner can act now: enabled, with a
-     * token, not expired. A revoked or expired one does not count.
+     * How many self-service records of the owner are live: enabled, not
+     * expired, not deleted. A record whose token is not issued yet counts, so
+     * a request that is in flight is seen by the others. A revoked or expired
+     * one does not count.
      */
     public function countActiveSelfService(int $ownerUid, int $now): int
     {
@@ -165,7 +167,6 @@ final readonly class A2aInboundClientRepository
                 $builder->expr()->eq('self_service', 1),
                 $builder->expr()->eq('be_user', $builder->createNamedParameter($ownerUid, Connection::PARAM_INT)),
                 $builder->expr()->eq('enabled', 1),
-                $builder->expr()->neq('token_hash', $builder->createNamedParameter('')),
                 $builder->expr()->or(
                     $builder->expr()->eq('expires', 0),
                     $builder->expr()->gt('expires', $builder->createNamedParameter($now, Connection::PARAM_INT)),

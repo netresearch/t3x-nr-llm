@@ -58,7 +58,7 @@ final class A2aClientTokenCommand extends Command
         // an operator who could issue it would hold a credential that acts as
         // that editor, with no owner asking for it.
         if ($this->clients->findRawByUid((int) $uid)?->selfService === true) {
-            $output->writeln('<error>This client record belongs to an editor\'s own account; its owner issues the token in the backend module.</error>');
+            $output->writeln("<error>This client record belongs to an editor's own account; its owner issues the token in the backend module.</error>");
 
             return Command::FAILURE;
         }

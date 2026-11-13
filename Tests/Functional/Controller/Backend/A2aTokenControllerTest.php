@@ -197,6 +197,7 @@ final class A2aTokenControllerTest extends AbstractFunctionalTestCase
         $extbaseParameters->setControllerName('Backend\A2aToken');
         $extbaseParameters->setControllerActionName('index');
         $extbaseParameters->setControllerExtensionName('NrLlm');
+
         $serverRequest = (new ServerRequest('https://typo3-testing.local/typo3/', 'GET'))
             ->withAttribute('applicationType', SystemEnvironmentBuilder::REQUESTTYPE_BE)
             ->withAttribute('route', new Route('/module/nrllm/a2a-tokens', ['packageName' => 'netresearch/nr-llm']))

@@ -30,7 +30,7 @@ final class A2aSelfServiceLimitsTest extends TestCase
      *
      * @return array<string, mixed>
      */
-    private static function group(array $settings = [], bool $grant = true): array
+    private function group(array $settings = [], bool $grant = true): array
     {
         return ['custom_options' => $grant ? 'tx_nrllm_grants:tasks_use,' . BackendUserGrant::A2A_TOKEN_SELF_SERVICE->permissionValue() : 'tx_nrllm_grants:tasks_use'] + $settings;
     }
@@ -39,14 +39,14 @@ final class A2aSelfServiceLimitsTest extends TestCase
     public function aUserWithoutAGroupThatHoldsTheGrantMayDoNothing(): void
     {
         self::assertFalse(A2aSelfServiceLimits::fromGroups([])->permitted);
-        self::assertFalse(A2aSelfServiceLimits::fromGroups([self::group([], false)])->permitted);
+        self::assertFalse(A2aSelfServiceLimits::fromGroups([$this->group([], false)])->permitted);
         self::assertNotSame('', A2aSelfServiceLimits::fromGroups([])->deniedReason);
     }
 
     #[Test]
     public function theGrantAloneAllowsTheStrictToken(): void
     {
-        $limits = A2aSelfServiceLimits::fromGroups([self::group()]);
+        $limits = A2aSelfServiceLimits::fromGroups([$this->group()]);
 
         self::assertTrue($limits->permitted);
         self::assertFalse($limits->allowLive);
@@ -65,7 +65,7 @@ final class A2aSelfServiceLimitsTest extends TestCase
             A2aSelfServiceLimits::FIELD_PROFILES        => '5,6',
         ];
 
-        $limits = A2aSelfServiceLimits::fromGroups([self::group(), self::group($relaxed, false)]);
+        $limits = A2aSelfServiceLimits::fromGroups([$this->group(), $this->group($relaxed, false)]);
 
         self::assertFalse($limits->allowLive);
         self::assertFalse($limits->allowNoExpiry);
@@ -73,7 +73,7 @@ final class A2aSelfServiceLimitsTest extends TestCase
         self::assertSame([], $limits->profileUids);
 
         // And the same relaxations on a group that does hold the grant apply.
-        $held = A2aSelfServiceLimits::fromGroups([self::group($relaxed)]);
+        $held = A2aSelfServiceLimits::fromGroups([$this->group($relaxed)]);
         self::assertTrue($held->allowLive);
         self::assertTrue($held->allowNoExpiry);
         self::assertSame(365, $held->maxExpiryDays);
@@ -84,9 +84,9 @@ final class A2aSelfServiceLimitsTest extends TestCase
     public function theGroupsOfAUserAreMergedAsDocumented(): void
     {
         $limits = A2aSelfServiceLimits::fromGroups([
-            self::group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 30, A2aSelfServiceLimits::FIELD_PROFILES => '1,2']),
-            self::group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 60, A2aSelfServiceLimits::FIELD_ALLOW_LIVE => 1, A2aSelfServiceLimits::FIELD_PROFILES => '2, 3,x,-4,0']),
-            self::group(),
+            $this->group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 30, A2aSelfServiceLimits::FIELD_PROFILES => '1,2']),
+            $this->group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 60, A2aSelfServiceLimits::FIELD_ALLOW_LIVE => 1, A2aSelfServiceLimits::FIELD_PROFILES => '2, 3,x,-4,0']),
+            $this->group(),
         ]);
 
         self::assertSame(60, $limits->maxExpiryDays, 'the largest value a group sets');
@@ -97,22 +97,22 @@ final class A2aSelfServiceLimitsTest extends TestCase
     #[Test]
     public function aGroupThatSetsNoMaximumDoesNotWidenWhatAnotherSets(): void
     {
-        self::assertSame(30, A2aSelfServiceLimits::fromGroups([self::group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 30]), self::group()])->maxExpiryDays);
-        self::assertSame(90, A2aSelfServiceLimits::fromGroups([self::group(), self::group()])->maxExpiryDays);
+        self::assertSame(30, A2aSelfServiceLimits::fromGroups([$this->group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 30]), $this->group()])->maxExpiryDays);
+        self::assertSame(90, A2aSelfServiceLimits::fromGroups([$this->group(), $this->group()])->maxExpiryDays);
     }
 
     #[Test]
     public function theMaximumNeverExceedsTheCeilingWhateverTheDatabaseHolds(): void
     {
-        self::assertSame(730, A2aSelfServiceLimits::fromGroups([self::group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 99999])])->maxExpiryDays);
-        self::assertSame(90, A2aSelfServiceLimits::fromGroups([self::group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => -5])])->maxExpiryDays);
-        self::assertSame(90, A2aSelfServiceLimits::fromGroups([self::group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 'many'])])->maxExpiryDays);
+        self::assertSame(730, A2aSelfServiceLimits::fromGroups([$this->group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 99999])])->maxExpiryDays);
+        self::assertSame(90, A2aSelfServiceLimits::fromGroups([$this->group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => -5])])->maxExpiryDays);
+        self::assertSame(90, A2aSelfServiceLimits::fromGroups([$this->group([A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 'many'])])->maxExpiryDays);
     }
 
     #[Test]
     public function anExpiryIsWithinTheMaximumOrItIsNot(): void
     {
-        $limits = A2aSelfServiceLimits::fromGroups([self::group()]);
+        $limits = A2aSelfServiceLimits::fromGroups([$this->group()]);
         $day    = 86400;
 
         self::assertTrue($limits->allowsExpiry(self::NOW + 89 * $day, self::NOW));
@@ -125,7 +125,7 @@ final class A2aSelfServiceLimitsTest extends TestCase
     #[Test]
     public function noExpiryIsAllowedOnlyByAnExplicitChoice(): void
     {
-        $limits = A2aSelfServiceLimits::fromGroups([self::group([A2aSelfServiceLimits::FIELD_ALLOW_NO_EXPIRY => 1])]);
+        $limits = A2aSelfServiceLimits::fromGroups([$this->group([A2aSelfServiceLimits::FIELD_ALLOW_NO_EXPIRY => 1])]);
 
         self::assertTrue($limits->allowsExpiry(0, self::NOW));
         self::assertTrue($limits->allowsExpiry(self::NOW + 1000 * 86400, self::NOW));

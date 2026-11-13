@@ -60,7 +60,7 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertTrue($payload['success']);
         self::assertIsString($payload['token']);
-        self::assertSame(1, preg_match('/^nra2a_[a-f0-9]{16}_[A-Za-z0-9_-]{43}$/', $payload['token']));
+        self::assertMatchesRegularExpression('/^nra2a_[a-f0-9]{16}_[A-Za-z0-9_-]{43}$/', $payload['token']);
         self::assertStringContainsString('no-store', $response->getHeaderLine('Cache-Control'));
         self::assertSame(1, substr_count((string) $response->getBody(), $payload['token']), 'the token appears once, in the response');
 
@@ -216,6 +216,6 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
 
     private function rows(string $table): int
     {
-        return (int) $this->db($table)->count('*', $table, []);
+        return $this->db($table)->count('*', $table, []);
     }
 }

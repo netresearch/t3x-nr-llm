@@ -34,7 +34,7 @@ final class A2aSelfServicePolicyTest extends TestCase
     /**
      * @param array<string, mixed> $settings
      */
-    private static function owner(array $settings = [], bool $grant = true, bool $admin = false, int $workspace = 3): BackendUserAuthentication
+    private function owner(array $settings = [], bool $grant = true, bool $admin = false, int $workspace = 3): BackendUserAuthentication
     {
         $user             = new BackendUserAuthentication();
         $user->user       = ['uid' => 20, 'admin' => $admin ? 1 : 0];
@@ -44,7 +44,7 @@ final class A2aSelfServicePolicyTest extends TestCase
         return $user;
     }
 
-    private static function policy(?BackendUserAuthentication $owner): A2aSelfServicePolicy
+    private function policy(?BackendUserAuthentication $owner): A2aSelfServicePolicy
     {
         return new A2aSelfServicePolicy(new class ($owner) implements ActingBackendUserResolverInterface {
             public int $calls = 0;
@@ -63,7 +63,7 @@ final class A2aSelfServicePolicyTest extends TestCase
     /**
      * @param list<int> $profiles
      */
-    private static function client(bool $selfService = true, int $workspace = 3, int $expires = self::NOW + 30 * self::DAY, array $profiles = [1, 2]): A2aInboundClient
+    private function client(bool $selfService = true, int $workspace = 3, int $expires = self::NOW + 30 * self::DAY, array $profiles = [1, 2]): A2aInboundClient
     {
         return new A2aInboundClient(5, 'Agent', 'p', 'h', 20, $workspace, $profiles, 4, true, $expires, $selfService, self::NOW);
     }
@@ -71,7 +71,7 @@ final class A2aSelfServicePolicyTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private static function relaxed(): array
+    private function relaxed(): array
     {
         return [A2aSelfServiceLimits::FIELD_PROFILES => '1,2'];
     }
@@ -79,9 +79,9 @@ final class A2aSelfServicePolicyTest extends TestCase
     #[Test]
     public function aRecordWithinTheLimitsPassesUnchanged(): void
     {
-        $client = self::client();
+        $client = $this->client();
 
-        self::assertEquals($client, self::policy(self::owner(self::relaxed()))->constrain($client, self::NOW));
+        self::assertEquals($client, $this->policy($this->owner($this->relaxed()))->constrain($client, self::NOW));
     }
 
     #[Test]
@@ -97,7 +97,7 @@ final class A2aSelfServicePolicyTest extends TestCase
                 return null;
             }
         };
-        $client = self::client(false, 0, 0, [9]);
+        $client = $this->client(false, 0, 0, [9]);
 
         self::assertSame($client, (new A2aSelfServicePolicy($resolver))->constrain($client, self::NOW));
         self::assertSame(0, $resolver->calls);
@@ -106,7 +106,7 @@ final class A2aSelfServicePolicyTest extends TestCase
     #[Test]
     public function aRecordWhoseOwnerLostThePermissionIsWithdrawn(): void
     {
-        $withdrawn = self::policy(self::owner(self::relaxed(), false))->constrain(self::client(), self::NOW);
+        $withdrawn = $this->policy($this->owner($this->relaxed(), false))->constrain($this->client(), self::NOW);
 
         self::assertFalse($withdrawn->isActive(self::NOW));
         self::assertNotNull($withdrawn->withdrawnReason);
@@ -115,48 +115,48 @@ final class A2aSelfServicePolicyTest extends TestCase
     #[Test]
     public function aRecordWhoseOwnerBecameAnAdministratorOrCannotBeFoundIsWithdrawn(): void
     {
-        self::assertNotNull(self::policy(self::owner(self::relaxed(), true, true))->constrain(self::client(), self::NOW)->withdrawnReason);
-        self::assertNotNull(self::policy(null)->constrain(self::client(), self::NOW)->withdrawnReason);
+        self::assertNotNull($this->policy($this->owner($this->relaxed(), true, true))->constrain($this->client(), self::NOW)->withdrawnReason);
+        self::assertNotNull($this->policy(null)->constrain($this->client(), self::NOW)->withdrawnReason);
     }
 
     #[Test]
     public function theOwnerMustResolveInTheExactPinnedWorkspace(): void
     {
-        self::assertNotNull(self::policy(self::owner(self::relaxed(), true, false, 4))->constrain(self::client(true, 3), self::NOW)->withdrawnReason);
-        self::assertNull(self::policy(self::owner(self::relaxed(), true, false, 3))->constrain(self::client(true, 3), self::NOW)->withdrawnReason);
+        self::assertNotNull($this->policy($this->owner($this->relaxed(), true, false, 4))->constrain($this->client(true, 3), self::NOW)->withdrawnReason);
+        self::assertNull($this->policy($this->owner($this->relaxed(), true, false, 3))->constrain($this->client(true, 3), self::NOW)->withdrawnReason);
     }
 
     #[Test]
     public function liveIsAllowedOnlyByAGroupThatSaysSo(): void
     {
-        $live = self::client(true, 0);
+        $live = $this->client(true, 0);
 
-        self::assertNotNull(self::policy(self::owner(self::relaxed(), true, false, 0))->constrain($live, self::NOW)->withdrawnReason);
-        self::assertNull(self::policy(self::owner(self::relaxed() + [A2aSelfServiceLimits::FIELD_ALLOW_LIVE => 1], true, false, 0))->constrain($live, self::NOW)->withdrawnReason);
+        self::assertNotNull($this->policy($this->owner($this->relaxed(), true, false, 0))->constrain($live, self::NOW)->withdrawnReason);
+        self::assertNull($this->policy($this->owner($this->relaxed() + [A2aSelfServiceLimits::FIELD_ALLOW_LIVE => 1], true, false, 0))->constrain($live, self::NOW)->withdrawnReason);
     }
 
     #[Test]
     public function anExpiryBeyondTheMaximumWithdrawsTheRecordAndWithinItDoesNot(): void
     {
-        $far = self::client(true, 3, self::NOW + 91 * self::DAY);
+        $far = $this->client(true, 3, self::NOW + 91 * self::DAY);
 
-        self::assertNotNull(self::policy(self::owner(self::relaxed()))->constrain($far, self::NOW)->withdrawnReason);
-        self::assertNull(self::policy(self::owner(self::relaxed() + [A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 120]))->constrain($far, self::NOW)->withdrawnReason);
+        self::assertNotNull($this->policy($this->owner($this->relaxed()))->constrain($far, self::NOW)->withdrawnReason);
+        self::assertNull($this->policy($this->owner($this->relaxed() + [A2aSelfServiceLimits::FIELD_MAX_EXPIRY_DAYS => 120]))->constrain($far, self::NOW)->withdrawnReason);
     }
 
     #[Test]
     public function aRecordWithoutExpiryNeedsAGroupThatAllowsIt(): void
     {
-        $never = self::client(true, 3, 0);
+        $never = $this->client(true, 3, 0);
 
-        self::assertNotNull(self::policy(self::owner(self::relaxed()))->constrain($never, self::NOW)->withdrawnReason);
-        self::assertNull(self::policy(self::owner(self::relaxed() + [A2aSelfServiceLimits::FIELD_ALLOW_NO_EXPIRY => 1]))->constrain($never, self::NOW)->withdrawnReason);
+        self::assertNotNull($this->policy($this->owner($this->relaxed()))->constrain($never, self::NOW)->withdrawnReason);
+        self::assertNull($this->policy($this->owner($this->relaxed() + [A2aSelfServiceLimits::FIELD_ALLOW_NO_EXPIRY => 1]))->constrain($never, self::NOW)->withdrawnReason);
     }
 
     #[Test]
     public function anExpiredRecordIsInactiveForThatReasonAlone(): void
     {
-        $expired = self::policy(self::owner(self::relaxed()))->constrain(self::client(true, 3, self::NOW - 1), self::NOW);
+        $expired = $this->policy($this->owner($this->relaxed()))->constrain($this->client(true, 3, self::NOW - 1), self::NOW);
 
         self::assertNull($expired->withdrawnReason);
         self::assertFalse($expired->isActive(self::NOW));
@@ -165,7 +165,7 @@ final class A2aSelfServicePolicyTest extends TestCase
     #[Test]
     public function theProfilesTheGroupsNoLongerAllowAreTakenOutOfTheRecord(): void
     {
-        $narrowed = self::policy(self::owner([A2aSelfServiceLimits::FIELD_PROFILES => '2,7']))->constrain(self::client(true, 3, self::NOW + 30 * self::DAY, [1, 2, 3]), self::NOW);
+        $narrowed = $this->policy($this->owner([A2aSelfServiceLimits::FIELD_PROFILES => '2,7']))->constrain($this->client(true, 3, self::NOW + 30 * self::DAY, [1, 2, 3]), self::NOW);
 
         self::assertSame([2], $narrowed->profileUids);
         self::assertTrue($narrowed->mayUse(2));
@@ -176,13 +176,13 @@ final class A2aSelfServicePolicyTest extends TestCase
     #[Test]
     public function theWriterRefusesWhatTheRequestWouldWithdrawOrCut(): void
     {
-        $policy = self::policy(self::owner(self::relaxed()));
+        $policy = $this->policy($this->owner($this->relaxed()));
 
-        self::assertNull($policy->refusal(self::client(), self::NOW));
-        self::assertNotNull($policy->refusal(self::client(true, 3, self::NOW + 91 * self::DAY), self::NOW), 'expiry');
-        self::assertNotNull($policy->refusal(self::client(true, 3, 0), self::NOW), 'no expiry');
-        self::assertNotNull($policy->refusal(self::client(true, 0), self::NOW), 'live');
-        self::assertNotNull($policy->refusal(self::client(true, 3, self::NOW + 30 * self::DAY, [1, 9]), self::NOW), 'a profile that is not allowed is refused, not cut');
-        self::assertNotNull($policy->refusal(self::client(true, 3, self::NOW + 30 * self::DAY, []), self::NOW), 'at least one profile');
+        self::assertNull($policy->refusal($this->client(), self::NOW));
+        self::assertNotNull($policy->refusal($this->client(true, 3, self::NOW + 91 * self::DAY), self::NOW), 'expiry');
+        self::assertNotNull($policy->refusal($this->client(true, 3, 0), self::NOW), 'no expiry');
+        self::assertNotNull($policy->refusal($this->client(true, 0), self::NOW), 'live');
+        self::assertNotNull($policy->refusal($this->client(true, 3, self::NOW + 30 * self::DAY, [1, 9]), self::NOW), 'a profile that is not allowed is refused, not cut');
+        self::assertNotNull($policy->refusal($this->client(true, 3, self::NOW + 30 * self::DAY, []), self::NOW), 'at least one profile');
     }
 }

@@ -58,10 +58,6 @@ final readonly class A2aSelfServiceTokens
             throw new A2aTokenRefusedException('A token needs a title.', 1799300301);
         }
 
-        if ($this->clients->countActiveSelfService($owner, $now) >= self::MAX_ACTIVE_PER_OWNER) {
-            throw new A2aTokenRefusedException(sprintf('You already hold %d active tokens; revoke one first.', self::MAX_ACTIVE_PER_OWNER), 1799300306);
-        }
-
         $profileUids = array_values(array_unique(array_filter($profileUids, static fn (int $uid): bool => $uid > 0)));
         $candidate   = new A2aInboundClient(0, $title, '', '', $owner, max(0, $workspaceId), $profileUids, A2aInboundClientRepository::SELF_SERVICE_TASK_LIMIT, true, $expires, true, $now);
 
@@ -71,6 +67,17 @@ final readonly class A2aSelfServiceTokens
         }
 
         $uid = $this->clients->insertSelfService($owner, $title, $candidate->workspaceId, $profileUids, $expires, $now);
+
+        // Counted after the insert, not before: a count taken first lets
+        // parallel requests of one editor each see room. Each request counts
+        // its own row and every row committed before it, so the last of any
+        // number of parallel requests sees them all; a request over the cap
+        // withdraws its own row, and at worst two racing requests both do.
+        if ($this->clients->countActiveSelfService($owner, $now) > self::MAX_ACTIVE_PER_OWNER) {
+            $this->clients->discardUnissued($uid);
+
+            throw new A2aTokenRefusedException(sprintf('You already hold %d active tokens; revoke one first.', self::MAX_ACTIVE_PER_OWNER), 1799300306);
+        }
 
         try {
             $token = $this->clients->issueToken($uid);

@@ -109,7 +109,7 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function theLiveWorkspaceNeedsAGroupThatAllowsIt(): void
     {
-        $this->expectRefusal(fn () => $this->issue(20, workspace: 0), 'live');
+        $this->expectRefusal(fn (): int => $this->issue(20, workspace: 0), 'live');
 
         $this->group(['tx_nrllm_a2a_allow_live' => 1]);
         $uid = $this->issue(20, workspace: 0);
@@ -125,8 +125,8 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function anExpiryBeyondTheMaximumIsRefusedAndOneWithinItIsStored(): void
     {
-        $this->expectRefusal(fn () => $this->issue(20, days: 91), 'expiry');
-        $this->expectRefusal(fn () => $this->issue(20, days: 0), 'no expiry');
+        $this->expectRefusal(fn (): int => $this->issue(20, days: 91), 'expiry');
+        $this->expectRefusal(fn (): int => $this->issue(20, days: 0), 'no expiry');
 
         self::assertGreaterThan(0, $this->issue(20, days: 90));
 
@@ -164,10 +164,10 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         // Profile 4 exists and is public, like the allowed ones: only the
         // group's list refuses it. Profile 3 is not public and would be
         // refused by the existence check even if the list let it through.
-        $this->expectRefusal(fn () => $this->issue(20, profiles: [4]), 'a public profile the group does not list', 'not allowed for the groups');
-        $this->expectRefusal(fn () => $this->issue(20, profiles: [1, 4]), 'one profile that is not allowed among allowed ones', 'not allowed for the groups');
-        $this->expectRefusal(fn () => $this->issue(20, profiles: [3]), 'a profile that is not public');
-        $this->expectRefusal(fn () => $this->issue(20, profiles: []), 'no profile');
+        $this->expectRefusal(fn (): int => $this->issue(20, profiles: [4]), 'a public profile the group does not list', 'not allowed for the groups');
+        $this->expectRefusal(fn (): int => $this->issue(20, profiles: [1, 4]), 'one profile that is not allowed among allowed ones', 'not allowed for the groups');
+        $this->expectRefusal(fn (): int => $this->issue(20, profiles: [3]), 'a profile that is not public');
+        $this->expectRefusal(fn (): int => $this->issue(20, profiles: []), 'no profile');
 
         self::assertGreaterThan(0, $this->issue(20, profiles: [1, 2]));
     }
@@ -205,16 +205,16 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     {
         // The writer's own message: the policy would refuse an administrator
         // too, with another text, so this pins the first layer by itself.
-        $this->expectRefusal(fn () => $this->issue(1), 'an administrator', 'technical users');
+        $this->expectRefusal(fn (): int => $this->issue(1), 'an administrator', 'technical users');
 
         // Group 32 has every relaxation but not the grant: it contributes nothing.
-        $this->expectRefusal(fn () => $this->issue(24), 'no grant');
+        $this->expectRefusal(fn (): int => $this->issue(24), 'no grant');
     }
 
     #[Test]
     public function aWorkspaceTheOwnerCannotWorkInIsRefusedAndWithdrawsAStoredToken(): void
     {
-        $this->expectRefusal(fn () => $this->issue(20, workspace: 99), 'a workspace that does not exist');
+        $this->expectRefusal(fn (): int => $this->issue(20, workspace: 99), 'a workspace that does not exist');
 
         $uid = $this->issue(20);
         $this->db('sys_workspace')->update('sys_workspace', ['members' => 'be_users_21'], ['uid' => 1]);
@@ -250,13 +250,13 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         foreach ([$theirs, 1] as $foreign) {
             try {
                 $tokens->revokeOwn($this->user(20), $foreign);
-                self::fail('record ' . $foreign . ' is not the editor\'s');
+                self::fail('record ' . $foreign . " is not the editor's");
             } catch (A2aTokenRefusedException $exception) {
                 self::assertSame('There is no such token.', $exception->getMessage(), 'not yours answers like missing');
             }
         }
 
-        self::assertTrue($this->accepted($this->send($theirs)), 'the other editor\'s token still works');
+        self::assertTrue($this->accepted($this->send($theirs)), "the other editor's token still works");
         self::assertTrue($this->accepted($this->send(1)), 'and so does a technical client');
 
         $tokens->revokeOwn($this->user(20), $mine);
@@ -276,14 +276,14 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         self::assertContains(1, $all);
 
         try {
-            $admin->issue($administrator, $self, time());
+            $admin->issue($administrator, $self);
             self::fail('an administrator must not mint a credential that acts as an editor');
         } catch (A2aTokenRefusedException $exception) {
             self::assertStringContainsString('owner', $exception->getMessage());
         }
 
         $old   = $this->tokens[1];
-        $fresh = $admin->issue($administrator, 1, time());
+        $fresh = $admin->issue($administrator, 1);
         self::assertNotSame($old, $fresh->token);
         $this->tokens[1] = $fresh->token;
         self::assertTrue($this->accepted($this->send(1)));
@@ -301,7 +301,7 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         $editor = $this->user(20);
 
         foreach ([
-            'issue'   => fn () => $admin->issue($editor, 1, time()),
+            'issue'   => fn () => $admin->issue($editor, 1),
             'listAll' => fn () => $admin->listAll($editor),
             'revoke'  => fn () => $admin->revoke($editor, 1),
         ] as $name => $call) {
@@ -376,7 +376,7 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         $now    = time();
         $issued = $tokens->create($this->user(20), 'Agent', 1, [1], $now + 30 * self::DAY, $now);
         $tokens->revokeOwn($this->user(20), $issued->clientUid);
-        (new A2aClientTokenAdministration($this->getService(A2aInboundClientRepository::class), $audit))->issue($this->user(1), 1, $now);
+        (new A2aClientTokenAdministration($this->getService(A2aInboundClientRepository::class), $audit))->issue($this->user(1), 1);
 
         self::assertCount(3, $logger->lines);
         self::assertStringContainsString('"client":' . $issued->clientUid, $logger->lines[0]);
@@ -397,15 +397,30 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
             $uids[] = $this->issue(20);
         }
 
-        $this->expectRefusal(fn () => $this->issue(20), 'the eleventh token', 'already hold');
+        $this->expectRefusal(fn (): int => $this->issue(20), 'the eleventh token', 'already hold');
         self::assertGreaterThan(0, $this->issue(21), 'the cap is per owner');
 
         $this->getService(A2aSelfServiceTokens::class)->revokeOwn($this->user(20), $uids[0]);
         $uids[0] = $this->issue(20);
 
-        $this->expectRefusal(fn () => $this->issue(20), 'full again', 'already hold');
+        $this->expectRefusal(fn (): int => $this->issue(20), 'full again', 'already hold');
         $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['expires' => time() - 10], ['uid' => $uids[1]]);
         self::assertGreaterThan(0, $this->issue(20), 'an expired token does not count');
+    }
+
+    #[Test]
+    public function recordsStillInFlightCountAgainstTheCapAndAnOverCapRequestLeavesNoLiveRecord(): void
+    {
+        // Ten records inserted but not yet issued, as parallel requests leave
+        // them between the insert and the token: the cap sees them.
+        $repository = $this->getService(A2aInboundClientRepository::class);
+        $now        = time();
+        for ($i = 0; $i < A2aSelfServiceTokens::MAX_ACTIVE_PER_OWNER; ++$i) {
+            $repository->insertSelfService(20, 'in flight ' . $i, 1, [1], $now + self::DAY, $now);
+        }
+
+        $this->expectRefusal(fn (): int => $this->issue(20), 'the eleventh request', 'already hold');
+        self::assertSame(A2aSelfServiceTokens::MAX_ACTIVE_PER_OWNER, $repository->countActiveSelfService(20, $now), 'the refused request withdrew its own row');
     }
 
     #[Test]
@@ -418,7 +433,7 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(Command::FAILURE, $tester->execute(['client' => (string) $self]));
         self::assertStringContainsString('owner', $tester->getDisplay());
         self::assertSame($hash, $this->db('tx_nrllm_a2a_client')->select(['token_hash'], 'tx_nrllm_a2a_client', ['uid' => $self])->fetchOne(), 'nothing was issued');
-        self::assertTrue($this->accepted($this->send($self)), 'the editor\'s token still works');
+        self::assertTrue($this->accepted($this->send($self)), "the editor's token still works");
 
         self::assertSame(Command::SUCCESS, $tester->execute(['client' => '1']));
         $this->tokens[1] = trim($tester->getDisplay());

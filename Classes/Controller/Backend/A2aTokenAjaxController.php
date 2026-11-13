@@ -40,7 +40,7 @@ use TYPO3\CMS\Core\Http\JsonResponse;
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 #[AsController]
-final class A2aTokenAjaxController
+final readonly class A2aTokenAjaxController
 {
     use DefensiveLocalizationTrait;
     use RequiresBackendAdminTrait;
@@ -48,8 +48,8 @@ final class A2aTokenAjaxController
     private const MAX_REQUESTED_DAYS = 36500;
 
     public function __construct(
-        private readonly A2aSelfServiceTokens $selfService,
-        private readonly A2aClientTokenAdministration $administration,
+        private A2aSelfServiceTokens $selfService,
+        private A2aClientTokenAdministration $administration,
     ) {}
 
     /**
@@ -64,7 +64,8 @@ final class A2aTokenAjaxController
         $user = $this->sessionUser();
         $body = $request->getParsedBody();
         $body = is_array($body) ? $body : [];
-        $now  = time();
+
+        $now = time();
         // Far beyond any limit, so the product below stays an int; the policy
         // refuses what the groups do not allow.
         $days = min(max($this->int($body['days'] ?? 0), 0), self::MAX_REQUESTED_DAYS);
@@ -98,7 +99,7 @@ final class A2aTokenAjaxController
         $body = $request->getParsedBody();
 
         try {
-            $issued = $this->administration->issue($this->sessionUser(), $this->uid($body), time());
+            $issued = $this->administration->issue($this->sessionUser(), $this->uid($body));
         } catch (A2aTokenRefusedException $exception) {
             return $this->refused($exception);
         }
