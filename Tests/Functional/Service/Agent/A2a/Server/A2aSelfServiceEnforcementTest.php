@@ -157,8 +157,12 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function onlyTheProfilesTheGroupAllowsCanBeRequested(): void
     {
-        $this->expectRefusal(fn () => $this->issue(20, profiles: [3]), 'a profile that is not allowed');
-        $this->expectRefusal(fn () => $this->issue(20, profiles: [1, 3]), 'one profile that is not allowed among allowed ones');
+        // Profile 4 exists and is public, like the allowed ones: only the
+        // group's list refuses it. Profile 3 is not public and would be
+        // refused by the existence check even if the list let it through.
+        $this->expectRefusal(fn () => $this->issue(20, profiles: [4]), 'a public profile the group does not list', 'not allowed for the groups');
+        $this->expectRefusal(fn () => $this->issue(20, profiles: [1, 4]), 'one profile that is not allowed among allowed ones', 'not allowed for the groups');
+        $this->expectRefusal(fn () => $this->issue(20, profiles: [3]), 'a profile that is not public');
         $this->expectRefusal(fn () => $this->issue(20, profiles: []), 'no profile');
 
         self::assertGreaterThan(0, $this->issue(20, profiles: [1, 2]));
@@ -195,7 +199,9 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function anAdministratorAndAUserWithoutTheGrantAreRefused(): void
     {
-        $this->expectRefusal(fn () => $this->issue(1), 'an administrator');
+        // The writer's own message: the policy would refuse an administrator
+        // too, with another text, so this pins the first layer by itself.
+        $this->expectRefusal(fn () => $this->issue(1), 'an administrator', 'technical users');
 
         // Group 32 has every relaxation but not the grant: it contributes nothing.
         $this->expectRefusal(fn () => $this->issue(24), 'no grant');
@@ -424,12 +430,12 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         return is_array($reply['result'] ?? null);
     }
 
-    private function expectRefusal(callable $call, string $case): void
+    private function expectRefusal(callable $call, string $case, string $messageContains = ''): void
     {
         try {
             $call();
-        } catch (A2aTokenRefusedException) {
-            $this->addToAssertionCount(1);
+        } catch (A2aTokenRefusedException $exception) {
+            self::assertStringContainsString($messageContains, $exception->getMessage(), $case);
 
             return;
         }

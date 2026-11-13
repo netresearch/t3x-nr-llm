@@ -124,6 +124,7 @@ may see the usage of his editors gets the module
    McpServers
    A2aRemoteAgents
    A2aServer
+   A2aTokens
    Wizards
    UserBudgets
    Permissions

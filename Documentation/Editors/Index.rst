@@ -24,6 +24,11 @@ tools; the available actions depend on your permissions.
    continue. Workspace writes and publication are separate operations;
    see :ref:`tool-workspaces`.
 
+If an administrator allowed it for your group, you can also create tokens
+that let an agent of your own act as you, in :guilabel:`AI > A2A tokens`; see
+:ref:`administration-a2a-tokens-editor`. A token replaces your login for
+that agent: keep it secret.
+
 Ask your administrator if a task or tool is missing. Access is described in
 :ref:`administration-permissions`; approved reusable instructions are covered
 in :ref:`administration-skills`.
