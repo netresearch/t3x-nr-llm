@@ -945,7 +945,7 @@ abstract class AbstractSpecializedService
             $this->logger->warning(sprintf('%s error response is not JSON', $this->getProviderLabel()), [
                 'provider' => $this->getServiceProvider(),
                 'message'  => $e->getMessage(),
-                'sample'   => $this->redactSecretShapes(substr($responseBody, 0, 200)),
+                'sample'   => substr($this->redactSecretShapes($responseBody), 0, 200),
             ]);
 
             return sprintf('%s error response is not JSON', $this->getProviderLabel());

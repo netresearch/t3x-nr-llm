@@ -51,6 +51,7 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
+use ReflectionMethod;
 use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -571,6 +572,28 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             self::assertStringNotContainsString($preview, $e->getMessage());
             self::assertStringNotContainsString($pat, $e->getMessage());
         }
+    }
+
+    #[Test]
+    public function aNonJsonErrorSampleIsMaskedBeforeItIsCut(): void
+    {
+        $pat = 'ghp_abcdefghijklmnopqrstuvwxyz0123456789';
+        // The credential starts inside the 200-byte window and ends outside it:
+        // cutting first would leave a prefix the catalogue no longer recognises.
+        $body = str_repeat(' ', 180) . $pat;
+
+        $context = null;
+        $logger  = $this->createMock(LoggerInterface::class);
+        $logger->method('warning')->willReturnCallback(function (string $message, array $logContext) use (&$context): void {
+            $context = $logContext;
+        });
+        $subject = $this->createSubject(logger: $logger);
+
+        (new ReflectionMethod($subject, 'decodeErrorMessage'))->invoke($subject, $body);
+
+        self::assertIsArray($context);
+        self::assertIsString($context['sample']);
+        self::assertStringNotContainsString('ghp_abcdefghij', $context['sample']);
     }
 
     #[Test]
@@ -1378,6 +1401,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
         ?LlmConfigurationRepository $configurationRepository = null,
         ?BudgetServiceInterface $budgetService = null,
         ?InputGuardrailScreener $inputGuardrailScreener = null,
+        ?LoggerInterface $logger = null,
     ): TestableSpecializedService {
         $extConf = self::createStub(ExtensionConfiguration::class);
         $extConf->method('get')->willReturn(['apiKeyIdentifier' => $apiKeyIdentifier, 'baseUrl' => $baseUrl]);
@@ -1388,7 +1412,7 @@ final class AbstractSpecializedServiceTest extends AbstractUnitTestCase
             streamFactory: $this->passthroughStreamFactory(),
             extensionConfiguration: $extConf,
             usageTracker: self::createStub(UsageTrackerServiceInterface::class),
-            logger: self::createStub(LoggerInterface::class),
+            logger: $logger ?? self::createStub(LoggerInterface::class),
             costCalculator: self::createStub(SpecializedCostCalculatorInterface::class),
             budgetService: $budgetService ?? new AllowingBudgetService(),
             pipeline: new MiddlewarePipeline([]),

@@ -265,19 +265,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * before it reaches the provider and before the cache key is built from it.
      * It leaves for a provider like a prompt does, so a REDACT rewrites it and a
      * DENY / REQUIRE_APPROVAL throws; with no guardrails registered it is
-     * returned as it came.
+     * returned as it came. The configuration, where the caller has one, narrows
+     * the guardrails to its policy (ADR-106).
      *
      * @param string|array<int, string> $input
      *
      * @return string|array<int, string>
      */
-    private function screenEmbeddingInput(string|array $input): string|array
+    private function screenEmbeddingInput(string|array $input, ?LlmConfiguration $configuration = null): string|array
     {
         if (is_string($input)) {
-            return $this->screenInputPrompt($input);
+            return $this->inputScreener->screenText($input, $configuration);
         }
 
-        return array_map($this->screenInputPrompt(...), $input);
+        return array_map(fn (string $text): string => $this->inputScreener->screenText($text, $configuration), $input);
     }
 
     /**
@@ -1190,7 +1191,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     public function embedForConfiguration(string|array $input, LlmConfiguration $configuration, ?EmbeddingOptions $options = null): EmbeddingResponse
     {
-        $input = $this->screenEmbeddingInput($input);
+        $input = $this->screenEmbeddingInput($input, $configuration);
         $options ??= new EmbeddingOptions();
         $optionOverrides = $options->toArray();
         unset($optionOverrides['provider']);

@@ -982,6 +982,45 @@ class LlmServiceManagerTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function embedForConfigurationRunsOnlyTheGuardrailsTheConfigurationSelects(): void
+    {
+        $model  = self::createStub(Model::class);
+        $config = self::createStub(LlmConfiguration::class);
+        $config->method('getLlmModel')->willReturn($model);
+        $config->method('getIdentifier')->willReturn('embed-config');
+        $config->method('getModelId')->willReturn('text-embedding-3-small');
+        $config->method('toOptionsArray')->willReturn(['model' => 'text-embedding-3-small', 'provider' => 'openai']);
+        // The denying guardrail below is not in the selection, so it must not run.
+        $config->method('getAllowedGuardrailsList')->willReturn(['some-other-guardrail']);
+
+        $mockAdapter = $this->createMock(ProviderInterface::class);
+        $mockAdapter->method('supportsFeature')->willReturnCallback(
+            static fn (string $feature): bool => $feature === 'embeddings',
+        );
+        $mockAdapter->expects(self::once())->method('embeddings')->willReturn(
+            new EmbeddingResponse([[0.1]], 'text-embedding-3-small', new UsageStatistics(1, 0, 1), 'openai'),
+        );
+
+        $registryMock = self::createStub(ProviderAdapterRegistryInterface::class);
+        $registryMock->method('createAdapterFromModel')->willReturn($mockAdapter);
+
+        $manager = $this->createLlmServiceManager(
+            $this->extensionConfigStub,
+            $this->loggerStub,
+            $registryMock,
+            $this->emptyMiddlewarePipeline(),
+            self::createStub(CacheManagerInterface::class),
+            null,
+            null,
+            null,
+            null,
+            $this->denyingInputScreener('not selected'),
+        );
+
+        $manager->embedForConfiguration('plain text', $config);
+    }
+
+    #[Test]
     public function chatScreensInputOnTheAdHocProviderKeyPath(): void
     {
         $provider = new TestableProvider();
