@@ -80,11 +80,8 @@ final readonly class A2aSelfServiceLimits
             $live     = $live || self::flag($group[self::FIELD_ALLOW_LIVE] ?? 0);
             $noExpiry = $noExpiry || self::flag($group[self::FIELD_ALLOW_NO_EXPIRY] ?? 0);
             $days     = max($days, self::days($group[self::FIELD_MAX_EXPIRY_DAYS] ?? 0));
-            $list     = $group[self::FIELD_PROFILES] ?? '';
-            foreach (explode(',', is_scalar($list) ? (string) $list : '') as $uid) {
-                if (ctype_digit(trim($uid)) && (int) $uid > 0) {
-                    $profiles[(int) $uid] = (int) $uid;
-                }
+            foreach (self::uids($group[self::FIELD_PROFILES] ?? '') as $uid) {
+                $profiles[$uid] = $uid;
             }
         }
 
@@ -106,6 +103,23 @@ final readonly class A2aSelfServiceLimits
         }
 
         return $expires > $now && $expires <= $now + $this->maxExpiryDays * 86400;
+    }
+
+    /**
+     * The positive uids of a comma list; anything else in it is dropped.
+     *
+     * @return list<int>
+     */
+    private static function uids(mixed $list): array
+    {
+        $uids = [];
+        foreach (explode(',', is_scalar($list) ? (string) $list : '') as $uid) {
+            if (ctype_digit(trim($uid)) && (int) $uid > 0) {
+                $uids[] = (int) $uid;
+            }
+        }
+
+        return $uids;
     }
 
     private static function holds(mixed $customOptions, string $permission): bool
