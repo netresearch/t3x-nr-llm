@@ -5650,6 +5650,18 @@
                 <source>Not possible in the workspace %s: %s has no versioning or allows editing live in a workspace, so this change can only be made in the live workspace. Nothing will be written.</source>
                 <target>In der Arbeitsumgebung %s nicht möglich: %s hat keine Versionierung oder erlaubt die Live-Bearbeitung in Arbeitsumgebungen, darum geht diese Änderung nur in der Live-Arbeitsumgebung. Es wird nichts geschrieben.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.workspace.requiredLive">
+                <source>This configuration requires a draft workspace for changes, and this request was started in the live workspace. Nothing was changed. Switch to a draft workspace in the backend and send the request again.</source>
+                <target>Diese Konfiguration verlangt für Änderungen eine Entwurfs-Arbeitsumgebung, und diese Anfrage wurde in der Live-Arbeitsumgebung gestartet. Es wurde nichts geändert. Im Backend in eine Entwurfs-Arbeitsumgebung wechseln und die Anfrage erneut senden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.workspace.requiredGone">
+                <source>This configuration requires a draft workspace for changes, but the workspace this request was started in is no longer available to its user. Nothing was changed. Switch to a draft workspace you may use and send the request again.</source>
+                <target>Diese Konfiguration verlangt für Änderungen eine Entwurfs-Arbeitsumgebung, aber die Arbeitsumgebung, in der diese Anfrage gestartet wurde, steht der ausführenden Person nicht mehr zur Verfügung. Es wurde nichts geändert. Im Backend in eine nutzbare Entwurfs-Arbeitsumgebung wechseln und die Anfrage erneut senden.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.workspace.requiredRemote">
+                <source>This configuration requires a draft workspace for changes, and this tool changes things outside TYPO3's workspaces, so it cannot be used with that requirement. Nothing was changed. Use a configuration without the requirement for this tool.</source>
+                <target>Diese Konfiguration verlangt für Änderungen eine Entwurfs-Arbeitsumgebung, und dieses Werkzeug ändert Dinge außerhalb der TYPO3-Arbeitsumgebungen, darum ist es mit dieser Vorgabe nicht nutzbar. Es wurde nichts geändert. Für dieses Werkzeug eine Konfiguration ohne die Vorgabe verwenden.</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>
                 <target>Inhaltstyp: %s</target>

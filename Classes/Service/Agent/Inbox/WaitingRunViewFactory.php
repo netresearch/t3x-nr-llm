@@ -189,10 +189,14 @@ final readonly class WaitingRunViewFactory
             $previewLines  = [];
             $previewFailed = false;
             $withheld      = false;
+            $refusedByRule = $preview !== null && $preview['tool'] === $call->name && ($preview['refused'] ?? false) === true;
             // A preview stored under a different tool name than the call at that
             // position is a state nobody should be able to produce; dropping it
             // is cheaper than rendering a claim about the wrong call.
-            if ($preview !== null && $preview['tool'] === $call->name) {
+            if ($refusedByRule && $preview !== null) {
+                $previewLines  = $preview['lines'];
+                $previewFailed = true;
+            } elseif ($preview !== null && $preview['tool'] === $call->name) {
                 if ($this->viewerStartedTheRun($run, $viewer)
                     || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $viewer))
                 ) {
@@ -229,16 +233,17 @@ final readonly class WaitingRunViewFactory
                 // ADR-214: structured, read from the arguments only, so it is
                 // the same for every viewer and needs no read gate — the
                 // arguments are on the card already.
-                pendingTarget: $this->pendingTarget($tool, $call->arguments),
+                pendingTarget: $refusedByRule ? null : $this->pendingTarget($tool, $call->arguments),
                 declaresWrite: $effects->effectFor($call->name)->isWrite(),
                 // ADR-214, item 9: read for this viewer now, and never where
                 // the lines above are withheld from them. Read in the viewer's
                 // workspace, so only where that is the one the run writes into:
                 // elsewhere its "current" values would be another workspace's
                 // than the lines show (ADR-260).
-                structuredPreview: $withheld || max(0, $viewer->workspace ?? 0) !== $runWorkspace
+                structuredPreview: $refusedByRule || $withheld || max(0, $viewer->workspace ?? 0) !== $runWorkspace
                     ? []
                     : $this->structuredPreview($tool, $call->arguments, $viewer),
+                refusedByRule: $refusedByRule,
             );
         }
 

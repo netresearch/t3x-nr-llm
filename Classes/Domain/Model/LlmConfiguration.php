@@ -173,6 +173,13 @@ class LlmConfiguration extends AbstractEntity
      */
     protected bool $requireSecondApprover = false;
 
+    /**
+     * Whether a run of this configuration may change records only in a draft
+     * workspace (ADR-293). False leaves every run as it was, which is what every
+     * pre-existing record has.
+     */
+    protected bool $requireDraftWorkspace = false;
+
     protected int $tstamp = 0;
 
     protected int $crdate = 0;
@@ -523,6 +530,21 @@ class LlmConfiguration extends AbstractEntity
     public function setRequireSecondApprover(bool $requireSecondApprover): void
     {
         $this->requireSecondApprover = $requireSecondApprover;
+    }
+
+    public function getRequireDraftWorkspace(): bool
+    {
+        return $this->requireDraftWorkspace;
+    }
+
+    public function requiresDraftWorkspace(): bool
+    {
+        return $this->getRequireDraftWorkspace();
+    }
+
+    public function setRequireDraftWorkspace(bool $requireDraftWorkspace): void
+    {
+        $this->requireDraftWorkspace = $requireDraftWorkspace;
     }
 
     /**

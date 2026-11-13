@@ -147,9 +147,9 @@ final readonly class ApprovalPreviewComparator
      * {@see ToolLoopService::invoke()}; an exception body may carry DBAL
      * credentials.
      *
-     * @param array{index: int, tool: string, lines: list<string>, failed: bool} $before
+     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool} $before
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool}
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}
      */
     private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
     {
@@ -224,8 +224,8 @@ final readonly class ApprovalPreviewComparator
      * comparison, so a second approval against an unchanged record would find it
      * missing and bounce again, forever.
      *
-     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $previews
-     * @param list<int>                                                                $stale
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}> $previews
+     * @param list<int>                                                                                $stale
      */
     private function restale(
         SuspendedRunState $state,

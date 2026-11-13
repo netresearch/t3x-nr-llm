@@ -878,4 +878,16 @@ final class LlmConfigurationTest extends AbstractUnitTestCase
 
         self::assertSame($before, $this->subject->toOptionsArray());
     }
+
+    #[Test]
+    public function aDraftWorkspaceIsNotRequiredUnlessAskedFor(): void
+    {
+        self::assertFalse($this->subject->getRequireDraftWorkspace());
+        self::assertFalse($this->subject->requiresDraftWorkspace());
+
+        $this->subject->setRequireDraftWorkspace(true);
+
+        self::assertTrue($this->subject->getRequireDraftWorkspace());
+        self::assertTrue($this->subject->requiresDraftWorkspace());
+    }
 }

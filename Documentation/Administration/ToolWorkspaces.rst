@@ -76,6 +76,9 @@ Limits to review before approval
   hides it. Do not interpret the hidden-draft workflow as zero visibility at
   every intermediate instant.
 
+To make the draft workspace compulsory for a configuration, see
+:ref:`editorial-profile`.
+
 These controls do not establish complete isolation of all installation hooks,
 TSconfig or global actor-dependent behavior. Read the approval card and test
 custom DataHandler integrations in the supported workspace before enabling

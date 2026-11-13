@@ -198,6 +198,11 @@ CREATE TABLE tx_nrllm_configuration (
     -- the single-operator behaviour every existing row has.
     require_second_approver tinyint(1) DEFAULT '0' NOT NULL,
 
+    -- 1 = the tool loop refuses every write of a run of this configuration that
+    -- does not run in a draft workspace (ADR-293). 0 changes nothing, which is
+    -- what every existing row has.
+    require_draft_workspace tinyint(1) DEFAULT '0' NOT NULL,
+
     -- Comma list of permitted tool groups (empty = all groups allowed)
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
     -- Comma list of single tools excluded on top of every other gate (ADR-261);

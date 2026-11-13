@@ -499,6 +499,43 @@ final class WaitingRunViewFactoryTest extends TestCase
     }
 
     /**
+     * A call an invocation rule refused before the card (ADR-293) shows the
+     * rule's explanation to every viewer, even one without permission on the
+     * record, and offers no structured target or preview of a write that will
+     * not happen.
+     */
+    #[Test]
+    public function aCallRefusedByARuleShowsItsExplanationAndNoPreviewOfTheWrite(): void
+    {
+        $call  = ToolCall::function('c1', 'update_page_metadata', ['table' => 'pages', 'uid' => 7])->toArray();
+        $state = json_encode(
+            (new SuspendedRunState([], [$call], 1, 0, 0, null, [], null, [], [
+                ['index' => 0, 'tool' => 'update_page_metadata', 'lines' => ['The configuration requires a draft workspace.'], 'failed' => true, 'refused' => true],
+            ]))->toArray(),
+            JSON_THROW_ON_ERROR,
+        );
+
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata', viewerMayRead: false))
+            ->buildWaiting([$this->makeRun('a', $state)], $this->viewer())[0];
+
+        $card = $view->pendingCalls[0];
+        self::assertTrue($card->refusedByRule);
+        self::assertSame(['The configuration requires a draft workspace.'], $card->previewLines);
+        self::assertTrue($card->previewFailed);
+        self::assertNull($card->pendingTarget);
+        self::assertSame([], $card->structuredPreview);
+    }
+
+    #[Test]
+    public function aCallNobodyRefusedIsNotMarkedRefused(): void
+    {
+        $view = $this->factory(new PreviewingApprovalTool('update_page_metadata'))
+            ->buildWaiting([$this->makeRun('a', $this->previewState())], $this->viewer())[0];
+
+        self::assertFalse($view->pendingCalls[0]->refusedByRule);
+    }
+
+    /**
      * The other direction: an approver who did not start the run is still
      * asked through the tool, so a record outside their remit stays hidden.
      */

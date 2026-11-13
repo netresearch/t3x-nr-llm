@@ -28,6 +28,29 @@ backend user and run reference. Input resumes supply the validated human input
 after it has replaced the model's values for declared input fields. Approval
 resumes evaluate the same policy immediately before the approved call executes.
 
+A refusal may carry an explanation, :php:`ToolInvocationDecision::deny('outside_site', 'Say what to do.')`:
+one sentence for the person behind the run, in their language. The refused
+call's result passes it on after the codes. It is never recorded.
+
+A rule may also be asked before an approval card is shown, so that nobody is
+asked to approve a call it refuses. It opts in by implementing
+:php:`PreApprovalInvocationRuleInterface`, a marker without methods, and
+promises that its answer comes from the call, the configuration and the
+execution context alone, never from the history, and that it writes nothing.
+The loop then asks it, through :php:`PreApprovalInvocationPolicyInterface`,
+where it decides whether a call suspends. A call it refuses on purpose does not
+suspend; it is settled apart, refused and recorded once as an
+``invocation_denied`` event, and never executed on the strength of that refusal:
+if the rule allows it by then, it is refused for the approval it skipped.
+A refusal that reports a failure (:php:`rule_failed`, :php:`history_incomplete`,
+:php:`policy_failed`) does not skip the card. Beside a call that waits, the
+refused call stays on the card with its explanation and is refused, whatever
+the rule says by then, when the turn is approved. The same rule is asked again
+immediately before every call executes, so it is asked at least twice for a
+call that waits for approval and has to be cheap. A rule that does not
+implement the marker is asked only when the call runs, as before. The built-in
+:php:`RequireDraftWorkspaceRule` opts in (:ref:`editorial-profile`).
+
 Implement :php:`ToolTargetResolverInterface` when the rule needs a target. Return
 a :php:`ToolInvocationTarget` with the authoritative kind and identifier, or
 :php:`null` for calls the resolver does not understand. Multiple resolvers

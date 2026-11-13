@@ -70,6 +70,7 @@ administrators enable tools and groups before they are offered. The
    EditorActions
    ToolPlayground
    ToolWorkspaces
+   EditorialProfile
    ReadTools
    WriteTools
    SiteTools

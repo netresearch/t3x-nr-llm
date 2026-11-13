@@ -47,20 +47,20 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
 final readonly class SuspendedRunState
 {
     /**
-     * @param list<array<string, mixed>>                                               $messages          serialised ChatMessage transcript (ends with the assistant tool-call turn)
-     * @param list<array<string, mixed>>                                               $pendingCalls      serialised ToolCall list of the suspended turn
-     * @param list<string>|null                                                        $allowedToolNames  the run's original tool allow-list, so resume re-applies the SAME per-run constraint (null = the globally-enabled set)
-     * @param array<string, mixed>                                                     $options           the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc
-     * @param string|null                                                              $inputToolName     on an input pause (ADR-105) the tool whose typed input the user must supply; null on an approval pause
-     * @param array<string, mixed>                                                     $inputSchema       on an input pause the tool's declared input schema (a JSON-Schema subset); `[]` on an approval pause
-     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool}> $callPreviews      what the pending calls WOULD do, captured at suspend in the run's actor context (ADR-136); `index` points into `$pendingCalls`. Only calls whose tool implements ToolPreviewInterface appear, so `[]` is the normal case
-     * @param list<int>                                                                $forcedSnippetUids the run's per-run forced snippets, so resume re-applies the ADR-164 ceiling to them (ADR-165); `[]` for a run that forced none
-     * @param list<int>                                                                $forcedSkillUids   the run's per-run forced skills, same reason
-     * @param list<int>                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
-     * @param SkillToolAllowList|null                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
-     * @param list<SkillPin>                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
-     * @param int|null                                                                 $maxIterations     the round cap the run's caller asked for, clamped to the ceiling configured at the time when the run came through the runtime, so a resumed segment keeps it, clamped again to the ceiling configured when it resumes (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
-     * @param float|null                                                               $estimatedCost     the cost of the rounds so far, in US dollars, so a resumed run adds to it (NEXT-188); null when a round's cost is unknown — an unpriced model — and for a state persisted before the field existed
+     * @param list<array<string, mixed>>                                                               $messages          serialised ChatMessage transcript (ends with the assistant tool-call turn)
+     * @param list<array<string, mixed>>                                                               $pendingCalls      serialised ToolCall list of the suspended turn
+     * @param list<string>|null                                                                        $allowedToolNames  the run's original tool allow-list, so resume re-applies the SAME per-run constraint (null = the globally-enabled set)
+     * @param array<string, mixed>                                                                     $options           the run's serialised ToolOptions, so resume continues with the same temperature/max-tokens/think/etc
+     * @param string|null                                                                              $inputToolName     on an input pause (ADR-105) the tool whose typed input the user must supply; null on an approval pause
+     * @param array<string, mixed>                                                                     $inputSchema       on an input pause the tool's declared input schema (a JSON-Schema subset); `[]` on an approval pause
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}> $callPreviews      what the pending calls WOULD do, captured at suspend in the run's actor context (ADR-136); `index` points into `$pendingCalls`. Only calls whose tool implements ToolPreviewInterface appear, so `[]` is the normal case
+     * @param list<int>                                                                                $forcedSnippetUids the run's per-run forced snippets, so resume re-applies the ADR-164 ceiling to them (ADR-165); `[]` for a run that forced none
+     * @param list<int>                                                                                $forcedSkillUids   the run's per-run forced skills, same reason
+     * @param list<int>                                                                                $staleCallIndexes  indexes into `$pendingCalls` whose preview no longer matches the record (ADR-184); `[]` on a first suspension, non-empty only on one re-suspended because an approved call's subject moved
+     * @param SkillToolAllowList|null                                                                  $skillAllowList    the run's skill allow-list as resolved at run start (ADR-038 item 5), the upper bound a resume intersects the live list with; null only on a state persisted before the field existed
+     * @param list<SkillPin>                                                                           $skillPins         the approved skill versions the transcript holds as instructions (ADR-214 item 6), re-checked before the run continues; `[]` for a run that holds none, and for a state persisted before the field existed
+     * @param int|null                                                                                 $maxIterations     the round cap the run's caller asked for, clamped to the ceiling configured at the time when the run came through the runtime, so a resumed segment keeps it, clamped again to the ceiling configured when it resumes (ADR-101); null when the caller asked for none, and for a state persisted before the field existed — the loop default applies then
+     * @param float|null                                                                               $estimatedCost     the cost of the rounds so far, in US dollars, so a resumed run adds to it (NEXT-188); null when a round's cost is unknown — an unpriced model — and for a state persisted before the field existed
      */
     public function __construct(
         public array $messages,
@@ -118,7 +118,7 @@ final readonly class SuspendedRunState
     }
 
     /**
-     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}|null, initiatingRunUuid?: string, maxIterations?: int, estimatedCost?: float}
+     * @return array{messages: list<array<string, mixed>>, pendingCalls: list<array<string, mixed>>, iterations: int, promptTokens: int, completionTokens: int, allowedToolNames: list<string>|null, options: array<string, mixed>, inputToolName: string|null, inputSchema: array<string, mixed>, callPreviews: list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}>, forcedSnippetUids: list<int>, forcedSkillUids: list<int>, staleCallIndexes: list<int>, skillAllowList: array{toolNames: list<string>|null}|null, skillPins: list<array{skill: int, source: int, digest: string}>, invocationHistory: array{entries: list<array{tool: string, outcome: string, target: array{kind: string, identifier: string}|null}>, complete: bool}|null, initiatingActor?: array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}|null, initiatingRunUuid?: string, maxIterations?: int, estimatedCost?: float}
      */
     public function toArray(): array
     {
@@ -287,6 +287,19 @@ final readonly class SuspendedRunState
     }
 
     /**
+     * The tag of a preview whose card showed an invocation rule's refusal
+     * (ADR-293); nothing for any other preview.
+     *
+     * @param array<mixed> $entry
+     *
+     * @return array{refused?: true}
+     */
+    private static function refusalTag(array $entry): array
+    {
+        return ($entry['refused'] ?? false) === true ? ['refused' => true] : [];
+    }
+
+    /**
      * The persisted previews, entry by entry, dropping anything that does not
      * carry the full shape. Written by {@see \Netresearch\NrLlm\Service\Tool\ToolLoopService},
      * but read back out of a blob that may predate the field or have been
@@ -298,7 +311,7 @@ final readonly class SuspendedRunState
      *
      * @param array<int, int> $indexMap raw pending-call position => position after filtering
      *
-     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool}>
+     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}>
      */
     private static function previewsFrom(mixed $value, array $indexMap): array
     {
@@ -339,7 +352,7 @@ final readonly class SuspendedRunState
                 'tool'   => $entry['tool'],
                 'lines'  => $lines,
                 'failed' => (bool) ($entry['failed'] ?? false),
-            ];
+            ] + self::refusalTag($entry);
         }
 
         return $previews;

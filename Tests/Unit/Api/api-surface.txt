@@ -564,6 +564,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getPresetChecksum(): string
   method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
   method getProviderType(): string
+  method getRequireDraftWorkspace(): bool
   method getRequireSecondApprover(): bool
   method getRuleJudgeConfiguration(): int
   method getRuleJudgeMode(): string
@@ -591,6 +592,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method isSnippetsInCallerSystemMessage(): bool
   method removeSkill(Netresearch\NrLlm\Domain\Model\Skill $skill): void
   method removeSkillOnDemand(Netresearch\NrLlm\Domain\Model\Skill $skill): void
+  method requiresDraftWorkspace(): bool
   method requiresSecondApprover(): bool
   method setAllowedGuardrails(string $allowedGuardrails): void
   method setAllowedToolGroups(string $allowedToolGroups): void
@@ -618,6 +620,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setOptionsArray(array $options): void
   method setPresencePenalty(float $presencePenalty): void
   method setPresetChecksum(string $presetChecksum): void
+  method setRequireDraftWorkspace(bool $requireDraftWorkspace): void
   method setRequireSecondApprover(bool $requireSecondApprover): void
   method setRuleJudgeConfiguration(int $ruleJudgeConfiguration): void
   method setRuleJudgeMode(string $ruleJudgeMode): void
@@ -1343,11 +1346,12 @@ Netresearch\NrLlm\Domain\ValueObject\ToolCall (class)
   property readonly type: string
 
 Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision (class)
-  constructor(bool $allowed, string $reason = …, string $ruleIdentifier = …)
+  constructor(bool $allowed, string $reason = …, string $ruleIdentifier = …, string $explanation = …)
   method forRule(string $identifier): self
   method static allow(): self
-  method static deny(string $reason): self
+  method static deny(string $reason, string $explanation = …): self
   property readonly allowed: bool
+  property readonly explanation: string
   property readonly reason: string
   property readonly ruleIdentifier: string
 
@@ -2339,6 +2343,11 @@ Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpSubjectResolverInterface (interface)
 Netresearch\NrLlm\Service\Tool\PendingTargetInterface (interface)
   method pendingTarget(array $arguments): ?Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget
 
+Netresearch\NrLlm\Service\Tool\PreApprovalInvocationPolicyInterface (interface)
+  method decideBeforeApproval(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
+
+Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface (interface)
+
 Netresearch\NrLlm\Service\Tool\RecordCreatorInterface (interface)
   method getCreatedTables(): array
 
@@ -2413,6 +2422,7 @@ Netresearch\NrLlm\Service\Tool\ToolInvocationContext (class)
 Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy (class)
   constructor(iterable $rules = …, iterable $resolvers = …)
   method decide(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
+  method decideBeforeApproval(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
   method resolveTarget(Netresearch\NrLlm\Domain\ValueObject\ToolCall $call, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $context): ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget
 
 Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface (interface)
