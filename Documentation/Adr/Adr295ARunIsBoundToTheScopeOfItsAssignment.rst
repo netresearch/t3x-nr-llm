@@ -243,9 +243,19 @@ checks let through:
 - On PostgreSQL a database error inside the call aborts the transaction, so the
   note of what was written before the failure may name rows that are gone.
   **Unverified**: only SQLite and MariaDB were run.
-- A call inside a transaction of its own caller gets a savepoint; its cache
-  flushes wait for the outermost scoped call, and when that call itself runs
-  inside a foreign transaction they run at its commit.
+- A call inside a transaction of its own caller gets a savepoint. Its cache flushes
+  wait for the outermost *scoped* call. When that call itself runs inside a
+  foreign transaction, they run at its savepoint release, not at the foreign
+  commit, and on MySQL and MariaDB the ``TRUNCATE`` of a group flush then ends
+  the foreign transaction early.
+- A failed final commit or savepoint release is reported as an error ("NOT
+  committed as such"), because whether the changes were saved is then unknown;
+  after an implicit commit they are saved. A savepoint release that fails after a
+  successful nested rollback is reported as not rolled back, although it was.
+- A cache flush that fails after the commit is logged as a warning; the tool's
+  result has already said it flushed.
+- ``AssignmentScopeTransaction`` is internal: a second ``commit()`` or
+  ``rollBack()`` on one instance is not guarded, and the loop never makes one.
 - ``sys_language_uid = -1`` (all languages) is read as a language only where a
   language field carries it, and is refused only when the scope restricts
   languages.

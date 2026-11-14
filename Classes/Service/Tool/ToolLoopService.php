@@ -3088,7 +3088,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      *
      * @return bool false when the transaction could not be ended as asked
      */
-    private function endTransaction(?AssignmentScopeTransaction $transaction, bool $rollBack): bool
+    private function endTransaction(?AssignmentScopeTransaction $transaction, bool $rollBack, ?BackendUserAuthentication $actor = null): bool
     {
         if (!$transaction instanceof AssignmentScopeTransaction || $transaction->isEnded()) {
             return true;
@@ -3110,7 +3110,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         foreach ($transaction->deferred() as $flush) {
             try {
-                $flush();
+                // As the call itself ran: a hook of the flush sees the same user.
+                $this->writeEnvironment instanceof WorkerWriteEnvironment ? $this->writeEnvironment->around($actor, $flush) : $flush();
             } catch (Throwable $failure) {
                 $this->logger?->warning('A cache flush a scoped tool call asked for failed.', ['exception' => $failure]);
             }
@@ -3192,7 +3193,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 if ($scope instanceof AssignmentScope && ($violations !== [] || $refused !== [])) {
                     $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
                     $rolledBack = $violations !== [] && $transaction instanceof AssignmentScopeTransaction;
-                    $ended      = $this->endTransaction($transaction, $violations !== []);
+                    $ended      = $this->endTransaction($transaction, $violations !== [], $context->actingBackendUser());
                     $rolledBack = $rolledBack && $ended;
                     if ($rolledBack) {
                         $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
@@ -3207,7 +3208,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // are its changes.
                 ToolChangeCollector::take();
 
-                $this->endTransaction($transaction, false);
+                $this->endTransaction($transaction, false, $context->actingBackendUser());
 
                 // Control flow (ADR-281), not a failure of the tool: the caller
                 // suspends the run. Only a dependency tool may raise it.
@@ -3235,7 +3236,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
                 $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
                 $rolledBack = $violations !== [] && $transaction instanceof AssignmentScopeTransaction;
-                $ended      = $this->endTransaction($transaction, $violations !== []);
+                $ended      = $this->endTransaction($transaction, $violations !== [], $context->actingBackendUser());
                 $rolledBack = $rolledBack && $ended;
                 if ($rolledBack) {
                     // What was written is not there any more.
@@ -3267,14 +3268,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // commit: a write that neither check before it recognised is found here
             // and the call's transaction is rolled back (ADR-295).
             if ($scope instanceof AssignmentScope && $violations !== []) {
-                $rolledBack = $this->endTransaction($transaction, true) && $transaction instanceof AssignmentScopeTransaction;
+                $rolledBack = $this->endTransaction($transaction, true, $context->actingBackendUser()) && $transaction instanceof AssignmentScopeTransaction;
                 if ($rolledBack) {
                     $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
                 }
 
                 $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $rolledBack)));
-            } else {
-                $this->endTransaction($transaction, false);
+            } elseif (!$this->endTransaction($transaction, false, $context->actingBackendUser())) {
+                // The commit did not end as asked (a lost connection, or the database
+                // ended the transaction itself): success is not reported, whatever the
+                // tool said, and the records have to be checked.
+                $result = ToolResult::error(sprintf('Error: tool "%s" ended with its changes NOT committed as such: the transaction of the call could not be ended as expected, so whether they were saved is unknown. Check the records before retrying.', $call->name));
             }
 
             ToolChangeCollector::hold($changes);
@@ -3312,7 +3316,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         } finally {
             // Whatever escaped above, the transaction does not stay open: what
             // the call wrote is taken back, as nothing has judged it.
-            $this->endTransaction($transaction, true);
+            $this->endTransaction($transaction, true, $context->actingBackendUser());
         }
     }
 

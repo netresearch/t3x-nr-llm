@@ -41,6 +41,7 @@ use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Rule\RequireAssignmentScopeRule;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
@@ -56,19 +57,25 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeDependencyTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use RuntimeException;
+use Stringable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend;
 use TYPO3\CMS\Core\Cache\CacheManager;
@@ -129,7 +136,14 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
     private ConnectionPool $connectionPool;
 
+    /** What the model is told of a rollback that happened; "NOT rolled back" does not contain it. */
+    private const ROLLED_BACK = 'All database changes of this call were rolled back.';
+
     private ?AssignmentScopeChecker $checkerOverride = null;
+
+    private ?LoggerInterface $loggerOverride = null;
+
+    private ?WorkerWriteEnvironment $writeEnvironmentOverride = null;
 
     protected function setUp(): void
     {
@@ -315,7 +329,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
         self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
-        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
     }
 
     /**
@@ -887,7 +901,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $refusals = $this->refusals($outcome['trace']);
         self::assertNotSame([], $refusals, 'the effect check found the write');
         self::assertSame([], array_values(array_filter($refusals, static fn (string $line): bool => !str_starts_with($line, 'effect_'))), 'only the effect check refused, the input check was taken away');
-        self::assertStringContainsString('All database changes of this call were rolled back', $outcome['toolResult']);
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame($before, $this->fingerprint(), 'the database is exactly as before the call');
     }
 
@@ -1304,7 +1318,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertFalse($this->transactionIsOpen());
         self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
-        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
     }
 
     #[Test]
@@ -1317,11 +1331,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
             },
+            dependencyTool: true,
         );
 
-        self::assertStringStartsWith('Error: tool "scoped_probe" failed.', $outcome['toolResult'], 'a tool that is not a dependency tool may not announce one');
+        self::assertTrue($outcome['suspendedForDependency'], 'a clean call is handed over');
         self::assertFalse($this->transactionIsOpen());
-        self::assertSame('Before the hand-over', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertSame('Before the hand-over', $this->header(self::IN_SCOPE_ELEMENT), 'and what it wrote is committed');
     }
 
     /**
@@ -1340,10 +1355,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
             },
+            dependencyTool: true,
         );
 
+        self::assertFalse($outcome['suspendedForDependency'], 'the hand-over is not honoured');
         self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT), 'nothing outside the scope was committed');
-        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertNotSame([], $this->refusals($outcome['trace']));
         self::assertFalse($this->transactionIsOpen());
     }
@@ -1358,11 +1375,159 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
             },
+            dependencyTool: true,
         );
 
         self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
         self::assertSame(['update tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertFalse($this->transactionIsOpen());
+    }
+
+    // --- the ways a transaction can end, and what the model is told ------------
+
+    /**
+     * A statement that commits on its own ends the transaction behind DBAL's back,
+     * as TRUNCATE does on MySQL and MariaDB. Issued by hand, it does the same on
+     * every database the tests run on.
+     */
+    private function commitBehindTheBack(): void
+    {
+        $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME)->executeStatement('COMMIT');
+    }
+
+    #[Test]
+    public function aCommitThatCannotBeConfirmedIsNotReportedAsSuccess(): void
+    {
+        $flushed = 0;
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use (&$flushed): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Saved by the database', $context);
+                AssignmentScopeTransaction::defer(static function () use (&$flushed): void {
+                    ++$flushed;
+                });
+                $this->commitBehindTheBack();
+            },
+        );
+
+        self::assertStringContainsString('Error: tool "scoped_probe" ended with its changes NOT committed as such', $outcome['toolResult']);
+        self::assertFalse($this->transactionIsOpen(), 'DBAL is back in line with the database');
+        self::assertSame('Saved by the database', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertSame(1, $flushed, 'the flush the call asked for still runs: the connection is free');
+    }
+
+    #[Test]
+    public function aRollbackThatCannotHappenIsNotReportedAsOne(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                $this->commitBehindTheBack();
+            },
+        );
+
+        self::assertStringContainsString('were NOT rolled back', $outcome['toolResult']);
+        self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT), 'what the database committed stands, and the result says so');
+        self::assertFalse($this->transactionIsOpen());
+    }
+
+    /**
+     * Whatever escapes the loop's own bookkeeping after the tool has run, the
+     * transaction is not left open: here the logger throws while the loop reports
+     * a failed tool.
+     */
+    #[Test]
+    public function aThrowAfterTheToolHasRunStillEndsTheTransaction(): void
+    {
+        $this->loggerOverride = new class extends AbstractLogger {
+            public function log(mixed $level, string|Stringable $message, array $context = []): void
+            {
+                throw new RuntimeException('the log is full', 1799990320);
+            }
+        };
+
+        try {
+            $this->call(
+                $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+                function (ToolExecutionContext $context): void {
+                    $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Not judged', $context);
+
+                    throw new RuntimeException('boom', 1799990321);
+                },
+            );
+            self::fail('the failure of the logger escapes');
+        } catch (RuntimeException $escaped) {
+            self::assertSame('the log is full', $escaped->getMessage());
+        }
+
+        self::assertFalse($this->transactionIsOpen(), 'the transaction was ended');
+        self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'what nothing judged is taken back');
+    }
+
+    /**
+     * The flush a call asked for runs as the call did: a hook of the flush finds
+     * the acting user in a command-line worker, which has none of its own.
+     */
+    #[Test]
+    public function aDeferredFlushSeesTheActingUserInAWorker(): void
+    {
+        $this->writeEnvironmentOverride = new WorkerWriteEnvironment($this->getService(LanguageServiceFactory::class), true);
+        $acting                         = $this->setUpBackendUser(1);
+        unset($GLOBALS['BE_USER']);
+        $seen = 'not run';
+
+        $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use (&$seen): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Flushing', $context);
+                AssignmentScopeTransaction::defer(static function () use (&$seen): void {
+                    $seen = $GLOBALS['BE_USER'] ?? null;
+                });
+            },
+            user: $acting,
+        );
+
+        self::assertSame($acting, $seen);
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS, 'the worker has no user of its own again afterwards');
+    }
+
+    #[Test]
+    public function aCallInsideACallKeepsItsFlushesForTheOutermostAndDropsThemOnRollback(): void
+    {
+        $order = [];
+
+        $outer = AssignmentScopeTransaction::begin();
+        AssignmentScopeTransaction::defer(static function () use (&$order): void {
+            $order[] = 'outer';
+        });
+        $kept = AssignmentScopeTransaction::begin();
+        AssignmentScopeTransaction::defer(static function () use (&$order): void {
+            $order[] = 'inner kept';
+        });
+        $kept->commit();
+        self::assertSame([], $kept->deferred(), 'a nested call hands its flushes up');
+
+        $dropped = AssignmentScopeTransaction::begin();
+        AssignmentScopeTransaction::defer(static function () use (&$order): void {
+            $order[] = 'inner dropped';
+        });
+        $dropped->rollBack();
+        self::assertSame([], $dropped->deferred());
+
+        self::assertTrue($this->transactionIsOpen(), 'the outer call is still open');
+        $outer->commit();
+        foreach ($outer->deferred() as $flush) {
+            $flush();
+        }
+
+        self::assertSame(['outer', 'inner kept'], $order, 'in the order they were asked for, none of a rolled-back call');
+        self::assertFalse($this->transactionIsOpen());
+        self::assertFalse(AssignmentScopeTransaction::defer(static function (): void {}), 'no call is open any more');
     }
 
     /**
@@ -1409,7 +1574,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertFalse($this->transactionIsOpen(), 'the transaction ended');
         self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'what could not be judged was rolled back');
-        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
     }
 
     // --- cache flushes wait for the commit ------------------------------------
@@ -1524,7 +1689,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
         );
 
-        self::assertStringContainsString('All database changes of this call were rolled back', $outcome['toolResult']);
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame($before, $this->fingerprint());
         self::assertSame('cached', $cache->get('nrllm_scope_probe'), 'a rolled-back call flushed nothing');
     }
@@ -1640,36 +1805,49 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
      * @param Closure(array<string, mixed>): ?ScopedWrite $claim
      * @param Closure(ToolExecutionContext): void         $act
      *
-     * @return array{trace: RunTrace, toolResult: string}
+     * @return array{trace: RunTrace, toolResult: string, suspendedForDependency: bool}
      */
-    private function call(Closure $claim, Closure $act, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(self::SCOPED, 1)]), bool $required = false, bool $approve = true, ?BackendUserAuthentication $user = null): array
+    private function call(Closure $claim, Closure $act, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(self::SCOPED, 1)]), bool $required = false, bool $approve = true, ?BackendUserAuthentication $user = null, bool $dependencyTool = false): array
     {
         $user ??= $this->useASessionlessAmbientUser(1);
-        $tool = new ScopedWriteFakeTool('scoped_probe', $claim, static function (array $arguments, ToolExecutionContext $context) use ($act): ToolResult {
+        $run = static function (array $arguments, ToolExecutionContext $context) use ($act): ToolResult {
             $act($context);
 
             return ToolResult::text('ok');
-        });
+        };
+        $tool = $dependencyTool ? new ScopedWriteFakeDependencyTool('scoped_probe', $claim, $run) : new ScopedWriteFakeTool('scoped_probe', $claim, $run);
 
         $configuration = $this->configuration($required);
         $context       = new ToolExecutionContext(AiActorContext::fromBackendUser($user)->withAssignmentScope($scope), $user, new AgentRunReference(1, 'run'));
         $trace         = new RunTrace();
         $call          = new ToolCall('call_1', 'scoped_probe', []);
 
-        $result = null;
+        $result                 = null;
+        $suspendedForDependency = false;
         try {
             $result = $this->service([$this->response('', [$call]), $this->response('done')], $tool)
                 ->runLoop([['role' => 'user', 'content' => 'go']], $configuration, $context, null, runTrace: $trace);
+        } catch (ToolDependencyRequiredException) {
+            // The run was handed over to the external operation, as a dependency
+            // tool asks: nothing is left to resume in the test.
+            $suspendedForDependency = true;
         } catch (ToolApprovalRequiredException $suspended) {
             self::assertTrue($approve, 'the loop asked for an approval of a call the test expected it to refuse');
-            $result = $this->service([$this->response('applied')], $tool)->resume($suspended->state, true, $configuration, $context, runTrace: $trace);
+            try {
+                $result = $this->service([$this->response('applied')], $tool)->resume($suspended->state, true, $configuration, $context, runTrace: $trace);
+            } catch (ToolDependencyRequiredException) {
+                $suspendedForDependency = true;
+            }
         }
 
-        self::assertInstanceOf(ToolLoopResult::class, $result);
+        if (!$suspendedForDependency) {
+            self::assertInstanceOf(ToolLoopResult::class, $result);
+        }
+
         $steps = array_values(array_filter($trace->getSteps(), static fn (RunStep $step): bool => $step->kind === RunStep::KIND_TOOL));
         self::assertNotSame([], $steps, 'the call was traced');
 
-        return ['trace' => $trace, 'toolResult' => (string) $steps[0]->toolResult];
+        return ['trace' => $trace, 'toolResult' => (string) $steps[0]->toolResult, 'suspendedForDependency' => $suspendedForDependency];
     }
 
     /**
@@ -1697,7 +1875,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     /**
      * @param list<CompletionResponse> $queue
      */
-    private function service(array $queue, ScopedWriteFakeTool $tool): ToolLoopService
+    private function service(array $queue, ToolInterface $tool): ToolLoopService
     {
         $manager = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(static function () use (&$queue): CompletionResponse {
@@ -1723,10 +1901,11 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             $manager,
             $registry,
             $policy,
-            new NullLogger(),
+            $this->loggerOverride ?? new NullLogger(),
             previewTranslator: new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
             invocationPolicy: new ToolInvocationPolicy([new RequireAssignmentScopeRule($registry, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]),
             scopeChecker: $this->checkerOverride,
+            writeEnvironment: $this->writeEnvironmentOverride,
         );
     }
 
