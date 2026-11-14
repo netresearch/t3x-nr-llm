@@ -180,6 +180,10 @@ final class RequireAssignmentScopeRuleTest extends TestCase
         self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: true, workspace: 3)->allowed);
         self::assertFalse($this->decide('scoped_write', ['uid' => 21], required: true, workspace: 3, userWorkspace: 4)->allowed, 'the user moved to another workspace');
         self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: false)->allowed, 'a scope the starter set binds a live run too');
+
+        // A run that recorded no workspace takes the one its user is in now, as the loop does.
+        self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: true, workspace: null, userWorkspace: 3)->allowed);
+        self::assertFalse($this->decide('scoped_write', ['uid' => 21], required: true, workspace: null, userWorkspace: 0)->allowed);
     }
 
     #[Test]
@@ -265,7 +269,7 @@ final class RequireAssignmentScopeRuleTest extends TestCase
     /**
      * @param array<string, mixed> $arguments
      */
-    private function decide(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en', int $workspace = 0, ?int $userWorkspace = null): ToolInvocationDecision
+    private function decide(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en', ?int $workspace = 0, ?int $userWorkspace = null): ToolInvocationDecision
     {
         return $this->rule()->decide($this->context($tool, $arguments, $scope, $required, $maxDepth, $language, $workspace, $userWorkspace));
     }
@@ -301,11 +305,11 @@ final class RequireAssignmentScopeRuleTest extends TestCase
     /**
      * @param array<string, mixed> $arguments
      */
-    private function context(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en', int $workspace = 0, ?int $userWorkspace = null): ToolInvocationContext
+    private function context(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en', ?int $workspace = 0, ?int $userWorkspace = null): ToolInvocationContext
     {
         $user            = new BackendUserAuthentication();
         $user->user      = ['uid' => 1, 'admin' => 0, 'lang' => $language];
-        $user->workspace = $userWorkspace ?? $workspace;
+        $user->workspace = $userWorkspace ?? $workspace ?? 0;
 
         $configuration = new LlmConfiguration();
         $configuration->setRequireAssignmentScope($required);

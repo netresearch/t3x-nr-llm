@@ -148,7 +148,7 @@ final class ChangeSets
      *
      * @param list<array{refusal: ScopeRefusal, workspace: int}> $violations
      */
-    public static function effectNote(AssignmentScope $scope, array $violations, int $discarded, int $kept): string
+    public static function effectNote(AssignmentScope $scope, array $violations, int $discarded, int $restored, int $kept): string
     {
         if ($violations === []) {
             return '';
@@ -165,9 +165,9 @@ final class ChangeSets
             $scope->describe(),
             implode(', ', $parts),
             $more > 0 ? sprintf(' and %d more', $more) : '',
-            $kept === 0
-                ? sprintf('The draft versions of %d records were discarded.', $discarded)
-                : sprintf('%d records were discarded from the draft workspace, %d could not be undone and have to be reviewed.', $discarded, $kept),
+            sprintf('%d draft versions made by this call were discarded', $discarded)
+            . ($restored > 0 ? sprintf(', %d older draft versions were put back to what they were before it', $restored) : '')
+            . ($kept > 0 ? sprintf(', %d records could not be undone and have to be reviewed.', $kept) : '.'),
         );
     }
 

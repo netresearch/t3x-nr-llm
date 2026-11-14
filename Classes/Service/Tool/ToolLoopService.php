@@ -3118,7 +3118,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // (ADR-295): armed beside the collector and taken on every way out.
         $scope        = EffectiveAssignmentScope::of($configuration, $context->actor);
         $scopeChecker = $this->scopeChecker ?? new AssignmentScopeChecker();
-        $workspace    = $context->actor->workspaceId ?? max(0, $context->actingBackendUser()->workspace ?? 0);
+        $workspace    = EffectiveAssignmentScope::workspaceOf($context->actor, $context->actingBackendUser());
+        $snapshot     = $scope instanceof AssignmentScope ? AssignmentScopeEffect::snapshot() : [];
         if ($scope instanceof AssignmentScope) {
             AssignmentScopeGuard::arm($scope, $scopeChecker);
         }
@@ -3160,11 +3161,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // to the model, which would otherwise retry a half-done write.
             $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
             $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
+            $frame      = ToolChangeCollector::peek();
             $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
-            $undone     = $violations === [] ? ['discarded' => 0, 'kept' => 0] : AssignmentScopeEffect::undo($violations, $context->actingBackendUser());
+            $undone     = $violations === [] ? ['discarded' => 0, 'restored' => 0, 'kept' => 0] : AssignmentScopeEffect::undo($violations, $context->actingBackendUser(), $snapshot, $frame);
             ToolChangeCollector::hold($changes);
             $note = $scope instanceof AssignmentScope
-                ? trim(ChangeSets::failureNote($changes) . ' ' . ChangeSets::refusalNote($scope, $refused) . ' ' . ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['kept']))
+                ? trim(ChangeSets::failureNote($changes) . ' ' . ChangeSets::refusalNote($scope, $refused) . ' ' . ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['restored'], $undone['kept']))
                 : ChangeSets::failureNote($changes);
 
             return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name) . ($note === '' ? '' : ' ' . $note));
@@ -3181,6 +3183,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // A tool that returns an error after it wrote says so to the model as a
         // thrown one does: the retry of a half-done write is the same mistake.
+        $frame   = ToolChangeCollector::peek();
         $changes = ChangeSets::withRefused(ToolChangeCollector::take($result->writeTarget), [...$refused, ...array_column($violations, 'refusal')]);
         ToolChangeCollector::hold($changes);
 
@@ -3188,8 +3191,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // neither check before it recognised is found here, and in a draft
         // workspace taken back (ADR-295).
         if ($scope instanceof AssignmentScope && $violations !== []) {
-            $undone = AssignmentScopeEffect::undo($violations, $context->actingBackendUser());
-            $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['kept'])));
+            $undone = AssignmentScopeEffect::undo($violations, $context->actingBackendUser(), $snapshot, $frame);
+            $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['restored'], $undone['kept'])));
         }
 
         $writtenBeforeFailure = $result->isError ? ChangeSets::failureNote($changes) : '';

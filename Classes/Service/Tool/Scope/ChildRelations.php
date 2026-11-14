@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\Scope;
 
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+
 /**
  * Which tables are the children of an inline or file column, and which of their
  * columns point back at the parent (ADR-295).
@@ -31,6 +33,33 @@ final class ChildRelations
     public static function of(string $table): ?array
     {
         return self::all()[$table] ?? null;
+    }
+
+    /**
+     * The record a child row belongs to, read from its stored pointers: null when
+     * the table is no child, a pointer is missing, the table of the pointer is not
+     * one of the parents the TCA names, or the table is not told by the row and
+     * there is more than one parent to pick.
+     *
+     * @param array<array-key, mixed> $row
+     */
+    public static function host(string $table, array $row): ?RecordReference
+    {
+        $relation = self::of($table);
+        if ($relation === null) {
+            return null;
+        }
+
+        $uid = $row[$relation['field']] ?? 0;
+        $uid = is_numeric($uid) ? (int) $uid : 0;
+        if ($relation['tableField'] === null) {
+            $parent = count($relation['parents']) === 1 ? $relation['parents'][0] : null;
+        } else {
+            $stored = $row[$relation['tableField']] ?? null;
+            $parent = is_string($stored) && in_array($stored, $relation['parents'], true) ? $stored : null;
+        }
+
+        return $uid > 0 && $parent !== null ? new RecordReference($parent, $uid) : null;
     }
 
     public static function reset(): void

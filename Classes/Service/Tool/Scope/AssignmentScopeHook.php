@@ -386,8 +386,11 @@ final class AssignmentScopeHook
             $refusal = $checker->translationsRefusal($scope, $operation, $table, $id, $workspace);
         }
 
-        if (!$refusal instanceof ScopeRefusal && $operation === 'copy' && $table === 'pages' && !$this->ignoresLocalization($value)) {
-            $refusal = $checker->pageLanguagesRefusal($scope, $operation, $id, $workspace);
+        // A page is copied with everything on it, free-mode translations included,
+        // whatever `ignoreLocalization` says, and with its subpages when the
+        // copy levels reach them.
+        if (!$refusal instanceof ScopeRefusal && $operation === 'copy' && $table === 'pages') {
+            $refusal = $checker->pageLanguagesRefusal($scope, $operation, $id, $workspace, $this->copiesSubpages($dataHandler));
         }
 
         if ($refusal instanceof ScopeRefusal) {

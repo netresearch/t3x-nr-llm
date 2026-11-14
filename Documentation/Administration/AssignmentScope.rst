@@ -94,8 +94,9 @@ hook of the installation that writes another record, or the subpages a page
 delete takes along. Both read input, and refuse a value they cannot read. The
 third check reads no input: after the call it looks at the records the
 DataHandler reported as written, in the database, and judges each by the same
-rules. In a draft workspace it discards the versions that lie outside the scope;
-in the live workspace it can only report them.
+rules. In a draft workspace it discards the versions the call made outside the scope
+and puts back the fields of older draft versions the call changed; in the live
+workspace it can only report them.
 
 .. list-table::
    :header-rows: 1

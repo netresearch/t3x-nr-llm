@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Scope;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
 /**
  * The scope a call is held to (ADR-295): the scope the starter bound the run
@@ -35,6 +36,16 @@ final class EffectiveAssignmentScope
         }
 
         return $scope->cappedToDepth($configuration->getAssignmentScopeMaxDepth());
+    }
+
+    /**
+     * The workspace a call writes in: the one the run recorded when it started,
+     * else the one the acting user is in now. One answer for every check that
+     * needs it.
+     */
+    public static function workspaceOf(AiActorContext $actor, ?BackendUserAuthentication $user): int
+    {
+        return $actor->workspaceId ?? max(0, $user->workspace ?? 0);
     }
 
     /**

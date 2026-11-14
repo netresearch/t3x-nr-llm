@@ -216,15 +216,27 @@ final readonly class AssignmentScopeChecker
      * Whether a copy of a page keeps to the languages of the scope: the page's
      * content and translations are copied with it.
      */
-    public function pageLanguagesRefusal(AssignmentScope $scope, string $operation, int $pageUid, int $workspace): ?ScopeRefusal
+    public function pageLanguagesRefusal(AssignmentScope $scope, string $operation, int $pageUid, int $workspace, bool $withSubpages = false): ?ScopeRefusal
     {
         if ($scope->languages === null) {
             return null;
         }
 
-        foreach ($this->topology->languagesOnPage($pageUid, $workspace) as $language) {
-            if (!$scope->admitsLanguage($language)) {
-                return new ScopeRefusal($operation, 'pages', $pageUid, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
+        $pages = [$pageUid];
+        if ($withSubpages) {
+            $below = $this->topology->descendantPages($pageUid, $workspace, self::SUBTREE_LIMIT);
+            if ($below === null) {
+                return new ScopeRefusal($operation, 'pages', $pageUid, 0, ScopeRefusal::SUBTREE_OUTSIDE_SCOPE);
+            }
+
+            $pages = [...$pages, ...$below];
+        }
+
+        foreach ($pages as $page) {
+            foreach ($this->topology->languagesOnPage($page, $workspace) as $language) {
+                if (!$scope->admitsLanguage($language)) {
+                    return new ScopeRefusal($operation, 'pages', $page, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
+                }
             }
         }
 

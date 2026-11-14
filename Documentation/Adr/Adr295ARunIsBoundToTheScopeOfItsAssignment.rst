@@ -184,9 +184,13 @@ limit of the list a run step keeps), reads each from the database as it now is
 (final pid, language, translation parent, parent pointer), and judges it by the
 rules of the checker. A write that a parser let through is found here, because
 the check looks at what was written and not at what was asked. In a draft
-workspace a record out of scope is a version of the workspace and the check
-discards it: no live effect remains, and the call is an error that says which
-records were discarded. In the live workspace nothing can be undone reliably, so
+workspace a record out of scope is a version of the workspace. A version the
+call made (its uid is above the highest uid its table had before the call) is
+discarded. A version that existed before the call holds work that is not the
+call's, an editor's change in the draft, and is never discarded: its fields are
+put back to the values the history of the call's DataHandler chain records as the
+old ones, and where the history has nothing (a move, for one) the record is left
+and reported. The call is an error that says which of the three happened. In the live workspace nothing can be undone reliably, so
 the call is only reported as having exceeded its scope, with the records named
 that could not be undone. **A configuration that requires a scope therefore also
 requires a draft workspace**: ``RequireAssignmentScopeRule`` refuses its writes in

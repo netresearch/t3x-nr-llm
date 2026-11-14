@@ -57,48 +57,32 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             $this->int($row['pid'] ?? 0),
             $languageField !== '' ? $this->int($row[$languageField] ?? 0) : 0,
             $origin > 0 ? $origin : null,
-            $table === 'sys_file_metadata' && $this->int($row['file'] ?? 0) > 0 ? new RecordReference('sys_file', $this->int($row['file'])) : $this->host($table, $row),
+            $table === 'sys_file_metadata' && $this->int($row['file'] ?? 0) > 0 ? new RecordReference('sys_file', $this->int($row['file'])) : ChildRelations::host($table, $row),
         );
-    }
-
-    /**
-     * The record an inline or file child belongs to, from the columns the
-     * parents' TCA names as the foreign field and the foreign table field.
-     *
-     * @param array<array-key, mixed> $row
-     */
-    private function host(string $table, array $row): ?RecordReference
-    {
-        $relation = ChildRelations::of($table);
-        if ($relation === null) {
-            return null;
-        }
-
-        $uid       = $this->int($row[$relation['field']] ?? 0);
-        $tableName = $relation['tableField'] !== null ? $row[$relation['tableField']] ?? null : ($relation['parents'][0] ?? null);
-        if ($uid < 1 || !is_string($tableName) || count($relation['parents']) < 1 || preg_match('/\A\w{1,64}\z/', $tableName) !== 1) {
-            return null;
-        }
-
-        return new RecordReference($tableName, $uid);
     }
 
     public function languagesOnPage(int $pageUid, int $workspace): array
     {
         $languages = [];
-        foreach ([['tt_content', 'pid', 'sys_language_uid'], ['pages', 'l10n_parent', 'sys_language_uid']] as [$table, $where, $field]) {
+        $tca       = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        foreach ($tca as $table => $schema) {
+            $ctrl  = is_array($schema) && is_array($schema['ctrl'] ?? null) ? $schema['ctrl'] : [];
+            $field = $ctrl['languageField'] ?? null;
+            if (!is_string($table) || !is_string($field) || preg_match('/\A\w+\z/', $table . $field) !== 1) {
+                continue;
+            }
+
+            // Every table that has a language, translations of free mode (no
+            // translation parent) included; for the pages themselves the overlays.
+            $where = $table === 'pages' ? 'l10n_parent' : 'pid';
             $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
             $query->getRestrictions()->removeAll();
-            $rows = $query
-                ->select($field)
-                ->from($table)
-                ->where(
-                    $query->expr()->eq($where, $query->createNamedParameter($pageUid, Connection::PARAM_INT)),
-                    $query->expr()->in('t3ver_wsid', $query->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY)),
-                )
-                ->executeQuery()
-                ->fetchFirstColumn();
-            foreach ($rows as $language) {
+            $query->select($field)->from($table)->where($query->expr()->eq($where, $query->createNamedParameter($pageUid, Connection::PARAM_INT)));
+            if (($ctrl['versioningWS'] ?? false) === true) {
+                $query->andWhere($query->expr()->in('t3ver_wsid', $query->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY)));
+            }
+
+            foreach ($query->executeQuery()->fetchFirstColumn() as $language) {
                 $languages[] = $this->int($language);
             }
         }

@@ -109,7 +109,7 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
         // A configuration that requires a scope also requires a draft workspace:
         // a write outside the scope that no check recognised can be taken back
         // from a workspace and from nowhere else.
-        $workspace = $context->execution->actor->workspaceId ?? 0;
+        $workspace = EffectiveAssignmentScope::workspaceOf($context->execution->actor, $user);
         if ($context->configuration->getRequireAssignmentScope() && !($workspace > 0 && $user instanceof BackendUserAuthentication && $user->workspace === $workspace)) {
             return ToolInvocationDecision::deny(self::REASON_LIVE, $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeLive));
         }
@@ -122,7 +122,7 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
             );
         }
 
-        $refusals = $this->checker->refusalsFor($scope, $write, $workspace);
+        $refusals = $this->checker->refusalsFor($scope, $write, EffectiveAssignmentScope::workspaceOf($context->execution->actor, $user));
         if ($refusals === []) {
             return ToolInvocationDecision::allow();
         }

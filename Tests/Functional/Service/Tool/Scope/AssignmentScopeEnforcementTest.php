@@ -299,7 +299,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame('Sneaked past the claim', $this->header(self::OUTSIDE_ELEMENT), 'live: nothing to take back');
         self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
-        self::assertStringContainsString('1 could not be undone', $outcome['toolResult']);
+        self::assertStringContainsString('could not be undone', $outcome['toolResult']);
     }
 
     /**
@@ -908,6 +908,61 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
             [],
         );
+    }
+
+    /**
+     * A version that existed before the call holds work that is not the call's:
+     * an editor's change in the draft. A write of the call outside the scope puts
+     * its fields back, and the version stays; a version the call made is discarded.
+     */
+    #[Test]
+    public function theEffectCheckPutsAnOlderDraftVersionBackAndLeavesItsEditorsWork(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        // An editor's change, made before the call.
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['tt_content' => [self::OUTSIDE_ELEMENT => ['header' => 'Editor draft', 'subheader' => 'Editor subheader']]], [], $user);
+        $dataHandler->process_datamap();
+        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT));
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Written by the call', $context);
+            },
+            user: $user,
+        );
+
+        self::assertNotSame([], $this->refusals($outcome['trace']), 'the effect check found the write');
+        self::assertStringContainsString('older draft versions were put back', $outcome['toolResult']);
+        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT), 'the version of the editor is still there');
+        self::assertSame('Editor draft', $this->scalar('SELECT header FROM tt_content WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::OUTSIDE_ELEMENT, self::DRAFT]));
+        self::assertSame('Editor subheader', $this->scalar('SELECT subheader FROM tt_content WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::OUTSIDE_ELEMENT, self::DRAFT]));
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT), 'live is untouched');
+    }
+
+    /**
+     * A page is copied with free-mode translations (a language, no translation
+     * parent), and `ignoreLocalization` does not leave them behind.
+     */
+    #[Test]
+    public function aPageCopyIsHeldToTheLanguagesOfFreeModeContentWhateverIgnoreLocalizationSays(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', ['uid' => 43, 'pid' => self::BELOW, 'colPos' => 0, 'CType' => 'text', 'header' => 'Free mode', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => 0, 'sorting' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['pages' => [self::BELOW => ['copy' => ['target' => self::SCOPED, 'ignoreLocalization' => true]]]], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [0]),
+        );
+
+        self::assertSame(['copy pages:3 language_not_allowed'], $this->refusals($outcome['trace']));
+        self::assertSame(1, (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE pid = ?', [self::SCOPED]));
     }
 
     /**
