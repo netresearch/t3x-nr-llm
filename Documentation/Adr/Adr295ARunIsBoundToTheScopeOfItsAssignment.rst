@@ -173,6 +173,54 @@ the list; a consumer that does not know the key ignores it, and a payload
 without it is as before. The governance log gets ``invocation_denied`` for layer
 one as for every rule.
 
+**What catches what.** Every DataHandler operation, and the layer that holds it:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 35 35
+
+   * - Operation
+     - Layer one (the claim)
+     - Layer two (the hook)
+   * - ``move``
+     - record, destination, anchor, subtree height of a page, translations
+     - record, destination (a negative target is its anchor's page; an array
+       target is read as core reads it), subtree height, translations
+   * - ``copy``
+     - record, destination, anchor
+     - record, destination, subtree with copy levels above 0; every row core
+       copies is a datamap entry of its own
+   * - ``localize``, ``copyToLanguage``
+     - source and target language
+     - source, target language; the new rows are datamap entries
+   * - ``inlineLocalizeSynchronize``
+     - not offered by a built-in tool
+     - source; the rows it creates or deletes are judged one by one
+   * - ``delete``
+     - record, subtree of a page, translations
+     - record, subtree of a page, translations
+   * - ``undelete``, ``discard``, ``version``
+     - ``publish`` claims the record
+     - record (``discard`` also translations); cascades are an open limit
+   * - New row (datamap)
+     - destination page, anchor, language
+     - ``pid`` resolved, language, table; a translation or a file reference is
+       judged on its origin or host and must lie where that record lies
+   * - Update row (datamap)
+     - the record
+     - the record, its language, ``l10n_parent``, the host of a file reference,
+       the existing children an inline or file field lists (also as
+       ``table_uid``)
+   * - ``pid`` or ``t3ver_*`` in an update entry
+     - not needed
+     - ignored by core, so nothing is written
+   * - Inline or file child of a new record
+     - not needed
+     - a datamap entry of its own, checked on its ``pid``
+   * - Group, select, MM, flex
+     - not needed
+     - open limit above
+
 **What each layer catches.** A second layer counts only for what the first
 misses, and the first one misses writes it was never told about. These cases
 are tested, each against the real DataHandler and the real tool loop:
@@ -228,9 +276,30 @@ Consequences
   deeper than the depth allows for its subpages is not caught. The built-in
   copy tool copies the page and its content only (it pins ``copyLevels`` to 0),
   so it is judged on the page.
-- ◑ Group, select and MM relations store a reference on the record itself and
-  change no other row; the record they name is not checked. A flex form field is
-  one value of the record.
+- ◑ Group, select and MM relations store a reference on the record itself; the
+  record they name is not checked. The opposite side of a bidirectional MM
+  (``sys_category.items``) is a row written for a record that may lie outside
+  the scope.
+- ◑ Inline and file fields inside a flex form are relations like any other and
+  are not checked; the hook reads the ``columns`` of the TCA, not the overrides
+  of a record type.
+- ◑ Core's cascades are judged on the record named, not on what core takes
+  along: the children of an inline relation that move, are deleted or are
+  restored with their parent (checked only where a child's ``pid`` differs from
+  its parent's, which no built-in tool produces), what ``discard`` removes along
+  with a record, and the translations of a record in a workspace delete. A
+  delete or move that takes translations along is refused when the scope lists
+  languages and a translation lies in another one.
+- ◑ The ``pid`` and language of a new row are judged as the DataHandler is
+  given them. A new row without a language is judged as language 0; core assigns
+  the first language the acting user may use, which differs for a user without
+  the default language.
+- ◑ A refused write that core then follows with its own consequences (a slug
+  change that creates redirects or renames subpages outside the scope, an update
+  of a default-language record that updates translations in other languages)
+  makes the call an error although the part that was in scope landed.
+- ◑ A hook that defers a write to after the call (a queue, a shutdown function)
+  runs outside the guard.
 - ✕ A write outside the DataHandler is held by layer one only.
 - ✕ ``clear_cache`` is allowed under any scope. A cache is not a record, and no
   content changes, but it clears caches for more than the scope.

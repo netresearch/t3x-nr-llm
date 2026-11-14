@@ -53,6 +53,10 @@ final readonly class AssignmentScopeChecker
         $refusals = [];
         foreach ($write->records as $record) {
             $refusal = $this->recordRefusal($scope, $write->operation, $record->table, $record->uid, $workspace, $write->operation !== 'translate');
+            if (!$refusal instanceof ScopeRefusal && in_array($write->operation, ['delete', 'move'], true)) {
+                $refusal = $this->translationsRefusal($scope, $write->operation, $record->table, $record->uid, $workspace);
+            }
+
             if ($refusal instanceof ScopeRefusal) {
                 $refusals[] = $refusal;
             } elseif ($write->reachesSubpages && $record->table === 'pages' && $write->operation === 'move') {
@@ -202,6 +206,35 @@ final readonly class AssignmentScopeChecker
     public function pidOfRecord(string $table, int $uid, int $workspace): ?int
     {
         return $this->topology->row($table, $uid, $workspace)?->pid;
+    }
+
+    /**
+     * A column of a stored row, for the parent pointer of a child row that an
+     * update does not repeat.
+     */
+    public function storedValue(string $table, int $uid, string $field): ?string
+    {
+        return $this->topology->storedValue($table, $uid, $field);
+    }
+
+    /**
+     * Whether a delete or a move that takes the translations along stays in the
+     * languages of the scope: core removes and moves the translations of a
+     * record with the record, in every language.
+     */
+    public function translationsRefusal(AssignmentScope $scope, string $operation, string $table, int $uid, int $workspace): ?ScopeRefusal
+    {
+        if ($scope->languages === null) {
+            return null;
+        }
+
+        foreach ($this->topology->translationLanguages($table, $uid, $workspace) as $language) {
+            if (!$scope->admitsLanguage($language)) {
+                return new ScopeRefusal($operation, $table, $uid, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
+            }
+        }
+
+        return null;
     }
 
     /**

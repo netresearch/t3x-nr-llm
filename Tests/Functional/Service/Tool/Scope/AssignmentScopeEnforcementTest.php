@@ -619,8 +619,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     public function aScopeOfOneRecordAdmitsItsTranslationAndItsFileReferencesOnly(): void
     {
         $scope = new AssignmentScope([], [new RecordReference('tt_content', self::IN_SCOPE_ELEMENT)]);
-        $this->connectionPool->getConnectionForTable('sys_file_storage')->insert('sys_file_storage', ['uid' => 1, 'pid' => 0, 'name' => 'fileadmin', 'driver' => 'Local', 'is_online' => 1, 'is_browsable' => 1, 'is_writable' => 1, 'configuration' => '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><T3FlexForms><data><sheet index="sDEF"><language index="lDEF"><field index="basePath"><value index="vDEF">fileadmin/</value></field><field index="pathType"><value index="vDEF">relative</value></field></language></sheet></data></T3FlexForms>']);
-        $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', ['uid' => 1, 'pid' => 0, 'storage' => 1, 'identifier' => '/a.jpg', 'name' => 'a.jpg', 'type' => 2, 'identifier_hash' => 'a', 'folder_hash' => 'a', 'sha1' => 'a', 'extension' => 'jpg', 'mime_type' => 'image/jpeg', 'size' => 1]);
+        $this->insertAFile();
 
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
@@ -639,6 +638,106 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(['attach tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertSame(1, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE tablenames = ? AND uid_foreign = ?', ['tt_content', self::IN_SCOPE_ELEMENT]));
         self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE tablenames = ? AND uid_foreign = ?', ['tt_content', self::OUTSIDE_ELEMENT]));
+    }
+
+    /**
+     * A translation or a file reference that is in scope through its origin or
+     * host is still written where it says: on a page outside the scope it is
+     * refused, whatever its origin is.
+     */
+    #[Test]
+    public function aTranslationOrAFileReferenceOfARecordInScopeIsRefusedOnAPageOutsideTheScope(): void
+    {
+        $this->insertAFile();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::OTHER, 'header' => 'Translation on a foreign page', 'CType' => 'text', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::IN_SCOPE_ELEMENT], $context);
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['sys_file_reference' => ['NEW1' => ['pid' => self::OTHER, 'uid_local' => 1, 'uid_foreign' => self::IN_SCOPE_ELEMENT, 'tablenames' => 'tt_content', 'fieldname' => 'assets']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+        );
+
+        self::assertSame(['create tt_content (on page 5) outside_scope', 'create sys_file_reference (on page 5) outside_scope'], $this->refusals($outcome['trace']));
+        self::assertSame(0, $this->countByHeader('Translation on a foreign page'));
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE pid = ?', [self::OTHER]));
+    }
+
+    /**
+     * Core removes and moves the translations of a record with it, in every
+     * language, so a language list has to cover them.
+     */
+    #[Test]
+    public function aDeleteOrMoveTakingTranslationsInAnotherLanguageAlongIsRefused(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', ['uid' => 41, 'pid' => self::SCOPED, 'colPos' => 0, 'CType' => 'text', 'header' => 'Uebersetzung', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::IN_SCOPE_ELEMENT, 'sorting' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['delete' => 1]]], $context);
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::BELOW]]], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [0]),
+        );
+
+        self::assertSame(['delete tt_content:21 language_not_allowed', 'move tt_content:21 language_not_allowed'], $this->refusals($outcome['trace']));
+        self::assertSame(0, $this->goneCount('tt_content', [self::IN_SCOPE_ELEMENT, 41]));
+        self::assertSame(self::SCOPED, $this->pidOf('tt_content', 41));
+
+        $listed = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::BELOW]]], $context);
+            },
+        );
+        self::assertSame([], $this->refusals($listed['trace']), 'with no language list the move is allowed');
+    }
+
+    /**
+     * Core reads the target of a move as an integer, which is 1 for an array
+     * that is not a paste command.
+     */
+    #[Test]
+    public function aMoveWhoseTargetIsAnArrayIsJudgedAsCoreReadsIt(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => ['target' => self::BELOW]]]], $context);
+            },
+        );
+
+        self::assertSame(['move tt_content (on page 1) outside_scope'], $this->refusals($outcome['trace']));
+        self::assertSame(self::SCOPED, $this->pidOf('tt_content', self::IN_SCOPE_ELEMENT));
+    }
+
+    #[Test]
+    public function aChildNamedWithItsTableAndTheParentPointerOfAFileReferenceAreHeldToTheScope(): void
+    {
+        $this->insertAFile();
+        $reference = $this->connectionPool->getConnectionForTable('sys_file_reference');
+        $reference->insert('sys_file_reference', ['uid' => 50, 'pid' => self::OTHER, 'uid_local' => 1, 'uid_foreign' => self::OUTSIDE_ELEMENT, 'tablenames' => 'tt_content', 'fieldname' => 'assets', 'sorting_foreign' => 1]);
+        $reference->insert('sys_file_reference', ['uid' => 51, 'pid' => self::SCOPED, 'uid_local' => 1, 'uid_foreign' => self::IN_SCOPE_ELEMENT, 'tablenames' => 'tt_content', 'fieldname' => 'assets', 'sorting_foreign' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                // The `table_uid` form of a child core accepts in a relation field.
+                $dataHandler->start(['tt_content' => [self::IN_SCOPE_ELEMENT => ['assets' => 'sys_file_reference_50']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+                // A child of this record pointed at another record.
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['sys_file_reference' => [51 => ['uid_foreign' => self::OUTSIDE_ELEMENT]]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+        );
+
+        self::assertSame(['update sys_file_reference:50 outside_scope', 'attach tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
+        self::assertSame(self::IN_SCOPE_ELEMENT, (int) $this->scalar('SELECT uid_foreign FROM sys_file_reference WHERE uid = 51', []));
     }
 
     #[Test]
@@ -736,6 +835,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     // --- scaffold -----------------------------------------------------------
+
+    private function insertAFile(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_storage')->insert('sys_file_storage', ['uid' => 1, 'pid' => 0, 'name' => 'fileadmin', 'driver' => 'Local', 'is_online' => 1, 'is_browsable' => 1, 'is_writable' => 1, 'configuration' => '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><T3FlexForms><data><sheet index="sDEF"><language index="lDEF"><field index="basePath"><value index="vDEF">fileadmin/</value></field><field index="pathType"><value index="vDEF">relative</value></field></language></sheet></data></T3FlexForms>']);
+        $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', ['uid' => 1, 'pid' => 0, 'storage' => 1, 'identifier' => '/a.jpg', 'name' => 'a.jpg', 'type' => 2, 'identifier_hash' => 'a', 'folder_hash' => 'a', 'sha1' => 'a', 'extension' => 'jpg', 'mime_type' => 'image/jpeg', 'size' => 1]);
+    }
 
     /**
      * @param list<int> $elements content elements the claim names

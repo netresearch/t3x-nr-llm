@@ -127,7 +127,18 @@ final class AssignmentScopeHook
 
         // A new row without a language is stored in the default language, so the
         // effective value is 0 and is checked like any other.
-        $given    = $label !== '' && isset($fields[$label]) && is_numeric($fields[$label]) ? (int) $fields[$label] : null;
+        $given = $label !== '' && isset($fields[$label]) && is_numeric($fields[$label]) ? (int) $fields[$label] : null;
+        if (!$isNew && $table === 'sys_file_reference' && (isset($fields['tablenames']) || isset($fields['uid_foreign']))) {
+            // The record a file reference is attached to is part of the write; an
+            // update that repeats only one of the two pointers keeps the other.
+            $hostTable = is_string($fields['tablenames'] ?? null) ? $fields['tablenames'] : $checker->storedValue('sys_file_reference', (int) $id, 'tablenames');
+            $hostUid   = is_numeric($fields['uid_foreign'] ?? null) ? (int) $fields['uid_foreign'] : $this->number($checker->storedValue('sys_file_reference', (int) $id, 'uid_foreign'));
+            $refusal   = $hostTable !== null && $hostTable !== '' && $hostUid > 0 ? $checker->recordRefusal($scope, 'attach', $hostTable, $hostUid, $workspace) : new ScopeRefusal('attach', $table, (int) $id, 0, ScopeRefusal::UNRESOLVABLE);
+            if ($refusal instanceof ScopeRefusal) {
+                return $refusal;
+            }
+        }
+
         $language = $given ?? ($isNew && $label !== '' ? 0 : null);
         if ($language !== null && !$scope->admitsLanguage($language)) {
             return new ScopeRefusal($isNew ? 'create' : 'update', $table, $isNew ? 0 : (int) $id, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
@@ -159,17 +170,27 @@ final class AssignmentScopeHook
         $origin = $link !== '' && is_numeric($fields[$link] ?? null) ? (int) $fields[$link] : 0;
         $host   = $table === 'sys_file_reference' && is_string($fields['tablenames'] ?? null) && is_numeric($fields['uid_foreign'] ?? null) ? (int) $fields['uid_foreign'] : 0;
 
+        $pid = $this->pidOf($fields['pid'] ?? null, $table, $checker, $dataHandler, $workspace);
         if ($origin > 0 || $host > 0) {
             if (!$scope->admitsTable($table)) {
                 return new ScopeRefusal('create', $table, 0, 0, ScopeRefusal::TABLE_NOT_ALLOWED);
             }
 
-            return $origin > 0
+            $refusal = $origin > 0
                 ? $checker->recordRefusal($scope, 'translate', $table, $origin, $workspace, false)
                 : $checker->recordRefusal($scope, 'attach', (string) $fields['tablenames'], $host, $workspace);
-        }
+            if ($refusal instanceof ScopeRefusal) {
+                return $refusal;
+            }
 
-        $pid = $this->pidOf($fields['pid'] ?? null, $table, $checker, $dataHandler, $workspace);
+            // The row lies where the record it belongs to lies, or on a page the
+            // scope holds: it is never placed anywhere else because its origin is
+            // in scope.
+            $expected = $origin > 0 ? $checker->pidOfRecord($table, $origin, $workspace) : $checker->pidOfRecord((string) $fields['tablenames'], $host, $workspace);
+            if ($pid !== null && $pid === $expected) {
+                return null;
+            }
+        }
 
         return $pid === null
             ? new ScopeRefusal('create', $table, 0, 0, ScopeRefusal::UNRESOLVABLE)
@@ -202,11 +223,18 @@ final class AssignmentScopeHook
             $items = is_array($value) ? $value : explode(',', is_scalar($value) ? (string) $value : '');
             foreach ($items as $item) {
                 $item = is_scalar($item) ? trim((string) $item) : '';
+                $from = $child;
+                // Core also reads `table_uid`.
+                if (preg_match('/\A([A-Za-z0-9_]+)_([0-9]+)\z/', $item, $named) === 1) {
+                    $from = $named[1];
+                    $item = $named[2];
+                }
+
                 if ($item === '' || !MathUtility::canBeInterpretedAsInteger($item) || (int) $item < 1) {
                     continue;
                 }
 
-                $refusal = $checker->recordRefusal($scope, 'update', $child, (int) $item, $workspace);
+                $refusal = $checker->recordRefusal($scope, 'update', $from, (int) $item, $workspace);
                 if ($refusal instanceof ScopeRefusal) {
                     return $refusal;
                 }
@@ -235,6 +263,10 @@ final class AssignmentScopeHook
         }
 
         $refusal = $checker->recordRefusal($scope, $operation, $table, $id, $workspace);
+        if (!$refusal instanceof ScopeRefusal && in_array($operation, ['delete', 'move', 'discard'], true)) {
+            $refusal = $checker->translationsRefusal($scope, $operation, $table, $id, $workspace);
+        }
+
         if ($refusal instanceof ScopeRefusal) {
             return $refusal;
         }
@@ -250,7 +282,7 @@ final class AssignmentScopeHook
             return null;
         }
 
-        $pid = $this->pidOf($this->target($value), $table, $checker, null, $workspace);
+        $pid = $this->pidOf($this->target($value, $operation), $table, $checker, null, $workspace);
         if ($pid === null) {
             return new ScopeRefusal($operation, $table, $id, 0, ScopeRefusal::UNRESOLVABLE);
         }
@@ -284,10 +316,15 @@ final class AssignmentScopeHook
      * The target of a move or copy as core reads it: a plain value, the
      * `target` of an array, or the `target` of a paste command.
      */
-    private function target(mixed $value): mixed
+    private function target(mixed $value, string $operation): mixed
     {
         if (is_array($value) && ($value['action'] ?? null) === 'paste') {
             $value = $value['target'] ?? null;
+        }
+
+        // Core reads the target of a move as an integer, which is 1 for an array.
+        if ($operation === 'move' && is_array($value)) {
+            return 1;
         }
 
         return is_array($value) ? ($value['target'] ?? null) : $value;

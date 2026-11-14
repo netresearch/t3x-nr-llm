@@ -229,6 +229,18 @@ final class AssignmentScopeCheckerTest extends TestCase
     }
 
     #[Test]
+    public function aDeleteOrMoveOfARecordWithTranslationsInAnotherLanguageIsRefused(): void
+    {
+        $scope  = new AssignmentScope([new ScopedPage(2, 1)], [], null, [0]);
+        $delete = new ScopedWrite('delete', [new RecordReference('tt_content', 21)]);
+
+        // Content 21 has a German translation (31) in the fixture tree.
+        self::assertSame([ScopeRefusal::LANGUAGE_NOT_ALLOWED], array_map(static fn (ScopeRefusal $refusal): string => $refusal->reason, $this->checker()->refusalsFor($scope, $delete, 0)));
+        self::assertSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 1), $delete, 0), 'with no language list nothing is narrowed');
+        self::assertSame([], $this->checker()->refusalsFor($scope, new ScopedWrite('update', [new RecordReference('tt_content', 21)]), 0), 'an update does not take translations along');
+    }
+
+    #[Test]
     public function aSubtreeTooLargeToReadIsRefusedUnread(): void
     {
         $checker = new AssignmentScopeChecker(new class extends ArrayRecordTopology {

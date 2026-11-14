@@ -61,6 +61,42 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
         );
     }
 
+    public function storedValue(string $table, int $uid, string $field): ?string
+    {
+        if (preg_match('/\A\w+\z/', $table . $field) !== 1 || $uid < 1) {
+            return null;
+        }
+
+        $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $query->getRestrictions()->removeAll();
+        $value = $query->select($field)->from($table)->where($query->expr()->eq('uid', $query->createNamedParameter($uid, Connection::PARAM_INT)))->executeQuery()->fetchOne();
+
+        return is_scalar($value) ? (string) $value : null;
+    }
+
+    public function translationLanguages(string $table, int $uid, int $workspace): array
+    {
+        $allTca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $tca    = is_array($allTca[$table] ?? null) ? $allTca[$table] : [];
+        $ctrl   = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
+        $origin = $ctrl['transOrigPointerField'] ?? null;
+        $field  = $ctrl['languageField'] ?? null;
+        if (!is_string($origin) || !is_string($field) || preg_match('/\A\w+\z/', $origin . $field) !== 1) {
+            return [];
+        }
+
+        $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $query->getRestrictions()->removeAll();
+        $rows = $query
+            ->select($field)
+            ->from($table)
+            ->where($query->expr()->eq($origin, $query->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return array_values(array_unique(array_map(fn (mixed $language): int => $this->int($language), $rows)));
+    }
+
     public function descendantPages(int $pageUid, int $workspace, int $limit): ?array
     {
         $found    = [];

@@ -23,6 +23,19 @@ interface RecordTopologyInterface
     public function row(string $table, int $uid, int $workspace): ?RecordFacts;
 
     /**
+     * The stored value of one column of a row, or null when the row or the column
+     * does not exist.
+     */
+    public function storedValue(string $table, int $uid, string $field): ?string;
+
+    /**
+     * The languages the row has translations in.
+     *
+     * @return list<int>
+     */
+    public function translationLanguages(string $table, int $uid, int $workspace): array;
+
+    /**
      * Every page below the page, at any depth, once each.
      *
      * @return list<int>|null null when there are more than $limit
