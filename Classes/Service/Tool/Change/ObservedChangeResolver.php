@@ -68,6 +68,27 @@ final readonly class ObservedChangeResolver
     public function resolve(array $records, array $scopes, ?int $after = null, ?RecordReference $target = null): ObservedChangeSet
     {
         $truncated = false;
+        $entries   = $this->entries($records, $scopes, $after, $truncated);
+        $changes   = array_map($this->change(...), array_slice($entries, 0, ObservedChangeSet::LIMIT));
+        if ($target instanceof RecordReference && count($entries) > count($changes)) {
+            $changes = $this->keepingTarget($changes, array_slice($entries, count($changes)), $target);
+        }
+
+        // A history read that stopped at its cap lost rows nobody can count.
+        return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($entries) - count($changes) + ($truncated ? 1 : 0));
+    }
+
+    /**
+     * Every record the call wrote, without the limit of the list a run step
+     * keeps: the hooks' records joined with the history of the chain.
+     *
+     * @param array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}> $records
+     * @param list<string>                                                                        $scopes
+     *
+     * @return list<array{table: string, uid: int, action: ChangeAction, workspace: int}>
+     */
+    public function entries(array $records, array $scopes, ?int $after, bool &$truncated = false): array
+    {
         $confirmed = $after === null ? [] : $this->fromHistory($scopes, $after, $truncated);
         foreach ($confirmed as $key => $entry) {
             $was           = $records[$key]['action'] ?? null;
@@ -89,14 +110,7 @@ final readonly class ObservedChangeResolver
             $settled[$key] = $was instanceof ChangeAction ? [...$applied, 'action' => ToolChangeCollector::stronger($was, $applied['action'])] : $applied;
         }
 
-        $entries = array_values($settled);
-        $changes = array_map($this->change(...), array_slice($entries, 0, ObservedChangeSet::LIMIT));
-        if ($target instanceof RecordReference && count($entries) > count($changes)) {
-            $changes = $this->keepingTarget($changes, array_slice($entries, count($changes)), $target);
-        }
-
-        // A history read that stopped at its cap lost rows nobody can count.
-        return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($entries) - count($changes) + ($truncated ? 1 : 0));
+        return array_values($settled);
     }
 
     /**

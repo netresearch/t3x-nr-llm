@@ -163,6 +163,38 @@ included:
   the scope stopped, and records it. A tool that threw keeps its own error and
   gets the same sentence.
 
+**The input checks fail closed.** Both layers read the input of a write, and a
+third of the defects found in review were values the parser had skipped. A value
+of an entry that the hook cannot read into a definite target is therefore
+refused, never skipped: an inline or file item must be a placeholder of a new
+record, a canonical uid (no sign, no leading zero), or ``table_uid`` split at the
+last underscore with a table that is in the TCA; a parent pointer or a language
+that is present in the entry and not a canonical integer (an empty value is 0) is
+refused, and the stored value stands in only for a key the entry does not carry.
+A child row is judged on the record it belongs to for every table that is the
+child of an inline or file column, found from the ``foreign_field`` and
+``foreign_table_field`` of the TCA (``ChildRelations``), not only for file
+references.
+
+**The effect check does not read input at all.**
+After a call (``AssignmentScopeEffect``), the loop takes every record the
+DataHandler reported as written, moved, copied, localized or deleted (the
+change collector's records joined with the DataHandler's own history, without the
+limit of the list a run step keeps), reads each from the database as it now is
+(final pid, language, translation parent, parent pointer), and judges it by the
+rules of the checker. A write that a parser let through is found here, because
+the check looks at what was written and not at what was asked. In a draft
+workspace a record out of scope is a version of the workspace and the check
+discards it: no live effect remains, and the call is an error that says which
+records were discarded. In the live workspace nothing can be undone reliably, so
+the call is only reported as having exceeded its scope, with the records named
+that could not be undone. **A configuration that requires a scope therefore also
+requires a draft workspace**: ``RequireAssignmentScopeRule`` refuses its writes in
+live with the reason ``scope_needs_draft_workspace``. A scope the starter set on
+a run of a configuration that does not require one can be exceeded in live and
+only reported. The check holds for what the DataHandler reports; a row it never
+reported and a hard-deleted row (gone, so unreadable) are not seen.
+
 **A refusal is a tool error and a trace event.** The model reads a result that
 starts ``Error:`` and names the refused writes and the scope. The run records
 the refusals on the ``tool_changes`` step of ADR-292, as a ``refused`` list of
@@ -173,7 +205,7 @@ the list; a consumer that does not know the key ignores it, and a payload
 without it is as before. The governance log gets ``invocation_denied`` for layer
 one as for every rule.
 
-**What catches what.** Every DataHandler operation, and the layer that holds it:
+**What catches what.** Every DataHandler operation, and the layer that holds it. The effect check, after the call, holds every row of the table that the DataHandler reports, whatever the input looked like:
 
 .. list-table::
    :header-rows: 1
@@ -238,7 +270,8 @@ are tested, each against the real DataHandler and the real tool loop:
   layer two is what holds when a third-party tool does not state it.
 
 A write that does not go through the DataHandler (a query, a file written
-through FAL, an HTTP call) has layer one only. A tool that writes that way and
+through FAL, an HTTP call) has layer one only: the hook and the effect check hear
+only of the DataHandler. A tool that writes that way and
 states no claim is refused outright. The DataHandler hook does not see it, and
 no check does.
 
@@ -251,10 +284,14 @@ Consequences
 - ● The scope reaches every start of a run, because it rides on the acting
   identity that every start already passes, and survives the queue, a
   suspension and a resume.
+- ● A parser gap in the input checks is caught after the call by the effect check,
+  and in a draft workspace taken back.
 - ● A refused write tells the model what to do and tells the editor where it is
   recorded. Layer one refuses before the card.
 - ● nr-mcp-agent and every other starter keep working unchanged; the feature is
   off until a starter sets a scope or a configuration requires one.
+- ◑ A configuration that requires a scope also requires a draft workspace, so
+  such a configuration is of no use to a run in live.
 - ◑ A configuration that requires a scope refuses every write of a starter that
   sets none, A2A included: no A2A client carries a scope yet. Such a
   configuration is for starters that pass one.

@@ -23,6 +23,14 @@ interface RecordTopologyInterface
     public function row(string $table, int $uid, int $workspace): ?RecordFacts;
 
     /**
+     * The languages of the content on a page and of the translations of the page
+     * itself.
+     *
+     * @return list<int>
+     */
+    public function languagesOnPage(int $pageUid, int $workspace): array;
+
+    /**
      * The stored value of one column of a row, or null when the row or the column
      * does not exist.
      */

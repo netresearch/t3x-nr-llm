@@ -4274,6 +4274,9 @@
             <trans-unit id="approvalPreview.scope.remote">
                 <source>This run is limited to its assignment, and this tool changes things outside TYPO3, which cannot be held to it. Nothing was changed.</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.scope.live">
+                <source>This configuration requires an assignment scope for changes, and with it a draft workspace, and this request was started in the live workspace. Nothing was changed. Switch to a draft workspace in the backend and send the request again.</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.scope.unresolvable">
                 <source>This run is limited to its assignment (%s), and the target of this change could not be established or does not exist. Nothing was changed.</source>
             </trans-unit>

@@ -141,6 +141,36 @@ final class ChangeSets
         );
     }
 
+    /**
+     * What the model reads when a call wrote outside the scope of the run's
+     * assignment although neither check before it refused the write (ADR-295):
+     * which records, and what became of them.
+     *
+     * @param list<array{refusal: ScopeRefusal, workspace: int}> $violations
+     */
+    public static function effectNote(AssignmentScope $scope, array $violations, int $discarded, int $kept): string
+    {
+        if ($violations === []) {
+            return '';
+        }
+
+        $parts = array_map(
+            static fn (array $violation): string => sprintf('%s (%s)', $violation['refusal']->subject(), $violation['refusal']->reason),
+            array_slice($violations, 0, self::NOTE_LIMIT),
+        );
+        $more = max(0, count($violations) - self::NOTE_LIMIT);
+
+        return sprintf(
+            'This call wrote outside the assignment of this run (%s): %s%s. %s Work only inside the assignment.',
+            $scope->describe(),
+            implode(', ', $parts),
+            $more > 0 ? sprintf(' and %d more', $more) : '',
+            $kept === 0
+                ? sprintf('The draft versions of %d records were discarded.', $discarded)
+                : sprintf('%d records were discarded from the draft workspace, %d could not be undone and have to be reviewed.', $discarded, $kept),
+        );
+    }
+
     private static function isTarget(ObservedChange $change, RecordReference $target): bool
     {
         return $change->record->table === $target->table && ($change->record->uid === $target->uid || $change->liveUid === $target->uid);

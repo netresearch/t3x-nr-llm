@@ -280,11 +280,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
     /**
      * The control of the test above: the same call, with only the DataHandler
-     * layer taken away, writes. So it is that layer, and not the claim or the
-     * approval, that stopped it.
+     * hook taken away, writes. So it is that layer, and not the claim or the
+     * approval, that stopped it. In the live workspace the write cannot be
+     * undone, and the effect check says so.
      */
     #[Test]
-    public function withoutTheDataHandlerLayerTheSameCallWritesOutsideTheScope(): void
+    public function withoutTheDataHandlerHookTheSameCallWritesAndTheEffectCheckReportsIt(): void
     {
         $this->unregisterTheDataHandlerLayer();
 
@@ -295,9 +296,10 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
         );
 
-        self::assertSame('Sneaked past the claim', $this->header(self::OUTSIDE_ELEMENT));
-        self::assertSame([], $this->refusals($outcome['trace']));
-        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame('Sneaked past the claim', $this->header(self::OUTSIDE_ELEMENT), 'live: nothing to take back');
+        self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
+        self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
+        self::assertStringContainsString('1 could not be undone', $outcome['toolResult']);
     }
 
     /**
@@ -324,13 +326,13 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function withoutTheDataHandlerLayerTheHookWritesOutsideTheScope(): void
+    public function withoutTheDataHandlerHookTheHookOfTheInstallationWritesAndTheEffectCheckReportsIt(): void
     {
         $this->unregisterTheDataHandlerLayer();
         $this->registerHook('processDatamapClass', RunsANestedToolDataHandlerHook::class);
         RunsANestedToolDataHandlerHook::$datamap = ['tt_content' => [self::OUTSIDE_ELEMENT => ['header' => 'By the hook']]];
 
-        $this->call(
+        $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
             function (ToolExecutionContext $context): void {
                 $this->updateHeader(self::IN_SCOPE_ELEMENT, 'The call itself', $context);
@@ -338,6 +340,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame('By the hook', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
     }
 
     #[Test]
@@ -738,6 +741,213 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertSame(['update sys_file_reference:50 outside_scope', 'attach tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertSame(self::IN_SCOPE_ELEMENT, (int) $this->scalar('SELECT uid_foreign FROM sys_file_reference WHERE uid = 51', []));
+    }
+
+    // --- the input check fails closed -----------------------------------------
+
+    /**
+     * A value of an inline field that is no placeholder, no canonical uid and no
+     * `table_uid` of a table is refused, not skipped.
+     */
+    #[Test]
+    public function anInlineItemThatCannotBeReadIsRefusedAndNotSkipped(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                foreach (['abc', 'NEW1,abc', '007', '-5', '5 x', 'sys_file_reference_x', 'nosuchtable_5', 'sys_file_reference_007', '_5'] as $item) {
+                    $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                    $dataHandler->start(['tt_content' => [self::IN_SCOPE_ELEMENT => ['assets' => $item]]], [], $context->actingBackendUser());
+                    $dataHandler->process_datamap();
+                }
+            },
+        );
+
+        self::assertSame(array_fill(0, 9, 'update sys_file_reference (on page 0) unresolvable'), $this->refusals($outcome['trace']));
+    }
+
+    /**
+     * A parent pointer that is present and wrong is refused; the stored value
+     * stands in only for a pointer the entry does not carry.
+     */
+    #[Test]
+    public function aParentPointerThatIsPresentButUnreadableIsRefused(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_file_reference')->insert('sys_file_reference', ['uid' => 51, 'pid' => self::SCOPED, 'uid_local' => 1, 'uid_foreign' => self::IN_SCOPE_ELEMENT, 'tablenames' => 'tt_content', 'fieldname' => 'assets', 'sorting_foreign' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                foreach ([['uid_foreign' => 'abc'], ['uid_foreign' => '021'], ['tablenames' => 'no_such_table'], ['tablenames' => ['tt_content']]] as $fields) {
+                    $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                    $dataHandler->start(['sys_file_reference' => [51 => $fields]], [], $context->actingBackendUser());
+                    $dataHandler->process_datamap();
+                }
+            },
+        );
+
+        self::assertSame(array_fill(0, 4, 'update sys_file_reference:51 unresolvable'), $this->refusals($outcome['trace']));
+    }
+
+    /**
+     * Core copies a record with its translations unless the command says
+     * `ignoreLocalization`, and a page with the content and translations on it.
+     */
+    #[Test]
+    public function aCopyThatTakesTranslationsInAnotherLanguageAlongIsRefused(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $content->insert('tt_content', ['uid' => 41, 'pid' => self::SCOPED, 'colPos' => 0, 'CType' => 'text', 'header' => 'Uebersetzung', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::IN_SCOPE_ELEMENT, 'sorting' => 1]);
+        $content->insert('tt_content', ['uid' => 42, 'pid' => self::BELOW, 'colPos' => 0, 'CType' => 'text', 'header' => 'Uebersetzung unten', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::BELOW_ELEMENT, 'sorting' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['copy' => self::SCOPED]]], $context);
+                $this->command(['pages' => [self::BELOW => ['copy' => self::SCOPED]]], $context);
+                // Leaving the translations behind is allowed.
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['copy' => ['target' => self::SCOPED, 'ignoreLocalization' => true]]]], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [0]),
+        );
+
+        self::assertSame(['copy tt_content:21 language_not_allowed', 'copy pages:3 language_not_allowed'], $this->refusals($outcome['trace']));
+        self::assertSame(2, (int) $this->scalar('SELECT COUNT(*) FROM tt_content WHERE header LIKE ? AND deleted = 0', ['Original 21%']), 'only the copy that leaves the translations behind was made');
+    }
+
+    // --- the effect check, with the input check taken away --------------------
+
+    /**
+     * Each of these is a write the input check refuses. With only that check
+     * removed, the writes go through the DataHandler, and the check of the
+     * effect finds them in the database and takes the versions back out of the
+     * draft workspace. This is what makes the second layer independent of the
+     * shapes the first has to parse.
+     *
+     * @param Closure(ToolExecutionContext): void $act
+     * @param list<string>                        $mentions what the refusals of the effect check name, in any order
+     */
+    private function assertTheEffectCheckTakesItBack(Closure $act, array $mentions, ?AssignmentScope $scope = null): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            $act,
+            scope: $scope ?? new AssignmentScope([new ScopedPage(self::SCOPED, 1)]),
+            user: $user,
+        );
+
+        $refusals = $this->refusals($outcome['trace']);
+        self::assertNotSame([], $refusals, 'the effect check found the write');
+        self::assertSame([], array_values(array_filter($refusals, static fn (string $line): bool => !str_starts_with($line, 'effect_'))), 'only the effect check refused, the input check was taken away');
+        foreach ($mentions as $mention) {
+            self::assertNotSame([], array_filter($refusals, static fn (string $line): bool => str_contains($line, $mention)), $mention);
+        }
+
+        self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
+        self::assertStringContainsString('were discarded', $outcome['toolResult']);
+        self::assertStringNotContainsString('could not be undone', $outcome['toolResult']);
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM tt_content WHERE t3ver_wsid = ? AND deleted = 0', [self::DRAFT]), 'no draft version of the call is left');
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE t3ver_wsid = ? AND deleted = 0', [self::DRAFT]));
+    }
+
+    #[Test]
+    public function theEffectCheckTakesBackAnUpdateOutsideTheScope(): void
+    {
+        $this->assertTheEffectCheckTakesItBack(
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+            },
+            [],
+        );
+    }
+
+    #[Test]
+    public function theEffectCheckTakesBackARecordCreatedOutsideTheScope(): void
+    {
+        $this->assertTheEffectCheckTakesItBack(
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::OTHER, 'header' => 'Created outside', 'CType' => 'text'], $context);
+            },
+            [],
+        );
+    }
+
+    #[Test]
+    public function theEffectCheckTakesBackAMoveOutOfTheScope(): void
+    {
+        $this->assertTheEffectCheckTakesItBack(
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::OTHER]]], $context);
+            },
+            [],
+        );
+    }
+
+    #[Test]
+    public function theEffectCheckTakesBackARecordWithoutALanguageTheScopeDoesNotAdmit(): void
+    {
+        $this->assertTheEffectCheckTakesItBack(
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::SCOPED, 'header' => 'No language', 'CType' => 'text'], $context);
+            },
+            [],
+            new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [self::GERMAN]),
+        );
+    }
+
+    #[Test]
+    public function theEffectCheckTakesBackATranslationPlacedOnAForeignPage(): void
+    {
+        $this->assertTheEffectCheckTakesItBack(
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::OTHER, 'header' => 'Translation abroad', 'CType' => 'text', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::IN_SCOPE_ELEMENT], $context);
+            },
+            [],
+        );
+    }
+
+    /**
+     * A malformed item is read by core as nothing; nothing is written, so there
+     * is nothing for the check of the effect to find.
+     */
+    #[Test]
+    public function aMalformedInlineItemWithoutTheInputCheckWritesNothingTheEffectCheckCouldFind(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['tt_content' => [self::IN_SCOPE_ELEMENT => ['assets' => 'abc']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            user: $user,
+        );
+
+        self::assertSame([], array_values(array_filter($this->refusals($outcome['trace']), static fn (string $line): bool => str_starts_with($line, 'effect_') && !str_contains($line, 'tt_content:21'))));
+    }
+
+    #[Test]
+    public function aLiveRunOfAConfigurationThatRequiresAScopeIsRefusedForNeedingADraftWorkspace(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Never', $context);
+            },
+            required: true,
+            approve: false,
+        );
+
+        self::assertStringContainsString('reason: scope_needs_draft_workspace', $outcome['toolResult']);
+        self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT));
     }
 
     #[Test]

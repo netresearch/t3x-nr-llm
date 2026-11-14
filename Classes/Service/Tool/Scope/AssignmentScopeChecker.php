@@ -53,8 +53,12 @@ final readonly class AssignmentScopeChecker
         $refusals = [];
         foreach ($write->records as $record) {
             $refusal = $this->recordRefusal($scope, $write->operation, $record->table, $record->uid, $workspace, $write->operation !== 'translate');
-            if (!$refusal instanceof ScopeRefusal && in_array($write->operation, ['delete', 'move'], true)) {
+            if (!$refusal instanceof ScopeRefusal && in_array($write->operation, ['delete', 'move', 'copy'], true)) {
                 $refusal = $this->translationsRefusal($scope, $write->operation, $record->table, $record->uid, $workspace);
+            }
+
+            if (!$refusal instanceof ScopeRefusal && $write->operation === 'copy' && $record->table === 'pages') {
+                $refusal = $this->pageLanguagesRefusal($scope, $write->operation, $record->uid, $workspace);
             }
 
             if ($refusal instanceof ScopeRefusal) {
@@ -206,6 +210,25 @@ final readonly class AssignmentScopeChecker
     public function pidOfRecord(string $table, int $uid, int $workspace): ?int
     {
         return $this->topology->row($table, $uid, $workspace)?->pid;
+    }
+
+    /**
+     * Whether a copy of a page keeps to the languages of the scope: the page's
+     * content and translations are copied with it.
+     */
+    public function pageLanguagesRefusal(AssignmentScope $scope, string $operation, int $pageUid, int $workspace): ?ScopeRefusal
+    {
+        if ($scope->languages === null) {
+            return null;
+        }
+
+        foreach ($this->topology->languagesOnPage($pageUid, $workspace) as $language) {
+            if (!$scope->admitsLanguage($language)) {
+                return new ScopeRefusal($operation, 'pages', $pageUid, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
+            }
+        }
+
+        return null;
     }
 
     /**

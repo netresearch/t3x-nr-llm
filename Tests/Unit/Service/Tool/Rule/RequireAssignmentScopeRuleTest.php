@@ -165,6 +165,23 @@ final class RequireAssignmentScopeRuleTest extends TestCase
         self::assertFalse($this->decide('remote_write', [], required: false)->allowed, 'a starter that bound the run to a scope cannot have it left by a remote tool');
     }
 
+    /**
+     * A write outside the scope that no check recognised can be taken back from
+     * a draft workspace and from nowhere else.
+     */
+    #[Test]
+    public function aConfigurationThatRequiresAScopeAlsoRequiresADraftWorkspace(): void
+    {
+        $live = $this->decide('scoped_write', ['uid' => 21], required: true);
+        self::assertFalse($live->allowed);
+        self::assertSame(RequireAssignmentScopeRule::REASON_LIVE, $live->reason);
+        self::assertStringContainsString('draft workspace', $live->explanation);
+
+        self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: true, workspace: 3)->allowed);
+        self::assertFalse($this->decide('scoped_write', ['uid' => 21], required: true, workspace: 3, userWorkspace: 4)->allowed, 'the user moved to another workspace');
+        self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: false)->allowed, 'a scope the starter set binds a live run too');
+    }
+
     #[Test]
     public function aWriteToolThatCannotStateItsTargetsIsRefused(): void
     {
@@ -248,9 +265,9 @@ final class RequireAssignmentScopeRuleTest extends TestCase
     /**
      * @param array<string, mixed> $arguments
      */
-    private function decide(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en'): ToolInvocationDecision
+    private function decide(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en', int $workspace = 0, ?int $userWorkspace = null): ToolInvocationDecision
     {
-        return $this->rule()->decide($this->context($tool, $arguments, $scope, $required, $maxDepth, $language));
+        return $this->rule()->decide($this->context($tool, $arguments, $scope, $required, $maxDepth, $language, $workspace, $userWorkspace));
     }
 
     private function rule(): RequireAssignmentScopeRule
@@ -284,11 +301,11 @@ final class RequireAssignmentScopeRuleTest extends TestCase
     /**
      * @param array<string, mixed> $arguments
      */
-    private function context(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en'): ToolInvocationContext
+    private function context(string $tool, array $arguments, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(2, 1)]), bool $required = false, int $maxDepth = 99, string $language = 'en', int $workspace = 0, ?int $userWorkspace = null): ToolInvocationContext
     {
         $user            = new BackendUserAuthentication();
         $user->user      = ['uid' => 1, 'admin' => 0, 'lang' => $language];
-        $user->workspace = 0;
+        $user->workspace = $userWorkspace ?? $workspace;
 
         $configuration = new LlmConfiguration();
         $configuration->setRequireAssignmentScope($required);
@@ -299,7 +316,7 @@ final class RequireAssignmentScopeRuleTest extends TestCase
             $arguments,
             null,
             $configuration,
-            new ToolExecutionContext(AiActorContext::backendUser(1, false, [], [], 0, $scope), $user),
+            new ToolExecutionContext(AiActorContext::backendUser(1, false, [], [], $workspace, $scope), $user),
             new ToolInvocationHistory([], true),
         );
     }

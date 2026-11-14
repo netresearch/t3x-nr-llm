@@ -76,18 +76,26 @@ edited.
    page itself and its records. The cap is read for every call, so lowering it
    applies to a run that is waiting for approval.
 
-A run that has a scope is held to it also where the configuration does not
-require one.
+A configuration that requires a scope also requires a draft workspace: a write
+outside the scope that none of the first two checks recognised can be taken back
+from a workspace and from nowhere else, so a run in the live workspace is
+refused (reason ``scope_needs_draft_workspace``). A run that has a scope is held
+to it also where the configuration does not require one; in live, a write that
+exceeds the scope is then reported but not undone.
 
 What is refused
 ===============
 
-The scope is checked twice. The first check reads what the tool says it will
+The scope is checked three times. The first check reads what the tool says it will
 touch, before the approval card is shown, so the editor is not asked to approve
 a call that is refused. The second check reads what the DataHandler is asked to
 write while the call runs, and also catches a write the tool did not state: a
 hook of the installation that writes another record, or the subpages a page
-delete takes along.
+delete takes along. Both read input, and refuse a value they cannot read. The
+third check reads no input: after the call it looks at the records the
+DataHandler reported as written, in the database, and judges each by the same
+rules. In a draft workspace it discards the versions that lie outside the scope;
+in the live workspace it can only report them.
 
 .. list-table::
    :header-rows: 1

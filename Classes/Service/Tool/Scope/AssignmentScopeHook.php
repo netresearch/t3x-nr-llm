@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Scope;
 
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -102,6 +103,10 @@ final class AssignmentScopeHook
     }
 
     /**
+     * Fails closed: a value of the entry that this class cannot read into a
+     * definite target is refused, never skipped and never replaced by a stored
+     * value while the key is present.
+     *
      * @param array<array-key, mixed> $fields
      */
     private function datamapRefusal(AssignmentScope $scope, AssignmentScopeChecker $checker, string $table, int|string $id, array $fields, DataHandler $dataHandler, int $workspace): ?ScopeRefusal
@@ -112,14 +117,36 @@ final class AssignmentScopeHook
         $label  = is_string($ctrl['languageField'] ?? null) ? $ctrl['languageField'] : '';
         $link   = is_string($ctrl['transOrigPointerField'] ?? null) ? $ctrl['transOrigPointerField'] : '';
         $isNew  = !MathUtility::canBeInterpretedAsInteger($id);
+        $verb   = $isNew ? 'create' : 'update';
+        $uid    = $isNew ? 0 : (int) $id;
+        $bad    = new ScopeRefusal($verb, $table, $uid, 0, ScopeRefusal::UNRESOLVABLE);
+
+        // The numbers the entry carries about itself.
+        $given  = $label !== '' && array_key_exists($label, $fields) ? $this->canonical($fields[$label]) : null;
+        $origin = $link !== '' && array_key_exists($link, $fields) ? $this->canonical($fields[$link]) : null;
+        if ($label !== '' && array_key_exists($label, $fields) && $given === null || $link !== '' && array_key_exists($link, $fields) && $origin === null) {
+            return $bad;
+        }
+
+        $host = $this->host($checker, $table, $uid, $isNew, $fields);
+        if ($host === false) {
+            return $bad;
+        }
 
         if (!$isNew) {
-            $refusal = $checker->recordRefusal($scope, 'update', $table, (int) $id, $workspace);
+            $refusal = $checker->recordRefusal($scope, 'update', $table, $uid, $workspace);
             if ($refusal instanceof ScopeRefusal) {
                 return $refusal;
             }
+
+            if ($host !== null && $this->pointsAtAHost($table, $fields)) {
+                $refusal = $checker->recordRefusal($scope, 'attach', $host->table, $host->uid, $workspace);
+                if ($refusal instanceof ScopeRefusal) {
+                    return $refusal;
+                }
+            }
         } else {
-            $refusal = $this->newRowRefusal($scope, $checker, $table, $link, $fields, $dataHandler, $workspace);
+            $refusal = $this->newRowRefusal($scope, $checker, $table, $origin ?? 0, $host, $fields, $dataHandler, $workspace);
             if ($refusal instanceof ScopeRefusal) {
                 return $refusal;
             }
@@ -127,25 +154,12 @@ final class AssignmentScopeHook
 
         // A new row without a language is stored in the default language, so the
         // effective value is 0 and is checked like any other.
-        $given = $label !== '' && isset($fields[$label]) && is_numeric($fields[$label]) ? (int) $fields[$label] : null;
-        if (!$isNew && $table === 'sys_file_reference' && (isset($fields['tablenames']) || isset($fields['uid_foreign']))) {
-            // The record a file reference is attached to is part of the write; an
-            // update that repeats only one of the two pointers keeps the other.
-            $hostTable = is_string($fields['tablenames'] ?? null) ? $fields['tablenames'] : $checker->storedValue('sys_file_reference', (int) $id, 'tablenames');
-            $hostUid   = is_numeric($fields['uid_foreign'] ?? null) ? (int) $fields['uid_foreign'] : $this->number($checker->storedValue('sys_file_reference', (int) $id, 'uid_foreign'));
-            $refusal   = $hostTable !== null && $hostTable !== '' && $hostUid > 0 ? $checker->recordRefusal($scope, 'attach', $hostTable, $hostUid, $workspace) : new ScopeRefusal('attach', $table, (int) $id, 0, ScopeRefusal::UNRESOLVABLE);
-            if ($refusal instanceof ScopeRefusal) {
-                return $refusal;
-            }
-        }
-
         $language = $given ?? ($isNew && $label !== '' ? 0 : null);
         if ($language !== null && !$scope->admitsLanguage($language)) {
-            return new ScopeRefusal($isNew ? 'create' : 'update', $table, $isNew ? 0 : (int) $id, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
+            return new ScopeRefusal($verb, $table, $uid, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
         }
 
-        $origin = $link !== '' && is_numeric($fields[$link] ?? null) ? (int) $fields[$link] : 0;
-        if ($origin > 0) {
+        if (($origin ?? 0) > 0) {
             $refusal = $checker->recordRefusal($scope, 'translate', $table, $origin, $workspace, false);
             if ($refusal instanceof ScopeRefusal) {
                 return $refusal;
@@ -159,34 +173,29 @@ final class AssignmentScopeHook
      * Whether a new row may be created. A row is judged on its page, with two
      * exceptions that lie on no page of their own: a translation, which is
      * judged on the record it translates (a page overlay lies beside its
-     * source, under the source's parent), and a file reference, which is judged
-     * on the record it is attached to. Either may be in scope by a record
-     * alone, with no page of the scope above it.
+     * source, under the source's parent), and a child row, which is judged on
+     * the record it belongs to. Either may be in scope by a record alone. Such a
+     * row lies where that record lies; placed on any other page it is judged
+     * on that page.
      *
      * @param array<array-key, mixed> $fields
      */
-    private function newRowRefusal(AssignmentScope $scope, AssignmentScopeChecker $checker, string $table, string $link, array $fields, DataHandler $dataHandler, int $workspace): ?ScopeRefusal
+    private function newRowRefusal(AssignmentScope $scope, AssignmentScopeChecker $checker, string $table, int $origin, ?RecordReference $host, array $fields, DataHandler $dataHandler, int $workspace): ?ScopeRefusal
     {
-        $origin = $link !== '' && is_numeric($fields[$link] ?? null) ? (int) $fields[$link] : 0;
-        $host   = $table === 'sys_file_reference' && is_string($fields['tablenames'] ?? null) && is_numeric($fields['uid_foreign'] ?? null) ? (int) $fields['uid_foreign'] : 0;
-
         $pid = $this->pidOf($fields['pid'] ?? null, $table, $checker, $dataHandler, $workspace);
-        if ($origin > 0 || $host > 0) {
+        if ($origin > 0 || $host instanceof RecordReference) {
             if (!$scope->admitsTable($table)) {
                 return new ScopeRefusal('create', $table, 0, 0, ScopeRefusal::TABLE_NOT_ALLOWED);
             }
 
             $refusal = $origin > 0
                 ? $checker->recordRefusal($scope, 'translate', $table, $origin, $workspace, false)
-                : $checker->recordRefusal($scope, 'attach', (string) $fields['tablenames'], $host, $workspace);
+                : $checker->recordRefusal($scope, 'attach', $host->table, $host->uid, $workspace);
             if ($refusal instanceof ScopeRefusal) {
                 return $refusal;
             }
 
-            // The row lies where the record it belongs to lies, or on a page the
-            // scope holds: it is never placed anywhere else because its origin is
-            // in scope.
-            $expected = $origin > 0 ? $checker->pidOfRecord($table, $origin, $workspace) : $checker->pidOfRecord((string) $fields['tablenames'], $host, $workspace);
+            $expected = $origin > 0 ? $checker->pidOfRecord($table, $origin, $workspace) : $checker->pidOfRecord($host->table, $host->uid, $workspace);
             if ($pid !== null && $pid === $expected) {
                 return null;
             }
@@ -198,12 +207,109 @@ final class AssignmentScopeHook
     }
 
     /**
-     * The existing records an inline or file field names. Listing an existing record in
-     * an inline relation re-parents it and writes it with a query of the
-     * relation handler, which no datamap entry announces, so each one has to be
-     * in scope. New children are datamap entries of their own and are checked
-     * there. Group and select relations store a reference on the record
-     * itself and change no other row.
+     * The record a child row belongs to, from the columns its parents' TCA names
+     * as the foreign field and the foreign table field. Null when the row is no
+     * child or names no parent, false when a pointer it carries cannot be read.
+     * A pointer the entry does not carry is read from the stored row, never one
+     * it carries; a placeholder is the parent of a new record and is judged
+     * there.
+     *
+     * @param array<array-key, mixed> $fields
+     */
+    private function host(AssignmentScopeChecker $checker, string $table, int $uid, bool $isNew, array $fields): RecordReference|false|null
+    {
+        $relation = ChildRelations::of($table);
+        if ($relation === null) {
+            return null;
+        }
+
+        $fieldGiven = array_key_exists($relation['field'], $fields);
+        $tableGiven = $relation['tableField'] !== null && array_key_exists($relation['tableField'], $fields);
+
+        $hostUid = null;
+        if ($fieldGiven) {
+            $value = $fields[$relation['field']];
+            if (is_string($value) && preg_match('/\ANEW[A-Za-z0-9_]*\z/', $value) === 1) {
+                return null;
+            }
+
+            $hostUid = $this->canonical($value);
+            if ($hostUid === null) {
+                return false;
+            }
+        } elseif (!$isNew) {
+            $stored  = $checker->storedValue($table, $uid, $relation['field']);
+            $hostUid = $stored === null ? null : $this->canonical($stored);
+        }
+
+        $hostTable = null;
+        if ($relation['tableField'] === null) {
+            $hostTable = count($relation['parents']) === 1 ? $relation['parents'][0] : null;
+        } elseif ($tableGiven) {
+            $value     = $fields[$relation['tableField']];
+            $hostTable = is_string($value) && $this->isTable($value) ? $value : null;
+            if ($hostTable === null && $value !== '' && $value !== null) {
+                return false;
+            }
+        } elseif (!$isNew) {
+            $stored    = $checker->storedValue($table, $uid, $relation['tableField']);
+            $hostTable = $stored !== null && $this->isTable($stored) ? $stored : null;
+        }
+
+        if (($fieldGiven || $tableGiven) && ($hostUid === null || $hostUid < 1 || $hostTable === null)) {
+            return $hostUid === 0 && $hostTable === null ? null : false;
+        }
+
+        return $hostUid !== null && $hostUid > 0 && $hostTable !== null ? new RecordReference($hostTable, $hostUid) : null;
+    }
+
+    /**
+     * Whether the entry carries a pointer to the record it belongs to, so that
+     * an update repeats it.
+     *
+     * @param array<array-key, mixed> $fields
+     */
+    private function pointsAtAHost(string $table, array $fields): bool
+    {
+        $relation = ChildRelations::of($table);
+
+        return $relation !== null && (array_key_exists($relation['field'], $fields) || $relation['tableField'] !== null && array_key_exists($relation['tableField'], $fields));
+    }
+
+    /**
+     * A number as DataHandler reads it from a field: an integer, or a string of
+     * digits without a sign or a leading zero; an empty value is 0. Null for
+     * anything else.
+     */
+    private function canonical(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return 0;
+        }
+
+        if (is_int($value)) {
+            return $value >= 0 ? $value : null;
+        }
+
+        return is_string($value) && preg_match('/\A(0|[1-9][0-9]{0,18})\z/', $value) === 1 ? (int) $value : null;
+    }
+
+    private function isTable(string $name): bool
+    {
+        $tca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+
+        return isset($tca[$name]);
+    }
+
+    /**
+     * The existing records an inline or file field names. Listing an existing
+     * record in an inline relation re-parents it with a query of the relation
+     * handler that no datamap entry announces, so each one has to be in scope;
+     * new children are datamap entries of their own and are checked there.
+     * Every item has to be a placeholder of a new record, a canonical uid, or
+     * `table_uid` split at the last underscore as core splits it; anything else
+     * is refused. Group and select relations store a reference on the record
+     * itself.
      *
      * @param array<array-key, mixed> $schema the TCA of the table
      * @param array<array-key, mixed> $fields
@@ -220,21 +326,34 @@ final class AssignmentScopeHook
                 continue;
             }
 
-            $items = is_array($value) ? $value : explode(',', is_scalar($value) ? (string) $value : '');
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $items = is_array($value) ? $value : explode(',', is_scalar($value) ? (string) $value : "\0");
             foreach ($items as $item) {
-                $item = is_scalar($item) ? trim((string) $item) : '';
-                $from = $child;
-                // Core also reads `table_uid`.
-                if (preg_match('/\A([A-Za-z0-9_]+)_([0-9]+)\z/', $item, $named) === 1) {
-                    $from = $named[1];
-                    $item = $named[2];
+                $unreadable = new ScopeRefusal('update', $child, 0, 0, ScopeRefusal::UNRESOLVABLE);
+                if (!is_scalar($item)) {
+                    return $unreadable;
                 }
 
-                if ($item === '' || !MathUtility::canBeInterpretedAsInteger($item) || (int) $item < 1) {
+                $item = trim((string) $item);
+                if ($item === '' || preg_match('/\ANEW[A-Za-z0-9_]*\z/', $item) === 1) {
                     continue;
                 }
 
-                $refusal = $checker->recordRefusal($scope, 'update', $from, (int) $item, $workspace);
+                $from = $child;
+                $uid  = $this->canonical($item);
+                if (($uid ?? 0) < 1) {
+                    $cut  = strrpos($item, '_');
+                    $from = $cut === false ? '' : substr($item, 0, $cut);
+                    $uid  = $cut === false ? null : $this->canonical(substr($item, $cut + 1));
+                    if ($from === '' || !$this->isTable($from) || ($uid ?? 0) < 1) {
+                        return $unreadable;
+                    }
+                }
+
+                $refusal = $checker->recordRefusal($scope, 'update', $from, (int) $uid, $workspace);
                 if ($refusal instanceof ScopeRefusal) {
                     return $refusal;
                 }
@@ -263,8 +382,12 @@ final class AssignmentScopeHook
         }
 
         $refusal = $checker->recordRefusal($scope, $operation, $table, $id, $workspace);
-        if (!$refusal instanceof ScopeRefusal && in_array($operation, ['delete', 'move', 'discard'], true)) {
+        if (!$refusal instanceof ScopeRefusal && ($operation === 'copy' ? !$this->ignoresLocalization($value) : in_array($operation, ['delete', 'move', 'discard'], true))) {
             $refusal = $checker->translationsRefusal($scope, $operation, $table, $id, $workspace);
+        }
+
+        if (!$refusal instanceof ScopeRefusal && $operation === 'copy' && $table === 'pages' && !$this->ignoresLocalization($value)) {
+            $refusal = $checker->pageLanguagesRefusal($scope, $operation, $id, $workspace);
         }
 
         if ($refusal instanceof ScopeRefusal) {
@@ -305,6 +428,19 @@ final class AssignmentScopeHook
 
         // `copyTree` is a property of TYPO3 13 and gone in 14: read it by name.
         return $this->number($uc['copyLevels'] ?? 0) > 0 || $this->number(get_object_vars($dataHandler)['copyTree'] ?? 0) > 0;
+    }
+
+    /**
+     * Whether a copy leaves the translations behind: core reads
+     * `ignoreLocalization` from the target array of the command.
+     */
+    private function ignoresLocalization(mixed $value): bool
+    {
+        if (is_array($value) && ($value['action'] ?? null) === 'paste') {
+            $value = $value['target'] ?? null;
+        }
+
+        return is_array($value) && (bool) ($value['ignoreLocalization'] ?? false);
     }
 
     private function number(mixed $value): int

@@ -62,6 +62,8 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
 
     public const REASON_UNRESOLVABLE = 'scope_unresolvable';
 
+    public const REASON_LIVE = 'scope_needs_draft_workspace';
+
     private ToolEffectResolver $effects;
 
     public function __construct(
@@ -104,6 +106,14 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
             return ToolInvocationDecision::deny(self::REASON_REMOTE, $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeRemote));
         }
 
+        // A configuration that requires a scope also requires a draft workspace:
+        // a write outside the scope that no check recognised can be taken back
+        // from a workspace and from nowhere else.
+        $workspace = $context->execution->actor->workspaceId ?? 0;
+        if ($context->configuration->getRequireAssignmentScope() && !($workspace > 0 && $user instanceof BackendUserAuthentication && $user->workspace === $workspace)) {
+            return ToolInvocationDecision::deny(self::REASON_LIVE, $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeLive));
+        }
+
         $write = $tool instanceof ScopedWriteInterface ? $tool->scopedWrite($context->arguments) : null;
         if (!$write instanceof ScopedWrite) {
             return ToolInvocationDecision::deny(
@@ -112,8 +122,7 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
             );
         }
 
-        $workspace = $context->execution->actor->workspaceId ?? ($user instanceof BackendUserAuthentication ? max(0, $user->workspace) : 0);
-        $refusals  = $this->checker->refusalsFor($scope, $write, $workspace);
+        $refusals = $this->checker->refusalsFor($scope, $write, $workspace);
         if ($refusals === []) {
             return ToolInvocationDecision::allow();
         }

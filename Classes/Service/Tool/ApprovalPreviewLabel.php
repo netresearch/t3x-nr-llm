@@ -60,6 +60,7 @@ enum ApprovalPreviewLabel: string
     case RefusedScopeLanguage       = 'approvalPreview.scope.language';
     case RefusedScopeSubtree        = 'approvalPreview.scope.subtree';
     case RefusedScopeMissing        = 'approvalPreview.scope.missing';
+    case RefusedScopeLive           = 'approvalPreview.scope.live';
     case RefusedScopeRemote         = 'approvalPreview.scope.remote';
     case RefusedScopeUnresolvable   = 'approvalPreview.scope.unresolvable';
     case ContentType                = 'approvalPreview.contentType';

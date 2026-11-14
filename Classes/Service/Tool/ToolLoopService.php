@@ -86,6 +86,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeEffect;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
 use Netresearch\NrLlm\Service\Tool\Scope\EffectiveAssignmentScope;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -3115,9 +3116,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // The scope of the run's assignment, for the DataHandler layer
         // (ADR-295): armed beside the collector and taken on every way out.
-        $scope = EffectiveAssignmentScope::of($configuration, $context->actor);
+        $scope        = EffectiveAssignmentScope::of($configuration, $context->actor);
+        $scopeChecker = $this->scopeChecker ?? new AssignmentScopeChecker();
+        $workspace    = $context->actor->workspaceId ?? max(0, $context->actingBackendUser()->workspace ?? 0);
         if ($scope instanceof AssignmentScope) {
-            AssignmentScopeGuard::arm($scope, $this->scopeChecker);
+            AssignmentScopeGuard::arm($scope, $scopeChecker);
         }
 
         try {
@@ -3155,10 +3158,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // The result stays an error and carries no target (ADR-182); what
             // the call wrote before it failed is recorded beside it and named
             // to the model, which would otherwise retry a half-done write.
-            $refused = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
-            $changes = ChangeSets::withRefused(ToolChangeCollector::take(), $refused);
+            $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+            $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
+            $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
+            $undone     = $violations === [] ? ['discarded' => 0, 'kept' => 0] : AssignmentScopeEffect::undo($violations, $context->actingBackendUser());
             ToolChangeCollector::hold($changes);
-            $note = trim(ChangeSets::failureNote($changes) . ' ' . ($scope instanceof AssignmentScope ? ChangeSets::refusalNote($scope, $refused) : ''));
+            $note = $scope instanceof AssignmentScope
+                ? trim(ChangeSets::failureNote($changes) . ' ' . ChangeSets::refusalNote($scope, $refused) . ' ' . ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['kept']))
+                : ChangeSets::failureNote($changes);
 
             return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name) . ($note === '' ? '' : ' ' . $note));
         }
@@ -3166,15 +3173,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // A DataHandler run the scope refused part of reports nothing of that
         // to a tool that did not look: the call is an error whatever the tool
         // says, and the model reads which writes the scope stopped (ADR-295).
-        $refused = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+        $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+        $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
         if ($scope instanceof AssignmentScope && $refused !== []) {
             $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::refusalNote($scope, $refused)));
         }
 
         // A tool that returns an error after it wrote says so to the model as a
         // thrown one does: the retry of a half-done write is the same mistake.
-        $changes = ChangeSets::withRefused(ToolChangeCollector::take($result->writeTarget), $refused);
+        $changes = ChangeSets::withRefused(ToolChangeCollector::take($result->writeTarget), [...$refused, ...array_column($violations, 'refusal')]);
         ToolChangeCollector::hold($changes);
+
+        // What the call really wrote, read back from the database: a write that
+        // neither check before it recognised is found here, and in a draft
+        // workspace taken back (ADR-295).
+        if ($scope instanceof AssignmentScope && $violations !== []) {
+            $undone = AssignmentScopeEffect::undo($violations, $context->actingBackendUser());
+            $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['kept'])));
+        }
+
         $writtenBeforeFailure = $result->isError ? ChangeSets::failureNote($changes) : '';
 
         // Transform, never rebuild (ADR-182). A ToolResult reconstructed from a
