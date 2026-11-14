@@ -139,7 +139,7 @@ final class AssignmentScopeHook
                 return $refusal;
             }
 
-            if ($host !== null && $this->pointsAtAHost($table, $fields)) {
+            if ($host instanceof RecordReference && $this->pointsAtAHost($table, $fields)) {
                 $refusal = $checker->recordRefusal($scope, 'attach', $host->table, $host->uid, $workspace);
                 if ($refusal instanceof ScopeRefusal) {
                     return $refusal;
@@ -358,7 +358,7 @@ final class AssignmentScopeHook
                     }
                 }
 
-                $refusal = $checker->recordRefusal($scope, 'update', $from, (int) $uid, $workspace);
+                $refusal = $checker->recordRefusal($scope, 'update', $from, $uid, $workspace);
                 if ($refusal instanceof ScopeRefusal) {
                     return $refusal;
                 }
@@ -492,7 +492,7 @@ final class AssignmentScopeHook
             return $after ? $checker->pidOfRecord($table, $this->number($real), $workspace) : $this->number($real);
         }
 
-        if (!is_int($value) && !(is_string($value) && MathUtility::canBeInterpretedAsInteger($value))) {
+        if (!is_int($value) && (!is_string($value) || !MathUtility::canBeInterpretedAsInteger($value))) {
             return null;
         }
 

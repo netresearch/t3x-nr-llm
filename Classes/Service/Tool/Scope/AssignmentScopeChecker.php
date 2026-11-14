@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Service\Tool\Scope;
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Decides whether a record, a destination or a page subtree is inside the
@@ -42,7 +44,7 @@ final readonly class AssignmentScopeChecker
 
     public function __construct(?RecordTopologyInterface $topology = null)
     {
-        $this->topology = $topology ?? new DatabaseRecordTopology();
+        $this->topology = $topology ?? new DatabaseRecordTopology(GeneralUtility::makeInstance(ConnectionPool::class));
     }
 
     /**

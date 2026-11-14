@@ -86,7 +86,7 @@ final readonly class ScopedWrite
      */
     public static function anchor(string $table, mixed $value): ?array
     {
-        if ($value === null || $value === '' || $value === 0 || $value === '0') {
+        if (in_array($value, [null, '', 0, '0'], true)) {
             return [];
         }
 

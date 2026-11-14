@@ -27,7 +27,7 @@ final class EffectiveAssignmentScopeTest extends TestCase
 
         self::assertSame(5, EffectiveAssignmentScope::workspaceOf(AiActorContext::backendUser(1, false, [], [], 5), $user));
         self::assertSame(0, EffectiveAssignmentScope::workspaceOf(AiActorContext::backendUser(1, false, [], [], 0), $user), 'a run that recorded live is live');
-        self::assertSame(3, EffectiveAssignmentScope::workspaceOf(AiActorContext::backendUser(1), $user), 'a run that recorded none takes its user\'s');
+        self::assertSame(3, EffectiveAssignmentScope::workspaceOf(AiActorContext::backendUser(1), $user), "a run that recorded none takes its user's");
         self::assertSame(0, EffectiveAssignmentScope::workspaceOf(AiActorContext::backendUser(1), null));
     }
 }

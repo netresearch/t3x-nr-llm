@@ -56,7 +56,7 @@ final class AssignmentScopeCheckerTest extends TestCase
     {
         $refusal = $this->checker()->recordRefusal(AssignmentScope::forPage(2, 1), 'update', $table, $uid, 0);
 
-        self::assertSame($allowed, $refusal === null, (string) $refusal?->reason);
+        self::assertSame($allowed, !$refusal instanceof ScopeRefusal, (string) $refusal?->reason);
     }
 
     #[Test]
@@ -87,7 +87,7 @@ final class AssignmentScopeCheckerTest extends TestCase
     {
         $refusal = $this->checker()->destinationRefusal(AssignmentScope::forPage(2, 1), 'create', $table, $pid, 0);
 
-        self::assertSame($allowed, $refusal === null);
+        self::assertSame($allowed, !$refusal instanceof ScopeRefusal);
         if (!$allowed) {
             self::assertSame(ScopeRefusal::OUTSIDE_SCOPE, $refusal?->reason);
             self::assertSame(0, $refusal->uid);
@@ -284,7 +284,7 @@ final class AssignmentScopeCheckerTest extends TestCase
         self::assertSame([0, 0], array_map(static fn (ScopedPage $page): int => $page->depth, $capped->pages));
         self::assertNotNull($this->checker()->recordRefusal($capped, 'update', 'tt_content', 22, 0), 'one level below is out under the cap');
         self::assertNull($this->checker()->recordRefusal($scope, 'update', 'tt_content', 22, 0));
-        self::assertSame([5, 1], array_map(static fn (ScopedPage $page): int => $page->depth, $scope->pages), 'the cap makes a new scope and leaves the run\'s own as it was');
+        self::assertSame([5, 1], array_map(static fn (ScopedPage $page): int => $page->depth, $scope->pages), "the cap makes a new scope and leaves the run's own as it was");
     }
 
     private function checker(): AssignmentScopeChecker

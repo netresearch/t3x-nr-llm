@@ -13,7 +13,6 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * The topology read from the database (ADR-295).
@@ -25,8 +24,10 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * @internal
  */
-final class DatabaseRecordTopology implements RecordTopologyInterface
+final readonly class DatabaseRecordTopology implements RecordTopologyInterface
 {
+    public function __construct(private ConnectionPool $connectionPool) {}
+
     public function row(string $table, int $uid, int $workspace): ?RecordFacts
     {
         $allTca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
@@ -35,7 +36,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             return null;
         }
 
-        $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $query = $this->connectionPool->getQueryBuilderForTable($table);
         $query->getRestrictions()->removeAll();
         $row = $query->select('*')->from($table)->where($query->expr()->eq('uid', $query->createNamedParameter($uid, Connection::PARAM_INT)))->executeQuery()->fetchAssociative();
         if (!is_array($row)) {
@@ -46,7 +47,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
         // version's own uid, and the overlay below only maps a live one.
         $liveUid = $this->int($row['t3ver_oid'] ?? 0);
         if ($liveUid > 0 && $liveUid !== $uid) {
-            $live = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+            $live = $this->connectionPool->getQueryBuilderForTable($table);
             $live->getRestrictions()->removeAll();
             $liveRow = $live->select('*')->from($table)->where($live->expr()->eq('uid', $live->createNamedParameter($liveUid, Connection::PARAM_INT)))->executeQuery()->fetchAssociative();
             if (is_array($liveRow)) {
@@ -87,7 +88,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             // Every table that has a language, translations of free mode (no
             // translation parent) included; for the pages themselves the overlays.
             $where = $table === 'pages' ? 'l10n_parent' : 'pid';
-            $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+            $query = $this->connectionPool->getQueryBuilderForTable($table);
             $query->getRestrictions()->removeAll();
             $query->select($field)->from($table)->where($query->expr()->eq($where, $query->createNamedParameter($pageUid, Connection::PARAM_INT)));
             if (($ctrl['versioningWS'] ?? false) === true) {
@@ -108,7 +109,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             return null;
         }
 
-        $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $query = $this->connectionPool->getQueryBuilderForTable($table);
         $query->getRestrictions()->removeAll();
         $value = $query->select($field)->from($table)->where($query->expr()->eq('uid', $query->createNamedParameter($uid, Connection::PARAM_INT)))->executeQuery()->fetchOne();
 
@@ -126,7 +127,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             return [];
         }
 
-        $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $query = $this->connectionPool->getQueryBuilderForTable($table);
         $query->getRestrictions()->removeAll();
         $rows = $query
             ->select($field)
@@ -135,7 +136,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             ->executeQuery()
             ->fetchFirstColumn();
 
-        return array_values(array_unique(array_map(fn (mixed $language): int => $this->int($language), $rows)));
+        return array_values(array_unique(array_map($this->int(...), $rows)));
     }
 
     public function descendantPages(int $pageUid, int $workspace, int $limit): ?array
@@ -143,7 +144,7 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
         $found    = [];
         $frontier = [$pageUid];
         while ($frontier !== []) {
-            $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('pages');
+            $query = $this->connectionPool->getQueryBuilderForTable('pages');
             $query->getRestrictions()->removeAll();
             $rows = $query
                 ->select('uid', 'l10n_parent')

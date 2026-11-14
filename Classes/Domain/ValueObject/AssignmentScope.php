@@ -89,8 +89,8 @@ final readonly class AssignmentScope
 
         $this->pages     = array_map(static fn (int $uid, int $depth): ScopedPage => new ScopedPage($uid, $depth), array_keys($widest), array_values($widest));
         $this->records   = array_values($unique);
-        $this->tables    = $tables === null ? null : self::tables($tables);
-        $this->languages = $languages === null ? null : self::languages($languages);
+        $this->tables    = $tables === null ? null : $this->tables($tables);
+        $this->languages = $languages === null ? null : $this->languages($languages);
     }
 
     /**
@@ -247,7 +247,7 @@ final readonly class AssignmentScope
      *
      * @return list<string>
      */
-    private static function tables(array $tables): array
+    private function tables(array $tables): array
     {
         $names = [];
         foreach ($tables as $table) {
@@ -274,7 +274,7 @@ final readonly class AssignmentScope
      *
      * @return list<int>
      */
-    private static function languages(array $languages): array
+    private function languages(array $languages): array
     {
         $ids = [];
         foreach ($languages as $language) {

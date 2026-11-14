@@ -520,17 +520,15 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function aPageCopyIsJudgedOnTheSubtreeOnlyWhenItTakesSubpagesAlong(): void
     {
-        $copy = function (int $levels): array {
-            return $this->call(
-                $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-                function (ToolExecutionContext $context) use ($levels): void {
-                    $user = $context->actingBackendUser();
-                    self::assertInstanceOf(BackendUserAuthentication::class, $user);
-                    $user->uc['copyLevels'] = $levels;
-                    $this->command(['pages' => [self::BELOW => ['copy' => self::SCOPED]]], $context);
-                },
-            );
-        };
+        $copy = (fn (int $levels): array => $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use ($levels): void {
+                $user = $context->actingBackendUser();
+                self::assertInstanceOf(BackendUserAuthentication::class, $user);
+                $user->uc['copyLevels'] = $levels;
+                $this->command(['pages' => [self::BELOW => ['copy' => self::SCOPED]]], $context);
+            },
+        ));
 
         $page = $copy(0);
         self::assertSame([], $this->refusals($page['trace']));
@@ -995,7 +993,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         );
 
         self::assertNotSame([], $this->refusals($outcome['trace']));
-        self::assertSame($before, $this->fingerprint(), 'the editor\'s version is as the editor left it');
+        self::assertSame($before, $this->fingerprint(), "the editor's version is as the editor left it");
         self::assertSame('Editor draft', $this->scalar('SELECT header FROM tt_content WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::OUTSIDE_ELEMENT, self::DRAFT]));
     }
 
@@ -1179,7 +1177,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            static function (): void {
+            static function (): never {
                 throw new RuntimeException('boom', 1799990300);
             },
         );
@@ -1194,7 +1192,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Refused', $context);
 
                 throw new RuntimeException('boom after the refusal', 1799990301);
@@ -1310,7 +1308,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Written before the failure', $context);
 
                 throw new RuntimeException('boom', 1799990310);
@@ -1330,7 +1328,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
 
                 throw new RuntimeException('boom', 1799990311);
@@ -1347,7 +1345,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Before the hand-over', $context);
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
@@ -1372,7 +1370,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
@@ -1393,7 +1391,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
@@ -1477,7 +1475,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         try {
             $this->call(
                 $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-                function (ToolExecutionContext $context): void {
+                function (ToolExecutionContext $context): never {
                     $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Not judged', $context);
 
                     throw new RuntimeException('boom', 1799990321);
@@ -1601,7 +1599,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
             function (ToolExecutionContext $context): void {
                 $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Committed, flush fails', $context);
-                AssignmentScopeTransaction::defer(static function (): void {
+                AssignmentScopeTransaction::defer(static function (): never {
                     throw new RuntimeException('the cache is gone', 1799990330);
                 });
             },
@@ -1619,7 +1617,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Saved before the hand-over', $context);
                 $this->commitBehindTheBack();
 
@@ -1641,7 +1639,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
                 $this->commitBehindTheBack();
 
@@ -1663,7 +1661,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
+            function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
                 $this->commitBehindTheBack();
 
@@ -1924,6 +1922,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $cacheManager = $this->databaseCacheManager();
         $cache        = $cacheManager->getCache('pages');
         $cache->set('nrllm_scope_probe', 'cached', ['nrllm_scope_probe']);
+
         $before = $this->fingerprint();
 
         $outcome = $this->call(
@@ -1968,6 +1967,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         $manager = new CacheManager();
         $manager->setCacheConfigurations(['pages' => ['frontend' => VariableFrontend::class, 'backend' => Typo3DatabaseBackend::class, 'options' => [], 'groups' => $groups]]);
+
         $cache = $manager->getCache('pages');
         self::assertInstanceOf(Typo3DatabaseBackend::class, $cache->getBackend());
 
@@ -2152,8 +2152,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             $this->loggerOverride ?? new NullLogger(),
             previewTranslator: new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
             invocationPolicy: new ToolInvocationPolicy([new RequireAssignmentScopeRule($registry, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]),
-            scopeChecker: $this->checkerOverride,
             writeEnvironment: $this->writeEnvironmentOverride,
+            scopeChecker: $this->checkerOverride,
         );
     }
 

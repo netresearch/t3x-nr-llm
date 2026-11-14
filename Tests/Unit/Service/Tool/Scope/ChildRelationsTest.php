@@ -49,7 +49,7 @@ final class ChildRelationsTest extends TestCase
         self::assertSame(['field' => 'parent_uid', 'tableField' => 'parent_table', 'parents' => ['parent_a', 'parent_b']], ChildRelations::of('child_one'));
         self::assertSame(['field' => 'owner', 'tableField' => null, 'parents' => ['parent_b']], ChildRelations::of('child_two'));
         self::assertSame(['field' => 'uid_foreign', 'tableField' => 'tablenames', 'parents' => ['parent_b']], ChildRelations::of('sys_file_reference'));
-        self::assertNull(ChildRelations::of('parent_a'), 'a table that is nobody\'s child');
+        self::assertNull(ChildRelations::of('parent_a'), "a table that is nobody's child");
         self::assertNull(ChildRelations::of('no_such_table'));
     }
 

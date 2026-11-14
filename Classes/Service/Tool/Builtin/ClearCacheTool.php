@@ -125,8 +125,12 @@ final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterfac
         // it waits for the commit and is dropped when the call is rolled back.
         $group = $plan['group'];
         $flush = in_array($group, [self::FULL_FLUSH, self::PAGE_GROUP], true)
-            ? fn () => $this->dataHandlerFor($user)->clear_cacheCmd($group)
-            : fn () => $this->cacheManager->flushCachesInGroup($group);
+            ? function () use ($user, $group): void {
+                $this->dataHandlerFor($user)->clear_cacheCmd($group);
+            }
+        : function () use ($group): void {
+            $this->cacheManager->flushCachesInGroup($group);
+        };
         if (!AssignmentScopeTransaction::defer($flush)) {
             $flush();
         }
