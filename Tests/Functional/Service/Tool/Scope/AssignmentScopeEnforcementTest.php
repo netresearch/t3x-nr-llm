@@ -1413,7 +1413,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
      */
     private function commitBehindTheBack(): void
     {
-        $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME)->executeStatement('COMMIT');
+        $connection = $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME);
+        $connection->executeStatement('COMMIT');
+        // PDO before PHP 8.4 keeps its own flag for an open transaction and cannot
+        // roll back once the database has none; a transaction opened by hand keeps
+        // the flag true, as on the databases that end one on their own.
+        $connection->executeStatement('BEGIN');
     }
 
     #[Test]
