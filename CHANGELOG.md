@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.46.1] - 2026-11-14
+
+### Fixed
+
+- The "Technical backend user" select of an A2A client record no longer fails on MySQL and MariaDB: the `ORDER BY` of its `foreign_table_where` no longer quotes identifiers with `{#...}`, which TYPO3 does not split off there and which ended up inside the `WHERE` clause. Present since 0.45.0.
+
 ## [0.46.0] - 2026-11-13
 
 ### Upgrading from 0.45
@@ -5322,7 +5328,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.1...HEAD
+[0.46.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.44.0...v0.45.0
 [0.42.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.41.18...v0.42.0

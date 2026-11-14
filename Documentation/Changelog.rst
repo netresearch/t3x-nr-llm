@@ -27,28 +27,13 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-46-0:
+.. _version-0-46-1:
 
-Version 0.46.0 (2026-11-13)
+Version 0.46.1 (2026-11-14)
 ===========================
 
-An administrator can generate, rotate and revoke the A2A token of a client
-record in the new backend module "A2A tokens", and an editor whose backend
-group holds the new permission can issue tokens that act as their own account.
-Run the TYPO3 database schema update after updating.
-
-- **A2A tokens from the backend (ADR-294):** the module lists every client
-  record with owner, expiry and the time of the last task. The token is shown
-  once; every issuing, rotation and revocation is logged with the actor and the
-  record, never the token. ``nrllm:a2a:client:token`` stays.
-- **Editor self-service:** the permission ``a2a_token_self_service`` ("Issue A2A
-  tokens for my own account") is held by no group after installation. An editor
-  with it sees and revokes only their own tokens, at most ten active ones. Four
-  fields on the backend group set the limits: draft workspace only unless the
-  group allows live, expiry within 90 days by default, and only the A2A profiles
-  the group lists. The limits are checked when the token is created and again on
-  every request and every start or resume of a run. A token bypasses MFA and
-  passkey login.
-- **Schema:** ``tx_nrllm_a2a_client`` gains ``self_service`` and ``be_groups``
-  gains four columns.
-
+Fixes the "Technical backend user" select of the A2A client record form on
+MySQL and MariaDB. Since 0.45.0 the form showed a database error and listed no
+users there, so an administrator could not create a client in the record form.
+No database schema or extension setting change. Details in the repository
+:file:`CHANGELOG.md`.

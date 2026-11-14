@@ -1,1 +1,0 @@
-- The "Technical backend user" select of an A2A client record no longer fails on MySQL and MariaDB: the `ORDER BY` of its `foreign_table_where` no longer quotes identifiers with `{#...}`, which TYPO3 does not split off there and which ended up inside the `WHERE` clause. Present since 0.45.0.
