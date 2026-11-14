@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-14
+
+### Upgrading from 0.46
+
+- Run the TYPO3 database schema update: `tx_nrllm_configuration` gains `require_assignment_scope` and `assignment_scope_max_depth`. Both are off by default and change nothing for an existing configuration, so no other step is needed.
+
+### Added
+
+- A run can be bound to the scope of its assignment, and every write is checked against it (ADR-295, `Documentation/Administration/AssignmentScope.rst`). `AssignmentScope` names page subtrees (a page and a depth), single records, and optionally the tables and languages the run may write. A starter sets it on the acting identity with `AiActorContext::withAssignmentScope()`; it is stored with the run like the workspace, so a queued, suspended or resumed run keeps it, and nothing the assistant sends can widen it. Two new configuration settings, both off by default and changing nothing for an existing record: `require_assignment_scope` refuses every write of a run that has no scope, and `assignment_scope_max_depth` caps how far below a scoped page a run may write. The scope is checked three times. `RequireAssignmentScopeRule` reads what a write tool says it will touch (the new `ScopedWriteInterface`, implemented by all built-in write tools) before the approval card, a DataHandler hook refuses, while a call runs, a write outside the scope, including those of a hook of the installation, the child records of an inline relation and the subpages a page delete takes along, and after the call the loop reads back what the DataHandler wrote and rolls the call back, in one database transaction, when something lies outside the scope. Inline children inside a flex form field are not inspected by the hook, a write that bypasses the DataHandler is not checked after the call, and a rollback does not take back files or what a hook calls out to (see the known limits in ADR-295). A refused write is an error result that names what was refused, and the `tool_changes` step of the run carries a `refused` list. A tool that changes things outside TYPO3 (MCP, remote agents) and a write tool that states no targets are refused while a scope applies. `AiActorContext::backendUser()` gains an optional trailing parameter, `ToolInvocationDecision` an optional `refusals`, `ObservedChangeSet` an optional `refused`.
+
 ## [0.46.1] - 2026-11-14
 
 ### Fixed
@@ -5328,7 +5338,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.47.0...HEAD
+[0.47.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.44.0...v0.45.0

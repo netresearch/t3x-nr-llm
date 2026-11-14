@@ -11,6 +11,16 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-46-1:
+
+Version 0.46.1 (2026-11-14)
+===========================
+
+Fixes the "Technical backend user" select of the A2A client record form on
+MySQL and MariaDB. Since 0.45.0 the form showed a database error and listed no
+users there, so an administrator could not create a client in the record form.
+No database schema or extension setting change.
+
 .. _version-0-46-0:
 
 Version 0.46.0 (2026-11-13)
