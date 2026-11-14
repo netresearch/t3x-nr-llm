@@ -35,6 +35,14 @@ final class AssignmentScopeGuard
         self::$frames[] = ['scope' => $scope, 'checker' => $checker ?? new AssignmentScopeChecker(), 'refusals' => []];
     }
 
+    /**
+     * How many calls have armed the guard and not taken it yet.
+     */
+    public static function depth(): int
+    {
+        return count(self::$frames);
+    }
+
     public static function isArmed(): bool
     {
         return self::$frames !== [];

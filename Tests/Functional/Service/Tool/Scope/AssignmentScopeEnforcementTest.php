@@ -66,6 +66,7 @@ use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingLogger;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeDependencyTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -74,11 +75,13 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use ReflectionProperty;
 use RuntimeException;
 use Stringable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -1247,6 +1250,17 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
     // --- the transaction of a call ---------------------------------------------
 
+    /**
+     * What a call leaves behind in static state: nothing. A guard left armed
+     * would hold the next, unrelated write of the process to this call's scope.
+     */
+    private function assertNothingLeftArmed(): void
+    {
+        self::assertFalse(AssignmentScopeGuard::isArmed(), 'the scope guard is disarmed');
+        self::assertFalse(ToolChangeCollector::isArmed(), 'the change collector is disarmed');
+        self::assertFalse(AssignmentScopeTransaction::defer(static function (): void {}), 'no call is open');
+    }
+
     private function transactionIsOpen(): bool
     {
         return $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME)->isTransactionActive();
@@ -1274,6 +1288,9 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function aRolledBackCallLeavesNoTransactionOpen(): void
     {
+        // Only the effect check can refuse this write, so the call is really rolled back.
+        $this->unregisterTheDataHandlerLayer();
+
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
             function (ToolExecutionContext $context): void {
@@ -1282,7 +1299,10 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         );
 
         self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT), 'the write is gone, not committed');
         self::assertFalse($this->transactionIsOpen());
+        $this->assertNothingLeftArmed();
     }
 
     #[Test]
@@ -1299,6 +1319,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertStringStartsWith('Error: tool "scoped_probe" failed.', $outcome['toolResult']);
         self::assertFalse($this->transactionIsOpen());
+        $this->assertNothingLeftArmed();
         self::assertSame('Written before the failure', $this->header(self::IN_SCOPE_ELEMENT), 'what a failed call wrote in scope stands, as before');
     }
 
@@ -1336,6 +1357,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertTrue($outcome['suspendedForDependency'], 'a clean call is handed over');
         self::assertFalse($this->transactionIsOpen());
+        $this->assertNothingLeftArmed();
         self::assertSame('Before the hand-over', $this->header(self::IN_SCOPE_ELEMENT), 'and what it wrote is committed');
     }
 
@@ -1363,6 +1385,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertNotSame([], $this->refusals($outcome['trace']));
         self::assertFalse($this->transactionIsOpen());
+        $this->assertNothingLeftArmed();
     }
 
     #[Test]
@@ -1467,6 +1490,17 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertFalse($this->transactionIsOpen(), 'the transaction was ended');
         self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'what nothing judged is taken back');
+        $this->assertNothingLeftArmed();
+
+        // A later, unrelated write of the same process is not judged by the scope
+        // of the call that threw.
+        $this->loggerOverride = null;
+        $user                 = $GLOBALS['BE_USER'];
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['tt_content' => [self::OUTSIDE_ELEMENT => ['header' => 'Unrelated write']]], [], $user);
+        $dataHandler->process_datamap();
+        self::assertSame('Unrelated write', $this->header(self::OUTSIDE_ELEMENT), 'no stale scope refused it');
     }
 
     /**
@@ -1528,6 +1562,218 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(['outer', 'inner kept'], $order, 'in the order they were asked for, none of a rolled-back call');
         self::assertFalse($this->transactionIsOpen());
         self::assertFalse(AssignmentScopeTransaction::defer(static function (): void {}), 'no call is open any more');
+    }
+
+    private function recordingLogger(): RecordingLogger
+    {
+        return new RecordingLogger();
+    }
+
+    /**
+     * A call that went well is ended once. A transaction ended twice makes the
+     * second end fail, which the loop reports at error level.
+     */
+    #[Test]
+    public function aCallThatWentWellReportsNothingToTheLog(): void
+    {
+        $logger               = $this->recordingLogger();
+        $this->loggerOverride = $logger;
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Quietly committed', $context);
+            },
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame([], $logger->records, 'neither an error nor a warning');
+        self::assertSame('Quietly committed', $this->header(self::IN_SCOPE_ELEMENT));
+    }
+
+    #[Test]
+    public function aFlushThatFailsAfterTheCommitDoesNotUndoOrFailTheCall(): void
+    {
+        $logger               = $this->recordingLogger();
+        $this->loggerOverride = $logger;
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Committed, flush fails', $context);
+                AssignmentScopeTransaction::defer(static function (): void {
+                    throw new RuntimeException('the cache is gone', 1799990330);
+                });
+            },
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame('Committed, flush fails', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertSame(['warning: A cache flush a scoped tool call asked for failed.'], $logger->records);
+        $this->assertNothingLeftArmed();
+    }
+
+    #[Test]
+    public function aPendingCallWhoseCommitCannotBeConfirmedIsNotSuspended(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Saved before the hand-over', $context);
+                $this->commitBehindTheBack();
+
+                throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
+            },
+            dependencyTool: true,
+        );
+
+        self::assertFalse($outcome['suspendedForDependency'], 'the run is not suspended on changes that may not be saved');
+        self::assertStringContainsString('NOT committed as such', $outcome['toolResult']);
+        self::assertFalse($this->transactionIsOpen());
+        $this->assertNothingLeftArmed();
+    }
+
+    #[Test]
+    public function aPendingCallThatCannotBeRolledBackIsNotReportedAsRolledBack(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                $this->commitBehindTheBack();
+
+                throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
+            },
+            dependencyTool: true,
+        );
+
+        self::assertStringContainsString('were NOT rolled back', $outcome['toolResult']);
+        self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT));
+        $this->assertNothingLeftArmed();
+    }
+
+    #[Test]
+    public function aThrowingCallThatCannotBeRolledBackIsNotReportedAsRolledBack(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                $this->commitBehindTheBack();
+
+                throw new RuntimeException('boom', 1799990331);
+            },
+        );
+
+        self::assertStringContainsString('were NOT rolled back', $outcome['toolResult']);
+        self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT));
+        $this->assertNothingLeftArmed();
+    }
+
+    // --- the DataHandler's own cache clearing waits for the commit --------------
+
+    /**
+     * The page of the scope gets the clear-cache command, and the page cache of
+     * the installation (a null backend in the tests) is swapped for one in a
+     * database table, so that a flush is a TRUNCATE where the database commits on
+     * it. The swap is undone by {@see self::restorePageCache()}.
+     *
+     * @return array{FrontendInterface, FrontendInterface|null} the database cache and the one it replaced
+     */
+    private function givePageTheClearCacheCommand(): array
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEMAIN.clearCacheCmd = pages'], ['uid' => self::SCOPED]);
+
+        $manager = $this->getContainer()->get(CacheManager::class);
+        self::assertInstanceOf(CacheManager::class, $manager);
+        $database = $this->databaseCacheManager(['pages'])->getCache('pages');
+        $property = new ReflectionProperty(CacheManager::class, 'caches');
+        $manager->getCache('pages');
+        $caches = $property->getValue($manager);
+        self::assertIsArray($caches);
+        $replaced        = $caches['pages'];
+        $caches['pages'] = $database;
+        $property->setValue($manager, $caches);
+
+        return [$database, $replaced instanceof FrontendInterface ? $replaced : null];
+    }
+
+    private function restorePageCache(?FrontendInterface $original): void
+    {
+        $manager  = $this->getContainer()->get(CacheManager::class);
+        $property = new ReflectionProperty(CacheManager::class, 'caches');
+        $caches   = $property->getValue($manager);
+        if (is_array($caches) && $original instanceof FrontendInterface) {
+            $caches['pages'] = $original;
+            $property->setValue($manager, $caches);
+        }
+    }
+
+    /**
+     * With `TCEMAIN.clearCacheCmd = pages` on the scoped page, core's DataHandler
+     * flushes the page cache group after every write: a truncate, which MySQL and
+     * MariaDB commit on their own. It waits for the call's commit instead, so the
+     * call commits and is reported as a success, and the flush then happens.
+     */
+    #[Test]
+    public function aClearCacheCommandOfThePageRunsAfterTheCommitOfAnInScopeCall(): void
+    {
+        [$cache, $original] = $this->givePageTheClearCacheCommand();
+        $cache->set('nrllm_scope_probe', 'cached', ['nrllm_scope_probe']);
+        $logger               = $this->recordingLogger();
+        $this->loggerOverride = $logger;
+
+        try {
+            $outcome = $this->call(
+                $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+                function (ToolExecutionContext $context) use ($cache): void {
+                    $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Page flush after commit', $context);
+                    self::assertSame('cached', $cache->get('nrllm_scope_probe'), 'not flushed while the call is open');
+                },
+            );
+        } finally {
+            $this->restorePageCache($original);
+        }
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('ok', $outcome['toolResult'], 'reported as a success');
+        self::assertSame([], $logger->records);
+        self::assertSame('Page flush after commit', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertFalse($cache->has('nrllm_scope_probe'), 'the page cache was flushed, after the commit');
+        self::assertFalse($this->transactionIsOpen());
+    }
+
+    #[Test]
+    public function aClearCacheCommandOfThePageIsDroppedWhenTheCallIsRolledBack(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        [$cache, $original] = $this->givePageTheClearCacheCommand();
+        $cache->set('nrllm_scope_probe', 'cached', ['nrllm_scope_probe']);
+        $before = $this->fingerprint();
+
+        try {
+            $outcome = $this->call(
+                $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+                function (ToolExecutionContext $context): void {
+                    $this->updateHeader(self::IN_SCOPE_ELEMENT, 'In scope', $context);
+                    $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                },
+            );
+        } finally {
+            $this->restorePageCache($original);
+        }
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the database is as before');
+        self::assertSame('cached', $cache->get('nrllm_scope_probe'), 'a rolled-back call flushed nothing');
+        self::assertFalse($this->transactionIsOpen());
     }
 
     /**
@@ -1698,8 +1944,10 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
      * The test installation keeps its caches in a null backend, which flushes
      * nothing. This manager holds one cache in a database table, in the group the
      * tool flushes, so a flush is a TRUNCATE on MySQL and MariaDB.
+     *
+     * @param list<string> $groups
      */
-    private function databaseCacheManager(): CacheManager
+    private function databaseCacheManager(array $groups = ['system']): CacheManager
     {
         $schema = $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME)->createSchemaManager();
         if (!$schema->tablesExist(['cache_pages'])) {
@@ -1719,7 +1967,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         }
 
         $manager = new CacheManager();
-        $manager->setCacheConfigurations(['pages' => ['frontend' => VariableFrontend::class, 'backend' => Typo3DatabaseBackend::class, 'options' => [], 'groups' => ['system']]]);
+        $manager->setCacheConfigurations(['pages' => ['frontend' => VariableFrontend::class, 'backend' => Typo3DatabaseBackend::class, 'options' => [], 'groups' => $groups]]);
         $cache = $manager->getCache('pages');
         self::assertInstanceOf(Typo3DatabaseBackend::class, $cache->getBackend());
 

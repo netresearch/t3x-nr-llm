@@ -208,8 +208,20 @@ database tables, which MySQL and MariaDB commit on their own: inside the
 call's transaction it would end the transaction behind DBAL's back, and a later
 ``ROLLBACK`` would succeed without undoing anything. The built-in clear-cache
 tool therefore hands its group flush to ``AssignmentScopeTransaction::defer()``:
-the loop runs it after the commit and drops it when the call is rolled back. A
-flush by tag deletes rows and runs in place. Every call also takes a savepoint at
+the loop runs it after the commit and drops it when the call is rolled back. So
+does the DataHandler a tool starts (``ToolDataHandler::clear_cacheCmd()``), which
+matters because core flushes a group by itself: the page TSconfig option
+``TCEMAIN.clearCacheCmd`` (``pages``, ``all``) makes the outermost DataHandler
+run ``clear_cacheCmd()`` at the end of ``process_datamap()`` and
+``process_cmdmap()`` through ``processClearCacheQueue()`` (TYPO3 14.3.11
+``DataHandler.php`` lines 1025-1027, 3449-3451, 9067-9095, 9241-9244 and
+9288-9312; 13.4.39 lines 1002-1004, 3454-3456, 8894, 9068-9070 and 9115-9132).
+Only the outermost instance runs it (``isOuterMostInstance()``, 14.3.11 line
+9663, 13.4.39 line 9499), and in a tool that is the tool's own ``ToolDataHandler``.
+A flush by tag (``flushCachesInGroupByTags()``) deletes rows and runs in place.
+A DataHandler that is not ours and is the outermost one of its run (a
+third-party tool that does not use ``ToolDataHandler``) is not covered by the
+deferral, only by the guard below. Every call also takes a savepoint at
 the start, even the outermost one, because ``ROLLBACK TO SAVEPOINT`` fails
 (MariaDB error 1305) when an implicit commit has taken the savepoint with it;
 that failure is how a rollback that did not happen is seen. The loop then reports
@@ -248,6 +260,19 @@ checks let through:
   foreign transaction, they run at its savepoint release, not at the foreign
   commit, and on MySQL and MariaDB the ``TRUNCATE`` of a group flush then ends
   the foreign transaction early.
+- A guard or collector frame is taken on every way out of the call, so no scope
+  stays armed in a long-lived worker. A dependency-pending exception from a call
+  that wrote outside its scope is not honoured: the call is rolled back and the
+  error returned instead of suspending the run.
+- A non-dependency tool that throws the dependency-pending exception has its
+  in-scope writes committed, and the model reads only "failed" without the list
+  of what stands. No realistic tool does this.
+- After an implicit commit, a rollback that fails also drops the flushes the call
+  asked for, so the cache stays stale until the next flush.
+- A hook failure of the call (``withHookFailedAfterWrite``) can be reported next
+  to "all changes rolled back".
+- A move pointer written in another workspace than the run's is judged by its live
+  position, because the topology overlays rows only for the run's workspace.
 - A failed final commit or savepoint release is reported as an error ("NOT
   committed as such"), because whether the changes were saved is then unknown;
   after an implicit commit they are saved. A savepoint release that fails after a

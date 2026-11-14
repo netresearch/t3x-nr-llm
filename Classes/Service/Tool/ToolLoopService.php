@@ -3166,6 +3166,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             }
         }
 
+        $collectorDepth = ToolChangeCollector::depth();
+        $guardDepth     = AssignmentScopeGuard::depth();
         try {
             // The records the call's DataHandler runs write (ADR-292), taken on
             // every way out of the call: a call that throws after it wrote is the
@@ -3208,7 +3210,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // are its changes.
                 ToolChangeCollector::take();
 
-                $this->endTransaction($transaction, false, $context->actingBackendUser());
+                if (!$this->endTransaction($transaction, false, $context->actingBackendUser())) {
+                    // As on the normal way out: the run is not suspended on a call
+                    // whose changes may not have been saved.
+                    return ToolResult::error(sprintf('Error: tool "%s" ended with its changes NOT committed as such: the transaction of the call could not be ended as expected, so whether they were saved is unknown. Check the records before retrying.', $call->name));
+                }
 
                 // Control flow (ADR-281), not a failure of the tool: the caller
                 // suspends the run. Only a dependency tool may raise it.
@@ -3317,6 +3323,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // Whatever escaped above, the transaction does not stay open: what
             // the call wrote is taken back, as nothing has judged it.
             $this->endTransaction($transaction, true, $context->actingBackendUser());
+
+            // Nothing stays armed past this call, whichever way it ended: a guard
+            // left behind would hold the next, unrelated DataHandler write of this
+            // process to this call's scope.
+            while (ToolChangeCollector::depth() > $collectorDepth) {
+                ToolChangeCollector::take();
+            }
+
+            while (AssignmentScopeGuard::depth() > $guardDepth) {
+                AssignmentScopeGuard::take();
+            }
         }
     }
 

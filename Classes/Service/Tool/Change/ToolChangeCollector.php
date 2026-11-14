@@ -63,6 +63,14 @@ final class ToolChangeCollector
         self::$frames[] = ['records' => [], 'scopes' => [], 'watermark' => null, 'marked' => false];
     }
 
+    /**
+     * How many calls have armed the collector and not taken it yet.
+     */
+    public static function depth(): int
+    {
+        return count(self::$frames);
+    }
+
     public static function isArmed(): bool
     {
         return self::$frames !== [];
