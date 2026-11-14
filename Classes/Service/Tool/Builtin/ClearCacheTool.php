@@ -17,6 +17,9 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -48,7 +51,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * empties by name, from the configuration — never entry counts or times,
  * which change between the pause and the resume (ADR-184).
  */
-final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ToolDataClassInterface
+final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, ToolDataClassInterface
 {
     use SafeCastTrait;
 
@@ -117,10 +120,19 @@ final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterfac
             ));
         }
 
-        if (in_array($plan['group'], [self::FULL_FLUSH, self::PAGE_GROUP], true)) {
-            $this->dataHandlerFor($user)->clear_cacheCmd($plan['group']);
-        } else {
-            $this->cacheManager->flushCachesInGroup($plan['group']);
+        // A group flush truncates database cache tables, which MySQL and MariaDB
+        // commit on their own: inside the transaction of a scoped call (ADR-295)
+        // it waits for the commit and is dropped when the call is rolled back.
+        $group = $plan['group'];
+        $flush = in_array($group, [self::FULL_FLUSH, self::PAGE_GROUP], true)
+            ? function () use ($user, $group): void {
+                $this->dataHandlerFor($user)->clear_cacheCmd($group);
+            }
+        : function () use ($group): void {
+            $this->cacheManager->flushCachesInGroup($group);
+        };
+        if (!AssignmentScopeTransaction::defer($flush)) {
+            $flush();
         }
 
         return ToolResult::text($plan['group'] === self::FULL_FLUSH
@@ -212,6 +224,18 @@ final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterfac
     /**
      * A flush names no record (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ScopedWrite
+    {
+        // A cache is not a record: clearing one changes no content, so it has
+        // nothing to hold to a scope.
+        return ScopedWrite::nothing('clear_cache');
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;

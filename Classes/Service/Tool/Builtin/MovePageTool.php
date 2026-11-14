@@ -21,6 +21,9 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -64,7 +67,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * the workspace is published. The page tree — page, parent, anchor,
  * siblings, branch and site root — is read as that workspace shows it.
  */
-final readonly class MovePageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
+final readonly class MovePageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -308,6 +311,24 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
     /**
      * The page the call moves, with no field (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid    = ScopedWrite::uid($arguments['uid'] ?? null);
+        $parent = ($arguments['parent'] ?? null) === null ? null : ScopedWrite::pid($arguments['parent']);
+        $anchor = ScopedWrite::anchor('pages', $arguments['after_page_uid'] ?? null);
+        if ($uid === null || $anchor === null || ($arguments['parent'] ?? null) !== null && $parent === null) {
+            return null;
+        }
+
+        // The subpages move along with the page, so the claim reaches them.
+        return new ScopedWrite('move', [new RecordReference('pages', $uid), ...$anchor], $parent === null ? [] : [new ScopedDestination('pages', $parent)], true);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments(self::TABLE, $arguments['uid'] ?? null);

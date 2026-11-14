@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Doctrine\DBAL\Exception as DbalException;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
 use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
 use PDOException;
 use Psr\Log\LoggerInterface;
@@ -186,6 +187,24 @@ class ToolDataHandler extends DataHandler
         self::$untakenFailures = [];
 
         return $failures;
+    }
+
+    /**
+     * A flush of a cache group (`pages`, `all`, from the page TSconfig option
+     * `TCEMAIN.clearCacheCmd` or a call of its own) truncates tables, which MySQL
+     * and MariaDB commit on their own. Inside the transaction of a scoped call
+     * (ADR-295) it waits for the commit and is dropped when the call is rolled
+     * back.
+     *
+     * @param int|string $cacheCmd
+     */
+    public function clear_cacheCmd($cacheCmd): void
+    {
+        if (!AssignmentScopeTransaction::defer(function () use ($cacheCmd): void {
+            parent::clear_cacheCmd($cacheCmd);
+        })) {
+            parent::clear_cacheCmd($cacheCmd);
+        }
     }
 
     public function process_datamap(): void

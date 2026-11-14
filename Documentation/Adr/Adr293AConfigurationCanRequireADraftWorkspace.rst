@@ -11,6 +11,7 @@ ADR-293: A configuration can require a draft workspace
 
 :Status: Accepted
 :Date: 2026-11-12
+:Amended: 2026-11-14 by :ref:`ADR-295 <adr-295>` (task scope: a run is bound to the scope of its assignment)
 :Authors: Netresearch DTT GmbH
 
 Context

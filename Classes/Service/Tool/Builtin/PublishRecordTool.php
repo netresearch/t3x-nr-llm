@@ -19,6 +19,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -65,7 +67,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * A record that is not hidden is not written: the call reports that and names
  * no write target, so a repeated call converges without a second history row.
  */
-final readonly class PublishRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
+final readonly class PublishRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -286,6 +288,18 @@ final readonly class PublishRecordTool implements ToolInterface, ToolEffectInter
      * The record whose hidden flag the call clears, with no field: a publish
      * is keyed by the record (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $record = ScopedWrite::record($arguments['table'] ?? null, $arguments['uid'] ?? null);
+
+        return $record instanceof RecordReference ? new ScopedWrite('publish', [$record]) : null;
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments($arguments['table'] ?? null, $arguments['uid'] ?? null);

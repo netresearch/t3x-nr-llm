@@ -23,6 +23,9 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -73,7 +76,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * element lands where the approval card said it would even when the anchor
  * element sits in a different column than the caller assumed.
  */
-final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RefusesBeforeApprovalInterface
+final readonly class MoveContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -321,6 +324,23 @@ final readonly class MoveContentElementTool implements ToolInterface, ToolEffect
     /**
      * The content element the call moves, with no field (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid    = ScopedWrite::uid($arguments['uid'] ?? null);
+        $pid    = ScopedWrite::pid($arguments['target_page'] ?? null);
+        $anchor = ScopedWrite::anchor('tt_content', $arguments['after_content_uid'] ?? null);
+        if ($uid === null || $pid === null || $anchor === null) {
+            return null;
+        }
+
+        return new ScopedWrite('move', [new RecordReference('tt_content', $uid), ...$anchor], [new ScopedDestination('tt_content', $pid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments(self::TABLE, $arguments['uid'] ?? null);

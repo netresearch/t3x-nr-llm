@@ -180,6 +180,19 @@ class LlmConfiguration extends AbstractEntity
      */
     protected bool $requireDraftWorkspace = false;
 
+    /**
+     * Whether a run of this configuration may write only inside the scope of
+     * its assignment, and not at all without one (ADR-295). False leaves every
+     * run as it was.
+     */
+    protected bool $requireAssignmentScope = false;
+
+    /**
+     * The deepest level below a scoped page a run may write (ADR-295). 99 is no
+     * cap; the value applies only to a run that has a scope.
+     */
+    protected int $assignmentScopeMaxDepth = 99;
+
     protected int $tstamp = 0;
 
     protected int $crdate = 0;
@@ -545,6 +558,29 @@ class LlmConfiguration extends AbstractEntity
     public function setRequireDraftWorkspace(bool $requireDraftWorkspace): void
     {
         $this->requireDraftWorkspace = $requireDraftWorkspace;
+    }
+
+    public function getRequireAssignmentScope(): bool
+    {
+        return $this->requireAssignmentScope;
+    }
+
+    public function setRequireAssignmentScope(bool $requireAssignmentScope): void
+    {
+        $this->requireAssignmentScope = $requireAssignmentScope;
+    }
+
+    public function getAssignmentScopeMaxDepth(): int
+    {
+        return $this->assignmentScopeMaxDepth;
+    }
+
+    /**
+     * Clamped to 0..99: the depth a scope can express.
+     */
+    public function setAssignmentScopeMaxDepth(int $assignmentScopeMaxDepth): void
+    {
+        $this->assignmentScopeMaxDepth = max(0, min(99, $assignmentScopeMaxDepth));
     }
 
     /**

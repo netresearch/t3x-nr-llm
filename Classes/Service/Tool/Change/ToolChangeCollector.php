@@ -63,6 +63,14 @@ final class ToolChangeCollector
         self::$frames[] = ['records' => [], 'scopes' => [], 'watermark' => null, 'marked' => false];
     }
 
+    /**
+     * How many calls have armed the collector and not taken it yet.
+     */
+    public static function depth(): int
+    {
+        return count(self::$frames);
+    }
+
     public static function isArmed(): bool
     {
         return self::$frames !== [];
@@ -123,11 +131,26 @@ final class ToolChangeCollector
 
     /**
      * Stop collecting for the innermost call and return what it saw.
-     *
-     * @param RecordReference|null $writeTarget the record the tool named as its write, to mark among the changes and to
-     *                                          check the capture against: a tool that states a write no DataHandler
-     *                                          run reported leaves the set `not_captured`
      */
+    /**
+     * What the innermost armed call has written so far, without ending it: the
+     * hooks' records, the DataHandler chains and the history watermark, for a
+     * check of the effect of the call (ADR-295).
+     *
+     * @return array{records: array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}>, scopes: list<string>, watermark: int|null}|null
+     */
+    public static function peek(): ?array
+    {
+        $last = array_key_last(self::$frames);
+        if ($last === null) {
+            return null;
+        }
+
+        $frame = self::$frames[$last];
+
+        return ['records' => $frame['records'], 'scopes' => array_keys($frame['scopes']), 'watermark' => $frame['watermark']];
+    }
+
     public static function take(?RecordReference $writeTarget = null): ObservedChangeSet
     {
         $frame = array_pop(self::$frames);

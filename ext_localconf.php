@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentSaveHook;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillHook;
 use Netresearch\NrLlm\Service\Tool\Change\ObservedChangeHook;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeHook;
 use Psr\Log\LogLevel;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Log\Writer\FileWriter;
@@ -145,6 +146,16 @@ defined('TYPO3') || exit;
     // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][]
         = ObservedChangeHook::class;
+
+    // The second layer of the assignment scope (ADR-295): while a call is
+    // armed with a scope, no DataHandler run writes outside it. Inert outside
+    // a tool call.
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][]
+        = AssignmentScopeHook::class;
+    // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+    $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processCmdmapClass'][]
+        = AssignmentScopeHook::class;
 
     // A disable through the DataHandler is an administrator's decision; a
     // re-enable clears the sync's mark (ADR-214 item 3).

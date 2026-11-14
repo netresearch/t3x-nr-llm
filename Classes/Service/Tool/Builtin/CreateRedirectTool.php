@@ -20,6 +20,9 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -46,7 +49,7 @@ use TYPO3\CMS\Core\LinkHandling\LinkService;
  * existing one is refused and the existing uid named, so the model changes
  * that one instead of shadowing it.
  */
-final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ToolDataClassInterface, RefusesBeforeApprovalInterface
+final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, ToolDataClassInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -163,6 +166,18 @@ final readonly class CreateRedirectTool implements ToolInterface, ToolEffectInte
     /**
      * A creation names no existing record (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ScopedWrite
+    {
+        // A redirect lies outside the page tree (pid 0): no scope of pages
+        // contains a new one.
+        return new ScopedWrite('create', [], [new ScopedDestination('sys_redirect', 0)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;
