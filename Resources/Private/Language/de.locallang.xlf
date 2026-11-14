@@ -5686,10 +5686,6 @@
                 <source>This run is limited to its assignment, and this tool changes things outside TYPO3, which cannot be held to it. Nothing was changed.</source>
                 <target>Dieser Lauf ist auf seinen Auftrag beschränkt, und dieses Werkzeug ändert Dinge außerhalb von TYPO3, die sich nicht daran binden lassen. Es wurde nichts geändert.</target>
             </trans-unit>
-            <trans-unit id="approvalPreview.scope.live">
-                <source>This configuration requires an assignment scope for changes, and with it a draft workspace, and this request was started in the live workspace. Nothing was changed. Switch to a draft workspace in the backend and send the request again.</source>
-                <target>Diese Konfiguration verlangt für Änderungen einen Auftragsrahmen und damit eine Entwurfs-Arbeitsumgebung, und diese Anfrage wurde in der Live-Arbeitsumgebung gestartet. Es wurde nichts geändert. Im Backend in eine Entwurfs-Arbeitsumgebung wechseln und die Anfrage erneut senden.</target>
-            </trans-unit>
             <trans-unit id="approvalPreview.scope.unresolvable">
                 <source>This run is limited to its assignment (%s), and the target of this change could not be established or does not exist. Nothing was changed.</source>
                 <target>Dieser Lauf ist auf seinen Auftrag beschränkt (%s), und das Ziel dieser Änderung ließ sich nicht bestimmen oder existiert nicht. Es wurde nichts geändert.</target>

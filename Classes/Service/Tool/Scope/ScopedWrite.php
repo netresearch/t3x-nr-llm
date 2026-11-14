@@ -31,6 +31,7 @@ final readonly class ScopedWrite
      * @param list<ScopedDestination> $destinations    places the call puts rows
      * @param bool                    $reachesSubpages the call acts on a page and everything below it (delete, copy)
      * @param int|null                $language        the language the call writes in, when it names one
+     * @param bool                    $writesFiles     the call changes files in a FAL storage, which a rollback cannot take back
      */
     public function __construct(
         public string $operation,
@@ -38,6 +39,7 @@ final readonly class ScopedWrite
         public array $destinations = [],
         public bool $reachesSubpages = false,
         public ?int $language = null,
+        public bool $writesFiles = false,
     ) {}
 
     /**

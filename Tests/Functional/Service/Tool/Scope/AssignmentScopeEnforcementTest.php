@@ -55,6 +55,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use RuntimeException;
@@ -280,12 +281,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
     /**
      * The control of the test above: the same call, with only the DataHandler
-     * hook taken away, writes. So it is that layer, and not the claim or the
-     * approval, that stopped it. In the live workspace the write cannot be
-     * undone, and the effect check says so.
+     * hook taken away, writes up to the end of the call. The effect check then
+     * finds the write and the call's transaction is rolled back, so the write is
+     * gone again.
      */
     #[Test]
-    public function withoutTheDataHandlerHookTheSameCallWritesAndTheEffectCheckReportsIt(): void
+    public function withoutTheDataHandlerHookTheEffectCheckRollsTheCallBack(): void
     {
         $this->unregisterTheDataHandlerLayer();
 
@@ -296,10 +297,10 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
         );
 
-        self::assertSame('Sneaked past the claim', $this->header(self::OUTSIDE_ELEMENT), 'live: nothing to take back');
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
         self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
-        self::assertStringContainsString('could not be undone', $outcome['toolResult']);
+        self::assertStringContainsString('rolled back', $outcome['toolResult']);
     }
 
     /**
@@ -326,7 +327,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function withoutTheDataHandlerHookTheHookOfTheInstallationWritesAndTheEffectCheckReportsIt(): void
+    public function withoutTheDataHandlerHookTheEffectCheckRollsBackTheHookOfTheInstallationAndTheCallWithIt(): void
     {
         $this->unregisterTheDataHandlerLayer();
         $this->registerHook('processDatamapClass', RunsANestedToolDataHandlerHook::class);
@@ -339,7 +340,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
         );
 
-        self::assertSame('By the hook', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'the whole call is rolled back, not only the write outside');
         self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
     }
 
@@ -818,20 +820,47 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     // --- the effect check, with the input check taken away --------------------
 
     /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function workspaces(): iterable
+    {
+        yield 'live workspace' => [false];
+        yield 'draft workspace' => [true];
+    }
+
+    /**
+     * Every table a DataHandler run writes, as rows: what a rollback has to leave
+     * exactly as it found it.
+     */
+    private function fingerprint(): string
+    {
+        $state = [];
+        foreach (['pages', 'tt_content', 'sys_file_reference', 'sys_history', 'sys_refindex', 'sys_log'] as $table) {
+            $state[$table] = $this->connectionPool->getConnectionForTable($table)->executeQuery('SELECT * FROM ' . $table . ' ORDER BY 1, 2')->fetchAllAssociative();
+        }
+
+        return sha1(json_encode($state, JSON_THROW_ON_ERROR));
+    }
+
+    /**
      * Each of these is a write the input check refuses. With only that check
-     * removed, the writes go through the DataHandler, and the check of the
-     * effect finds them in the database and takes the versions back out of the
-     * draft workspace. This is what makes the second layer independent of the
-     * shapes the first has to parse.
+     * removed, the writes go through the DataHandler; the check of the effect
+     * finds them in the database before the call's transaction is committed, and
+     * the rollback leaves every table as it was: rows, `sys_history`,
+     * `sys_refindex` and workspace versions. This is what makes the second layer
+     * independent of the shapes the first has to parse.
      *
      * @param Closure(ToolExecutionContext): void $act
-     * @param list<string>                        $mentions what the refusals of the effect check name, in any order
      */
-    private function assertTheEffectCheckTakesItBack(Closure $act, array $mentions, ?AssignmentScope $scope = null): void
+    private function assertTheEffectCheckRollsBack(Closure $act, bool $draft, ?AssignmentScope $scope = null): void
     {
         $this->unregisterTheDataHandlerLayer();
         $user = $this->setUpBackendUser(1);
-        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        if ($draft) {
+            self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        }
+
+        $before = $this->fingerprint();
 
         $outcome = $this->call(
             static fn (): ScopedWrite => ScopedWrite::nothing(),
@@ -843,90 +872,87 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $refusals = $this->refusals($outcome['trace']);
         self::assertNotSame([], $refusals, 'the effect check found the write');
         self::assertSame([], array_values(array_filter($refusals, static fn (string $line): bool => !str_starts_with($line, 'effect_'))), 'only the effect check refused, the input check was taken away');
-        foreach ($mentions as $mention) {
-            self::assertNotSame([], array_filter($refusals, static fn (string $line): bool => str_contains($line, $mention)), $mention);
-        }
-
-        self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
-        self::assertStringContainsString('were discarded', $outcome['toolResult']);
-        self::assertStringNotContainsString('could not be undone', $outcome['toolResult']);
-        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM tt_content WHERE t3ver_wsid = ? AND deleted = 0', [self::DRAFT]), 'no draft version of the call is left');
-        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE t3ver_wsid = ? AND deleted = 0', [self::DRAFT]));
+        self::assertStringContainsString('All database changes of this call were rolled back', $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the database is exactly as before the call');
     }
 
     #[Test]
-    public function theEffectCheckTakesBackAnUpdateOutsideTheScope(): void
+    #[DataProvider('workspaces')]
+    public function theEffectCheckRollsBackAnUpdateOutsideTheScope(bool $draft): void
     {
-        $this->assertTheEffectCheckTakesItBack(
+        $this->assertTheEffectCheckRollsBack(
             function (ToolExecutionContext $context): void {
                 $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
             },
-            [],
+            $draft,
         );
     }
 
     #[Test]
-    public function theEffectCheckTakesBackARecordCreatedOutsideTheScope(): void
+    #[DataProvider('workspaces')]
+    public function theEffectCheckRollsBackARecordCreatedOutsideTheScope(bool $draft): void
     {
-        $this->assertTheEffectCheckTakesItBack(
+        $this->assertTheEffectCheckRollsBack(
             function (ToolExecutionContext $context): void {
                 $this->create(['pid' => self::OTHER, 'header' => 'Created outside', 'CType' => 'text'], $context);
             },
-            [],
+            $draft,
         );
     }
 
     #[Test]
-    public function theEffectCheckTakesBackAMoveOutOfTheScope(): void
+    #[DataProvider('workspaces')]
+    public function theEffectCheckRollsBackAMoveOutOfTheScope(bool $draft): void
     {
-        $this->assertTheEffectCheckTakesItBack(
+        $this->assertTheEffectCheckRollsBack(
             function (ToolExecutionContext $context): void {
                 $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::OTHER]]], $context);
             },
-            [],
+            $draft,
         );
     }
 
     #[Test]
-    public function theEffectCheckTakesBackARecordWithoutALanguageTheScopeDoesNotAdmit(): void
+    #[DataProvider('workspaces')]
+    public function theEffectCheckRollsBackARecordWithoutALanguageTheScopeDoesNotAdmit(bool $draft): void
     {
-        $this->assertTheEffectCheckTakesItBack(
+        $this->assertTheEffectCheckRollsBack(
             function (ToolExecutionContext $context): void {
                 $this->create(['pid' => self::SCOPED, 'header' => 'No language', 'CType' => 'text'], $context);
             },
-            [],
+            $draft,
             new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [self::GERMAN]),
         );
     }
 
     #[Test]
-    public function theEffectCheckTakesBackATranslationPlacedOnAForeignPage(): void
+    #[DataProvider('workspaces')]
+    public function theEffectCheckRollsBackATranslationPlacedOnAForeignPage(bool $draft): void
     {
-        $this->assertTheEffectCheckTakesItBack(
+        $this->assertTheEffectCheckRollsBack(
             function (ToolExecutionContext $context): void {
                 $this->create(['pid' => self::OTHER, 'header' => 'Translation abroad', 'CType' => 'text', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::IN_SCOPE_ELEMENT], $context);
             },
-            [],
+            $draft,
         );
     }
 
     /**
-     * A version that existed before the call holds work that is not the call's:
-     * an editor's change in the draft. A write of the call outside the scope puts
-     * its fields back, and the version stays; a version the call made is discarded.
+     * Another user's draft, made before the call, is not the call's and is not
+     * touched by its rollback.
      */
     #[Test]
-    public function theEffectCheckPutsAnOlderDraftVersionBackAndLeavesItsEditorsWork(): void
+    public function aDraftOfAnotherUserSurvivesTheRollbackOfALaterCall(): void
     {
         $this->unregisterTheDataHandlerLayer();
         $user = $this->setUpBackendUser(1);
         self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
 
-        // An editor's change, made before the call.
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(['tt_content' => [self::OUTSIDE_ELEMENT => ['header' => 'Editor draft', 'subheader' => 'Editor subheader']]], [], $user);
         $dataHandler->process_datamap();
         self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT));
+        $before = $this->fingerprint();
 
         $outcome = $this->call(
             static fn (): ScopedWrite => ScopedWrite::nothing(),
@@ -936,12 +962,77 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             user: $user,
         );
 
-        self::assertNotSame([], $this->refusals($outcome['trace']), 'the effect check found the write');
-        self::assertStringContainsString('older draft versions were put back', $outcome['toolResult']);
-        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT), 'the version of the editor is still there');
+        self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint(), 'the editor\'s version is as the editor left it');
         self::assertSame('Editor draft', $this->scalar('SELECT header FROM tt_content WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::OUTSIDE_ELEMENT, self::DRAFT]));
-        self::assertSame('Editor subheader', $this->scalar('SELECT subheader FROM tt_content WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::OUTSIDE_ELEMENT, self::DRAFT]));
-        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT), 'live is untouched');
+    }
+
+    /**
+     * A call run inside a transaction that is already open gets a savepoint: the
+     * rollback undoes the call and leaves the outer transaction, with what it had
+     * written before, to its owner.
+     */
+    #[Test]
+    public function aRollbackInsideAnOpenTransactionLeavesTheOuterOneAlone(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $connection = $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME);
+        $connection->beginTransaction();
+        try {
+            $connection->executeStatement('UPDATE tt_content SET header = ? WHERE uid = ?', ['By the outer transaction', self::IN_SCOPE_ELEMENT]);
+
+            $kept = $this->call(
+                static fn (): ScopedWrite => ScopedWrite::nothing(),
+                function (ToolExecutionContext $context): void {
+                    $this->updateHeader(self::BELOW_ELEMENT, 'In scope, inside the outer transaction', $context);
+                },
+            );
+            self::assertSame([], $this->refusals($kept['trace']));
+            self::assertSame('In scope, inside the outer transaction', $this->header(self::BELOW_ELEMENT));
+
+            $undone = $this->call(
+                static fn (): ScopedWrite => ScopedWrite::nothing(),
+                function (ToolExecutionContext $context): void {
+                    $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                },
+            );
+            self::assertNotSame([], $this->refusals($undone['trace']));
+            self::assertTrue($connection->isTransactionActive(), 'the outer transaction is still open');
+            self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
+            self::assertSame('By the outer transaction', $this->header(self::IN_SCOPE_ELEMENT), 'what the outer transaction had written stands');
+            self::assertSame('In scope, inside the outer transaction', $this->header(self::BELOW_ELEMENT), 'and so does the call that was in scope');
+        } finally {
+            $connection->commit();
+        }
+
+        self::assertSame('By the outer transaction', $this->header(self::IN_SCOPE_ELEMENT));
+    }
+
+    /**
+     * A table mapped to another connection cannot be covered by one transaction:
+     * the call is not run.
+     */
+    #[Test]
+    public function aCallIsNotRunWhereTablesAreMappedToAnotherConnection(): void
+    {
+        $configuration = $GLOBALS['TYPO3_CONF_VARS'];
+        self::assertIsArray($configuration);
+        $GLOBALS['TYPO3_CONF_VARS'] = array_replace_recursive($configuration, ['DB' => ['TableMapping' => ['sys_log' => 'Other']]]);
+        $ran                        = false;
+
+        try {
+            $outcome = $this->call(
+                $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+                function () use (&$ran): void {
+                    $ran = true;
+                },
+            );
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS'] = $configuration;
+        }
+
+        self::assertFalse($ran);
+        self::assertStringContainsString('cannot be enforced on this database setup', $outcome['toolResult']);
     }
 
     /**
@@ -987,22 +1078,6 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame([], array_values(array_filter($this->refusals($outcome['trace']), static fn (string $line): bool => str_starts_with($line, 'effect_') && !str_contains($line, 'tt_content:21'))));
-    }
-
-    #[Test]
-    public function aLiveRunOfAConfigurationThatRequiresAScopeIsRefusedForNeedingADraftWorkspace(): void
-    {
-        $outcome = $this->call(
-            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-            function (ToolExecutionContext $context): void {
-                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Never', $context);
-            },
-            required: true,
-            approve: false,
-        );
-
-        self::assertStringContainsString('reason: scope_needs_draft_workspace', $outcome['toolResult']);
-        self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT));
     }
 
     #[Test]

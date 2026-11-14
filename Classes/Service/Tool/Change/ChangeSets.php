@@ -148,7 +148,7 @@ final class ChangeSets
      *
      * @param list<array{refusal: ScopeRefusal, workspace: int}> $violations
      */
-    public static function effectNote(AssignmentScope $scope, array $violations, int $discarded, int $restored, int $kept): string
+    public static function effectNote(AssignmentScope $scope, array $violations, bool $rolledBack): string
     {
         if ($violations === []) {
             return '';
@@ -165,9 +165,9 @@ final class ChangeSets
             $scope->describe(),
             implode(', ', $parts),
             $more > 0 ? sprintf(' and %d more', $more) : '',
-            sprintf('%d draft versions made by this call were discarded', $discarded)
-            . ($restored > 0 ? sprintf(', %d older draft versions were put back to what they were before it', $restored) : '')
-            . ($kept > 0 ? sprintf(', %d records could not be undone and have to be reviewed.', $kept) : '.'),
+            $rolledBack
+                ? 'All database changes of this call were rolled back.'
+                : 'The call ran outside a transaction: these changes were not rolled back and have to be reviewed.',
         );
     }
 

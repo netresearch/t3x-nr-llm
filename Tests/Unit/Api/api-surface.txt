@@ -2515,7 +2515,7 @@ Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination (class)
   property readonly table: string
 
 Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite (class)
-  constructor(string $operation, array $records = …, array $destinations = …, bool $reachesSubpages = …, ?int $language = …)
+  constructor(string $operation, array $records = …, array $destinations = …, bool $reachesSubpages = …, ?int $language = …, bool $writesFiles = …)
   method static anchor(string $table, mixed $value): ?array
   method static nothing(string $operation = …): self
   method static pid(mixed $value): ?int
@@ -2526,6 +2526,7 @@ Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite (class)
   property readonly operation: string
   property readonly reachesSubpages: bool
   property readonly records: array
+  property readonly writesFiles: bool
 
 Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface (interface)
   method scopedWrite(array $arguments): ?Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite

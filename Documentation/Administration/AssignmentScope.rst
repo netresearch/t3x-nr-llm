@@ -76,12 +76,10 @@ edited.
    page itself and its records. The cap is read for every call, so lowering it
    applies to a run that is waiting for approval.
 
-A configuration that requires a scope also requires a draft workspace: a write
-outside the scope that none of the first two checks recognised can be taken back
-from a workspace and from nowhere else, so a run in the live workspace is
-refused (reason ``scope_needs_draft_workspace``). A run that has a scope is held
-to it also where the configuration does not require one; in live, a write that
-exceeds the scope is then reported but not undone.
+A write that exceeds the scope is rolled back in the live and in a draft workspace
+alike: each call of a write tool runs in one database transaction. What the
+rollback cannot take back is listed in the ADR (cache flushes, side effects of
+hooks that call out, files); a FAL file operation is refused under a scope.
 
 What is refused
 ===============
@@ -94,9 +92,7 @@ hook of the installation that writes another record, or the subpages a page
 delete takes along. Both read input, and refuse a value they cannot read. The
 third check reads no input: after the call it looks at the records the
 DataHandler reported as written, in the database, and judges each by the same
-rules. In a draft workspace it discards the versions the call made outside the scope
-and puts back the fields of older draft versions the call changed; in the live
-workspace it can only report them.
+rules. A violation rolls the whole call back, rows and history included.
 
 .. list-table::
    :header-rows: 1

@@ -165,25 +165,13 @@ final class RequireAssignmentScopeRuleTest extends TestCase
         self::assertFalse($this->decide('remote_write', [], required: false)->allowed, 'a starter that bound the run to a scope cannot have it left by a remote tool');
     }
 
-    /**
-     * A write outside the scope that no check recognised can be taken back from
-     * a draft workspace and from nowhere else.
-     */
     #[Test]
-    public function aConfigurationThatRequiresAScopeAlsoRequiresADraftWorkspace(): void
+    public function aWriteThatChangesFilesIsRefusedBecauseARollbackCannotTakeThemBack(): void
     {
-        $live = $this->decide('scoped_write', ['uid' => 21], required: true);
-        self::assertFalse($live->allowed);
-        self::assertSame(RequireAssignmentScopeRule::REASON_LIVE, $live->reason);
-        self::assertStringContainsString('draft workspace', $live->explanation);
+        $decision = $this->decide('scoped_write', ['op' => 'files', 'uid' => 21, 'pid' => 2]);
 
-        self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: true, workspace: 3)->allowed);
-        self::assertFalse($this->decide('scoped_write', ['uid' => 21], required: true, workspace: 3, userWorkspace: 4)->allowed, 'the user moved to another workspace');
-        self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: false)->allowed, 'a scope the starter set binds a live run too');
-
-        // A run that recorded no workspace takes the one its user is in now, as the loop does.
-        self::assertTrue($this->decide('scoped_write', ['uid' => 21], required: true, workspace: null, userWorkspace: 3)->allowed);
-        self::assertFalse($this->decide('scoped_write', ['uid' => 21], required: true, workspace: null, userWorkspace: 0)->allowed);
+        self::assertFalse($decision->allowed);
+        self::assertSame(RequireAssignmentScopeRule::REASON_FILES, $decision->reason);
     }
 
     #[Test]
@@ -281,6 +269,7 @@ final class RequireAssignmentScopeRuleTest extends TestCase
             $pid = is_int($arguments['pid'] ?? null) ? $arguments['pid'] : 0;
 
             return match ($arguments['op'] ?? 'update') {
+                'files'      => new ScopedWrite('update', [new RecordReference('tt_content', $uid)], [], false, null, true),
                 'create'     => new ScopedWrite('create', [], [new ScopedDestination('tt_content', $pid)]),
                 'move'       => new ScopedWrite('move', [new RecordReference('tt_content', $uid)], [new ScopedDestination('tt_content', $pid)]),
                 'translate'  => new ScopedWrite('translate', [new RecordReference('tt_content', $uid)], [], false, is_int($arguments['language'] ?? null) ? $arguments['language'] : null),

@@ -176,28 +176,44 @@ child of an inline or file column, found from the ``foreign_field`` and
 ``foreign_table_field`` of the TCA (``ChildRelations``), not only for file
 references.
 
-**The effect check does not read input at all.**
-After a call (``AssignmentScopeEffect``), the loop takes every record the
-DataHandler reported as written, moved, copied, localized or deleted (the
-change collector's records joined with the DataHandler's own history, without the
-limit of the list a run step keeps), reads each from the database as it now is
-(final pid, language, translation parent, parent pointer), and judges it by the
-rules of the checker. A write that a parser let through is found here, because
-the check looks at what was written and not at what was asked. In a draft
-workspace a record out of scope is a version of the workspace. A version the
-call made (its uid is above the highest uid its table had before the call) is
-discarded. A version that existed before the call holds work that is not the
-call's, an editor's change in the draft, and is never discarded: its fields are
-put back to the values the history of the call's DataHandler chain records as the
-old ones, and where the history has nothing (a move, for one) the record is left
-and reported. The call is an error that says which of the three happened. In the live workspace nothing can be undone reliably, so
-the call is only reported as having exceeded its scope, with the records named
-that could not be undone. **A configuration that requires a scope therefore also
-requires a draft workspace**: ``RequireAssignmentScopeRule`` refuses its writes in
-live with the reason ``scope_needs_draft_workspace``. A scope the starter set on
-a run of a configuration that does not require one can be exceeded in live and
-only reported. The check holds for what the DataHandler reports; a row it never
-reported and a hard-deleted row (gone, so unreadable) are not seen.
+**The effect check does not read input at all, and its answer is a rollback.**
+Every call of a write tool runs inside one database transaction
+(``AssignmentScopeTransaction``): ``beginTransaction()`` on the default
+connection, or a savepoint when a transaction is already open (the outer one is
+then left to its owner). Core's DataHandler opens no transaction of its own
+around a datamap or cmdmap run, so it joins the open one: ``DataHandler::process_datamap()``
+and ``process_cmdmap()`` contain no ``beginTransaction``, ``commit`` or
+``rollBack`` (read in typo3/cms-core 14.3 and 13.4, ``Classes/DataHandling/DataHandler.php``),
+and ``ConnectionPool::getConnectionForTable()`` returns the one shared default
+connection unless ``DB/TableMapping`` maps a table elsewhere. A mapping to another
+connection makes one transaction insufficient, so the call is not run
+(``cannot be enforced on this database setup``).
+After the call (``AssignmentScopeEffect::violations()``) the loop takes every
+record the DataHandler reported as written, moved, copied, localized or deleted
+(the change collector's records joined with the DataHandler's own history,
+without the limit of the list a run step keeps), reads each from the database as
+it now is (final pid, language, translation parent, parent pointer), and judges
+it by the rules of the checker. A write that a parser let through is found here,
+because the check looks at what was written and not at what was asked. The
+verdict is taken before the commit. Any violation rolls the whole call back: rows,
+``sys_history``, ``sys_refindex``, ``sys_log`` and workspace versions of the call
+are gone, in the live and in a draft workspace alike. A version an editor made
+before the call is not part of the transaction and is untouched. The call is an
+error that says it was rolled back. Rolling back needs no workspace, so a
+configuration that requires a scope no longer requires a draft workspace.
+Rows the call's own usage and audit writes made go with the rollback too.
+
+What a rollback cannot take back, because it is not a database row of that connection:
+cache flushes (a flushed cache stays flushed), side effects of PSR-14 listeners
+and DataHandler hooks that call out (mail, HTTP, queue messages), files written
+through FAL, and the transaction held open during a tool's callout. A FAL
+file operation (upload, delete, move, rename of a file) is refused up front
+under a scope, because it cannot be rolled back; a tool that changes only
+``sys_file_metadata`` or ``sys_file_reference`` rows is a database write and is
+covered. The check holds for what the DataHandler reports. It does not see a
+row the DataHandler never reported and writes that bypass it: the parent-side
+re-parent of an existing inline child (``RelationHandler::writeForeignField``) is
+held by layer one and two only, and a hard-deleted row is gone and unreadable.
 
 **A refusal is a tool error and a trace event.** The model reads a result that
 starts ``Error:`` and names the refused writes and the scope. The run records
@@ -289,13 +305,14 @@ Consequences
   identity that every start already passes, and survives the queue, a
   suspension and a resume.
 - ● A parser gap in the input checks is caught after the call by the effect check,
-  and in a draft workspace taken back.
+  and the call is rolled back.
 - ● A refused write tells the model what to do and tells the editor where it is
   recorded. Layer one refuses before the card.
 - ● nr-mcp-agent and every other starter keep working unchanged; the feature is
   off until a starter sets a scope or a configuration requires one.
-- ◑ A configuration that requires a scope also requires a draft workspace, so
-  such a configuration is of no use to a run in live.
+- ◑ A rollback undoes database rows only; cache flushes, hook and listener
+  side effects and file operations stay (see above), and a FAL file operation is
+  refused under a scope.
 - ◑ A configuration that requires a scope refuses every write of a starter that
   sets none, A2A included: no A2A client carries a scope yet. Such a
   configuration is for starters that pass one.

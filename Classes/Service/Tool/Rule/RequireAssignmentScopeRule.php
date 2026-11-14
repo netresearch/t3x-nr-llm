@@ -45,7 +45,9 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * tool that declares itself a read passes even where it asks for approval. A write tool that cannot state its targets
  * ({@see ScopedWriteInterface}) is refused with `scope_unresolvable`, and a
  * tool that changes things outside TYPO3 (an MCP server, a remote agent) with
- * `scope_remote_write`: neither can be held to a scope.
+ * `scope_remote_write`: neither can be held to a scope. A claim that writes
+ * files (`ScopedWrite::$writesFiles`) is refused with `scope_files_write`,
+ * because the call's rollback cannot take a file back.
  *
  * Nothing in the call's arguments reaches the scope: the rule takes it from
  * the run and reads the arguments only as the claim to check.
@@ -60,9 +62,9 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
 
     public const REASON_REMOTE = 'scope_remote_write';
 
-    public const REASON_UNRESOLVABLE = 'scope_unresolvable';
+    public const REASON_FILES = 'scope_files_write';
 
-    public const REASON_LIVE = 'scope_needs_draft_workspace';
+    public const REASON_UNRESOLVABLE = 'scope_unresolvable';
 
     private ToolEffectResolver $effects;
 
@@ -106,20 +108,16 @@ final readonly class RequireAssignmentScopeRule implements ToolInvocationRuleInt
             return ToolInvocationDecision::deny(self::REASON_REMOTE, $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeRemote));
         }
 
-        // A configuration that requires a scope also requires a draft workspace:
-        // a write outside the scope that no check recognised can be taken back
-        // from a workspace and from nowhere else.
-        $workspace = EffectiveAssignmentScope::workspaceOf($context->execution->actor, $user);
-        if ($context->configuration->getRequireAssignmentScope() && !($workspace > 0 && $user instanceof BackendUserAuthentication && $user->workspace === $workspace)) {
-            return ToolInvocationDecision::deny(self::REASON_LIVE, $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeLive));
-        }
-
         $write = $tool instanceof ScopedWriteInterface ? $tool->scopedWrite($context->arguments) : null;
         if (!$write instanceof ScopedWrite) {
             return ToolInvocationDecision::deny(
                 self::REASON_UNRESOLVABLE,
                 $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeUnresolvable, $scope->describe()),
             );
+        }
+
+        if ($write->writesFiles) {
+            return ToolInvocationDecision::deny(self::REASON_FILES, $this->translator->text($user, ApprovalPreviewLabel::RefusedScopeRemote));
         }
 
         $refusals = $this->checker->refusalsFor($scope, $write, EffectiveAssignmentScope::workspaceOf($context->execution->actor, $user));

@@ -88,6 +88,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeEffect;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
 use Netresearch\NrLlm\Service\Tool\Scope\EffectiveAssignmentScope;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
@@ -3077,9 +3078,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * Both channels are bounded here — the single seam every executed call passes
      * through — before any ToolResult leaves the process: `content` via
      * {@see ToolResultBounder::content()}, `artifacts` via {@see ToolResultBounder::artifacts()}.
-     *
-     * @param bool $executed whether execute() was entered; pre-flight refusals remain denied
      */
+    /**
+     * Ends the transaction of a scoped call: rolled back when something it wrote
+     * lies outside the scope, committed otherwise. A failure here is logged and
+     * not thrown, because the call has already run and has a result to report.
+     */
+    private function endTransaction(?AssignmentScopeTransaction $transaction, bool $rollBack): void
+    {
+        if (!$transaction instanceof AssignmentScopeTransaction) {
+            return;
+        }
+
+        try {
+            $rollBack ? $transaction->rollBack() : $transaction->commit();
+        } catch (Throwable $failure) {
+            $this->logger?->error('The transaction of a scoped tool call could not be ended.', ['exception' => $failure, 'rolledBack' => $rollBack]);
+        }
+    }
+
     private function executeInvocation(
         ToolCall $call,
         ToolInterface $tool,
@@ -3109,17 +3126,30 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // call's to report (ADR-206).
         ToolDataHandler::takeFailures();
 
+        // The scope of the run's assignment (ADR-295). A call that can write is
+        // run inside a transaction: what it wrote is read back before the
+        // commit, and a write outside the scope is rolled back whole.
+        $scope        = EffectiveAssignmentScope::of($configuration, $context->actor);
+        $scopeChecker = $this->scopeChecker ?? new AssignmentScopeChecker();
+        $workspace    = EffectiveAssignmentScope::workspaceOf($context->actor, $context->actingBackendUser());
+        $transaction  = null;
+        if ($scope instanceof AssignmentScope && !$tool instanceof RemoteToolInterface && ($this->effects()->effectForTool($tool)->isWrite() || !$this->effects()->declaresRead($call->name) && ToolApprovalRule::requiresApproval($tool))) {
+            try {
+                $transaction = AssignmentScopeTransaction::begin();
+            } catch (Throwable $unavailable) {
+                $this->logger?->error(sprintf('Tool "%s" was not run: no transaction can hold its writes to the scope.', $call->name), ['exception' => $unavailable]);
+
+                return ToolResult::error(sprintf('Error: tool "%s" was not run: the assignment of this run cannot be enforced on this database setup.', $call->name));
+            }
+        }
+
         // The records the call's DataHandler runs write (ADR-292), taken on
         // every way out of the call: a call that throws after it wrote is the
         // one whose records a reader most needs to find.
         ToolChangeCollector::arm();
 
-        // The scope of the run's assignment, for the DataHandler layer
-        // (ADR-295): armed beside the collector and taken on every way out.
-        $scope        = EffectiveAssignmentScope::of($configuration, $context->actor);
-        $scopeChecker = $this->scopeChecker ?? new AssignmentScopeChecker();
-        $workspace    = EffectiveAssignmentScope::workspaceOf($context->actor, $context->actingBackendUser());
-        $snapshot     = $scope instanceof AssignmentScope ? AssignmentScopeEffect::snapshot() : [];
+        // The scope, for the DataHandler layer: armed beside the collector and
+        // taken on every way out.
         if ($scope instanceof AssignmentScope) {
             AssignmentScopeGuard::arm($scope, $scopeChecker);
         }
@@ -3136,6 +3166,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             if ($scope instanceof AssignmentScope) {
                 AssignmentScopeGuard::take();
             }
+
+            $this->endTransaction($transaction, false);
 
             // Control flow (ADR-281), not a failure of the tool: the caller
             // suspends the run. Only a dependency tool may raise it.
@@ -3161,12 +3193,17 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // to the model, which would otherwise retry a half-done write.
             $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
             $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
-            $frame      = ToolChangeCollector::peek();
             $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
-            $undone     = $violations === [] ? ['discarded' => 0, 'restored' => 0, 'kept' => 0] : AssignmentScopeEffect::undo($violations, $context->actingBackendUser(), $snapshot, $frame);
+            $rolledBack = $violations !== [] && $transaction instanceof AssignmentScopeTransaction;
+            $this->endTransaction($transaction, $violations !== []);
+            if ($rolledBack) {
+                // What was written is not there any more.
+                $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
+            }
+
             ToolChangeCollector::hold($changes);
             $note = $scope instanceof AssignmentScope
-                ? trim(ChangeSets::failureNote($changes) . ' ' . ChangeSets::refusalNote($scope, $refused) . ' ' . ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['restored'], $undone['kept']))
+                ? trim(ChangeSets::failureNote($changes) . ' ' . ChangeSets::refusalNote($scope, $refused) . ' ' . ChangeSets::effectNote($scope, $violations, $rolledBack))
                 : ChangeSets::failureNote($changes);
 
             return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name) . ($note === '' ? '' : ' ' . $note));
@@ -3183,17 +3220,24 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // A tool that returns an error after it wrote says so to the model as a
         // thrown one does: the retry of a half-done write is the same mistake.
-        $frame   = ToolChangeCollector::peek();
         $changes = ChangeSets::withRefused(ToolChangeCollector::take($result->writeTarget), [...$refused, ...array_column($violations, 'refusal')]);
-        ToolChangeCollector::hold($changes);
 
-        // What the call really wrote, read back from the database: a write that
-        // neither check before it recognised is found here, and in a draft
-        // workspace taken back (ADR-295).
+        // What the call really wrote, read back from the database before the
+        // commit: a write that neither check before it recognised is found here
+        // and the call's transaction is rolled back (ADR-295).
         if ($scope instanceof AssignmentScope && $violations !== []) {
-            $undone = AssignmentScopeEffect::undo($violations, $context->actingBackendUser(), $snapshot, $frame);
-            $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $undone['discarded'], $undone['restored'], $undone['kept'])));
+            $rolledBack = $transaction instanceof AssignmentScopeTransaction;
+            $this->endTransaction($transaction, true);
+            if ($rolledBack) {
+                $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
+            }
+
+            $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $rolledBack)));
+        } else {
+            $this->endTransaction($transaction, false);
         }
+
+        ToolChangeCollector::hold($changes);
 
         $writtenBeforeFailure = $result->isError ? ChangeSets::failureNote($changes) : '';
 
