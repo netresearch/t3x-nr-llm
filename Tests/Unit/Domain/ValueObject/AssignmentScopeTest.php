@@ -91,7 +91,9 @@ final class AssignmentScopeTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
 
-        new AssignmentScope(array_map(static fn (int $uid): ScopedPage => new ScopedPage($uid), range(1, AssignmentScope::MAX_PAGES + 1)));
+        $scope = new AssignmentScope(array_map(static fn (int $uid): ScopedPage => new ScopedPage($uid), range(1, AssignmentScope::MAX_PAGES + 1)));
+
+        self::fail('A scope of ' . count($scope->pages) . ' pages was accepted.');
     }
 
     #[Test]
