@@ -869,7 +869,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             $state[$table] = $this->connectionPool->getConnectionForTable($table)->executeQuery('SELECT * FROM ' . $table . ' ORDER BY 1, 2')->fetchAllAssociative();
         }
 
-        return sha1(json_encode($state, JSON_THROW_ON_ERROR));
+        return hash('sha256', json_encode($state, JSON_THROW_ON_ERROR));
     }
 
     /**
