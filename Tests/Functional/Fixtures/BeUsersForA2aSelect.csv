@@ -1,0 +1,5 @@
+"be_users"
+,"uid","pid","username","password","admin","tstamp","crdate","disable","deleted"
+,3,0,"zeta","",0,1703347200,1703347200,0,0
+,4,0,"alpha","",0,1703347200,1703347200,0,0
+,5,0,"root","",1,1703347200,1703347200,0,0

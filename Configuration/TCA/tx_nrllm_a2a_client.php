@@ -79,7 +79,7 @@ return [
                 'type'                => 'select',
                 'renderType'          => 'selectSingle',
                 'foreign_table'       => 'be_users',
-                'foreign_table_where' => 'AND {#be_users}.{#admin} = 0 ORDER BY {#be_users}.{#username}',
+                'foreign_table_where' => 'AND {#be_users}.{#admin} = 0 ORDER BY be_users.username',
                 'items'               => [['label' => '', 'value' => 0]],
                 'default'             => 0,
                 'required'            => true,
