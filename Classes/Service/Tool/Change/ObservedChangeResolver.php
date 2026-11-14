@@ -174,9 +174,8 @@ final readonly class ObservedChangeResolver
 
     /**
      * The history rows of one DataHandler chain written after `$after`, oldest
-     * first, read in pages up to a cap; none where the history cannot be read,
-     * and the hooks' records stand alone. A read that reaches the cap marks the
-     * history as truncated.
+     * first, read in pages up to a cap. A read that reaches the cap, or that fails,
+     * marks the history as truncated; the rows read before stay.
      *
      * @return list<array<string, mixed>>
      */

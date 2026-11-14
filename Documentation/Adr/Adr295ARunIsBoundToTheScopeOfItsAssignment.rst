@@ -279,6 +279,9 @@ checks let through:
   successful nested rollback is reported as not rolled back, although it was.
 - A cache flush that fails after the commit is logged as a warning; the tool's
   result has already said it flushed.
+- The effect check reads at most 5000 history rows of one call, and a call that
+  reaches that number (a bulk copy of a page tree) or whose history cannot be read
+  is rolled back as not judgeable.
 - The anchor of a move ("after record X") is judged like a moved record: its own
   language and, for a page, its subtree must lie in the scope. A move after an
   anchor with a translation or a deep subtree outside the scope is refused
