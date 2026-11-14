@@ -203,17 +203,52 @@ error that says it was rolled back. Rolling back needs no workspace, so a
 configuration that requires a scope no longer requires a draft workspace.
 Rows the call's own usage and audit writes made go with the rollback too.
 
-What a rollback cannot take back, because it is not a database row of that connection:
-cache flushes (a flushed cache stays flushed), side effects of PSR-14 listeners
-and DataHandler hooks that call out (mail, HTTP, queue messages), files written
-through FAL, and the transaction held open during a tool's callout. A FAL
-file operation (upload, delete, move, rename of a file) is refused up front
-under a scope, because it cannot be rolled back; a tool that changes only
-``sys_file_metadata`` or ``sys_file_reference`` rows is a database write and is
-covered. The check holds for what the DataHandler reports. It does not see a
-row the DataHandler never reported and writes that bypass it: the parent-side
-re-parent of an existing inline child (``RelationHandler::writeForeignField``) is
-held by layer one and two only, and a hard-deleted row is gone and unreadable.
+**Cache flushes wait for the commit.** A flush of a cache group truncates
+database tables, which MySQL and MariaDB commit on their own: inside the
+call's transaction it would end the transaction behind DBAL's back, and a later
+``ROLLBACK`` would succeed without undoing anything. The built-in clear-cache
+tool therefore hands its group flush to ``AssignmentScopeTransaction::defer()``:
+the loop runs it after the commit and drops it when the call is rolled back. A
+flush by tag deletes rows and runs in place. Every call also takes a savepoint at
+the start, even the outermost one, because ``ROLLBACK TO SAVEPOINT`` fails
+(MariaDB error 1305) when an implicit commit has taken the savepoint with it;
+that failure is how a rollback that did not happen is seen. The loop then reports
+the call as **not** rolled back (``effectNote``), logs at error level and never
+claims a rollback. The ``TRUNCATE`` of a flush that did not go through ``defer()``
+(a hook or listener of the installation) is covered by this second guard only.
+
+What a rollback cannot take back, because it is not a database row of that
+connection: side effects of PSR-14 listeners and DataHandler hooks that call out
+(mail, HTTP, queue messages), files written through FAL, and the transaction held
+open during a tool's callout. A FAL file operation (upload, delete, move, rename
+of a file) is refused up front under a scope (``ScopedWrite::$writesFiles``,
+reason ``scope_files_write``), because it cannot be rolled back; a tool that
+changes only ``sys_file_metadata`` or ``sys_file_reference`` rows is a database
+write and is covered. The check holds for what the DataHandler reports. It does
+not see a row the DataHandler never reported and writes that bypass it: the
+parent-side re-parent of an existing inline child
+(``RelationHandler::writeForeignField``) is held by layer one and two only, and a
+hard-deleted row is gone and unreadable. A check that cannot read what was
+written (a database error while reading it) counts as a violation, so the call is
+rolled back and the transaction is ended on every way out of the call.
+
+Known limits of the transaction, none of them a write outside the scope that the
+checks let through:
+
+- A write tool that declares no effect and needs no approval gets no transaction;
+  a violation by such a call is reported as not rolled back.
+- A ``DB/TableMapping`` to a connection other than the default one makes the call
+  not run: one transaction cannot cover two connections. This is fail-closed and
+  an availability loss.
+- On PostgreSQL a database error inside the call aborts the transaction, so the
+  note of what was written before the failure may name rows that are gone.
+  **Unverified**: only SQLite and MariaDB were run.
+- A call inside a transaction of its own caller gets a savepoint; its cache
+  flushes wait for the outermost scoped call, and when that call itself runs
+  inside a foreign transaction they run at its commit.
+- ``sys_language_uid = -1`` (all languages) is read as a language only where a
+  language field carries it, and is refused only when the scope restricts
+  languages.
 
 **A refusal is a tool error and a trace event.** The model reads a result that
 starts ``Error:`` and names the refused writes and the scope. The run records

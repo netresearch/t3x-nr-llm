@@ -42,6 +42,18 @@ final class DatabaseRecordTopology implements RecordTopologyInterface
             return null;
         }
 
+        // A workspace version is its live record: the hook and the history name the
+        // version's own uid, and the overlay below only maps a live one.
+        $liveUid = $this->int($row['t3ver_oid'] ?? 0);
+        if ($liveUid > 0 && $liveUid !== $uid) {
+            $live = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+            $live->getRestrictions()->removeAll();
+            $liveRow = $live->select('*')->from($table)->where($live->expr()->eq('uid', $live->createNamedParameter($liveUid, Connection::PARAM_INT)))->executeQuery()->fetchAssociative();
+            if (is_array($liveRow)) {
+                $row = $liveRow;
+            }
+        }
+
         BackendUtility::workspaceOL($table, $row, $workspace);
         if (!is_array($row)) {
             return null;

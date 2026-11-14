@@ -43,33 +43,35 @@ final class AssignmentScopeEffect
      */
     public static function violations(AssignmentScope $scope, AssignmentScopeChecker $checker, int $workspace): array
     {
-        $frame = ToolChangeCollector::peek();
-        if ($frame === null) {
-            return [];
-        }
-
-        $truncated = false;
         try {
-            $entries = (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
+            $frame = ToolChangeCollector::peek();
+            if ($frame === null) {
+                return [];
+            }
+
+            $truncated = false;
+            $entries   = (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
+
+            $found = [];
+            foreach ($entries as $entry) {
+                $refusal = $checker->recordRefusal($scope, 'effect_' . $entry['action']->value, $entry['table'], $entry['uid'], $workspace);
+                if (!$refusal instanceof ScopeRefusal) {
+                    continue;
+                }
+
+                // A hard-deleted row is gone and cannot be read; nothing is left of it.
+                if ($refusal->reason === ScopeRefusal::UNRESOLVABLE && $entry['action'] === ChangeAction::DELETED) {
+                    continue;
+                }
+
+                $found[] = ['refusal' => $refusal, 'workspace' => $entry['workspace']];
+            }
+
+            return $found;
         } catch (Throwable) {
+            // A check that cannot read what was written has not cleared it: the
+            // call is judged out of scope, so it is rolled back, never left open.
             return [['refusal' => new ScopeRefusal('effect', 'pages', 0, 0, ScopeRefusal::UNRESOLVABLE), 'workspace' => $workspace]];
         }
-
-        $found = [];
-        foreach ($entries as $entry) {
-            $refusal = $checker->recordRefusal($scope, 'effect_' . $entry['action']->value, $entry['table'], $entry['uid'], $workspace);
-            if (!$refusal instanceof ScopeRefusal) {
-                continue;
-            }
-
-            // A hard-deleted row is gone and cannot be read; nothing is left of it.
-            if ($refusal->reason === ScopeRefusal::UNRESOLVABLE && $entry['action'] === ChangeAction::DELETED) {
-                continue;
-            }
-
-            $found[] = ['refusal' => $refusal, 'workspace' => $entry['workspace']];
-        }
-
-        return $found;
     }
 }

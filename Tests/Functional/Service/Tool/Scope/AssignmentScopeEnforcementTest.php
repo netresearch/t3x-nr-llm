@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Scope;
 
 use Closure;
+use Doctrine\DBAL\Schema\Table;
+use Doctrine\DBAL\Types\Types;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -33,13 +35,21 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
+use Netresearch\NrLlm\Service\Tool\Builtin\ClearCacheTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler;
 use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
+use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
 use Netresearch\NrLlm\Service\Tool\Rule\RequireAssignmentScopeRule;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeHook;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
+use Netresearch\NrLlm\Service\Tool\Scope\RecordFacts;
+use Netresearch\NrLlm\Service\Tool\Scope\RecordTopologyInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
@@ -60,6 +70,9 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use RuntimeException;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend;
+use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
@@ -115,6 +128,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     private const GERMAN = 1;
 
     private ConnectionPool $connectionPool;
+
+    private ?AssignmentScopeChecker $checkerOverride = null;
 
     protected function setUp(): void
     {
@@ -1077,7 +1092,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             user: $user,
         );
 
-        self::assertSame([], array_values(array_filter($this->refusals($outcome['trace']), static fn (string $line): bool => str_starts_with($line, 'effect_') && !str_contains($line, 'tt_content:21'))));
+        self::assertSame([], $this->refusals($outcome['trace']));
     }
 
     #[Test]
@@ -1172,6 +1187,390 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringStartsWith('Error: tool "scoped_probe" failed.', $outcome['toolResult']);
         self::assertStringContainsString('refused update of tt_content:23', $outcome['toolResult']);
         self::assertSame(['update tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
+    }
+
+    // --- a workspace version is its live record --------------------------------
+
+    #[Test]
+    public function aRecordInTheScopeIsUpdatedInADraftWorkspaceWhenOnlyTheRecordIsInTheScope(): void
+    {
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Draft of the record', $context);
+            },
+            scope: new AssignmentScope([], [new RecordReference('tt_content', self::IN_SCOPE_ELEMENT)]),
+            user: $user,
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(1, $this->versionsOf(self::IN_SCOPE_ELEMENT), 'the version stays');
+        self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'live is untouched');
+    }
+
+    #[Test]
+    public function theTitleOfTheScopedPageItselfIsEditedInADraftWorkspace(): void
+    {
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['title' => 'Draft title']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            user: $user,
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(1, (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::SCOPED, self::DRAFT]), 'the page has a version in the workspace');
+    }
+
+    // --- the transaction of a call ---------------------------------------------
+
+    private function transactionIsOpen(): bool
+    {
+        return $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME)->isTransactionActive();
+    }
+
+    /**
+     * The commit is what makes an in-scope call stand: without it the connection
+     * stays inside the transaction the call opened.
+     */
+    #[Test]
+    public function aCallInScopeIsCommittedAndLeavesNoTransactionOpen(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Committed', $context);
+            },
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertFalse($this->transactionIsOpen(), 'the call committed');
+        self::assertSame('Committed', $this->header(self::IN_SCOPE_ELEMENT));
+    }
+
+    #[Test]
+    public function aRolledBackCallLeavesNoTransactionOpen(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+            },
+        );
+
+        self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertFalse($this->transactionIsOpen());
+    }
+
+    #[Test]
+    public function aToolThatThrowsEndsItsTransaction(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Written before the failure', $context);
+
+                throw new RuntimeException('boom', 1799990310);
+            },
+        );
+
+        self::assertStringStartsWith('Error: tool "scoped_probe" failed.', $outcome['toolResult']);
+        self::assertFalse($this->transactionIsOpen());
+        self::assertSame('Written before the failure', $this->header(self::IN_SCOPE_ELEMENT), 'what a failed call wrote in scope stands, as before');
+    }
+
+    #[Test]
+    public function aToolThatThrowsAfterWritingOutsideTheScopeIsRolledBack(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+
+                throw new RuntimeException('boom', 1799990311);
+            },
+        );
+
+        self::assertFalse($this->transactionIsOpen());
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+    }
+
+    #[Test]
+    public function aCallThatHandsItsWorkToAnExternalOperationCommitsWhatItWrote(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Before the hand-over', $context);
+
+                throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
+            },
+        );
+
+        self::assertStringStartsWith('Error: tool "scoped_probe" failed.', $outcome['toolResult'], 'a tool that is not a dependency tool may not announce one');
+        self::assertFalse($this->transactionIsOpen());
+        self::assertSame('Before the hand-over', $this->header(self::IN_SCOPE_ELEMENT));
+    }
+
+    /**
+     * A check that cannot read what the call wrote has not cleared it: the call
+     * is rolled back, and the transaction is not left open.
+     */
+    #[Test]
+    public function anExceptionInTheEffectCheckRollsTheCallBackAndLeavesNoTransactionOpen(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $this->checkerOverride = new AssignmentScopeChecker(new class implements RecordTopologyInterface {
+            public function row(string $table, int $uid, int $workspace): ?RecordFacts
+            {
+                throw new RuntimeException('the database went away', 1799990312);
+            }
+
+            public function languagesOnPage(int $pageUid, int $workspace): array
+            {
+                return [];
+            }
+
+            public function storedValue(string $table, int $uid, string $field): ?string
+            {
+                return null;
+            }
+
+            public function translationLanguages(string $table, int $uid, int $workspace): array
+            {
+                return [];
+            }
+
+            public function descendantPages(int $pageUid, int $workspace, int $limit): ?array
+            {
+                return null;
+            }
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Not judged', $context);
+            },
+        );
+
+        self::assertFalse($this->transactionIsOpen(), 'the transaction ended');
+        self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'what could not be judged was rolled back');
+        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+    }
+
+    // --- cache flushes wait for the commit ------------------------------------
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function flushes(): iterable
+    {
+        yield 'call in scope' => [false];
+        yield 'call writes outside the scope' => [true];
+    }
+
+    /**
+     * A cache group flush truncates tables, which MySQL and MariaDB commit on
+     * their own, so inside a call's transaction it is deferred: run after the
+     * commit, dropped on a rollback.
+     */
+    #[Test]
+    #[DataProvider('flushes')]
+    public function aCacheFlushOfACallRunsAfterTheCommitAndNeverAfterARollback(bool $writesOutside): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $flushedInsideTheTransaction = null;
+        $flushes                     = 0;
+
+        $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use ($writesOutside, &$flushes, &$flushedInsideTheTransaction): void {
+                $this->updateHeader($writesOutside ? self::OUTSIDE_ELEMENT : self::IN_SCOPE_ELEMENT, 'Flushing', $context);
+                self::assertTrue(AssignmentScopeTransaction::defer(function () use (&$flushes, &$flushedInsideTheTransaction): void {
+                    ++$flushes;
+                    $flushedInsideTheTransaction = $this->transactionIsOpen();
+                }), 'a call is open');
+                self::assertSame(0, $flushes, 'not run while the call is open');
+            },
+        );
+
+        self::assertSame($writesOutside ? 0 : 1, $flushes);
+        self::assertSame($writesOutside ? null : false, $flushedInsideTheTransaction, 'the flush found the connection outside any transaction');
+        self::assertFalse(AssignmentScopeTransaction::defer(static function (): void {}), 'no call is open any more');
+    }
+
+    #[Test]
+    public function theCacheToolFlushesAGroupOnlyAfterTheCommit(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $user = $this->useASessionlessAmbientUser(1);
+
+        $tool = new ClearCacheTool(
+            $this->getService(CacheManager::class),
+            new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
+        );
+        $transaction = AssignmentScopeTransaction::begin();
+        $result      = $tool->execute(['group' => 'system'], new ToolExecutionContext(AiActorContext::fromBackendUser($user), $user, new AgentRunReference(1, 'run')));
+        self::assertFalse($result->isError, $result->content);
+        self::assertTrue($this->transactionIsOpen(), 'the flush did not end the transaction');
+        $transaction->commit();
+        self::assertCount(1, $transaction->deferred(), 'the flush waits for the commit');
+    }
+
+    /**
+     * On MySQL and MariaDB a statement that commits implicitly ends the call's
+     * transaction behind DBAL's back. A call that did that and also wrote outside
+     * the scope cannot be rolled back, and must not be reported as rolled back.
+     * Not run on a database where truncating a table is an ordinary statement.
+     */
+    #[Test]
+    public function aCommitOfTheDatabaseInsideTheCallIsReportedAsNotRolledBack(): void
+    {
+        $connection = $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME);
+        if (!str_contains(strtolower($connection->getDatabasePlatform()::class), 'mysql') && !str_contains(strtolower($connection->getDatabasePlatform()::class), 'mariadb')) {
+            self::markTestSkipped('Only MySQL and MariaDB commit on TRUNCATE.');
+        }
+
+        $this->unregisterTheDataHandlerLayer();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use ($connection): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                $connection->truncate('cache_pages');
+            },
+        );
+
+        self::assertStringContainsString('NOT rolled back', $outcome['toolResult']);
+        self::assertStringNotContainsString('were rolled back', $outcome['toolResult']);
+        self::assertFalse($this->transactionIsOpen(), 'DBAL is back in line with the server');
+    }
+
+    /**
+     * The clear-cache tool flushes the page caches, which are database tables
+     * here, so on MySQL and MariaDB a flush inside the call would commit it. Run
+     * through the real tool next to a write outside the scope: the database is
+     * unchanged, and the flush did not happen.
+     */
+    #[Test]
+    public function aCacheFlushNextToAWriteOutsideTheScopeLeavesTheDatabaseUnchanged(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $cacheManager = $this->databaseCacheManager();
+        $cache        = $cacheManager->getCache('pages');
+        $cache->set('nrllm_scope_probe', 'cached', ['nrllm_scope_probe']);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use ($cacheManager): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+                $result = (new ClearCacheTool($cacheManager, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class))))->execute(['group' => 'system'], $context);
+                self::assertFalse($result->isError, $result->content);
+            },
+        );
+
+        self::assertStringContainsString('All database changes of this call were rolled back', $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint());
+        self::assertSame('cached', $cache->get('nrllm_scope_probe'), 'a rolled-back call flushed nothing');
+    }
+
+    /**
+     * The test installation keeps its caches in a null backend, which flushes
+     * nothing. This manager holds one cache in a database table, in the group the
+     * tool flushes, so a flush is a TRUNCATE on MySQL and MariaDB.
+     */
+    private function databaseCacheManager(): CacheManager
+    {
+        $schema = $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME)->createSchemaManager();
+        if (!$schema->tablesExist(['cache_pages'])) {
+            $cache = new Table('cache_pages');
+            $cache->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+            $cache->addColumn('identifier', Types::STRING, ['length' => 250]);
+            $cache->addColumn('expires', Types::INTEGER, ['default' => 0]);
+            $cache->addColumn('content', Types::BLOB, ['notnull' => false]);
+            $cache->setPrimaryKey(['id']);
+            $schema->createTable($cache);
+            $tags = new Table('cache_pages_tags');
+            $tags->addColumn('id', Types::INTEGER, ['autoincrement' => true]);
+            $tags->addColumn('identifier', Types::STRING, ['length' => 250]);
+            $tags->addColumn('tag', Types::STRING, ['length' => 250]);
+            $tags->setPrimaryKey(['id']);
+            $schema->createTable($tags);
+        }
+
+        $manager = new CacheManager();
+        $manager->setCacheConfigurations(['pages' => ['frontend' => VariableFrontend::class, 'backend' => Typo3DatabaseBackend::class, 'options' => [], 'groups' => ['system']]]);
+        $cache = $manager->getCache('pages');
+        self::assertInstanceOf(Typo3DatabaseBackend::class, $cache->getBackend());
+
+        return $manager;
+    }
+
+    #[Test]
+    public function aCacheFlushOfACommittedCallThroughTheToolHappensAfterTheCommit(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $cacheManager = $this->databaseCacheManager();
+        $cache        = $cacheManager->getCache('pages');
+        $cache->set('nrllm_scope_probe', 'cached', ['nrllm_scope_probe']);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context) use ($cacheManager, $cache): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'In scope', $context);
+                $result = (new ClearCacheTool($cacheManager, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class))))->execute(['group' => 'system'], $context);
+                self::assertFalse($result->isError, $result->content);
+                self::assertSame('cached', $cache->get('nrllm_scope_probe'), 'not flushed while the call is open');
+            },
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertFalse($cache->has('nrllm_scope_probe'), 'flushed after the commit');
+        self::assertSame('In scope', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertFalse($this->transactionIsOpen());
+    }
+
+    #[Test]
+    public function aRecordWithAllLanguagesIsCreatedWhenTheScopeDoesNotRestrictLanguages(): void
+    {
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('create', [], [new ScopedDestination('tt_content', self::SCOPED)]),
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::SCOPED, 'header' => 'For all languages', 'CType' => 'text', 'sys_language_uid' => -1], $context);
+            },
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(1, $this->countByHeader('For all languages'));
+    }
+
+    #[Test]
+    public function aRecordWithAllLanguagesIsRefusedWhenTheScopeRestrictsLanguages(): void
+    {
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('create', [], [new ScopedDestination('tt_content', self::SCOPED)]),
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::SCOPED, 'header' => 'For all languages', 'CType' => 'text', 'sys_language_uid' => -1], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [0]),
+        );
+
+        self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertSame(0, $this->countByHeader('For all languages'));
     }
 
     // --- scaffold -----------------------------------------------------------
@@ -1286,6 +1685,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             new NullLogger(),
             previewTranslator: new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
             invocationPolicy: new ToolInvocationPolicy([new RequireAssignmentScopeRule($registry, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]),
+            scopeChecker: $this->checkerOverride,
         );
     }
 

@@ -122,7 +122,7 @@ final class AssignmentScopeHook
         $bad    = new ScopeRefusal($verb, $table, $uid, 0, ScopeRefusal::UNRESOLVABLE);
 
         // The numbers the entry carries about itself.
-        $given  = $label !== '' && array_key_exists($label, $fields) ? $this->canonical($fields[$label]) : null;
+        $given  = $label !== '' && array_key_exists($label, $fields) ? $this->canonical($fields[$label], true) : null;
         $origin = $link !== '' && array_key_exists($link, $fields) ? $this->canonical($fields[$link]) : null;
         if ($label !== '' && array_key_exists($label, $fields) && $given === null || $link !== '' && array_key_exists($link, $fields) && $origin === null) {
             return $bad;
@@ -279,12 +279,17 @@ final class AssignmentScopeHook
     /**
      * A number as DataHandler reads it from a field: an integer, or a string of
      * digits without a sign or a leading zero; an empty value is 0. Null for
-     * anything else.
+     * anything else. For a language field -1 (all languages) is a number too.
      */
-    private function canonical(mixed $value): ?int
+    private function canonical(mixed $value, bool $language = false): ?int
     {
         if ($value === null || $value === '') {
             return 0;
+        }
+
+        // -1 is "all languages", which only a language field may say.
+        if ($language && ($value === -1 || $value === '-1')) {
+            return -1;
         }
 
         if (is_int($value)) {

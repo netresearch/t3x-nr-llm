@@ -78,8 +78,9 @@ edited.
 
 A write that exceeds the scope is rolled back in the live and in a draft workspace
 alike: each call of a write tool runs in one database transaction. What the
-rollback cannot take back is listed in the ADR (cache flushes, side effects of
-hooks that call out, files); a FAL file operation is refused under a scope.
+rollback cannot take back is listed in the ADR (side effects of hooks that call
+out, files); a FAL file operation is refused under a scope. Cache group flushes
+of the call wait until it is committed and are dropped when it is rolled back.
 
 What is refused
 ===============

@@ -167,7 +167,7 @@ final class ChangeSets
             $more > 0 ? sprintf(' and %d more', $more) : '',
             $rolledBack
                 ? 'All database changes of this call were rolled back.'
-                : 'The call ran outside a transaction: these changes were not rolled back and have to be reviewed.',
+                : 'These changes were NOT rolled back (no transaction held them, or it could not be rolled back) and have to be reviewed.',
         );
     }
 

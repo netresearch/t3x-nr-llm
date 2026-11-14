@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
@@ -119,10 +120,15 @@ final readonly class ClearCacheTool implements ToolInterface, ToolEffectInterfac
             ));
         }
 
-        if (in_array($plan['group'], [self::FULL_FLUSH, self::PAGE_GROUP], true)) {
-            $this->dataHandlerFor($user)->clear_cacheCmd($plan['group']);
-        } else {
-            $this->cacheManager->flushCachesInGroup($plan['group']);
+        // A group flush truncates database cache tables, which MySQL and MariaDB
+        // commit on their own: inside the transaction of a scoped call (ADR-295)
+        // it waits for the commit and is dropped when the call is rolled back.
+        $group = $plan['group'];
+        $flush = in_array($group, [self::FULL_FLUSH, self::PAGE_GROUP], true)
+            ? fn () => $this->dataHandlerFor($user)->clear_cacheCmd($group)
+            : fn () => $this->cacheManager->flushCachesInGroup($group);
+        if (!AssignmentScopeTransaction::defer($flush)) {
+            $flush();
         }
 
         return ToolResult::text($plan['group'] === self::FULL_FLUSH
