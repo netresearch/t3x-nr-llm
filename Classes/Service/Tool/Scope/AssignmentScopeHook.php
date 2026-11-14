@@ -119,12 +119,7 @@ final class AssignmentScopeHook
                 return $refusal;
             }
         } else {
-            $pid = $this->pidOf($fields['pid'] ?? null, $table, $checker, $dataHandler, $workspace);
-            if ($pid === null) {
-                return new ScopeRefusal('create', $table, 0, 0, ScopeRefusal::UNRESOLVABLE);
-            }
-
-            $refusal = $checker->destinationRefusal($scope, 'create', $table, $pid, $workspace);
+            $refusal = $this->newRowRefusal($scope, $checker, $table, $link, $fields, $dataHandler, $workspace);
             if ($refusal instanceof ScopeRefusal) {
                 return $refusal;
             }
@@ -147,6 +142,38 @@ final class AssignmentScopeHook
         }
 
         return $this->childRefusal($scope, $checker, $table, $schema, $fields, $workspace);
+    }
+
+    /**
+     * Whether a new row may be created. A row is judged on its page, with two
+     * exceptions that lie on no page of their own: a translation, which is
+     * judged on the record it translates (a page overlay lies beside its
+     * source, under the source's parent), and a file reference, which is judged
+     * on the record it is attached to. Either may be in scope by a record
+     * alone, with no page of the scope above it.
+     *
+     * @param array<array-key, mixed> $fields
+     */
+    private function newRowRefusal(AssignmentScope $scope, AssignmentScopeChecker $checker, string $table, string $link, array $fields, DataHandler $dataHandler, int $workspace): ?ScopeRefusal
+    {
+        $origin = $link !== '' && is_numeric($fields[$link] ?? null) ? (int) $fields[$link] : 0;
+        $host   = $table === 'sys_file_reference' && is_string($fields['tablenames'] ?? null) && is_numeric($fields['uid_foreign'] ?? null) ? (int) $fields['uid_foreign'] : 0;
+
+        if ($origin > 0 || $host > 0) {
+            if (!$scope->admitsTable($table)) {
+                return new ScopeRefusal('create', $table, 0, 0, ScopeRefusal::TABLE_NOT_ALLOWED);
+            }
+
+            return $origin > 0
+                ? $checker->recordRefusal($scope, 'translate', $table, $origin, $workspace, false)
+                : $checker->recordRefusal($scope, 'attach', (string) $fields['tablenames'], $host, $workspace);
+        }
+
+        $pid = $this->pidOf($fields['pid'] ?? null, $table, $checker, $dataHandler, $workspace);
+
+        return $pid === null
+            ? new ScopeRefusal('create', $table, 0, 0, ScopeRefusal::UNRESOLVABLE)
+            : $checker->destinationRefusal($scope, 'create', $table, $pid, $workspace);
     }
 
     /**
@@ -242,11 +269,15 @@ final class AssignmentScopeHook
      */
     private function copiesSubpages(DataHandler $dataHandler): bool
     {
-        $uc       = is_array($dataHandler->BE_USER->uc ?? null) ? $dataHandler->BE_USER->uc : [];
-        $levels   = $uc['copyLevels'] ?? 0;
-        $copyTree = property_exists($dataHandler, 'copyTree') ? $dataHandler->copyTree : 0;
+        $uc = $dataHandler->BE_USER->uc;
 
-        return is_numeric($levels) && (int) $levels > 0 || is_numeric($copyTree) && (int) $copyTree > 0;
+        // `copyTree` is a property of TYPO3 13 and gone in 14: read it by name.
+        return $this->number($uc['copyLevels'] ?? 0) > 0 || $this->number(get_object_vars($dataHandler)['copyTree'] ?? 0) > 0;
+    }
+
+    private function number(mixed $value): int
+    {
+        return is_numeric($value) ? (int) $value : 0;
     }
 
     /**
@@ -277,7 +308,7 @@ final class AssignmentScopeHook
                 return null;
             }
 
-            return $after ? $checker->pidOfRecord($table, (int) $real, $workspace) : (int) $real;
+            return $after ? $checker->pidOfRecord($table, $this->number($real), $workspace) : $this->number($real);
         }
 
         if (!is_int($value) && !(is_string($value) && MathUtility::canBeInterpretedAsInteger($value))) {
@@ -297,6 +328,6 @@ final class AssignmentScopeHook
 
     private function workspaceOf(DataHandler $dataHandler): int
     {
-        return max(0, (int) ($dataHandler->BE_USER->workspace ?? 0));
+        return max(0, $this->number($dataHandler->BE_USER->workspace ?? 0));
     }
 }

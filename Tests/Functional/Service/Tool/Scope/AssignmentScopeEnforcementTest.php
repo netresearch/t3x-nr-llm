@@ -592,6 +592,55 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->refusals($inside['trace']), 'a child on a page in scope is let through');
     }
 
+    /**
+     * A page overlay lies beside its source, under the source's parent, which
+     * the scope does not contain; it is judged on the page it translates.
+     */
+    #[Test]
+    public function aTranslationOfAPageInScopeIsAllowedWhoseParentIsNot(): void
+    {
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->command(['pages' => [self::BELOW => ['localize' => self::GERMAN]]], $context);
+            },
+            scope: AssignmentScope::forPage(self::BELOW),
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(1, (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE l10n_parent = ?', [self::BELOW]), 'the overlay was created');
+    }
+
+    /**
+     * A scope of single records has no page: the translation and the file
+     * reference of a scoped record are in it, those of another record are not.
+     */
+    #[Test]
+    public function aScopeOfOneRecordAdmitsItsTranslationAndItsFileReferencesOnly(): void
+    {
+        $scope = new AssignmentScope([], [new RecordReference('tt_content', self::IN_SCOPE_ELEMENT)]);
+        $this->connectionPool->getConnectionForTable('sys_file_storage')->insert('sys_file_storage', ['uid' => 1, 'pid' => 0, 'name' => 'fileadmin', 'driver' => 'Local', 'is_online' => 1, 'is_browsable' => 1, 'is_writable' => 1, 'configuration' => '<?xml version="1.0" encoding="utf-8" standalone="yes" ?><T3FlexForms><data><sheet index="sDEF"><language index="lDEF"><field index="basePath"><value index="vDEF">fileadmin/</value></field><field index="pathType"><value index="vDEF">relative</value></field></language></sheet></data></T3FlexForms>']);
+        $this->connectionPool->getConnectionForTable('sys_file')->insert('sys_file', ['uid' => 1, 'pid' => 0, 'storage' => 1, 'identifier' => '/a.jpg', 'name' => 'a.jpg', 'type' => 2, 'identifier_hash' => 'a', 'folder_hash' => 'a', 'sha1' => 'a', 'extension' => 'jpg', 'mime_type' => 'image/jpeg', 'size' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['localize' => self::GERMAN]]], $context);
+                foreach ([self::IN_SCOPE_ELEMENT => self::SCOPED, self::OUTSIDE_ELEMENT => self::OTHER] as $host => $pid) {
+                    $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                    $dataHandler->start(['sys_file_reference' => ['NEW1' => ['pid' => $pid, 'uid_local' => 1, 'uid_foreign' => $host, 'tablenames' => 'tt_content', 'fieldname' => 'assets']]], [], $context->actingBackendUser());
+                    $dataHandler->process_datamap();
+                }
+            },
+            scope: $scope,
+        );
+
+        self::assertSame(1, $this->translationsOf(self::IN_SCOPE_ELEMENT), 'the translation of a scoped record');
+        self::assertSame(['attach tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
+        self::assertSame(1, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE tablenames = ? AND uid_foreign = ?', ['tt_content', self::IN_SCOPE_ELEMENT]));
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_file_reference WHERE tablenames = ? AND uid_foreign = ?', ['tt_content', self::OUTSIDE_ELEMENT]));
+    }
+
     #[Test]
     public function anUnknownCommandIsRefused(): void
     {

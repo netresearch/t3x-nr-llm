@@ -139,14 +139,16 @@ included:
   would re-parent, written by a query of the relation handler that no datamap
   entry announces) needs that record in scope, and new children are datamap
   entries of their own; the language of a new row is its given language or, when
-  omitted, 0; a new record's ``pid`` is resolved (a page uid, the negative uid of
+  omitted, 0; a new translation is judged on the record it translates, because a
+  page overlay lies under the parent of its source and a scope of one record has
+  no page, and a new ``sys_file_reference`` on the record it is attached to; a new record's ``pid`` is resolved (a page uid, the negative uid of
   the record it goes after, or the placeholder of a record created earlier in
   the same run) and must be in scope; a ``l10n_parent`` or ``l18n_parent`` must
   point at a record in scope; the language of the row must be admitted.
 - A command is removed in ``processCmdmap_beforeStart``, before any command
   runs. ``move`` and ``copy`` need the record and the destination in scope,
-  ``localize``, ``copyToLanguage`` and ``inlineLocalizeSynchronize`` the source and the target
-  language, ``delete``, ``undelete``, ``discard`` and ``version`` the record. A
+  ``localize`` and ``copyToLanguage`` the source and the target language,
+  ``inlineLocalizeSynchronize`` the source, ``delete``, ``undelete``, ``discard`` and ``version`` the record. A
   ``delete`` of a page needs every page below it in scope as well, because core
   takes subpages along without naming them, and so does a ``copy`` of a page
   made with copy levels above 0 (the user's ``copyLevels``, or ``copyTree`` before
@@ -214,9 +216,13 @@ Consequences
   written only through an explicit reference, and a new redirect never. A
   scope for an editorial page assignment therefore refuses the redirect and
   file-metadata tools unless it names the file.
-- ◑ The table list of a scope does not reach what core deletes along with a
-  page: the content of other tables on a page that is deleted goes with it.
-  A page that may be deleted is judged as a page.
+- ◑ The table and language lists of a scope do not reach what core deletes along
+  with a record: the content of other tables on a page that is deleted goes with
+  it, and so do the translations of a default-language record. A record that may
+  be deleted is judged as that record.
+- ◑ A scope's table list has to name the child tables too: the file-metadata tools
+  claim a ``sys_file`` and write ``sys_file_metadata``, the attach tools write
+  ``sys_file_reference``. A list that omits them refuses the write.
 - ◑ A copy that takes subpages along is judged on the source subtree and the
   destination, not on where the copies of the subpages end up: a copy placed
   deeper than the depth allows for its subpages is not caught. The built-in
