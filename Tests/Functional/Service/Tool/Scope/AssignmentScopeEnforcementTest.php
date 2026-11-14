@@ -1325,6 +1325,47 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A write outside the scope followed by "my work is handed over" is judged
+     * like any other call: rolled back, and the hand-over is not honoured.
+     */
+    #[Test]
+    public function aWriteOutsideTheScopeBeforeADependencyHandOverIsRolledBack(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+
+                throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
+            },
+        );
+
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT), 'nothing outside the scope was committed');
+        self::assertStringContainsString('rolled back', $outcome['toolResult']);
+        self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertFalse($this->transactionIsOpen());
+    }
+
+    #[Test]
+    public function aWriteTheDataHandlerLayerRefusedBeforeADependencyHandOverIsReported(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+
+                throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
+            },
+        );
+
+        self::assertSame('Original 23', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertSame(['update tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
+        self::assertFalse($this->transactionIsOpen());
+    }
+
+    /**
      * A check that cannot read what the call wrote has not cleared it: the call
      * is rolled back, and the transaction is not left open.
      */

@@ -3183,12 +3183,29 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     ? $this->writeEnvironment->around($context->actingBackendUser(), static fn (): ToolResult => $tool->execute($call->arguments, $context))
                     : $tool->execute($call->arguments, $context);
             } catch (ToolDependencyPendingException $pending) {
+                // What the call wrote before it handed its work over is judged like
+                // any other call's (ADR-295): a write outside the scope is rolled
+                // back and the hand-over is not honoured, so nothing out of scope
+                // is committed on this way out.
+                $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+                $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
+                if ($scope instanceof AssignmentScope && ($violations !== [] || $refused !== [])) {
+                    $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
+                    $rolledBack = $violations !== [] && $transaction instanceof AssignmentScopeTransaction;
+                    $ended      = $this->endTransaction($transaction, $violations !== []);
+                    $rolledBack = $rolledBack && $ended;
+                    if ($rolledBack) {
+                        $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
+                    }
+
+                    ToolChangeCollector::hold($changes);
+
+                    return ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, trim(ChangeSets::refusalNote($scope, $refused) . ' ' . ChangeSets::effectNote($scope, $violations, $rolledBack))));
+                }
+
                 // Control flow, not a result: the call is not recorded, so neither
                 // are its changes.
                 ToolChangeCollector::take();
-                if ($scope instanceof AssignmentScope) {
-                    AssignmentScopeGuard::take();
-                }
 
                 $this->endTransaction($transaction, false);
 
