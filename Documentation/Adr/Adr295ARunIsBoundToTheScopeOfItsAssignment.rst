@@ -135,7 +135,11 @@ included:
 - A datamap entry is vetoed in ``processDatamap_preProcessFieldArray``, which
   core documents as able to skip the record and which sees the child records the
   data-map processor generates for inline relations. An existing record must be
-  in scope; a new record's ``pid`` is resolved (a page uid, the negative uid of
+  in scope; an inline or file field that lists an existing record (a child it
+  would re-parent, written by a query of the relation handler that no datamap
+  entry announces) needs that record in scope, and new children are datamap
+  entries of their own; the language of a new row is its given language or, when
+  omitted, 0; a new record's ``pid`` is resolved (a page uid, the negative uid of
   the record it goes after, or the placeholder of a record created earlier in
   the same run) and must be in scope; a ``l10n_parent`` or ``l18n_parent`` must
   point at a record in scope; the language of the row must be admitted.
@@ -146,7 +150,10 @@ included:
   ``delete`` of a page needs every page below it in scope as well, because core
   takes subpages along without naming them, and so does a ``copy`` of a page
   made with copy levels above 0 (the user's ``copyLevels``, or ``copyTree`` before
-  TYPO3 14). A command this ADR does not know is refused.
+  TYPO3 14). A ``move`` of a page is judged on its subpages too: they move along,
+  so the deepest of them has to lie in scope at the new position (the page's new
+  parent, or that of the page it goes after, plus the height of its subtree plus
+  one). A command this ADR does not know is refused.
 - A refusal is recorded on the guard and written to the DataHandler's error log.
   The tool does not decide what the model reads: a tool may report success or
   swallow an error. ``ToolLoopService`` takes the guard on every way out of the
@@ -215,8 +222,9 @@ Consequences
   deeper than the depth allows for its subpages is not caught. The built-in
   copy tool copies the page and its content only (it pins ``copyLevels`` to 0),
   so it is judged on the page.
-- ◑ A move of a page is judged on the page and its destination. Its subpages
-  move with it and stay under it.
+- ◑ Group, select and MM relations store a reference on the record itself and
+  change no other row; the record they name is not checked. A flex form field is
+  one value of the record.
 - ✕ A write outside the DataHandler is held by layer one only.
 - ✕ ``clear_cache`` is allowed under any scope. A cache is not a record, and no
   content changes, but it clears caches for more than the scope.

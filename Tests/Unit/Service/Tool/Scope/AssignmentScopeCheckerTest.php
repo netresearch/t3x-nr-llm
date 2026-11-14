@@ -186,6 +186,48 @@ final class AssignmentScopeCheckerTest extends TestCase
         self::assertSame([], $this->checker()->refusalsFor($shallow, $reaches, 0), 'a command that does not reach subpages is judged on the page');
     }
 
+    /**
+     * A moved page takes its subpages along, so the deepest of them has to lie
+     * in scope at the new position. Page 3 has page 4 below it.
+     */
+    #[Test]
+    public function aMovedPageNeedsItsDeepestSubpageInScopeAtTheNewPosition(): void
+    {
+        $move = new ScopedWrite('move', [new RecordReference('pages', 3)], [new ScopedDestination('pages', 2)], true);
+
+        self::assertSame(
+            [ScopeRefusal::OUTSIDE_SCOPE],
+            array_map(static fn (ScopeRefusal $refusal): string => $refusal->reason, $this->checker()->refusalsFor(AssignmentScope::forPage(2, 1), $move, 0)),
+            'the page fits under page 2 in a scope of depth 1, its subpage would be two levels down',
+        );
+        self::assertSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 2), $move, 0));
+
+        $leaf = new ScopedWrite('move', [new RecordReference('pages', 6)], [new ScopedDestination('pages', 3)], true);
+        self::assertNotSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 1), $leaf, 0), 'under page 3 the page would be two levels down');
+        self::assertSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 2), $leaf, 0));
+
+        $outside = new ScopedWrite('move', [new RecordReference('pages', 3)], [new ScopedDestination('pages', 5)], true);
+        self::assertNotSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 5), $outside, 0), 'under an out-of-scope parent');
+    }
+
+    #[Test]
+    public function aMovedPageBehindAnotherPageIsJudgedAtThatPagesParent(): void
+    {
+        $behind = new ScopedWrite('move', [new RecordReference('pages', 3), new RecordReference('pages', 6)], [], true);
+
+        self::assertNotSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 1), $behind, 0), 'the subtree of page 3 would be one level too deep behind page 6');
+        self::assertSame([], $this->checker()->refusalsFor(AssignmentScope::forPage(2, 2), $behind, 0));
+    }
+
+    #[Test]
+    public function aNewRowInTheDefaultLanguageNeedsThatLanguageInTheList(): void
+    {
+        $scope  = new AssignmentScope([new ScopedPage(2, 1)], [], null, [1]);
+        $create = new ScopedWrite('create', [], [new ScopedDestination('tt_content', 2)], false, 0);
+
+        self::assertSame([ScopeRefusal::LANGUAGE_NOT_ALLOWED], array_map(static fn (ScopeRefusal $refusal): string => $refusal->reason, $this->checker()->refusalsFor($scope, $create, 0)));
+    }
+
     #[Test]
     public function aSubtreeTooLargeToReadIsRefusedUnread(): void
     {

@@ -96,13 +96,18 @@ delete takes along.
    * - Write
      - Refused when
    * - Change a record
-     - The record is not in scope, or its table or language is not allowed.
+     - The record is not in scope, or its table or language is not allowed. An
+       inline or file field that lists an existing record outside the scope is
+       refused, because listing it moves it to this record.
    * - Create a record
-     - The page it is created on is not in scope (for a record created after
+     - Its language is not allowed (a record without a language is in the default
+       language), or the page it is created on is not in scope (for a record created after
        another one, the page of that record), or it is a page and would lie
        deeper than the scope reaches.
    * - Move
-     - The record or the destination is not in scope.
+     - The record or the destination is not in scope. A moved page takes its
+       subpages along, so the deepest of them has to be in scope at the new
+       position.
    * - Copy
      - The record or the destination is not in scope. A copy of a page that
        takes its subpages along also needs every page below it in scope. The

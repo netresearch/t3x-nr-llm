@@ -450,7 +450,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return null;
         }
 
-        return new ScopedWrite('create', $anchor, [new ScopedDestination('tt_content', $pid)], false, $lang);
+        // An omitted language is the default language, which a scope with a language list may not admit.
+        return new ScopedWrite('create', $anchor, [new ScopedDestination('tt_content', $pid)], false, $lang ?? 0);
     }
 
     public function pendingTarget(array $arguments): ?PendingWriteTarget

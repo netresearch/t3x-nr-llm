@@ -504,6 +504,94 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(2, (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE pid = ?', [self::SCOPED]), 'the second copy was refused whole');
     }
 
+    /**
+     * A moved page takes its subpages along. Page 3 has page 4 below it, so a
+     * scope of one level admits neither page 3 under page 2 (its subpage would
+     * be two levels down) nor anything that puts it deeper.
+     */
+    #[Test]
+    public function aPageMoveNeedsItsSubpagesInScopeAtTheNewPosition(): void
+    {
+        $shallow = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['pages' => [self::BELOW => ['move' => self::SCOPED]]], $context);
+            },
+        );
+        self::assertSame(['move pages:3 outside_scope'], $this->refusals($shallow['trace']));
+
+        $deep = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['pages' => [self::BELOW => ['move' => self::SCOPED]]], $context);
+                // Behind a page of another branch.
+                $this->command(['pages' => [self::BELOW => ['move' => -self::OTHER]]], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 2)]),
+        );
+        self::assertSame(['move pages:3 outside_scope'], $this->refusals($deep['trace']), 'only the move out of the scope is refused');
+        self::assertSame(self::SCOPED, $this->pidOf('pages', self::BELOW));
+    }
+
+    #[Test]
+    public function aNewRecordWithoutALanguageIsJudgedAsTheDefaultLanguage(): void
+    {
+        $allowed = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::SCOPED, 'header' => 'Default language', 'CType' => 'text'], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [0]),
+        );
+        self::assertSame([], $this->refusals($allowed['trace']));
+        self::assertSame(1, $this->countByHeader('Default language'));
+
+        $refused = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->create(['pid' => self::SCOPED, 'header' => 'No language given', 'CType' => 'text'], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [self::GERMAN]),
+        );
+        self::assertSame(['create tt_content (on page 0) language_not_allowed'], $this->refusals($refused['trace']));
+        self::assertSame(0, $this->countByHeader('No language given'));
+    }
+
+    /**
+     * Listing an existing record in an inline field re-parents it with a query
+     * of the relation handler, so it has to be in scope; no datamap entry
+     * names it.
+     */
+    #[Test]
+    public function anInlineFieldNamingAChildOutsideTheScopeIsRefused(): void
+    {
+        $reference = $this->connectionPool->getConnectionForTable('sys_file_reference');
+        $reference->insert('sys_file_reference', ['uid' => 50, 'pid' => self::OTHER, 'uid_local' => 1, 'uid_foreign' => self::OUTSIDE_ELEMENT, 'tablenames' => 'tt_content', 'fieldname' => 'assets', 'sorting_foreign' => 1]);
+        $reference->insert('sys_file_reference', ['uid' => 51, 'pid' => self::SCOPED, 'uid_local' => 1, 'uid_foreign' => self::IN_SCOPE_ELEMENT, 'tablenames' => 'tt_content', 'fieldname' => 'assets', 'sorting_foreign' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['tt_content' => [self::IN_SCOPE_ELEMENT => ['assets' => '51,50']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+        );
+
+        self::assertSame(['update sys_file_reference:50 outside_scope'], $this->refusals($outcome['trace']));
+        self::assertSame(self::OUTSIDE_ELEMENT, (int) $this->scalar('SELECT uid_foreign FROM sys_file_reference WHERE uid = 50', []), 'the foreign reference was not taken over');
+
+        $inside = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['tt_content' => [self::IN_SCOPE_ELEMENT => ['assets' => '51']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+        );
+        self::assertSame([], $this->refusals($inside['trace']), 'a child on a page in scope is let through');
+    }
+
     #[Test]
     public function anUnknownCommandIsRefused(): void
     {

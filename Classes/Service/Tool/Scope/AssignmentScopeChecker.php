@@ -55,6 +55,11 @@ final readonly class AssignmentScopeChecker
             $refusal = $this->recordRefusal($scope, $write->operation, $record->table, $record->uid, $workspace, $write->operation !== 'translate');
             if ($refusal instanceof ScopeRefusal) {
                 $refusals[] = $refusal;
+            } elseif ($write->reachesSubpages && $record->table === 'pages' && $write->operation === 'move') {
+                $moved = $this->movedPageRefusal($scope, $write, $record->uid, $workspace);
+                if ($moved instanceof ScopeRefusal) {
+                    $refusals[] = $moved;
+                }
             } elseif ($write->reachesSubpages && $record->table === 'pages') {
                 $subtree = $this->subtreeRefusal($scope, $write->operation, $record->uid, $workspace);
                 if ($subtree instanceof ScopeRefusal) {
@@ -64,6 +69,11 @@ final readonly class AssignmentScopeChecker
         }
 
         foreach ($write->destinations as $destination) {
+            if ($write->operation === 'move' && $write->reachesSubpages && $destination->table === 'pages') {
+                // Judged with the height of the moved subtree above.
+                continue;
+            }
+
             $refusal = $this->destinationRefusal($scope, $write->operation, $destination->table, $destination->pid, $workspace);
             if ($refusal instanceof ScopeRefusal) {
                 $refusals[] = $refusal;
@@ -107,6 +117,82 @@ final readonly class AssignmentScopeChecker
         return $page > 0 && $this->pageInScope($scope, $page, $workspace, 0)
             ? null
             : new ScopeRefusal($operation, $table, $uid, $facts->pid, ScopeRefusal::OUTSIDE_SCOPE);
+    }
+
+    /**
+     * Whether a page may be moved with everything below it. The page and the
+     * pages below it keep their relative depth, so the deepest of them has to
+     * lie within the scope at its new position: the parent it goes under (or
+     * that of the page it goes after) plus the height of the subtree plus one.
+     *
+     * Only the moved page is written, but a depth-limited scope would otherwise
+     * be left with a subtree that is out of it after the move.
+     */
+    public function movePageRefusal(AssignmentScope $scope, string $operation, int $pageUid, int $parentPid, int $workspace): ?ScopeRefusal
+    {
+        if (!$scope->admitsTable('pages')) {
+            return new ScopeRefusal($operation, 'pages', $pageUid, max(0, $parentPid), ScopeRefusal::TABLE_NOT_ALLOWED);
+        }
+
+        $height = $this->subtreeHeight($pageUid, $workspace);
+
+        return $height !== null && $parentPid > 0 && $this->pageInScope($scope, $parentPid, $workspace, 1 + $height)
+            ? null
+            : new ScopeRefusal($operation, 'pages', $pageUid, max(0, $parentPid), ScopeRefusal::OUTSIDE_SCOPE);
+    }
+
+    private function movedPageRefusal(AssignmentScope $scope, ScopedWrite $write, int $pageUid, int $workspace): ?ScopeRefusal
+    {
+        $parents = [];
+        foreach ($write->destinations as $destination) {
+            if ($destination->table === 'pages') {
+                $parents[] = $destination->pid;
+            }
+        }
+
+        foreach ($write->records as $anchor) {
+            if ($anchor->table === 'pages' && $anchor->uid !== $pageUid) {
+                $parent = $this->pidOfRecord('pages', $anchor->uid, $workspace);
+                if ($parent !== null) {
+                    $parents[] = $parent;
+                }
+            }
+        }
+
+        foreach ($parents as $parent) {
+            $refusal = $this->movePageRefusal($scope, $write->operation, $pageUid, $parent, $workspace);
+            if ($refusal instanceof ScopeRefusal) {
+                return $refusal;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * How many levels the pages below a page reach; 0 for none, null when the
+     * tree is too large to read.
+     */
+    private function subtreeHeight(int $pageUid, int $workspace): ?int
+    {
+        $below = $this->topology->descendantPages($pageUid, $workspace, self::SUBTREE_LIMIT);
+        if ($below === null) {
+            return null;
+        }
+
+        $height = 0;
+        foreach ($below as $uid) {
+            $depth   = 0;
+            $current = $uid;
+            for (; $current !== $pageUid && $current > 0 && $depth <= AssignmentScope::MAX_DEPTH + 1; ++$depth) {
+                $row     = $this->topology->row('pages', $current, $workspace);
+                $current = $row instanceof RecordFacts ? $row->pid : 0;
+            }
+
+            $height = max($height, $depth);
+        }
+
+        return $height;
     }
 
     /**

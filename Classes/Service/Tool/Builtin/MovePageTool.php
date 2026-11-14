@@ -325,7 +325,8 @@ final readonly class MovePageTool implements ToolInterface, ToolEffectInterface,
             return null;
         }
 
-        return new ScopedWrite('move', [new RecordReference('pages', $uid), ...$anchor], $parent === null ? [] : [new ScopedDestination('pages', $parent)]);
+        // The subpages move along with the page, so the claim reaches them.
+        return new ScopedWrite('move', [new RecordReference('pages', $uid), ...$anchor], $parent === null ? [] : [new ScopedDestination('pages', $parent)], true);
     }
 
     public function pendingTarget(array $arguments): ?PendingWriteTarget

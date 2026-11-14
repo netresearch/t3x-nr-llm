@@ -352,7 +352,8 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
             return null;
         }
 
-        return new ScopedWrite('create', $anchor, [new ScopedDestination('pages', $pid)]);
+        // A drafted page is in the default language.
+        return new ScopedWrite('create', $anchor, [new ScopedDestination('pages', $pid)], false, 0);
     }
 
     public function pendingTarget(array $arguments): ?PendingWriteTarget

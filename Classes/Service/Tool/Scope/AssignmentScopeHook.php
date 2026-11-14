@@ -130,14 +130,63 @@ final class AssignmentScopeHook
             }
         }
 
-        $language = $label !== '' && isset($fields[$label]) && is_numeric($fields[$label]) ? (int) $fields[$label] : null;
+        // A new row without a language is stored in the default language, so the
+        // effective value is 0 and is checked like any other.
+        $given    = $label !== '' && isset($fields[$label]) && is_numeric($fields[$label]) ? (int) $fields[$label] : null;
+        $language = $given ?? ($isNew && $label !== '' ? 0 : null);
         if ($language !== null && !$scope->admitsLanguage($language)) {
             return new ScopeRefusal($isNew ? 'create' : 'update', $table, $isNew ? 0 : (int) $id, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
         }
 
         $origin = $link !== '' && is_numeric($fields[$link] ?? null) ? (int) $fields[$link] : 0;
+        if ($origin > 0) {
+            $refusal = $checker->recordRefusal($scope, 'translate', $table, $origin, $workspace, false);
+            if ($refusal instanceof ScopeRefusal) {
+                return $refusal;
+            }
+        }
 
-        return $origin > 0 ? $checker->recordRefusal($scope, 'translate', $table, $origin, $workspace, false) : null;
+        return $this->childRefusal($scope, $checker, $table, $schema, $fields, $workspace);
+    }
+
+    /**
+     * The existing records an inline or file field names. Listing an existing record in
+     * an inline relation re-parents it and writes it with a query of the
+     * relation handler, which no datamap entry announces, so each one has to be
+     * in scope. New children are datamap entries of their own and are checked
+     * there. Group and select relations store a reference on the record
+     * itself and change no other row.
+     *
+     * @param array<array-key, mixed> $schema the TCA of the table
+     * @param array<array-key, mixed> $fields
+     */
+    private function childRefusal(AssignmentScope $scope, AssignmentScopeChecker $checker, string $table, array $schema, array $fields, int $workspace): ?ScopeRefusal
+    {
+        $columns = is_array($schema['columns'] ?? null) ? $schema['columns'] : [];
+        foreach ($fields as $name => $value) {
+            $column = is_array($columns[$name] ?? null) ? $columns[$name] : [];
+            $config = is_array($column['config'] ?? null) ? $column['config'] : [];
+            // The `file` type is an inline relation to sys_file_reference.
+            $child = ($config['type'] ?? null) === 'file' ? 'sys_file_reference' : ($config['foreign_table'] ?? null);
+            if (!in_array($config['type'] ?? null, ['inline', 'file'], true) || !is_string($child)) {
+                continue;
+            }
+
+            $items = is_array($value) ? $value : explode(',', is_scalar($value) ? (string) $value : '');
+            foreach ($items as $item) {
+                $item = is_scalar($item) ? trim((string) $item) : '';
+                if ($item === '' || !MathUtility::canBeInterpretedAsInteger($item) || (int) $item < 1) {
+                    continue;
+                }
+
+                $refusal = $checker->recordRefusal($scope, 'update', $child, (int) $item, $workspace);
+                if ($refusal instanceof ScopeRefusal) {
+                    return $refusal;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function commandRefusal(AssignmentScope $scope, AssignmentScopeChecker $checker, DataHandler $dataHandler, string $table, int $id, string $command, mixed $value, int $workspace): ?ScopeRefusal
@@ -175,9 +224,14 @@ final class AssignmentScopeHook
         }
 
         $pid = $this->pidOf($this->target($value), $table, $checker, null, $workspace);
+        if ($pid === null) {
+            return new ScopeRefusal($operation, $table, $id, 0, ScopeRefusal::UNRESOLVABLE);
+        }
 
-        return $pid === null
-            ? new ScopeRefusal($operation, $table, $id, 0, ScopeRefusal::UNRESOLVABLE)
+        // A moved page takes its subpages along: the deepest of them has to be
+        // in scope at the new position.
+        return $operation === 'move' && $table === 'pages'
+            ? $checker->movePageRefusal($scope, $operation, $id, $pid, $workspace)
             : $checker->destinationRefusal($scope, $operation, $table, $pid, $workspace);
     }
 
