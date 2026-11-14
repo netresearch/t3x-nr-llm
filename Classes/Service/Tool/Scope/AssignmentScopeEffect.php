@@ -51,6 +51,11 @@ final class AssignmentScopeEffect
 
             $truncated = false;
             $entries   = (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
+            if ($truncated) {
+                // Rows after the cap, or a failed read, were not judged: the check
+                // cannot clear this call, so it is rolled back.
+                return [['refusal' => new ScopeRefusal('effect', 'pages', 0, 0, ScopeRefusal::UNRESOLVABLE), 'workspace' => $workspace]];
+            }
 
             $found = [];
             foreach ($entries as $entry) {

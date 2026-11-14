@@ -147,7 +147,7 @@ final readonly class DatabaseRecordTopology implements RecordTopologyInterface
             $query = $this->connectionPool->getQueryBuilderForTable('pages');
             $query->getRestrictions()->removeAll();
             $rows = $query
-                ->select('uid', 'l10n_parent')
+                ->select('uid', 'l10n_parent', 't3ver_oid')
                 ->from('pages')
                 ->where(
                     $query->expr()->in('pid', $query->createNamedParameter($frontier, Connection::PARAM_INT_ARRAY)),
@@ -159,7 +159,11 @@ final readonly class DatabaseRecordTopology implements RecordTopologyInterface
 
             $next = [];
             foreach ($rows as $row) {
-                $default = $this->int($row['l10n_parent'] ?? 0) > 0 ? $this->int($row['l10n_parent']) : $this->int($row['uid'] ?? 0);
+                // A version, a move row included, is its live page: the children of the
+                // page keep the live uid as their pid.
+                $live    = $this->int($row['t3ver_oid'] ?? 0);
+                $own     = $live > 0 ? $live : $this->int($row['uid'] ?? 0);
+                $default = $this->int($row['l10n_parent'] ?? 0) > 0 ? $this->int($row['l10n_parent']) : $own;
                 if ($default < 1 || $default === $pageUid || isset($found[$default])) {
                     continue;
                 }

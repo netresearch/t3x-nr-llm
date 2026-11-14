@@ -520,7 +520,8 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
             return null;
         }
 
-        return new ScopedWrite('create', [], [new ScopedDestination($table, $pid)]);
+        // A table with a language field is written in the default language here.
+        return new ScopedWrite('create', [], [new ScopedDestination($table, $pid)], language: $this->languageFieldOf($table) === null ? null : 0);
     }
 
     public function pendingTarget(array $arguments): ?PendingWriteTarget

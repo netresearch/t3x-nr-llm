@@ -279,6 +279,17 @@ checks let through:
   successful nested rollback is reported as not rolled back, although it was.
 - A cache flush that fails after the commit is logged as a warning; the tool's
   result has already said it flushed.
+- The anchor of a move ("after record X") is judged like a moved record: its own
+  language and, for a page, its subtree must lie in the scope. A move after an
+  anchor with a translation or a deep subtree outside the scope is refused
+  although the anchor does not change. This errs on the side of refusing.
+- Translations a workspace holds are read for every workspace, so a live
+  operation on a record whose only translation exists in a draft workspace is
+  judged against that translation. This errs on the side of refusing too.
+- A child table that two inline columns of one parent reference with different
+  ``foreign_field`` values is read through the first pointer only
+  (``ChildRelations``). A write that sets only the second pointer is judged on the
+  owner the first one names. No built-in table is built that way.
 - ``AssignmentScopeTransaction`` is internal: a second ``commit()`` or
   ``rollBack()`` on one instance is not guarded, and the loop never makes one.
 - ``sys_language_uid = -1`` (all languages) is read as a language only where a

@@ -1728,6 +1728,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     #[Test]
     public function aClearCacheCommandOfThePageRunsAfterTheCommitOfAnInScopeCall(): void
     {
+        $seenWhileOpen      = null;
         [$cache, $original] = $this->givePageTheClearCacheCommand();
         $cache->set('nrllm_scope_probe', 'cached', ['nrllm_scope_probe']);
         $logger               = $this->recordingLogger();
@@ -1736,15 +1737,16 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         try {
             $outcome = $this->call(
                 $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
-                function (ToolExecutionContext $context) use ($cache): void {
+                function (ToolExecutionContext $context) use ($cache, &$seenWhileOpen): void {
                     $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Page flush after commit', $context);
-                    self::assertSame('cached', $cache->get('nrllm_scope_probe'), 'not flushed while the call is open');
+                    $seenWhileOpen = $cache->get('nrllm_scope_probe');
                 },
             );
         } finally {
             $this->restorePageCache($original);
         }
 
+        self::assertSame('cached', $seenWhileOpen, 'not flushed while the call is open');
         self::assertSame([], $this->refusals($outcome['trace']));
         self::assertSame('ok', $outcome['toolResult'], 'reported as a success');
         self::assertSame([], $logger->records);

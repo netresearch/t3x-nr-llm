@@ -10,9 +10,14 @@ Binding a run to its assignment
 =================================
 
 A run can be bound to the pages and records it was asked to work on. Every
-write is then checked against that scope, and a write outside it is refused
-before it happens, whoever the acting user is. An administrator's run is held
-to its scope like anybody else's.
+write that goes through the DataHandler is then checked against that scope,
+whoever the acting user is, and an administrator's run is held to its scope like
+anybody else's. A write is refused before it happens where the tool says what it
+touches (first check) or the DataHandler is asked to write it (second check). A
+write that neither check recognises is found afterwards (third check) and the
+whole call is rolled back. A write that does not go through the DataHandler is
+held by the first check only, and a rollback takes back database rows, not files
+or what a hook calls out to.
 
 The scope is the second control of the editorial profile
 (:ref:`editorial-profile`). The draft workspace decides where a run writes; the

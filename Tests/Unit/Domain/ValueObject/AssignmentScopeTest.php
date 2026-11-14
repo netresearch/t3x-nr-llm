@@ -67,8 +67,10 @@ final class AssignmentScopeTest extends TestCase
         yield 'a negative uid' => [['pages' => [['uid' => -3, 'depth' => 0]], 'records' => []]];
         yield 'a record without a table' => [['pages' => [], 'records' => [['uid' => 3]]]];
         yield 'a table that is no identifier' => [['pages' => [], 'records' => [['table' => 'pages; DROP', 'uid' => 3]]]];
-        yield 'tables that are no list of names' => [['pages' => [], 'records' => [], 'tables' => [3]]];
-        yield 'languages that are no list of ints' => [['pages' => [], 'records' => [], 'languages' => ['1']]];
+        yield 'no tables key' => [['pages' => [], 'records' => [], 'languages' => null]];
+        yield 'no languages key' => [['pages' => [], 'records' => [], 'tables' => null]];
+        yield 'tables that are no list of names' => [['pages' => [], 'records' => [], 'tables' => [3], 'languages' => null]];
+        yield 'languages that are no list of ints' => [['pages' => [], 'records' => [], 'tables' => null, 'languages' => ['1']]];
     }
 
     #[Test]

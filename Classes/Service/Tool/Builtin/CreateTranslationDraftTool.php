@@ -758,8 +758,8 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
     public function scopedWrite(array $arguments): ?ScopedWrite
     {
         $record   = ScopedWrite::record($arguments['table'] ?? null, $arguments['uid'] ?? null);
-        $language = $arguments['language'] ?? null;
-        if (!$record instanceof RecordReference || !is_int($language)) {
+        $language = $this->pendingLanguage($arguments);
+        if (!$record instanceof RecordReference || $language === null) {
             return null;
         }
 

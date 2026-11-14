@@ -198,6 +198,10 @@ final readonly class ObservedChangeResolver
                     ->executeQuery()
                     ->fetchAllAssociative();
             } catch (Throwable) {
+                // What could not be read is not "nothing was written": the caller
+                // is told the list is incomplete.
+                $truncated = true;
+
                 return $rows;
             }
 

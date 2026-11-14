@@ -207,6 +207,12 @@ final readonly class AssignmentScope
             return null;
         }
 
+        // An absent restriction is not "unrestricted": a stored scope that lost the
+        // key must not widen the run. An explicit null is what an open axis stores.
+        if (!array_key_exists('tables', $data) || !array_key_exists('languages', $data)) {
+            return null;
+        }
+
         try {
             $scopedPages = [];
             foreach ($pages as $page) {
