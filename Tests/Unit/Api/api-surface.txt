@@ -555,6 +555,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getAllowedToolGroups(): string
   method getAllowedToolGroupsList(): array
   method getAnswerCacheTtl(): int
+  method getAssignmentScopeMaxDepth(): int
   method getAttachedSkills(): array
   method getBeGroups(): TYPO3\CMS\Extbase\Persistence\ObjectStorage
   method getCrdate(): int
@@ -586,6 +587,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method getPresetChecksum(): string
   method getProvider(): ?Netresearch\NrLlm\Domain\Model\Provider
   method getProviderType(): string
+  method getRequireAssignmentScope(): bool
   method getRequireDraftWorkspace(): bool
   method getRequireSecondApprover(): bool
   method getRuleJudgeConfiguration(): int
@@ -619,6 +621,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setAllowedGuardrails(string $allowedGuardrails): void
   method setAllowedToolGroups(string $allowedToolGroups): void
   method setAnswerCacheTtl(int $answerCacheTtl): void
+  method setAssignmentScopeMaxDepth(int $assignmentScopeMaxDepth): void
   method setBeGroups(?TYPO3\CMS\Extbase\Persistence\ObjectStorage $beGroups): void
   method setDescription(string $description): void
   method setExcludedTools(string $excludedTools): void
@@ -642,6 +645,7 @@ Netresearch\NrLlm\Domain\Model\LlmConfiguration (class)
   method setOptionsArray(array $options): void
   method setPresencePenalty(float $presencePenalty): void
   method setPresetChecksum(string $presetChecksum): void
+  method setRequireAssignmentScope(bool $requireAssignmentScope): void
   method setRequireDraftWorkspace(bool $requireDraftWorkspace): void
   method setRequireSecondApprover(bool $requireSecondApprover): void
   method setRuleJudgeConfiguration(int $ruleJudgeConfiguration): void
@@ -957,11 +961,13 @@ Netresearch\NrLlm\Domain\ValueObject\AiActorContext (class)
   method mayAccessSession(Netresearch\NrLlm\Domain\ValueObject\AiSession $session): bool
   method mayActOnRun(Netresearch\NrLlm\Domain\ValueObject\AgentRun $run, Netresearch\NrLlm\Domain\Enum\ServiceAccountScope $scope): bool
   method static anonymous(): self
-  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …, array $grants = …, ?int $workspaceId = …): self
+  method static backendUser(int $uid, bool $isAdmin = …, array $backendGroupIds = …, array $grants = …, ?int $workspaceId = …, ?Netresearch\NrLlm\Domain\ValueObject\AssignmentScope $assignmentScope = …): self
   method static fromArray(array $data): self
   method static fromBackendUser(TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): self
   method static serviceAccount(string $name, array $scopes = …): self
   method toArray(): array
+  method withAssignmentScope(?Netresearch\NrLlm\Domain\ValueObject\AssignmentScope $assignmentScope): self
+  property readonly assignmentScope: ?Netresearch\NrLlm\Domain\ValueObject\AssignmentScope
   property readonly backendGroupIds: array
   property readonly backendUserUid: int
   property readonly grants: array
@@ -980,6 +986,29 @@ Netresearch\NrLlm\Domain\ValueObject\AiSession (class)
   property readonly title: string
   property readonly uid: int
   property readonly uuid: string
+
+Netresearch\NrLlm\Domain\ValueObject\AssignmentScope (class)
+  const MAX_DEPTH = 99
+  const MAX_LANGUAGES = 50
+  const MAX_PAGES = 50
+  const MAX_RECORDS = 200
+  const MAX_TABLES = 50
+  constructor(array $pages = …, array $records = …, ?array $tables = …, ?array $languages = …)
+  method admitsLanguage(int $language): bool
+  method admitsTable(string $table): bool
+  method cappedToDepth(int $maxDepth): self
+  method describe(): string
+  method holdsRecord(string $table, int $uid): bool
+  method isEmpty(): bool
+  method static forPage(int $uid, int $depth = …): self
+  method static forRecord(Netresearch\NrLlm\Domain\ValueObject\RecordReference $record): self
+  method static fromArray(mixed $data): ?self
+  method static none(): self
+  method toArray(): array
+  property readonly languages: ?array
+  property readonly pages: array
+  property readonly records: array
+  property readonly tables: ?array
 
 Netresearch\NrLlm\Domain\ValueObject\BudgetMeter (class)
   constructor(float $used, float $limit, bool $isCost, Netresearch\NrLlm\Service\Formatting\LocalizedNumberFormatter $formatter)
@@ -1239,12 +1268,13 @@ Netresearch\NrLlm\Domain\ValueObject\ObservedChange (class)
 
 Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet (class)
   const LIMIT = 50
-  constructor(array $changes = …, Netresearch\NrLlm\Domain\Enum\ChangeCoverage $coverage = …, int $omitted = …)
+  constructor(array $changes = …, Netresearch\NrLlm\Domain\Enum\ChangeCoverage $coverage = …, int $omitted = …, array $refused = …)
   method static tryFromEventPayload(array $payload): ?self
   method toArray(): array
   property readonly changes: array
   property readonly coverage: Netresearch\NrLlm\Domain\Enum\ChangeCoverage
   property readonly omitted: int
+  property readonly refused: array
 
 Netresearch\NrLlm\Domain\ValueObject\OperationUsage (class)
   constructor(string $operation, int $calls, int $failedCalls, int $lastCallAt)
@@ -1302,6 +1332,28 @@ Netresearch\NrLlm\Domain\ValueObject\RoutingSummary (class)
   property readonly policyMode: string
   property readonly qualitySignalUsed: bool
   property readonly rejectionReasons: array
+
+Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal (class)
+  const LANGUAGE_NOT_ALLOWED = "language_not_allowed"
+  const OUTSIDE_SCOPE = "outside_scope"
+  const SUBTREE_OUTSIDE_SCOPE = "subtree_outside_scope"
+  const TABLE_NOT_ALLOWED = "table_not_allowed"
+  const UNRESOLVABLE = "unresolvable"
+  constructor(string $operation, string $table, int $uid, int $pid, string $reason)
+  method static tryFromArray(array $data): ?self
+  method subject(): string
+  method toArray(): array
+  property readonly operation: string
+  property readonly pid: int
+  property readonly reason: string
+  property readonly table: string
+  property readonly uid: int
+
+Netresearch\NrLlm\Domain\ValueObject\ScopedPage (class)
+  constructor(int $uid, int $depth = …)
+  method toArray(): array
+  property readonly depth: int
+  property readonly uid: int
 
 Netresearch\NrLlm\Domain\ValueObject\SkillInvocation (class)
   constructor(int $skillUid, ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord $subject = …)
@@ -1393,13 +1445,14 @@ Netresearch\NrLlm\Domain\ValueObject\ToolCall (class)
   property readonly type: string
 
 Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision (class)
-  constructor(bool $allowed, string $reason = …, string $ruleIdentifier = …, string $explanation = …)
+  constructor(bool $allowed, string $reason = …, string $ruleIdentifier = …, string $explanation = …, array $refusals = …)
   method forRule(string $identifier): self
   method static allow(): self
-  method static deny(string $reason, string $explanation = …): self
+  method static deny(string $reason, string $explanation = …, array $refusals = …): self
   property readonly allowed: bool
   property readonly explanation: string
   property readonly reason: string
+  property readonly refusals: array
   property readonly ruleIdentifier: string
 
 Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory (class)
@@ -2455,6 +2508,27 @@ Netresearch\NrLlm\Service\Tool\RunTrace (class)
   method recordToolRefusal(int $round, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result, string $refusal): void
   method recordToolResult(int $round, float $durationMs, string $name, array $arguments, Netresearch\NrLlm\Domain\ValueObject\ToolResult $result): void
   method streamsText(): bool
+
+Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination (class)
+  constructor(string $table, int $pid)
+  property readonly pid: int
+  property readonly table: string
+
+Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite (class)
+  constructor(string $operation, array $records = …, array $destinations = …, bool $reachesSubpages = …, ?int $language = …)
+  method static anchor(string $table, mixed $value): ?array
+  method static nothing(string $operation = …): self
+  method static pid(mixed $value): ?int
+  method static record(mixed $table, mixed $uid): ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
+  method static uid(mixed $value): ?int
+  property readonly destinations: array
+  property readonly language: ?int
+  property readonly operation: string
+  property readonly reachesSubpages: bool
+  property readonly records: array
+
+Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface (interface)
+  method scopedWrite(array $arguments): ?Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite
 
 Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface (interface)
   method structuredPreview(array $arguments, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $reader): array

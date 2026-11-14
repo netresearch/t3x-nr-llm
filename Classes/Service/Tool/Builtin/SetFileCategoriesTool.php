@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -68,7 +70,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
-final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RefusesBeforeApprovalInterface
+final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -302,6 +304,20 @@ final readonly class SetFileCategoriesTool implements ToolInterface, ToolEffectI
     public function getGroup(): string
     {
         return 'editing';
+    }
+
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        // The file's metadata lies outside the page tree: a scope holds it only
+        // by naming the file.
+        $uid = ScopedWrite::uid($arguments['uid'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('sys_file', $uid)]);
     }
 
     public function pendingTarget(array $arguments): ?PendingWriteTarget

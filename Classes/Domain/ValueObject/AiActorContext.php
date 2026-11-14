@@ -45,6 +45,7 @@ final readonly class AiActorContext
         public array $scopes = [],
         public array $grants = [],
         public ?int $workspaceId = null,
+        public ?AssignmentScope $assignmentScope = null,
     ) {}
 
     /**
@@ -54,9 +55,9 @@ final readonly class AiActorContext
      * @param list<BackendUserGrant> $grants
      * @param int|null               $workspaceId     the workspace the user works in (ADR-260), null when not known; a negative id is not known either
      */
-    public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = [], array $grants = [], ?int $workspaceId = null): self
+    public static function backendUser(int $uid, bool $isAdmin = false, array $backendGroupIds = [], array $grants = [], ?int $workspaceId = null, ?AssignmentScope $assignmentScope = null): self
     {
-        return new self($uid, $isAdmin, $backendGroupIds, null, [], array_values($grants), self::knownWorkspace($workspaceId));
+        return new self($uid, $isAdmin, $backendGroupIds, null, [], array_values($grants), self::knownWorkspace($workspaceId), $assignmentScope);
     }
 
     /**
@@ -135,6 +136,7 @@ final readonly class AiActorContext
             // A row written before the workspace was recorded carries none:
             // not known, which is not live (ADR-260).
             self::knownWorkspace(is_int($workspaceId) ? $workspaceId : null),
+            self::storedScope($data),
         );
     }
 
@@ -142,6 +144,41 @@ final readonly class AiActorContext
      * A workspace id as the actor records it: 0 or a positive uid, null for
      * anything else. Core's `-99` ("not initialised") is not known either.
      */
+    /**
+     * The scope a stored actor carries (ADR-295). Three states stay apart: no
+     * key is an actor without a scope, a readable key is that scope, and an
+     * unreadable key is the scope that admits nothing. Never null for an
+     * unreadable one: a stored scope that cannot be read must not widen the run.
+     *
+     * @param array<array-key, mixed> $data
+     */
+    private static function storedScope(array $data): ?AssignmentScope
+    {
+        if (!array_key_exists('assignmentScope', $data) || $data['assignmentScope'] === null) {
+            return null;
+        }
+
+        return AssignmentScope::fromArray($data['assignmentScope']) ?? AssignmentScope::none();
+    }
+
+    /**
+     * The same actor bound to the scope of its assignment (ADR-295), or with
+     * the binding removed when null. Set by whatever starts the run.
+     */
+    public function withAssignmentScope(?AssignmentScope $assignmentScope): self
+    {
+        return new self(
+            $this->backendUserUid,
+            $this->isAdmin,
+            $this->backendGroupIds,
+            $this->serviceAccount,
+            $this->scopes,
+            $this->grants,
+            $this->workspaceId,
+            $assignmentScope,
+        );
+    }
+
     private static function knownWorkspace(?int $workspaceId): ?int
     {
         return $workspaceId !== null && $workspaceId >= 0 ? $workspaceId : null;
@@ -316,7 +353,10 @@ final readonly class AiActorContext
      * The serialised form persisted with a queued run so a worker can restore
      * the full actor (not just a backend-user id) via {@see fromArray()}.
      *
-     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null}
+     * The `assignmentScope` key is present only for an actor bound to one
+     * (ADR-295), so the stored form of every other actor is unchanged.
+     *
+     * @return array{backendUserUid: int, isAdmin: bool, backendGroupIds: list<int>, serviceAccount: string|null, scopes: list<string>, grants: list<string>, workspaceId: int|null, assignmentScope?: array{pages: list<array{uid: int, depth: int}>, records: list<array{table: string, uid: int}>, tables: list<string>|null, languages: list<int>|null}}
      */
     public function toArray(): array
     {
@@ -328,6 +368,6 @@ final readonly class AiActorContext
             'scopes'          => array_map(static fn (ServiceAccountScope $s): string => $s->value, $this->scopes),
             'grants'          => array_map(static fn (BackendUserGrant $g): string => $g->value, $this->grants),
             'workspaceId'     => $this->workspaceId,
-        ];
+        ] + ($this->assignmentScope instanceof AssignmentScope ? ['assignmentScope' => $this->assignmentScope->toArray()] : []);
     }
 }

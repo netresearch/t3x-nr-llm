@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
+use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
@@ -23,8 +24,10 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
+use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
@@ -82,6 +85,9 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyPendingException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
+use Netresearch\NrLlm\Service\Tool\Scope\EffectiveAssignmentScope;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -232,6 +238,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // out its call (ADR-281). Optional for the lean test wiring; absent
         // it, a write in a bare process is refused as ADR-135 says.
         private ?WorkerWriteEnvironment $writeEnvironment = null,
+        // Reads the page tree for the DataHandler layer of the assignment
+        // scope (ADR-295). Optional for the lean test wiring; absent it the
+        // layer reads the database itself.
+        private ?AssignmentScopeChecker $scopeChecker = null,
     ) {}
 
     /**
@@ -3072,6 +3082,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     private function executeInvocation(
         ToolCall $call,
         ToolInterface $tool,
+        LlmConfiguration $configuration,
         ToolExecutionContext $context,
         RemoteCallBudget $remoteCalls,
         ?RunTrace $runTrace = null,
@@ -3102,6 +3113,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // one whose records a reader most needs to find.
         ToolChangeCollector::arm();
 
+        // The scope of the run's assignment, for the DataHandler layer
+        // (ADR-295): armed beside the collector and taken on every way out.
+        $scope = EffectiveAssignmentScope::of($configuration, $context->actor);
+        if ($scope instanceof AssignmentScope) {
+            AssignmentScopeGuard::arm($scope, $this->scopeChecker);
+        }
+
         try {
             $executed = true;
             $result   = $this->writeEnvironment instanceof WorkerWriteEnvironment && !$this->effects()->declaresRead($call->name)
@@ -3111,6 +3129,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // Control flow, not a result: the call is not recorded, so neither
             // are its changes.
             ToolChangeCollector::take();
+            if ($scope instanceof AssignmentScope) {
+                AssignmentScopeGuard::take();
+            }
 
             // Control flow (ADR-281), not a failure of the tool: the caller
             // suspends the run. Only a dependency tool may raise it.
@@ -3134,16 +3155,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // The result stays an error and carries no target (ADR-182); what
             // the call wrote before it failed is recorded beside it and named
             // to the model, which would otherwise retry a half-done write.
-            $changes = ToolChangeCollector::take();
+            $refused = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+            $changes = ChangeSets::withRefused(ToolChangeCollector::take(), $refused);
             ToolChangeCollector::hold($changes);
-            $note = ChangeSets::failureNote($changes);
+            $note = trim(ChangeSets::failureNote($changes) . ' ' . ($scope instanceof AssignmentScope ? ChangeSets::refusalNote($scope, $refused) : ''));
 
             return ToolResult::error(sprintf('Error: tool "%s" failed.', $call->name) . ($note === '' ? '' : ' ' . $note));
         }
 
+        // A DataHandler run the scope refused part of reports nothing of that
+        // to a tool that did not look: the call is an error whatever the tool
+        // says, and the model reads which writes the scope stopped (ADR-295).
+        $refused = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+        if ($scope instanceof AssignmentScope && $refused !== []) {
+            $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::refusalNote($scope, $refused)));
+        }
+
         // A tool that returns an error after it wrote says so to the model as a
         // thrown one does: the retry of a half-done write is the same mistake.
-        $changes = ToolChangeCollector::take($result->writeTarget);
+        $changes = ChangeSets::withRefused(ToolChangeCollector::take($result->writeTarget), $refused);
         ToolChangeCollector::hold($changes);
         $writtenBeforeFailure = $result->isError ? ChangeSets::failureNote($changes) : '';
 
@@ -3552,6 +3582,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         if (!$decision->allowed) {
             $history = $history->append($call->name, 'denied', $target);
+            // What the scope of the assignment refused, for the run's changes
+            // view (ADR-295): the call changed nothing, and that is the entry.
+            if ($decision->refusals !== []) {
+                ToolChangeCollector::hold(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER, 0, $decision->refusals));
+            }
+
             $this->governanceEvents?->record(
                 new GovernanceEvent(
                     correlationId: $environment->execution->run?->correlationId() ?? '',
@@ -3689,6 +3725,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         $result   = $this->executeInvocation(
             $call,
             $tool,
+            $environment->configuration,
             $environment->execution,
             $remoteCalls,
             $environment->trace,

@@ -24,6 +24,9 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -82,7 +85,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * workspace is published. Source, target and anchor are read as that
  * workspace shows them.
  */
-final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
+final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -521,6 +524,25 @@ final readonly class CopyRecordTool implements ToolInterface, ToolEffectInterfac
      * None: the call creates its record, which has no uid before it runs
      * (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $record = ScopedWrite::record($arguments['table'] ?? null, $arguments['uid'] ?? null);
+        $pid    = ScopedWrite::pid($arguments['target_page'] ?? null);
+        $anchor = $record instanceof RecordReference ? ScopedWrite::anchor($record->table, $arguments['after_uid'] ?? null) : null;
+        if (!$record instanceof RecordReference || $pid === null || $anchor === null) {
+            return null;
+        }
+
+        // The copy is made with `copyLevels` pinned to 0 (see execute()): the page and
+        // its content, never its subpages, so the claim does not reach them.
+        return new ScopedWrite('copy', [$record, ...$anchor], [new ScopedDestination($record->table, $pid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;

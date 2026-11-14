@@ -26,6 +26,9 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -85,7 +88,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * table it names (ADR-152), and this tool has no such subject. It is reached
  * through the assistant only.
  */
-final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
+final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -504,6 +507,22 @@ final readonly class CreateRecordDraftTool implements ToolInterface, ToolEffectI
      * None: the call creates its record, which has no uid before it runs
      * (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $table = $arguments['table'] ?? null;
+        $pid   = ScopedWrite::pid($arguments['pid'] ?? null);
+        if (!is_string($table) || preg_match('/\A[A-Za-z0-9_]{1,64}\z/', $table) !== 1 || $pid === null) {
+            return null;
+        }
+
+        return new ScopedWrite('create', [], [new ScopedDestination($table, $pid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;

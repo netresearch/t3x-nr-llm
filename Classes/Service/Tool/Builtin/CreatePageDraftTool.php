@@ -23,6 +23,9 @@ use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -69,7 +72,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * one card. A model that wants both calls this tool and then
  * {@see CreateContentElementDraftTool} on the page it was given.
  */
-final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
+final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -336,6 +339,22 @@ final readonly class CreatePageDraftTool implements ToolInterface, ToolEffectInt
      * None: the call creates its record, which has no uid before it runs
      * (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $pid    = ScopedWrite::pid($arguments['parent'] ?? null);
+        $anchor = ScopedWrite::anchor('pages', $arguments['after_page_uid'] ?? null);
+        if ($pid === null || $anchor === null) {
+            return null;
+        }
+
+        return new ScopedWrite('create', $anchor, [new ScopedDestination('pages', $pid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;

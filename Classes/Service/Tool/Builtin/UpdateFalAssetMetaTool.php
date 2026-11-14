@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -128,7 +130,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * human approval (ADR-134) and covered by the ADR-112 write fence, which arms
  * on every executing segment since ADR-141.
  */
-final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -419,6 +421,20 @@ final readonly class UpdateFalAssetMetaTool implements ToolInterface, ToolEffect
      * field list would key it like a move or a delete of the record, and
      * the call is refused when it runs anyway.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        // The file's metadata lies outside the page tree: a scope holds it only
+        // by naming the file.
+        $uid = ScopedWrite::uid($arguments['uid'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('sys_file', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $fields = array_values(array_intersect($this->writableFields(), array_keys($arguments)));

@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -82,7 +84,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Effect: {@see ToolEffect::NON_IDEMPOTENT_WRITE} — a second call attaches the
  * same file a second time.
  */
-final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
+final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -432,6 +434,18 @@ final readonly class AttachFileToRecordTool implements ToolInterface, ToolEffect
      * one of the table's file fields, and an empty field list would key the
      * call like a move or a delete of the record.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $record = ScopedWrite::record($arguments['table'] ?? null, $arguments['record'] ?? null);
+
+        return $record instanceof RecordReference ? new ScopedWrite('attach', [$record]) : null;
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $field = $arguments['field'] ?? null;

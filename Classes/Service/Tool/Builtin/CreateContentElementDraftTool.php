@@ -26,6 +26,9 @@ use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -85,7 +88,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * sanitised: an editor may write the same markup by hand, and a tool that
  * filtered it would be enforcing a rule the CMS itself does not have.
  */
-final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
+final readonly class CreateContentElementDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -433,6 +436,23 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      * None: the call creates its record, which has no uid before it runs
      * (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $pid    = ScopedWrite::pid($arguments['page'] ?? null);
+        $anchor = ScopedWrite::anchor('tt_content', $arguments['after_content_uid'] ?? null);
+        $lang   = $arguments['language'] ?? null;
+        if ($pid === null || $anchor === null || $lang !== null && !is_int($lang)) {
+            return null;
+        }
+
+        return new ScopedWrite('create', $anchor, [new ScopedDestination('tt_content', $pid)], false, $lang);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;

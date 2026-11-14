@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Tool\FieldMeasurer;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReader;
 use Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -70,7 +72,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * back column by column, and what did not take is named; values that took
  * stay written, as {@see UpdatePageMetadataTool} leaves them.
  */
-final readonly class UpdateContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, StructuredPreviewInterface
+final readonly class UpdateContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, StructuredPreviewInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -363,6 +365,18 @@ final readonly class UpdateContentElementTool implements ToolInterface, ToolEffe
      * field list would key it like a move or a delete of the record, and
      * the call is refused when it runs anyway.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['uid'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('tt_content', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $fields = $arguments['fields'] ?? null;
