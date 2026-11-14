@@ -5662,6 +5662,34 @@
                 <source>This configuration requires a draft workspace for changes, and this tool changes things outside TYPO3's workspaces, so it cannot be used with that requirement. Nothing was changed. Use a configuration without the requirement for this tool.</source>
                 <target>Diese Konfiguration verlangt für Änderungen eine Entwurfs-Arbeitsumgebung, und dieses Werkzeug ändert Dinge außerhalb der TYPO3-Arbeitsumgebungen, darum ist es mit dieser Vorgabe nicht nutzbar. Es wurde nichts geändert. Für dieses Werkzeug eine Konfiguration ohne die Vorgabe verwenden.</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.scope.outside">
+                <source>This run is limited to its assignment (%s). The change to %s lies outside it, so nothing was changed. Work only on records inside the assignment.</source>
+                <target>Dieser Lauf ist auf seinen Auftrag beschränkt (%s). Die Änderung an %s liegt außerhalb davon, darum wurde nichts geändert. Nur Datensätze innerhalb des Auftrags bearbeiten.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.scope.table">
+                <source>This run is limited to its assignment (%s), which does not allow changes to the table %s. Nothing was changed.</source>
+                <target>Dieser Lauf ist auf seinen Auftrag beschränkt (%s), und dieser erlaubt keine Änderungen an der Tabelle %s. Es wurde nichts geändert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.scope.language">
+                <source>This run is limited to its assignment (%s), which does not allow changes in this language. Nothing was changed.</source>
+                <target>Dieser Lauf ist auf seinen Auftrag beschränkt (%s), und dieser erlaubt keine Änderungen in dieser Sprache. Es wurde nichts geändert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.scope.subtree">
+                <source>This run is limited to its assignment (%s). The change reaches %s, which lies outside it, so nothing was changed.</source>
+                <target>Dieser Lauf ist auf seinen Auftrag beschränkt (%s). Die Änderung erreicht %s, und das liegt außerhalb davon, darum wurde nichts geändert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.scope.missing">
+                <source>This configuration requires an assignment scope for changes, and this run was started without one. Nothing was changed.</source>
+                <target>Diese Konfiguration verlangt für Änderungen einen Auftragsrahmen, und dieser Lauf wurde ohne einen gestartet. Es wurde nichts geändert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.scope.remote">
+                <source>This run is limited to its assignment, and this tool changes things outside TYPO3, which cannot be held to it. Nothing was changed.</source>
+                <target>Dieser Lauf ist auf seinen Auftrag beschränkt, und dieses Werkzeug ändert Dinge außerhalb von TYPO3, die sich nicht daran binden lassen. Es wurde nichts geändert.</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.scope.unresolvable">
+                <source>This run is limited to its assignment (%s), and the target of this change could not be established or does not exist. Nothing was changed.</source>
+                <target>Dieser Lauf ist auf seinen Auftrag beschränkt (%s), und das Ziel dieser Änderung ließ sich nicht bestimmen oder existiert nicht. Es wurde nichts geändert.</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.contentType">
                 <source>Content type: %s</source>
                 <target>Inhaltstyp: %s</target>

@@ -203,6 +203,15 @@ CREATE TABLE tx_nrllm_configuration (
     -- what every existing row has.
     require_draft_workspace tinyint(1) DEFAULT '0' NOT NULL,
 
+    -- 1 = a run of this configuration may write only inside the scope of its
+    -- assignment, and a run without a scope may not write (ADR-295). 0 changes
+    -- nothing, which is what every existing row has.
+    require_assignment_scope tinyint(1) DEFAULT '0' NOT NULL,
+
+    -- The deepest level below a scoped page that a run of this configuration
+    -- may write, whatever depth its starter asked for (ADR-295). 99 is no cap.
+    assignment_scope_max_depth smallint(5) unsigned DEFAULT '99' NOT NULL,
+
     -- Comma list of permitted tool groups (empty = all groups allowed)
     allowed_tool_groups varchar(255) DEFAULT '' NOT NULL,
     -- Comma list of single tools excluded on top of every other gate (ADR-261);

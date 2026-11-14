@@ -22,11 +22,15 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  */
 final readonly class ToolInvocationDecision
 {
+    /**
+     * @param list<ScopeRefusal> $refusals the writes the scope of the assignment refused, for the trace (ADR-295); never read for the decision itself
+     */
     public function __construct(
         public bool $allowed,
         public string $reason = 'allowed',
         public string $ruleIdentifier = '',
         public string $explanation = '',
+        public array $refusals = [],
     ) {
         foreach ([$reason, $ruleIdentifier] as $code) {
             if ($reason === '' || $code !== '' && preg_match('/\A[a-z][a-z0-9_.-]{0,63}\z/', $code) !== 1) {
@@ -43,13 +47,16 @@ final readonly class ToolInvocationDecision
         return new self(true);
     }
 
-    public static function deny(string $reason, string $explanation = ''): self
+    /**
+     * @param list<ScopeRefusal> $refusals
+     */
+    public static function deny(string $reason, string $explanation = '', array $refusals = []): self
     {
-        return new self(false, $reason, '', $explanation);
+        return new self(false, $reason, '', $explanation, $refusals);
     }
 
     public function forRule(string $identifier): self
     {
-        return new self($this->allowed, $this->reason, $identifier, $this->explanation);
+        return new self($this->allowed, $this->reason, $identifier, $this->explanation, $this->refusals);
     }
 }

@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -90,7 +92,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Effect: {@see ToolEffect::IDEMPOTENT_WRITE} — one named scalar set to a
  * given value converges on repeat.
  */
-final readonly class SetFileReferenceAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface
+final readonly class SetFileReferenceAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -312,6 +314,18 @@ final readonly class SetFileReferenceAlternativeTextTool implements ToolInterfac
     /**
      * The file reference the call writes and its one field (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['reference'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('sys_file_reference', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments(self::REFERENCE_TABLE, $arguments['reference'] ?? null, [self::FIELD]);

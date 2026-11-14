@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -41,7 +43,7 @@ use TYPO3\CMS\Core\LinkHandling\LinkService;
  * is {@see DisableRedirectTool}'s one job. QR codes and short URLs (TYPO3 14)
  * are refused: their fields mean something else.
  */
-final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ToolDataClassInterface, RefusesBeforeApprovalInterface
+final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, ToolDataClassInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -158,6 +160,18 @@ final readonly class UpdateRedirectTool implements ToolInterface, ToolEffectInte
     /**
      * The redirect and the fields the call names (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['uid'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('sys_redirect', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $fields = array_values(array_intersect([...self::REDIRECT_FIELDS, 'disabled'], array_keys($arguments)));

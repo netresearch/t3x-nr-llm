@@ -23,6 +23,8 @@ use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -82,7 +84,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * A reference, an element and a file that do not exist, and those the user may
  * not touch, all return one neutral string.
  */
-final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
+final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -352,6 +354,18 @@ final readonly class ReplaceFileReferenceTool implements ToolInterface, ToolEffe
      * (ADR-214). A replacement creates a new reference, but the card is about
      * the one it replaces, which exists and is what the arguments name.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['reference'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('sys_file_reference', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments(self::REFERENCE_TABLE, $arguments['reference'] ?? null);

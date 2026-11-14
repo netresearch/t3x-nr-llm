@@ -299,3 +299,4 @@ All decision records
    Adr292ARunRecordsTheRecordsItsToolCallsChanged
    Adr293AConfigurationCanRequireADraftWorkspace
    Adr294AnEditorMayIssueA2aTokensThatActAsThemselves
+   Adr295ARunIsBoundToTheScopeOfItsAssignment

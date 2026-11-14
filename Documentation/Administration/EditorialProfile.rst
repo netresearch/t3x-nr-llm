@@ -87,13 +87,13 @@ Recommended configuration
 What it does not do
 ===================
 
-- It does not restrict a run to one page and its content. That needs a source
-  for the page, which the backend chat does not yet hand over for plain chats.
+- It does not restrict a run to one page and its content. That is a separate
+  control, set by whatever starts the run: :ref:`assignment-scope`.
 - It does not judge tools that declare no effect. They count as reads, as
   everywhere else; a tool that writes declares it.
 - It does not cover installation hooks that write outside the workspace
   (:ref:`tool-workspaces-limits`), nor writers that do not go through the
   assistant's tool loop, such as the field fill writer.
 
-For a developer rule that is asked before the card, see
+The scope of an assignment is :ref:`assignment-scope`. For a developer rule that is asked before the card, see
 :ref:`api-tool-invocation-policy`. The decision is in :ref:`adr-293`.

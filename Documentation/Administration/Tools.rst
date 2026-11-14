@@ -71,6 +71,7 @@ administrators enable tools and groups before they are offered. The
    ToolPlayground
    ToolWorkspaces
    EditorialProfile
+   AssignmentScope
    ReadTools
    WriteTools
    SiteTools

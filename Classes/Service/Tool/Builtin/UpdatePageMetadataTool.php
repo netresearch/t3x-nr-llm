@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FieldMeasurer;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -88,7 +90,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * ADR-136): the arguments alone are the NEW values, and an approver deciding
  * whether a change is right needs to see what it replaces.
  */
-final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, StructuredPreviewInterface
+final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, StructuredPreviewInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -554,6 +556,18 @@ final readonly class UpdatePageMetadataTool implements ToolInterface, ToolEffect
      * field list would key it like a move or a delete of the record, and
      * the call is refused when it runs anyway.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['uid'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('pages', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $fields = array_values(array_intersect($this->editableFields(), array_keys($arguments)));

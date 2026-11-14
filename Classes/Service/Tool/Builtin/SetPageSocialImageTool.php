@@ -25,6 +25,8 @@ use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -112,7 +114,7 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * the effect is a write (ADR-134), and the ADR-112 write fence covers it through
  * the per-segment lease (ADR-141).
  */
-final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, StructuredPreviewInterface, RefusesBeforeApprovalInterface
+final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, StructuredPreviewInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -518,6 +520,18 @@ final readonly class SetPageSocialImageTool implements ToolInterface, ToolEffect
     /**
      * The page and the image field the call sets (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['page'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('pages', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments('pages', $arguments['page'] ?? null, [$arguments['field'] ?? null]);

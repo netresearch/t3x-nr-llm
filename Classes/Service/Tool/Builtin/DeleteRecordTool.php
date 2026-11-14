@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -81,7 +83,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * deleted (the reference index), so a link or a shortcut that will break is
  * visible before the approval rather than after.
  */
-final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, RefusesBeforeApprovalInterface
+final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions (ADR-135).
@@ -428,6 +430,18 @@ final readonly class DeleteRecordTool implements ToolInterface, ToolEffectInterf
     /**
      * The record the call deletes, with no field (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $record = ScopedWrite::record($arguments['table'] ?? null, $arguments['uid'] ?? null);
+
+        return $record instanceof RecordReference ? new ScopedWrite('delete', [$record], [], $record->table === 'pages') : null;
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments($arguments['table'] ?? null, $arguments['uid'] ?? null);

@@ -177,6 +177,16 @@ checks are preflight checks, not atomic reservations.
      - ``0``
      - no
      - Refuse every write of a run that is not working in a draft workspace, administrators included. See :ref:`editorial-profile`.
+   * - ``require_assignment_scope``
+     - check
+     - ``0``
+     - no
+     - Allow a run to write only inside the scope of its assignment, and refuse every write of a run that has none. See :ref:`assignment-scope`.
+   * - ``assignment_scope_max_depth``
+     - number
+     - ``99``
+     - no
+     - Cap, in levels below a scoped page, on what a run with a scope may write. ``0`` is the page and its records. See :ref:`assignment-scope`.
    * - ``snippet_tags``
      - select
      - ``empty``

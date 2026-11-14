@@ -24,6 +24,8 @@ use Netresearch\NrLlm\Service\Tool\Exception\PlanRefusedException;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -72,7 +74,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * because the effect is a write (ADR-134), and the ADR-112 write fence covers it
  * through the per-segment lease (ADR-141).
  */
-final readonly class AttachFileToContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface, RefusesBeforeApprovalInterface
+final readonly class AttachFileToContentElementTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use WritesThroughDataHandlerTrait;
@@ -393,6 +395,18 @@ final readonly class AttachFileToContentElementTool implements ToolInterface, To
      * not read, and an empty field list would key it like a move or a delete
      * of the element.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $uid = ScopedWrite::uid($arguments['content_element'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('attach', [new RecordReference('tt_content', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         $field = $arguments['field'] ?? null;

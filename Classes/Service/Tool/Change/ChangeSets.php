@@ -10,9 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Change;
 
 use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
+use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChange;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 
 /**
  * What the tool loop does with an {@see ObservedChangeSet}: judge it against
@@ -29,7 +31,7 @@ final class ChangeSets
 
     public static function isEmpty(ObservedChangeSet $set): bool
     {
-        return $set->changes === [] && $set->omitted === 0;
+        return $set->changes === [] && $set->omitted === 0 && $set->refused === [];
     }
 
     /**
@@ -70,12 +72,23 @@ final class ChangeSets
             $set->changes,
         );
 
-        return new ObservedChangeSet($marked, $set->coverage, $set->omitted);
+        return new ObservedChangeSet($marked, $set->coverage, $set->omitted, $set->refused);
     }
 
     public static function withCoverage(ObservedChangeSet $set, ChangeCoverage $coverage): ObservedChangeSet
     {
-        return new ObservedChangeSet($set->changes, $coverage, $set->omitted);
+        return new ObservedChangeSet($set->changes, $coverage, $set->omitted, $set->refused);
+    }
+
+    /**
+     * The set with the writes the scope of the assignment refused in this call
+     * (ADR-295).
+     *
+     * @param list<ScopeRefusal> $refused
+     */
+    public static function withRefused(ObservedChangeSet $set, array $refused): ObservedChangeSet
+    {
+        return new ObservedChangeSet($set->changes, $set->coverage, $set->omitted, [...$set->refused, ...$refused]);
     }
 
     /**
@@ -98,6 +111,63 @@ final class ChangeSets
             'Before it failed this call changed: %s%s. Check these records before retrying.',
             implode(', ', $parts),
             $more > 0 ? sprintf(' and %d more', $more) : '',
+        );
+    }
+
+    /**
+     * What the model reads when the scope of the run's assignment stopped
+     * writes of a call (ADR-295): which ones, and that they did not happen.
+     * Empty when nothing was refused.
+     *
+     * @param list<ScopeRefusal> $refused
+     */
+    public static function refusalNote(AssignmentScope $scope, array $refused): string
+    {
+        if ($refused === []) {
+            return '';
+        }
+
+        $parts = array_map(
+            static fn (ScopeRefusal $refusal): string => sprintf('%s of %s (%s)', $refusal->operation, $refusal->subject(), $refusal->reason),
+            array_slice($refused, 0, self::NOTE_LIMIT),
+        );
+        $more = max(0, count($refused) - self::NOTE_LIMIT);
+
+        return sprintf(
+            'The assignment of this run (%s) refused %s%s. These writes did not happen. Work only inside the assignment.',
+            $scope->describe(),
+            implode(', ', $parts),
+            $more > 0 ? sprintf(' and %d more', $more) : '',
+        );
+    }
+
+    /**
+     * What the model reads when a call wrote outside the scope of the run's
+     * assignment although neither check before it refused the write (ADR-295):
+     * which records, and what became of them.
+     *
+     * @param list<array{refusal: ScopeRefusal, workspace: int}> $violations
+     */
+    public static function effectNote(AssignmentScope $scope, array $violations, bool $rolledBack): string
+    {
+        if ($violations === []) {
+            return '';
+        }
+
+        $parts = array_map(
+            static fn (array $violation): string => sprintf('%s (%s)', $violation['refusal']->subject(), $violation['refusal']->reason),
+            array_slice($violations, 0, self::NOTE_LIMIT),
+        );
+        $more = max(0, count($violations) - self::NOTE_LIMIT);
+
+        return sprintf(
+            'This call wrote outside the assignment of this run (%s): %s%s. %s Work only inside the assignment.',
+            $scope->describe(),
+            implode(', ', $parts),
+            $more > 0 ? sprintf(' and %d more', $more) : '',
+            $rolledBack
+                ? 'All database changes of this call were rolled back.'
+                : 'These changes were NOT rolled back (no transaction held them, or it could not be rolled back) and have to be reviewed.',
         );
     }
 

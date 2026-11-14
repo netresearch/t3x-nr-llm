@@ -11,6 +11,7 @@ ADR-292: A run records the records its tool calls changed
 
 :Status: Accepted
 :Date: 2026-11-12
+:Amended: 2026-11-14 by :ref:`ADR-295 <adr-295>` (the ``tool_changes`` step also lists the writes the scope of the assignment refused)
 :Amends: :ref:`ADR-182 <adr-182>` (its two revisit triggers, a second reader and a call that writes more than one record), :ref:`ADR-198 <adr-198>` (the copy and translation read-back limits, for what a reader can learn of them), :ref:`ADR-206 <adr-206>` (the answer of a call that failed after it wrote)
 :Authors: Netresearch DTT GmbH
 

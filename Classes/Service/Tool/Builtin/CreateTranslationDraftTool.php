@@ -29,6 +29,8 @@ use Netresearch\NrLlm\Service\Tool\PendingLanguageInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RecordCreatorInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -99,7 +101,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * @phpstan-type TextField array{text:string, html:bool, max:int, trim:bool, exact:bool}
  * @phpstan-type Plan array{table:non-empty-string, uid:int, label:string, type:string, language:int, existingUid:int, existingLabel:string, translator:string, translatorName:string, translatorTitle:string, site:string, source:string, sourceTitle:string, target:string, targetTitle:string, glossaryTerms:int, texts:array<string, TextField>, withheld:list<string>}
  */
-final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, PendingLanguageInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
+final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, PendingLanguageInterface, EditorActionInterface, RecordCreatorInterface, RefusesBeforeApprovalInterface
 {
     use SafeCastTrait;
     use ErrorMessageSanitizerTrait;
@@ -748,6 +750,22 @@ final readonly class CreateTranslationDraftTool implements ToolInterface, ToolEf
      * None: the call creates its record, which has no uid before it runs
      * (ADR-214).
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        $record   = ScopedWrite::record($arguments['table'] ?? null, $arguments['uid'] ?? null);
+        $language = $this->pendingLanguage($arguments);
+        if (!$record instanceof RecordReference || $language === null) {
+            return null;
+        }
+
+        return new ScopedWrite('translate', [$record], [], false, $language);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return null;

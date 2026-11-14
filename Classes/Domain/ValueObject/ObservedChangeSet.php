@@ -34,14 +34,20 @@ final readonly class ObservedChangeSet
     /** What was left out: the `$omitted` argument and every change past the limit. */
     public int $omitted;
 
+    /** @var list<ScopeRefusal> the writes the scope of the assignment refused in this call (ADR-295), at most {@see self::LIMIT} */
+    public array $refused;
+
     /**
      * @param list<ObservedChange> $changes
+     * @param list<ScopeRefusal>   $refused the writes the scope of the assignment refused (ADR-295)
      */
     public function __construct(
         array $changes = [],
         public ChangeCoverage $coverage = ChangeCoverage::DATAHANDLER,
         int $omitted = 0,
+        array $refused = [],
     ) {
+        $this->refused = array_slice(array_values(array_filter($refused, static fn (mixed $refusal): bool => $refusal instanceof ScopeRefusal)), 0, self::LIMIT);
         $this->changes = array_slice($changes, 0, self::LIMIT);
         $this->omitted = max(0, $omitted) + max(0, count($changes) - self::LIMIT);
     }
@@ -56,7 +62,7 @@ final readonly class ObservedChangeSet
             'changeCount'    => count($this->changes),
             'changeCoverage' => $this->coverage->value,
             'changesOmitted' => $this->omitted,
-        ];
+        ] + ($this->refused === [] ? [] : ['refused' => array_map(static fn (ScopeRefusal $refusal): array => $refusal->toArray(), $this->refused)]);
     }
 
     /**
@@ -85,10 +91,19 @@ final readonly class ObservedChangeSet
 
         $coverage = is_string($payload['changeCoverage'] ?? null) ? ChangeCoverage::tryFrom($payload['changeCoverage']) : null;
 
+        $refused = [];
+        foreach (is_array($payload['refused'] ?? null) ? $payload['refused'] : [] as $entry) {
+            $refusal = is_array($entry) ? ScopeRefusal::tryFromArray($entry) : null;
+            if ($refusal instanceof ScopeRefusal) {
+                $refused[] = $refusal;
+            }
+        }
+
         return new self(
             $changes,
             $coverage ?? ChangeCoverage::NOT_CAPTURED,
             is_int($payload['changesOmitted'] ?? null) ? max(0, $payload['changesOmitted']) : 0,
+            $refused,
         );
     }
 }

@@ -55,6 +55,13 @@ enum ApprovalPreviewLabel: string
     case RefusedLiveWorkspace       = 'approvalPreview.workspace.requiredLive';
     case RefusedWorkspaceGone       = 'approvalPreview.workspace.requiredGone';
     case RefusedRemoteWrite         = 'approvalPreview.workspace.requiredRemote';
+    case RefusedScopeOutside        = 'approvalPreview.scope.outside';
+    case RefusedScopeTable          = 'approvalPreview.scope.table';
+    case RefusedScopeLanguage       = 'approvalPreview.scope.language';
+    case RefusedScopeSubtree        = 'approvalPreview.scope.subtree';
+    case RefusedScopeMissing        = 'approvalPreview.scope.missing';
+    case RefusedScopeRemote         = 'approvalPreview.scope.remote';
+    case RefusedScopeUnresolvable   = 'approvalPreview.scope.unresolvable';
     case ContentType                = 'approvalPreview.contentType';
     case LanguageDefault            = 'approvalPreview.language.default';
     case LanguageTranslation        = 'approvalPreview.language.translation';

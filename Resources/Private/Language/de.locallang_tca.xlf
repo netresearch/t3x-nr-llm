@@ -322,6 +322,22 @@
                 <source>Every change a run of this configuration makes has to happen in a draft workspace. A request started in the live workspace can still read, but its write is refused before anyone is asked to approve it. Administrators are not exempt. Publishing the draft stays a separate step in the TYPO3 workspace module. Tools that write outside TYPO3's workspaces, such as MCP servers and remote agents, cannot work in a draft workspace and are refused in every workspace under this setting.</source>
                 <target>Jede Änderung, die ein Lauf dieser Konfiguration macht, muss in einer Entwurfs-Arbeitsumgebung geschehen. Eine in der Live-Arbeitsumgebung gestartete Anfrage darf weiterhin lesen, ihr Schreibzugriff wird aber abgelehnt, bevor jemand um Freigabe gebeten wird. Administratoren sind nicht ausgenommen. Das Veröffentlichen des Entwurfs bleibt ein eigener Schritt im TYPO3-Workspace-Modul. Werkzeuge, die außerhalb der TYPO3-Arbeitsumgebungen schreiben, etwa MCP-Server und Remote-Agenten, können nicht in einer Entwurfs-Arbeitsumgebung arbeiten und werden mit dieser Einstellung in jeder Arbeitsumgebung abgelehnt.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_assignment_scope">
+                <source>Require the scope of an assignment for changes</source>
+                <target>Änderungen nur im Rahmen eines Auftrags zulassen</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.require_assignment_scope.description">
+                <source>A run of this configuration may change only the pages and records its starter bound it to, and a run that was started without such a scope cannot change anything. A change outside the scope is refused with a message to the assistant, and the refusal appears on the run. Nothing the assistant sends can widen the scope. Tools that write outside TYPO3 itself, such as MCP servers and remote agents, cannot be held to a scope and are refused.</source>
+                <target>Ein Lauf dieser Konfiguration darf nur die Seiten und Datensätze ändern, auf die ihn der Starter festgelegt hat. Ein Lauf ohne einen solchen Rahmen kann nichts ändern. Eine Änderung außerhalb des Rahmens wird mit einer Meldung an den Assistenten abgelehnt und erscheint am Lauf. Nichts, was der Assistent sendet, kann den Rahmen erweitern. Werkzeuge, die außerhalb von TYPO3 schreiben, etwa MCP-Server und Remote-Agenten, lassen sich nicht an einen Rahmen binden und werden abgelehnt.</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.assignment_scope_max_depth">
+                <source>Deepest level below a scoped page</source>
+                <target>Tiefste Ebene unterhalb einer Seite des Auftrags</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_configuration.assignment_scope_max_depth.description">
+                <source>Caps how far below a scoped page a run may change pages and records, whatever depth the starter asked for. 0 limits a run to the page itself and the records on it. 99 is no cap. Applies only to a run that has a scope.</source>
+                <target>Begrenzt, wie weit unterhalb einer Seite des Auftrags ein Lauf Seiten und Datensätze ändern darf, unabhängig von der Tiefe, die der Starter angefragt hat. 0 beschränkt einen Lauf auf die Seite selbst und ihre Datensätze. 99 bedeutet keine Begrenzung. Gilt nur für einen Lauf mit Rahmen.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_configuration.snippet_tags">
                 <source>Prompt snippet tags</source>
                 <target>Tags für Prompt-Bausteine</target>

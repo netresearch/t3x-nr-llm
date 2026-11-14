@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\EditorActionInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -118,7 +120,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * interactive path too. ADR-135 recorded the opposite while that was still
  * true; read ADR-141 for the current guarantee.
  */
-final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, EditorActionInterface
+final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEffectInterface, ToolPreviewInterface, PendingTargetInterface, ScopedWriteInterface, EditorActionInterface
 {
     use SafeCastTrait;
     // The errands, not the decisions: the environment and workspace guards, the
@@ -360,6 +362,20 @@ final readonly class SetFileAlternativeTextTool implements ToolInterface, ToolEf
      * (ADR-214). Named by the file uid the call carries: the metadata row is
      * the file's default-language row, and finding its uid would mean a read.
      */
+    /**
+     * What the call touches, for the scope of the run's assignment (ADR-295).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ?ScopedWrite
+    {
+        // The file's metadata lies outside the page tree: a scope holds it only
+        // by naming the file.
+        $uid = ScopedWrite::uid($arguments['uid'] ?? null);
+
+        return $uid === null ? null : new ScopedWrite('update', [new RecordReference('sys_file', $uid)]);
+    }
+
     public function pendingTarget(array $arguments): ?PendingWriteTarget
     {
         return PendingWriteTarget::fromArguments('sys_file', $arguments['uid'] ?? null, [self::FIELD]);

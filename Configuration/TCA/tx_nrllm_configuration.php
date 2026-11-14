@@ -58,6 +58,8 @@ return [
                     allowed_guardrails,
                     require_second_approver,
                     require_draft_workspace,
+                    require_assignment_scope,
+                    assignment_scope_max_depth,
                 --div--;LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tab.ruleJudge,
                     rule_judge_mode,
                     rule_judge_tags,
@@ -519,6 +521,25 @@ return [
                 'type'       => 'check',
                 'renderType' => 'checkboxToggle',
                 'default'    => 0,
+            ],
+        ],
+        // ADR-295: binds a run to the scope of its assignment.
+        'require_assignment_scope' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_assignment_scope',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.require_assignment_scope.description',
+            'config'      => [
+                'type'       => 'check',
+                'renderType' => 'checkboxToggle',
+                'default'    => 0,
+            ],
+        ],
+        'assignment_scope_max_depth' => [
+            'label'       => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.assignment_scope_max_depth',
+            'description' => 'LLL:EXT:nr_llm/Resources/Private/Language/locallang_tca.xlf:tx_nrllm_configuration.assignment_scope_max_depth.description',
+            'config'      => [
+                'type'    => 'number',
+                'default' => 99,
+                'range'   => ['lower' => 0, 'upper' => 99],
             ],
         ],
         // The tags decide which snippets reach a caller's system message
