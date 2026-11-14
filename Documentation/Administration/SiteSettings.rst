@@ -55,6 +55,16 @@ A configuration that does not exist, is disabled or is restricted to backend
 groups makes the call fail. It does not fall back to the default, because the
 site was set up not to use it.
 
+The backend AI chat (``netresearch/nr-mcp-agent``, releases after 0.36.0) puts the
+site above its own choice: a conversation about a page of the site runs on the
+site's configuration instead of the chat Task's. The chat works only through
+tools, so it refuses a site configuration without a fixed model, or whose
+model lacks the capability :guilabel:`Tool Use` or whose provider cannot call
+tools, and says so in the chat; it does not fall back to the Task's
+configuration. Tick :guilabel:`Tool Use` on a Groq model that can call tools:
+Groq reports no capabilities, so discovery leaves it unset. The chat's own
+documentation has the details (its ADR-033).
+
 .. _administration-site-settings-deepl:
 
 DeepL key
