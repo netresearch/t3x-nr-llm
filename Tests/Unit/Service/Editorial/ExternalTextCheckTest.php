@@ -324,6 +324,55 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         self::assertTrue($report->hasReason(ExternalTextReport::REASON_CHECK_FAILED));
     }
 
+    /**
+     * The pipeline searches the lists of every named configuration by uid,
+     * without looking the configuration up; a hidden one is not skipped.
+     */
+    #[Test]
+    public function theListsOfAFurtherConfigurationThatCannotBeLoadedStillApply(): void
+    {
+        $termLists = self::createStub(TermListResolverInterface::class);
+        $termLists->method('forConfiguration')->willReturnCallback(static fn (int $uid): array => $uid === 9 ? [new TermListRule('Werbung', '', '', ['Rabatt'], [], '')] : []);
+
+        $report = $this->check(termLists: $termLists)->check(
+            self::SHORT,
+            $this->configuration(RuleJudgeMode::OFF),
+            new ExternalTextCheckScope(furtherConfigurations: [9]),
+        );
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $report->status);
+        self::assertTrue($report->blocks());
+    }
+
+    /**
+     * The judge reads the delivered bytes: prose in a JSON key, or a value a
+     * duplicate key would hide from a decoder, is in front of it.
+     */
+    #[Test]
+    public function theJudgeReadsTheDeliveredTextNotOnlyTheStringsOfAJsonText(): void
+    {
+        $seen  = [];
+        $judge = self::createStub(RuleJudge::class);
+        $judge->method('judge')->willReturnCallback(static function (string $text) use (&$seen): array {
+            $seen[] = $text;
+
+            return [];
+        });
+        $text = '{"post":"Heilt garantiert jede Krankheit","post":"Hallo"}';
+
+        $this->check(judge: $judge)->check($text, $this->configuration(RuleJudgeMode::BLOCK));
+
+        self::assertSame([$text], $seen);
+    }
+
+    #[Test]
+    public function aWriterGivenAsWhiteSpaceIsTheConfigurationsProvider(): void
+    {
+        $report = $this->check()->check(self::SHORT_CLEAN, $this->configuration(RuleJudgeMode::REPORT), new ExternalTextCheckScope(writerProvider: ' '));
+
+        self::assertSame(ExternalTextStatus::PASSED, $report->status);
+    }
+
     #[Test]
     public function theReportIsBoundToTheExactText(): void
     {
@@ -374,6 +423,7 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         ?TermListResolverInterface $termLists = null,
         ?LlmConfiguration $further = null,
         ?Throwable $ruleSetFailure = null,
+        ?RuleJudge $judge = null,
     ): ExternalTextCheck {
         if (!$termLists instanceof TermListResolverInterface) {
             $termLists = self::createStub(TermListResolverInterface::class);
@@ -385,15 +435,17 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
             $this->ruleText === '' ? [] : [['name' => 'Ton', 'text' => $this->ruleText, 'dataClass' => null]],
         ));
 
-        $judge = self::createStub(RuleJudge::class);
-        $judge->method('judge')->willReturnCallback(function (): array {
-            ++$this->judgeCalls;
-            if ($this->verdict instanceof Throwable) {
-                throw $this->verdict;
-            }
+        if (!$judge instanceof RuleJudge) {
+            $judge = self::createStub(RuleJudge::class);
+            $judge->method('judge')->willReturnCallback(function (): array {
+                ++$this->judgeCalls;
+                if ($this->verdict instanceof Throwable) {
+                    throw $this->verdict;
+                }
 
-            return $this->verdict;
-        });
+                return $this->verdict;
+            });
+        }
 
         $judging        = $this->configuration(RuleJudgeMode::OFF, $judgingZone, 7, 'judge');
         $configurations = self::createStub(LlmConfigurationRepository::class);

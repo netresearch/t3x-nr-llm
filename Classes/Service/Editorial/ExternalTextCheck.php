@@ -28,7 +28,6 @@ use Throwable;
 use function array_unique;
 use function array_values;
 use function array_walk_recursive;
-use function implode;
 use function in_array;
 use function is_array;
 use function is_string;
@@ -90,14 +89,17 @@ final readonly class ExternalTextCheck
 
     private function checked(string $text, LlmConfiguration $configuration, ExternalTextCheckScope $scope): ExternalTextReport
     {
-        $all      = $this->configurationsOf($configuration, $scope->furtherConfigurations);
-        $findings = [];
-        $reasons  = [];
-        $applied  = false;
-        $failed   = false;
+        // Read before the check, so the digest names the state the check read
+        // or an earlier one, never a later edit.
+        $ruleState = $this->ruleStateOf($configuration, $scope);
+        $all       = $this->configurationsOf($configuration, $scope->furtherConfigurations);
+        $findings  = [];
+        $reasons   = [];
+        $applied   = false;
+        $failed    = false;
 
         try {
-            [$termFindings, $termsApplied] = $this->termFindings($text, $all, $scope);
+            [$termFindings, $termsApplied] = $this->termFindings($text, $this->configurationUids($configuration, $scope->furtherConfigurations), $scope);
             $findings                      = $termFindings;
             $applied                       = $termsApplied;
         } catch (Throwable $failure) {
@@ -147,7 +149,7 @@ final readonly class ExternalTextCheck
             $findings,
             array_values(array_unique($reasons)),
             ExternalTextReport::digestOf($text),
-            $this->ruleStateOf($configuration, $scope),
+            $ruleState,
             $configuration->getIdentifier(),
             $judges,
             $failed,
@@ -187,8 +189,27 @@ final readonly class ExternalTextCheck
     }
 
     /**
+     * The uid of the configuration and of each further one named, once each.
+     *
+     * @param list<int> $further
+     *
+     * @return list<int>
+     */
+    private function configurationUids(LlmConfiguration $configuration, array $further): array
+    {
+        $uids = [];
+        foreach ([$configuration->getUid() ?? 0, ...$further] as $uid) {
+            if ($uid > 0 && !in_array($uid, $uids, true)) {
+                $uids[] = $uid;
+            }
+        }
+
+        return $uids;
+    }
+
+    /**
      * The configuration and each further one named, once each; a named one
-     * that does not exist adds nothing (as ADR-290).
+     * that does not exist adds no judge (as ADR-290).
      *
      * @param list<int> $further
      *
@@ -218,25 +239,25 @@ final readonly class ExternalTextCheck
      * lists that apply: a report names all of them, where the pipeline stops
      * at the first.
      *
-     * @param list<LlmConfiguration> $configurations
+     * The lists are found by the uid a list names, as in the pipeline
+     * (ADR-290): a named configuration that cannot be loaded, a hidden one
+     * included, still brings its lists.
+     *
+     * @param list<int> $uids
      *
      * @return array{list<ExternalTextFinding>, bool} the findings, and whether any list applied
      */
-    private function termFindings(string $text, array $configurations, ExternalTextCheckScope $scope): array
+    private function termFindings(string $text, array $uids, ExternalTextCheckScope $scope): array
     {
-        $language = GlossaryResolver::baseLanguage($scope->language);
+        $site     = trim($scope->siteIdentifier);
+        $language = GlossaryResolver::baseLanguage(trim($scope->language));
         $forms    = $this->forms($text);
         $findings = [];
         $applied  = false;
-        foreach ($configurations as $configuration) {
-            $uid = $configuration->getUid() ?? 0;
-            if ($uid <= 0) {
-                continue;
-            }
-
+        foreach ($uids as $uid) {
             foreach ($this->termLists->forConfiguration($uid) as $list) {
-                $applied  = $applied || $this->applies($list, $scope->siteIdentifier, $language);
-                $findings = [...$findings, ...$this->listFindings($list, $forms, $scope->siteIdentifier, $language)];
+                $applied  = $applied || $this->applies($list, $site, $language);
+                $findings = [...$findings, ...$this->listFindings($list, $forms, $site, $language)];
             }
         }
 
@@ -319,25 +340,14 @@ final readonly class ExternalTextCheck
     }
 
     /**
-     * The text a judge reads: the answer, or the strings of a JSON answer, as
-     * the guardrail judges it (ADR-288 R9).
+     * The text a judge reads: the delivered text itself. The pipeline judges
+     * the strings of a JSON answer (ADR-288 R9), because a wizard places those
+     * strings; a delivered text is used as it is, keys and every duplicate
+     * included, so that is what is judged.
      */
     private function judgedText(string $text): string
     {
-        $body    = preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
-        $decoded = json_decode($body, true);
-        if (!is_array($decoded)) {
-            return $text;
-        }
-
-        $strings = [];
-        array_walk_recursive($decoded, static function (mixed $value) use (&$strings): void {
-            if (is_string($value) && trim($value) !== '') {
-                $strings[] = $value;
-            }
-        });
-
-        return implode("\n\n", $strings);
+        return $text;
     }
 
     /**

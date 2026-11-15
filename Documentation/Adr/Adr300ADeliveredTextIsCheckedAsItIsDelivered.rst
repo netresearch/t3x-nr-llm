@@ -48,10 +48,14 @@ no word limit:
 
 - **Terms.** Every forbidden term found and every required term missing, across
   every term list that applies to the site and language given, the strings of a
-  JSON text included. The report names all of them; the pipeline stops at the
+  JSON text included. A list is found by the configuration it names, as in the
+  pipeline, so a further configuration that is hidden still brings its lists. The report names all of them; the pipeline stops at the
   first.
 - **Judge.** Every configuration whose judge is on is judged with its own rule
-  set by its own judging configuration. The strictest mode decides.
+  set by its own judging configuration. The strictest mode decides. The judge
+  reads the text as it is delivered, a JSON text with its keys and every
+  duplicate key included; the pipeline judges only the strings of a JSON
+  answer, because a wizard places those strings.
 - **Egress.** The judge may not reach a provider less trusted than the one that
   wrote the text, nor one whose zone does not admit a rule snippet's data class.
   This rule moves from the guardrail into ``JudgeEgressGate``, which both use,

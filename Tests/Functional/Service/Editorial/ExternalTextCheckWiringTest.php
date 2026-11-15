@@ -128,6 +128,33 @@ final class ExternalTextCheckWiringTest extends AbstractFunctionalTestCase
         );
     }
 
+    #[Test]
+    public function aSwitchedOffJudgingConfigurationChangesTheRuleState(): void
+    {
+        $digest = $this->digest();
+        $before = $digest->of($this->configuration(3));
+
+        $this->getConnection()->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 2]);
+        $this->getService(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+
+        self::assertNotSame($before, $digest->of($this->configuration(3)));
+    }
+
+    #[Test]
+    public function theListsOfAHiddenFurtherConfigurationApplyAndAreInTheRuleState(): void
+    {
+        $this->getConnection()->insert('tx_nrllm_term_list', ['uid' => 3, 'name' => 'Werbung', 'configurations' => '4', 'forbidden_terms' => 'Rabatt']);
+        $this->getConnection()->update('tx_nrllm_configuration', ['hidden' => 1], ['uid' => 4]);
+        $digest = $this->digest();
+        $before = $digest->of($this->configuration(2), [4]);
+
+        $report = $this->check()->check(self::SHORT, $this->configuration(2), new \Netresearch\NrLlm\Service\Editorial\ExternalTextCheckScope(furtherConfigurations: [4]));
+        self::assertSame(ExternalTextStatus::VIOLATION, $report->status);
+
+        $this->getConnection()->update('tx_nrllm_term_list', ['forbidden_terms' => 'Gratis'], ['uid' => 3]);
+        self::assertNotSame($before, $digest->of($this->configuration(2), [4]));
+    }
+
     private function configuration(int $uid): LlmConfiguration
     {
         $configuration = $this->getService(LlmConfigurationRepository::class)->findByUid($uid);

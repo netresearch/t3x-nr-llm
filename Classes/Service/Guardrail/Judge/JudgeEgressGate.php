@@ -68,8 +68,8 @@ final readonly class JudgeEgressGate
     public function writerZone(string $servingProviderIdentifier, ?LlmConfiguration $configuration): TrustZone
     {
         $provider = null;
-        if ($servingProviderIdentifier !== '') {
-            $provider = $this->providers->findOneByIdentifier(new ProviderIdentifier($servingProviderIdentifier));
+        if (trim($servingProviderIdentifier) !== '') {
+            $provider = $this->providers->findOneByIdentifier(new ProviderIdentifier(trim($servingProviderIdentifier)));
         }
 
         $provider ??= $configuration?->getProvider();

@@ -20,8 +20,9 @@ final readonly class ExternalTextCheckScope
      * @param list<int> $furtherConfigurations configurations whose term lists and judge apply too (ADR-290)
      * @param string    $siteIdentifier        selects the term lists bound to a site; '' for none
      * @param string    $language              selects the term lists bound to a language; '' for none
-     * @param string    $writerProvider        identifier of the provider that wrote the text, '' when unknown;
-     *                                         unknown counts as the most trusted zone (ADR-288 R10)
+     * @param string    $writerProvider        identifier of the provider that wrote the text; '' takes the
+     *                                         provider of the checked configuration, and where that is not
+     *                                         known or declares no zone the most trusted zone counts (ADR-288 R10)
      */
     public function __construct(
         public array $furtherConfigurations = [],

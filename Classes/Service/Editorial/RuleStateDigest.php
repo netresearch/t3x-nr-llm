@@ -30,9 +30,11 @@ use function json_encode;
  * Two digests are equal when the same configurations would compose the same
  * snippets, judge by the same rule lines with the same judging configuration,
  * and search the same term lists. A change to any of them changes the digest:
- * an edited snippet, a new forbidden term, another judge mode. It is a
- * fingerprint, not a copy: the texts it was built from are read live and are
- * not kept.
+ * an edited snippet, a new forbidden term, another judge mode, another model
+ * or provider of the judging configuration. A rule line beyond the cap of
+ * {@see \Netresearch\NrLlm\Service\Guardrail\Judge\RuleSet::MAX_RULES} is
+ * neither judged nor part of the digest. It is a fingerprint, not a copy: the
+ * texts it was built from are read live and are not kept.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -59,7 +61,11 @@ final readonly class RuleStateDigest
 
             $seen[]  = $uid;
             $further = $this->configurations->findByUid($uid);
-            $state[] = $further instanceof LlmConfiguration ? $this->stateOf($further) : ['uid' => $uid, 'missing' => true];
+            // A named configuration that cannot be loaded still brings the
+            // term lists that name it, as in the check.
+            $state[] = $further instanceof LlmConfiguration
+                ? $this->stateOf($further)
+                : ['uid' => $uid, 'missing' => true, 'termLists' => $this->termListsOf($uid)];
         }
 
         return 'sha256:' . hash('sha256', json_encode($state, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR));
@@ -77,7 +83,7 @@ final readonly class RuleStateDigest
             'uid'         => $uid,
             'judgeMode'   => $configuration->getRuleJudgeModeEnum()->value,
             'judgeTags'   => $configuration->getRuleJudgeTagList(),
-            'judging'     => $configuration->getRuleJudgeConfiguration(),
+            'judging'     => $this->judgingOf($configuration->getRuleJudgeConfiguration()),
             'snippetTags' => $configuration->getSnippetTagList(),
             'snippets'    => array_map(
                 static fn (PromptSnippet $snippet): array => [$snippet->getIdentifier(), $snippet->getName(), $snippet->getSnippet(), $snippet->getDataClass()],
@@ -91,10 +97,40 @@ final readonly class RuleStateDigest
                 static fn (ToolDataClass $class): string => $class->value,
                 $ruleSet->dataClasses,
             ),
-            'termLists' => array_map(
-                static fn (TermListRule $list): array => [$list->name, $list->siteIdentifier, $list->language, $list->forbiddenTerms, $list->requiredTerms, $list->message],
-                $uid > 0 ? $this->termLists->forConfiguration($uid) : [],
-            ),
+            'termLists' => $uid > 0 ? $this->termListsOf($uid) : [],
         ];
+    }
+
+    /**
+     * The judging configuration as far as it decides whether a judge answers
+     * and where the text goes: its uid, active flag, model and provider.
+     *
+     * @return array<string, mixed>
+     */
+    private function judgingOf(int $uid): array
+    {
+        $judging = $uid > 0 ? $this->configurations->findByUid($uid) : null;
+        if (!$judging instanceof LlmConfiguration) {
+            return ['uid' => $uid, 'missing' => true];
+        }
+
+        return [
+            'uid'      => $uid,
+            'active'   => $judging->isActive(),
+            'model'    => $judging->getLlmModel()?->getUid(),
+            'provider' => $judging->getProvider()?->getIdentifier(),
+            'zone'     => $judging->getProvider()?->getTrustZone(),
+        ];
+    }
+
+    /**
+     * @return list<array{string, string, string, list<string>, list<string>, string}>
+     */
+    private function termListsOf(int $uid): array
+    {
+        return array_map(
+            static fn (TermListRule $list): array => [$list->name, $list->siteIdentifier, $list->language, $list->forbiddenTerms, $list->requiredTerms, $list->message],
+            $this->termLists->forConfiguration($uid),
+        );
     }
 }
