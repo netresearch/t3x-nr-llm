@@ -114,7 +114,7 @@ Consequences
 - ✕ A page without a translation in the language cannot be served by
   version 1.
 
-Net Score: +4
+Net Score: +2
 
 Alternatives considered
 =======================
