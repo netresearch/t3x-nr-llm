@@ -17,12 +17,15 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcError;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
+use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Uid\Uuid;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * The page metadata skill (ADR-296, spec 055): writes the named metadata
@@ -57,13 +60,24 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     /** The one further tool the run may use when the profile grants it: a question to the client. */
     public const QUESTION_TOOL = 'ask_choice';
 
+    /**
+     * One refusal for a page that does not exist, is deleted, lies outside
+     * the technical user's mounts or permissions, or a language the user may
+     * not edit: a client learns nothing about pages its user may not read.
+     */
+    private const NOT_AVAILABLE = '"page" and "language" do not name a page this skill may work on in the client\'s workspace';
+
     private LoggerInterface $logger;
+
+    private ActingBackendUserResolver $users;
 
     public function __construct(
         private ConnectionPool $connectionPool,
         ?LoggerInterface $logger = null,
+        ?ActingBackendUserResolver $users = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
+        $this->users  = $users ?? new ActingBackendUserResolver();
     }
 
     public function identifier(): string
@@ -82,7 +96,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
 
         $request   = A2aPageMetadataRequest::fromText($message->text());
         $workspace = $context->actor->workspaceId ?? 0;
-        $target    = $this->targetRow($request, $workspace);
+        $target    = $this->targetRow($request, $workspace, $this->users->resolve($context->actor));
 
         $scope = new AssignmentScope([new ScopedPage($request->page, 0)], [], ['pages'], [$request->language]);
 
@@ -142,14 +156,20 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     /**
      * The uid of the row the run writes: the default-language page, or its
      * translation in the requested language, as the workspace shows them.
+     * Only a page the client's technical user may read, in a language it may
+     * edit, is told apart; everything else gets {@see self::NOT_AVAILABLE}.
      *
      * @throws A2aRpcError
      */
-    private function targetRow(A2aPageMetadataRequest $request, int $workspace): int
+    private function targetRow(A2aPageMetadataRequest $request, int $workspace, ?BackendUserAuthentication $user): int
     {
         $page = $this->visibleRow($this->rows(['uid' => $request->page], $workspace), $workspace);
-        if ($page === null || $this->int($page['sys_language_uid'] ?? 0) !== 0 || $this->int($page['l10n_parent'] ?? 0) !== 0) {
-            throw A2aRpcError::invalidParams('message.parts', '"page" does not name a default-language page in the client\'s workspace');
+        if ($page === null || !$this->mayRead($user, $page, $request->language)) {
+            throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
+        }
+
+        if ($this->int($page['sys_language_uid'] ?? 0) !== 0 || $this->int($page['l10n_parent'] ?? 0) !== 0) {
+            throw A2aRpcError::invalidParams('message.parts', '"page" names a translation; give the uid of the default-language page');
         }
 
         if ($request->language === 0) {
@@ -217,6 +237,28 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
         }
 
         return null;
+    }
+
+    /**
+     * Whether the technical user may see the page and edit the language.
+     * `calcPerms()` answers no permission for a page outside the user's web
+     * mounts. The tool checks the edit permission again when it writes.
+     *
+     * @param array<array-key, mixed> $page
+     */
+    private function mayRead(?BackendUserAuthentication $user, array $page, int $language): bool
+    {
+        if (!$user instanceof BackendUserAuthentication) {
+            return false;
+        }
+
+        $row = [];
+        foreach ($page as $field => $value) {
+            $row[(string) $field] = $value;
+        }
+
+        return $user->doesUserHaveAccess($row, Permission::PAGE_SHOW)
+            && $user->checkLanguageAccess($language);
     }
 
     private function instruction(A2aPageMetadataRequest $request, int $target): string

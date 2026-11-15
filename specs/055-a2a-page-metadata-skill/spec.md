@@ -24,11 +24,14 @@ to what the request names.
   A text over 2048 bytes, nested deeper than the contract, or of another shape
   is refused.
 - **PM2 Refusal before a task.** A request that breaks PM1, names a page that
-  is not a default-language page in the client's workspace, or a language the
-  page has no translation in (workspace view; a translation deleted in the
-  workspace does not count) is answered with JSON-RPC `-32602` on
-  `message.parts`. The description names the rule, never a value of the
-  client. No task, run, dedup row or capacity is used.
+  is a translation, or a language the page has no translation in (workspace
+  view; a translation deleted in the workspace does not count) is answered
+  with JSON-RPC `-32602` on `message.parts`. The description names the rule,
+  never a value of the client. A page that does not exist, is deleted, or
+  that the client's technical user may not show (its web mounts and page
+  permissions), and a language that user may not edit, all get one and the
+  same refusal, so a client learns nothing about pages its user may not read.
+  No task, run, dedup row or capacity is used.
 - **PM3 Scope.** The accepted run's actor carries the scope
   `pages: [{page, depth 0}]`, `tables: [pages]`, `languages: [language]`,
   derived from the checked values. The scope is stored with the queued run
@@ -61,7 +64,7 @@ to what the request names.
 | Requirement | Suite |
 |-------------|-------|
 | PM1 | `A2aPageMetadataRequestTest` (unit): every refused shape and type, the description without the client's value |
-| PM2 | `A2aPageMetadataSkillTest::aKeyOutsideTheContractOrAWrongTypeIsRefusedBeforeATaskExists`, `::aMissingPageOrAMissingTranslationIsRefusedBeforeATaskExists` (functional): no task and no run row |
+| PM2 | `A2aPageMetadataSkillTest::aKeyOutsideTheContractOrAWrongTypeIsRefusedBeforeATaskExists`, `::aMissingPageOrAMissingTranslationIsRefusedBeforeATaskExists`, `::aPageTheUserMayNotReadIsRefusedLikeOneThatDoesNotExist` (functional): no task and no run row |
 | PM3 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` (the stored actor), `::aWriteToAnotherPageIsRefusedAsOutsideTheScope`, `::theTranslationRowReachesTheApprovalAndTheDefaultLanguageRowIsRefused`, `::theScopeHoldsAfterAQuestionAndTheClientsAnswer` (scripted model, the container's policies) |
 | PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |

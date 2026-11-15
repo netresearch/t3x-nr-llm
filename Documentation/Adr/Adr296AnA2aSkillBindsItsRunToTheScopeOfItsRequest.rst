@@ -60,9 +60,11 @@ model.
 **A request that does not fit is refused before a task exists**, with JSON-RPC
 ``-32602`` InvalidParams on ``message.parts`` and a description that names the
 rule broken, never a value the client sent. This covers an unknown key, a
-missing key, a wrong type, a page that is not a default-language page and a
-page with no translation in the language. Version 1 does not create a
-translation.
+missing key, a wrong type, a page that is a translation and a page with no
+translation in the language. A page that does not exist, is deleted or that
+the client's technical user may not show, and a language that user may not
+edit, get one common refusal, so the answer reveals nothing about pages the
+user may not read. Version 1 does not create a translation.
 
 **The run may use** ``get_page_content`` **and** ``update_page_metadata``,
 **and** ``ask_choice`` **when the profile grants it.** Any other tool the

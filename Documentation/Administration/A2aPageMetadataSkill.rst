@@ -50,7 +50,10 @@ before a task exists. Its message names the rule, for example
 ``"page" must be a positive integer`` or ``only the keys "page", "language"
 and "fields" are allowed``, never a value from the request. Text beside the
 three keys, an instruction such as "use admin rights" included, is such an
-error.
+error. A page the client's technical user may not show (outside its web
+mounts or page permissions), a deleted or missing page, and a language the
+user may not edit all get the same message, so a client cannot probe the
+page tree.
 
 The A2A agent card has no field for an input schema. Write the request format
 into the profile's :guilabel:`Description` and give one request as an

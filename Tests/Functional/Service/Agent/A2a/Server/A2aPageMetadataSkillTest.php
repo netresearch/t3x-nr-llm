@@ -37,6 +37,7 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * The page metadata skill end to end (spec 055, ADR-296): a client's request
@@ -71,6 +72,14 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
 
     private const UNTRANSLATED = 44;
 
+    /** A translated page in a tree outside the technical user's mounts. */
+    private const OUTSIDE_MOUNT = 50;
+
+    /** A deleted page inside the mounts. */
+    private const DELETED = 45;
+
+    private const GROUP = 70;
+
     private const GERMAN = 1;
 
     private const WORKSPACE = 3;
@@ -86,9 +95,22 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
         // keep content only at the full privacy level.
         $this->privacyLevel('full');
 
-        foreach ([[1, 0, 0, 0], [self::PAGE, 1, 0, 0], [self::NEIGHBOUR, 1, 0, 0], [self::UNTRANSLATED, 1, 0, 0], [self::TRANSLATION, 1, self::GERMAN, self::PAGE], [self::NEIGHBOUR_TRANSLATION, 1, self::GERMAN, self::NEIGHBOUR]] as [$uid, $pid, $language, $parent]) {
-            $this->db('pages')->insert('pages', ['uid' => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'description' => 'Old ' . $uid, 'sys_language_uid' => $language, 'l10n_parent' => $parent, 'doktype' => 1]);
+        $pages = [
+            [1, 0, 0, 0], [self::PAGE, 1, 0, 0], [self::NEIGHBOUR, 1, 0, 0], [self::UNTRANSLATED, 1, 0, 0],
+            [self::TRANSLATION, 1, self::GERMAN, self::PAGE], [self::NEIGHBOUR_TRANSLATION, 1, self::GERMAN, self::NEIGHBOUR],
+            [self::OUTSIDE_MOUNT, 0, 0, 0], [self::OUTSIDE_MOUNT + 100, 0, self::GERMAN, self::OUTSIDE_MOUNT], [self::DELETED, 1, 0, 0],
+        ];
+        foreach ($pages as [$uid, $pid, $language, $parent]) {
+            $this->db('pages')->insert('pages', [
+                'uid'     => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'description' => 'Old ' . $uid, 'sys_language_uid' => $language, 'l10n_parent' => $parent, 'doktype' => 1,
+                'deleted' => $uid === self::DELETED ? 1 : 0, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+            ]);
         }
+
+        // The technical user reads the tree under page 1 in both languages,
+        // and nothing outside it.
+        $this->db('be_groups')->insert('be_groups', ['uid' => self::GROUP, 'pid' => 0, 'title' => 'A2A editors', 'db_mountpoints' => '1', 'allowed_languages' => '0,1']);
+        $this->db('be_users')->update('be_users', ['usergroup' => (string) self::GROUP], ['uid' => 7]);
 
         $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['handler' => A2aPageMetadataDomainHandler::IDENTIFIER, 'may_write' => 1, 'tools' => 'get_page_content,update_page_metadata,ask_choice'], ['uid' => 1]);
         $this->db('sys_workspace')->insert('sys_workspace', ['uid' => self::WORKSPACE, 'pid' => 0, 'title' => 'Draft', 'members' => 'be_users_7']);
@@ -233,13 +255,32 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
     {
         self::assertSame('Invalid params: "page" is missing', self::j($this->sendRaw('{"language": 1, "fields": ["description"]}'), 'error.message'));
         self::assertSame(
-            'Invalid params: "page" does not name a default-language page in the client\'s workspace',
+            'Invalid params: "page" names a translation; give the uid of the default-language page',
             self::j($this->sendRaw('{"page": ' . self::TRANSLATION . ', "language": 1, "fields": ["description"]}'), 'error.message'),
         );
         self::assertSame(
             'Invalid params: the page has no translation in "language" in the client\'s workspace; this skill does not create one',
             self::j($this->sendRaw('{"page": ' . self::UNTRANSLATED . ', "language": 1, "fields": ["description"]}'), 'error.message'),
         );
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
+    }
+
+    /**
+     * A page outside the technical user's mounts, a deleted page and a uid
+     * that does not exist get one and the same refusal, so the refusal tells
+     * a client nothing about pages its user may not read; a language the
+     * user may not edit is refused the same way.
+     */
+    #[Test]
+    public function aPageTheUserMayNotReadIsRefusedLikeOneThatDoesNotExist(): void
+    {
+        $refusal = 'Invalid params: "page" and "language" do not name a page this skill may work on in the client\'s workspace';
+        foreach ([self::OUTSIDE_MOUNT, self::DELETED, 9999] as $i => $page) {
+            self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . $page . ', "language": 1, "fields": ["description"]}', 'p-' . $i), 'error.message'), 'page ' . $page);
+        }
+
+        $this->db('be_groups')->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::GROUP]);
+        self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . self::PAGE . ', "language": 1, "fields": ["description"]}', 'l-1'), 'error.message'));
         self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
     }
 
