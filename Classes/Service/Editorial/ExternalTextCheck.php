@@ -103,8 +103,9 @@ final readonly class ExternalTextCheck
             $applied                       = $termsApplied;
         } catch (Throwable $failure) {
             $this->logger->error('The term check of a delivered text could not run.', ['exception' => $failure]);
-            $reasons[] = $failure instanceof TermCheckFailedException && $failure->getMessage() === ExternalTextReport::REASON_JSON_AMBIGUOUS
-                ? ExternalTextReport::REASON_JSON_AMBIGUOUS
+            $reasons[] = $failure instanceof TermCheckFailedException
+                && in_array($failure->getMessage(), [ExternalTextReport::REASON_JSON_AMBIGUOUS, ExternalTextReport::REASON_JSON_UNDECODABLE], true)
+                ? $failure->getMessage()
                 : ExternalTextReport::REASON_TERM_CHECK_FAILED;
             $failed = true;
         }
@@ -252,15 +253,27 @@ final readonly class ExternalTextCheck
     {
         $site     = trim($scope->siteIdentifier);
         $language = GlossaryResolver::baseLanguage(trim($scope->language));
-        $forms    = $this->forms($text);
-        $findings = [];
-        $applied  = false;
+        $lists    = [];
         foreach ($uids as $uid) {
             foreach ($this->termLists->forConfiguration($uid) as $list) {
-                $applied  = $applied || $this->applies($list, $site, $language);
-                $findings = [...$findings, ...$this->listFindings($list, $forms, $site, $language)];
+                if ($this->applies($list, $site, $language)) {
+                    $lists[] = $list;
+                }
             }
         }
+
+        if ($lists === []) {
+            // No term applies: an undecodable text hides nothing a list asks.
+            return [[], false];
+        }
+
+        $forms    = $this->forms($text);
+        $findings = [];
+        foreach ($lists as $list) {
+            $findings = [...$findings, ...$this->listFindings($list, $forms, $site, $language)];
+        }
+
+        $applied = true;
 
         return [$this->unique($findings), $applied];
     }
@@ -319,7 +332,23 @@ final readonly class ExternalTextCheck
     }
 
     /**
-     * The text as sent and, for JSON, each decoded string, in the search
+     * Further forms a quoted passage may be found in: the decoded strings of
+     * a JSON document. They only widen what counts as found, so a text the
+     * term check refuses adds none, and the judge is not refused with it.
+     *
+     * @return list<string>
+     */
+    private function passageForms(string $text): array
+    {
+        try {
+            return $this->forms($text);
+        } catch (TermCheckFailedException) {
+            return [];
+        }
+    }
+
+    /**
+     * The text as sent and, for a JSON document, each decoded key and string, in the search
      * forms of the matcher.
      *
      * @return list<string>
@@ -368,7 +397,7 @@ final readonly class ExternalTextCheck
             // is not vouched for, whatever its shape or the error. Other
             // text is plain text.
             if (preg_match('/\\\\(?:u[0-9a-fA-F]{4}|["\\\\\/bfnrt])/', $text) !== 0) {
-                throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102, $refused);
+                throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_UNDECODABLE, 1799430103, $refused);
             }
 
             return null;
@@ -507,7 +536,7 @@ final readonly class ExternalTextCheck
                 $scope->beUserUid > 0 ? $scope->beUserUid : null,
                 // The judge reads the text raw; it may quote a passage of an
                 // escaped JSON string decoded, and that passage is in the text.
-                $this->forms($text),
+                $this->passageForms($text),
             ));
         } catch (Throwable $failure) {
             $this->logger->warning('The rule-set judge gave no usable answer for a delivered text.', [

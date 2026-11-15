@@ -55,7 +55,8 @@ no word limit:
   can a text ``json_decode()`` refuses that holds a JSON escape (``\u`` and
   the short escapes), because another decoder may read a term the escape
   hides from the plain-text search. In both cases the term check fails and
-  the text blocks. A fence, white space of any kind and a byte order mark
+  the text blocks; this refusal belongs to the term check and happens only
+  when a term list applies. A fence, white space of any kind and a byte order mark
   around a document are removed before it is decoded; a top-level string is a
   document too. Every key of an object is
   searched, whatever it looks like; the index of a list is no text. Any
@@ -123,6 +124,14 @@ Consequences
   call; ADR-302 does so.
 - A channel limit in characters is not part of the check: no profile field holds
   one yet.
+
+- Limits of the JSON handling, recorded after several review rounds:
+  escapes other than JSON's (``\x52``, ``\u{52}``, octal) in a text
+  ``json_decode()`` refuses are not decoded, so a JSON5, JavaScript or YAML
+  consumer may read a term the check did not see; JSON nested inside a JSON
+  string is decoded once; a required term found only as a key counts as
+  present; prose with a JSON escape sequence (``C:\temp``, a literal
+  ``\n``) is refused when a term list applies.
 
 Revisit when
 ============

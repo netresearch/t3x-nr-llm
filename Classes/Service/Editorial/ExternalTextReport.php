@@ -42,11 +42,18 @@ final readonly class ExternalTextReport
     public const REASON_TERM_CHECK_FAILED = 'term_check_failed';
 
     /**
-     * A JSON text names a key twice, or a key only some decoders accept:
+     * A JSON document names a key twice:
      * which value a consumer reads is not known, so the text is not vouched
      * for, and the term check fails.
      */
     public const REASON_JSON_AMBIGUOUS = 'json_ambiguous_keys';
+
+    /**
+     * A text json_decode() refuses holds a JSON escape: another decoder may
+     * read a term the escape hides from the plain-text search, so a term
+     * list that applies cannot vouch for it.
+     */
+    public const REASON_JSON_UNDECODABLE = 'json_undecodable_escape';
 
     /** The configurations or rules could not be read at all. */
     public const REASON_CHECK_FAILED = 'check_failed';

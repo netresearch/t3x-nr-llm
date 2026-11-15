@@ -504,7 +504,7 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         $report = $this->check()->check($text, $this->configuration(RuleJudgeMode::OFF));
 
         self::assertTrue($report->blocks());
-        self::assertTrue($report->hasReason(ExternalTextReport::REASON_JSON_AMBIGUOUS));
+        self::assertTrue($report->hasReason(ExternalTextReport::REASON_JSON_AMBIGUOUS) || $report->hasReason(ExternalTextReport::REASON_JSON_UNDECODABLE));
     }
 
     /**
@@ -530,6 +530,29 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
 
         self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check("\u{00A0}{\"t\":\"\\u0052abatt\"}\u{2028}", $this->configuration(RuleJudgeMode::OFF))->status);
         self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('"Modell \\u0041\\u0030"', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * The refusal of an undecodable text with an escape belongs to the term
+     * check: without a term list, a path in prose is judged and not refused.
+     */
+    #[Test]
+    public function aBackslashInProseIsNoRefusalWithoutATermList(): void
+    {
+        $report = $this->check()->check('Die Datei liegt unter C:\\temp\\bericht.pdf', $this->configuration(RuleJudgeMode::BLOCK));
+
+        self::assertSame(ExternalTextStatus::PASSED, $report->status);
+        self::assertSame(1, $this->judgeCalls);
+    }
+
+    #[Test]
+    public function anUndecodableTextWithAnEscapeNamesItsReason(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        $report = $this->check()->check('Hier: {"t":"\\u0052abatt"', $this->configuration(RuleJudgeMode::OFF));
+
+        self::assertSame([ExternalTextReport::REASON_JSON_UNDECODABLE], $report->reasons);
     }
 
     /**
