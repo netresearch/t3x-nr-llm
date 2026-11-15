@@ -135,6 +135,11 @@ Consequences
   string is decoded once; a required term found only as a key counts as
   present; prose with a JSON escape sequence (``C:\temp``, a literal
   ``\n``) is refused when a term list applies.
+- Terms written with escape sequences or character references other than JSON
+  escapes (``\x52``, ``\u{52}``, octal, ``&#82;``) are not decoded, also in
+  plain text. The check is evidence for the editor who submits the text, not a
+  gate over the channel, and platforms do not decode such sequences in plain
+  text.
 
 Revisit when
 ============
