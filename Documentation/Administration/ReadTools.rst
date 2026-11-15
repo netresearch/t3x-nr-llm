@@ -12,13 +12,15 @@ Read and interaction tool catalogue
 The built-in tools
 ==================
 
-nr-llm ships forty-seven read-only tools and twenty-three writing tools. Each is a
+nr-llm ships forty-eight read-only tools and twenty-three writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
 redacted or gated behind a separate ``_raw`` variant. Forty-one ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
-(see :ref:`administration-tools-external-pages`) and all twenty-three writing tools
+(see :ref:`administration-tools-external-pages`), ``check_page_metadata`` (the
+check of the A2A page metadata skill, see :ref:`a2a-page-metadata-skill-contract`)
+and all twenty-three writing tools
 (``update_page_metadata``, ``set_page_social_image``,
 ``set_file_alternative_text``, ``update_fal_asset_meta``,
 ``set_file_categories``, ``move_content_element``, ``create_content_element_draft``,
