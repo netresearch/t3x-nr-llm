@@ -117,7 +117,7 @@ final readonly class RuleStateDigest
         return [
             'uid'      => $uid,
             'active'   => $judging->isActive(),
-            'model'    => $judging->getLlmModel()?->getUid(),
+            'model'    => [$judging->getLlmModel()?->getUid(), $judging->getLlmModel()?->getModelId()],
             'provider' => $judging->getProvider()?->getIdentifier(),
             'zone'     => $judging->getProvider()?->getTrustZone(),
         ];

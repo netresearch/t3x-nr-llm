@@ -44,7 +44,7 @@ final readonly class ExternalTextReport
     /** The configurations or rules could not be read at all. */
     public const REASON_CHECK_FAILED = 'check_failed';
 
-    /** The text, or every string of a JSON text, is empty: there is nothing a judge could read. */
+    /** The text is empty or white space: there is nothing a judge could read. */
     public const REASON_EMPTY_TEXT = 'empty_text';
 
     /**

@@ -58,21 +58,21 @@ final readonly class JudgeEgressGate
      * The zone of the provider that wrote the text, failing closed.
      *
      * The provider that served the call where it is named, else the
-     * configuration's own provider. Where neither is known, or the provider
-     * declares no zone, the text is treated as written in the most trusted
-     * zone, so only a judge in that zone is asked. The usual default for an
+     * configuration's own provider. Where a provider is named and does not
+     * exist, where neither is known, or where the provider declares no zone,
+     * the text is treated as written in the most trusted zone, so only a judge
+     * in that zone is asked: a named provider that is gone may have been a
+     * more trusted one than the configuration's. The usual default for an
      * unknown zone, the least trusted one, would let any judge pass here: it
      * is the right default for where data may go, and the wrong one for where
      * it came from.
      */
     public function writerZone(string $servingProviderIdentifier, ?LlmConfiguration $configuration): TrustZone
     {
-        $provider = null;
+        $provider = $configuration?->getProvider();
         if (trim($servingProviderIdentifier) !== '') {
             $provider = $this->providers->findOneByIdentifier(new ProviderIdentifier(trim($servingProviderIdentifier)));
         }
-
-        $provider ??= $configuration?->getProvider();
 
         return $provider instanceof Provider
             ? TrustZone::tryFrom($provider->getTrustZone()) ?? TrustZone::LOCAL

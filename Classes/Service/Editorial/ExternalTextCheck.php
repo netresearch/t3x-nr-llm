@@ -390,6 +390,9 @@ final readonly class ExternalTextCheck
                 $judging,
                 $scope->correlationId,
                 $scope->beUserUid > 0 ? $scope->beUserUid : null,
+                // The judge reads the text raw; it may quote a passage of an
+                // escaped JSON string decoded, and that passage is in the text.
+                $this->forms($text),
             ));
         } catch (Throwable $failure) {
             $this->logger->warning('The rule-set judge gave no usable answer for a delivered text.', [

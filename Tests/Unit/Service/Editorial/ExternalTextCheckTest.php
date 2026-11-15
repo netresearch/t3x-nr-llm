@@ -11,9 +11,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Editorial;
 
 use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
@@ -23,6 +25,7 @@ use Netresearch\NrLlm\Service\Editorial\ExternalTextFinding;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextReport;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextStatus;
 use Netresearch\NrLlm\Service\Editorial\RuleStateDigest;
+use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeEgressGate;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeReentry;
@@ -363,6 +366,40 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         $this->check(judge: $judge)->check($text, $this->configuration(RuleJudgeMode::BLOCK));
 
         self::assertSame([$text], $seen);
+    }
+
+    /**
+     * The judge quotes a passage as it reads it, decoded; a passage of an
+     * escaped JSON string still counts as found in the text.
+     */
+    #[Test]
+    public function aPassageTheJudgeQuotesFromAnEscapedJsonStringIsFound(): void
+    {
+        $service = self::createStub(CompletionServiceInterface::class);
+        $service->method('completeForConfiguration')->willReturn(new CompletionResponse(
+            '{"violations":[{"rule":1,"passage":"Wir sind die \\"Nummer 1\\" in Europa","reason":"r"}]}',
+            'small',
+            UsageStatistics::fromTokens(1, 1),
+        ));
+        $judge = new RuleJudge(static fn (): CompletionServiceInterface => $service, new TermMatcher(), new RecordingLogger());
+
+        $report = $this->check(judge: $judge)->check('{"post":"Wir sind die \\"Nummer 1\\" in Europa"}', $this->configuration(RuleJudgeMode::BLOCK));
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $report->status);
+        self::assertSame('Wir sind die "Nummer 1" in Europa', $report->findings[0]->passage);
+    }
+
+    /**
+     * A writer named but not found is not the configuration's provider: the
+     * text counts as written in the most trusted zone (ADR-288 R10).
+     */
+    #[Test]
+    public function aNamedWriterThatDoesNotExistCountsAsTheMostTrustedZone(): void
+    {
+        $report = $this->check()->check(self::SHORT_CLEAN, $this->configuration(RuleJudgeMode::REPORT), new ExternalTextCheckScope(writerProvider: 'deleted-local'));
+
+        self::assertSame(0, $this->judgeCalls);
+        self::assertSame([ExternalTextReport::REASON_JUDGE_EGRESS], $report->reasons);
     }
 
     #[Test]

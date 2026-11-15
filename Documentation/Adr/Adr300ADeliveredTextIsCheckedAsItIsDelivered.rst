@@ -49,7 +49,8 @@ no word limit:
 - **Terms.** Every forbidden term found and every required term missing, across
   every term list that applies to the site and language given, the strings of a
   JSON text included. A list is found by the configuration it names, as in the
-  pipeline, so a further configuration that is hidden still brings its lists. The report names all of them; the pipeline stops at the
+  pipeline, so a further configuration that is hidden still brings its lists;
+  its judge, as in the pipeline, does not apply. The report names all of them; the pipeline stops at the
   first.
 - **Judge.** Every configuration whose judge is on is judged with its own rule
   set by its own judging configuration. The strictest mode decides. The judge
@@ -60,7 +61,9 @@ no word limit:
   wrote the text, nor one whose zone does not admit a rule snippet's data class.
   This rule moves from the guardrail into ``JudgeEgressGate``, which both use,
   so they cannot drift apart. An unknown writer counts as the most trusted zone,
-  as before.
+  as before, and so does a writer that is named and no longer exists. A
+  passage the judge quotes counts when it is found in the text or in a decoded
+  string of a JSON text.
 
 The report has one of four states:
 
