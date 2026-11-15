@@ -43,11 +43,15 @@ final readonly class A2aRpcServer
 {
     /** Methods of later stages and their refusal while undeclared (A2A-P7). */
     private const UNDECLARED = [
-        'GetExtendedAgentCard'             => A2aErrorCode::UNSUPPORTED_OPERATION,
-        'CreateTaskPushNotificationConfig' => A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED,
-        'GetTaskPushNotificationConfig'    => A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED,
-        'ListTaskPushNotificationConfigs'  => A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED,
-        'DeleteTaskPushNotificationConfig' => A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED,
+        'GetExtendedAgentCard' => A2aErrorCode::UNSUPPORTED_OPERATION,
+    ];
+
+    /** The push methods; refused with -32003 while the card declares no push (A2A-P7, A2A-OPS2). */
+    private const PUSH_METHODS = [
+        A2aProtocol::METHOD_CREATE_PUSH_CONFIG,
+        A2aProtocol::METHOD_GET_PUSH_CONFIG,
+        A2aProtocol::METHOD_LIST_PUSH_CONFIGS,
+        A2aProtocol::METHOD_DELETE_PUSH_CONFIG,
     ];
 
     private const PAGE_SIZE_DEFAULT = 50;
@@ -69,6 +73,7 @@ final readonly class A2aRpcServer
         private ConnectionPool $connectionPool,
         private A2aStreamSlots $streamSlots,
         private A2aTaskStream $taskStream,
+        private A2aPushConfigStore $pushConfigs,
         ?LoggerInterface $logger = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
@@ -206,7 +211,12 @@ final readonly class A2aRpcServer
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This agent does not offer ' . $method . '.');
         }
 
-        if (!$streaming && !in_array($method, [A2aProtocol::METHOD_SEND_MESSAGE, A2aProtocol::METHOD_GET_TASK, A2aProtocol::METHOD_LIST_TASKS, A2aProtocol::METHOD_CANCEL_TASK], true)) {
+        $push = in_array($method, self::PUSH_METHODS, true);
+        if ($push && !$this->settings->pushEnabled()) {
+            throw A2aRpcError::a2a(A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED, 'This agent does not offer ' . $method . '.');
+        }
+
+        if (!$streaming && !$push && !in_array($method, [A2aProtocol::METHOD_SEND_MESSAGE, A2aProtocol::METHOD_GET_TASK, A2aProtocol::METHOD_LIST_TASKS, A2aProtocol::METHOD_CANCEL_TASK], true)) {
             throw A2aRpcError::methodNotFound();
         }
 
@@ -222,6 +232,10 @@ final readonly class A2aRpcServer
             A2aProtocol::METHOD_SUBSCRIBE_TO_TASK      => $this->subscribeToTask($client, $params, $now, $id),
             A2aProtocol::METHOD_GET_TASK               => $this->getTask($client, $params),
             A2aProtocol::METHOD_LIST_TASKS             => $this->listTasks($client, $params),
+            A2aProtocol::METHOD_CREATE_PUSH_CONFIG     => $this->pushConfigs->create($client, $params, $now),
+            A2aProtocol::METHOD_GET_PUSH_CONFIG        => $this->pushConfigs->get($client, $params),
+            A2aProtocol::METHOD_LIST_PUSH_CONFIGS      => $this->pushConfigs->list($client, $params),
+            A2aProtocol::METHOD_DELETE_PUSH_CONFIG     => $this->deletePushConfig($client, $params),
             default                                    => $this->cancelTask($client, $params),
         };
     }
@@ -339,6 +353,20 @@ final readonly class A2aRpcServer
     private function getTask(A2aInboundClient $client, array $params): array
     {
         return $this->view->render($this->ownTask($client, $params), $this->historyLength($params));
+    }
+
+    /**
+     * A2A-PUSH1: idempotent; the answer is the proto's `Empty`.
+     *
+     * @param array<string, mixed> $params
+     *
+     * @return array<string, mixed>
+     */
+    private function deletePushConfig(A2aInboundClient $client, array $params): array
+    {
+        $this->pushConfigs->delete($client, $params);
+
+        return [];
     }
 
     /**

@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 use Doctrine\DBAL\Exception as DbalException;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushDeliverer;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -50,6 +52,7 @@ final readonly class A2aTaskProjector
         private ConnectionPool $connectionPool,
         private AgentStateCodec $codec,
         private ?LoggerInterface $logger = null,
+        private ?A2aServerSettings $settings = null,
     ) {}
 
     /**
@@ -113,6 +116,11 @@ final readonly class A2aTaskProjector
                     'crdate'   => time(),
                 ]);
                 $written = 1;
+                // A2A-PUSH3: the event and its delivery jobs commit together;
+                // while push is switched off no job is written.
+                if ($this->settings?->pushEnabled() === true) {
+                    A2aPushDeliverer::enqueue($connection, $taskUid, $revision, time());
+                }
             } catch (UniqueConstraintViolationException) {
                 // Another projection of this revision won; it is the same event.
             }

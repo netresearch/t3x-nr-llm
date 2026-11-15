@@ -57,6 +57,10 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         // run (ADR-282).
         'tx_nrllm_a2a_task',
         'tx_nrllm_a2a_event',
+        // A task's push configs, with their sealed credentials, and their
+        // delivery jobs go with the task (spec 051 A2A-PUSH1, A2A-PUSH3).
+        'tx_nrllm_a2a_push_config',
+        'tx_nrllm_a2a_push_outbox',
         'tx_nrllm_governance_event',
     ];
 
@@ -296,12 +300,34 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
             'tstamp'     => $timestamp,
         ]);
 
+        $taskUid = (int) $taskConnection->lastInsertId();
+
         $connectionPool->getConnectionForTable('tx_nrllm_a2a_event')->insert('tx_nrllm_a2a_event', [
-            'task_uid' => (int) $taskConnection->lastInsertId(),
+            'task_uid' => $taskUid,
             'revision' => 1,
             'kind'     => 'status',
             'payload'  => '{}',
             'crdate'   => $timestamp,
+        ]);
+
+        $pushConnection = $connectionPool->getConnectionForTable('tx_nrllm_a2a_push_config');
+        $pushConnection->insert('tx_nrllm_a2a_push_config', [
+            'config_id'        => 'c-1',
+            'task_uid'         => $taskUid,
+            'owner_client_uid' => 1,
+            'url'              => 'https://93.184.215.14/hook',
+            'state'            => 'active',
+            'crdate'           => $timestamp,
+            'tstamp'           => $timestamp,
+        ]);
+
+        $connectionPool->getConnectionForTable('tx_nrllm_a2a_push_outbox')->insert('tx_nrllm_a2a_push_outbox', [
+            'config_uid' => (int) $pushConnection->lastInsertId(),
+            'task_uid'   => $taskUid,
+            'revision'   => 1,
+            'state'      => 'pending',
+            'crdate'     => $timestamp,
+            'tstamp'     => $timestamp,
         ]);
 
         $connectionPool->getConnectionForTable('tx_nrllm_governance_event')->insert('tx_nrllm_governance_event', [

@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAgentCardBuilder;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aListCursor;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushConfigStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcReply;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcServer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
@@ -637,6 +638,7 @@ final class A2aSseTest extends AbstractFunctionalTestCase
             $this->getService(ConnectionPool::class),
             $this->getService(A2aStreamSlots::class),
             $stream,
+            $this->getService(A2aPushConfigStore::class),
         );
 
         $body = json_encode(['jsonrpc' => '2.0', 'id' => 's-1', 'method' => $method, 'params' => $params === [] ? new stdClass() : $params], JSON_THROW_ON_ERROR);

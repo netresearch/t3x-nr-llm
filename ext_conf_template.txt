@@ -246,6 +246,24 @@ a2a.server.maxStreams = 8
 # cat=tools; type=int+; label=Largest A2A stream frame (bytes): An event larger than this is not sent. The first event, the task, is then sent without its history and artifacts. Any later event that does not fit ends the stream, and the client reads the task with GetTask (A2A-SSE3). Default 1048576 (1 MiB).
 a2a.server.maxFrameBytes = 1048576
 
+# cat=tools; type=boolean; label=Send A2A push notifications: Off (default): the card declares no push notifications and the four push methods, and a push config inside SendMessage, are refused with -32003. On: a client may register a webhook for its own tasks, and the worker posts each stored change of the task there (spec 051 stage 5b, ADR-285). Deliveries run in nrllm:a2a:poll, never in a request. Needs "Answer A2A requests".
+a2a.server.push = 0
+
+# cat=tools; type=int+; label=A2A push configs per task: How many webhooks one task may have. One more is refused with -32602. Default 4.
+a2a.server.maxPushConfigsPerTask = 4
+
+# cat=tools; type=int+; label=A2A push configs per client: How many webhooks all tasks of one client may have together. Default 100.
+a2a.server.maxPushConfigsPerClient = 100
+
+# cat=tools; type=string; label=Hosts A2A push notifications may reach: Comma-separated host names or IP addresses (same forms as for fetch_external_url) that a webhook of a push config is limited to (ADR-285). Empty (default) allows every public host. The list can only narrow: a private, loopback, link-local or metadata address is always refused.
+a2a.push.allowedHosts =
+
+# cat=tools; type=string; label=Hosts A2A push notifications never reach: Comma-separated host names or IP addresses a webhook is refused for, checked before the allowlist. Empty by default.
+a2a.push.deniedHosts =
+
+# cat=tools; type=boolean; label=Let A2A push notifications go through an HTTP proxy: Behind a proxy the address checks cannot reach past it, so pushes are refused. Switching this on permits them ONLY while "Hosts A2A push notifications may reach" is non-empty.
+a2a.push.allowViaProxy = 0
+
 # =============================================================================
 # MCP servers (ADR-170)
 # =============================================================================

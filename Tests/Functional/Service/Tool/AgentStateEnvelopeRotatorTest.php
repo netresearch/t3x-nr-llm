@@ -59,8 +59,9 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     public function itDeclaresTheTablesItWrites(): void
     {
         // The A2A task view and event journal are sealed with the same codec
-        // (ADR-282), so a rotation must reach them too.
-        self::assertSame([self::TABLE, 'tx_nrllm_a2a_task', 'tx_nrllm_a2a_event'], $this->rotator->getTables());
+        // (ADR-282), and so are the token and credential of a push config
+        // (spec 051 A2A-PUSH2), so a rotation must reach them too.
+        self::assertSame([self::TABLE, 'tx_nrllm_a2a_task', 'tx_nrllm_a2a_event', 'tx_nrllm_a2a_push_config'], $this->rotator->getTables());
         self::assertStringContainsString('nr-llm', $this->rotator->getIdentifier());
     }
 
@@ -157,6 +158,42 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
             $state,
             $newCodec->open($this->storedValue($uid, 'suspended_state'), AgentStateCodec::PURPOSE_SUSPENDED_STATE),
         );
+    }
+
+    /**
+     * The token and the Bearer credential of a push config are sealed
+     * (spec 051 A2A-PUSH2); after a rotation the worker must still open them,
+     * or every delivery of the config stops as CREDENTIAL_UNREADABLE.
+     */
+    #[Test]
+    public function rewrappingMovesThePushConfigColumnsToTheNewKey(): void
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_a2a_push_config');
+        $connection->insert('tx_nrllm_a2a_push_config', [
+            'config_id'   => 'c-1',
+            'task_uid'    => 1,
+            'url'         => 'https://93.184.215.14/hook',
+            'token'       => $codec->seal('the token', AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL),
+            'auth_scheme' => 'Bearer',
+            'credentials' => $codec->seal('the credential', AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL),
+        ]);
+        $uid = (int) $connection->lastInsertId();
+
+        self::assertSame(2, $this->rotator->countEnvelopes());
+
+        $newKey = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES);
+        self::assertSame(2, $this->rotator->rewrapAll($this->contextTo($newKey)));
+
+        $row = $connection->select(['token', 'credentials'], 'tx_nrllm_a2a_push_config', ['uid' => $uid])->fetchAssociative();
+        self::assertIsArray($row);
+        self::assertIsString($row['token']);
+        self::assertIsString($row['credentials']);
+        $newCodec = $this->codecFor($newKey);
+        self::assertSame('the token', $newCodec->open($row['token'], AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL));
+        self::assertSame('the credential', $newCodec->open($row['credentials'], AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL));
     }
 
     /**

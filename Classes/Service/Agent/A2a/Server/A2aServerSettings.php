@@ -47,6 +47,10 @@ final readonly class A2aServerSettings
 
     public const FRAME_BYTES_DEFAULT = 1048576;
 
+    public const PUSH_CONFIGS_PER_TASK_DEFAULT = 4;
+
+    public const PUSH_CONFIGS_PER_CLIENT_DEFAULT = 100;
+
     public function __construct(
         private ExtensionConfiguration $extensionConfiguration,
         private SiteFinder $siteFinder,
@@ -87,6 +91,26 @@ final readonly class A2aServerSettings
         $value = $this->value('streaming');
 
         return $this->enabled() && ($value === null || in_array($value, [true, 1, '1'], true));
+    }
+
+    /**
+     * Whether the card declares `pushNotifications` and the push methods
+     * answer (spec 051 A2A-OPS2, ADR-285). Off unless switched on: a push is
+     * an outbound call to an address the client chooses.
+     */
+    public function pushEnabled(): bool
+    {
+        return $this->enabled() && in_array($this->value('push'), [true, 1, '1'], true);
+    }
+
+    public function maxPushConfigsPerTask(): int
+    {
+        return $this->bounded('maxPushConfigsPerTask', self::PUSH_CONFIGS_PER_TASK_DEFAULT, 1, 100);
+    }
+
+    public function maxPushConfigsPerClient(): int
+    {
+        return $this->bounded('maxPushConfigsPerClient', self::PUSH_CONFIGS_PER_CLIENT_DEFAULT, 1, 100000);
     }
 
     /**

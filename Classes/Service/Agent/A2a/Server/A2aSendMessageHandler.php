@@ -112,6 +112,7 @@ final readonly class A2aSendMessageHandler
         private ConnectionPool $connectionPool,
         private DurableDecisionIntakeInterface $intake,
         private A2aClientAccess $access,
+        private A2aPushConfigStore $pushConfigs,
         ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
     ) {
@@ -133,8 +134,15 @@ final readonly class A2aSendMessageHandler
 
         $message       = $this->message($params);
         $configuration = $this->object($params, 'configuration');
+        $push          = null;
         if (array_key_exists('taskPushNotificationConfig', $configuration)) {
-            throw A2aRpcError::a2a(A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED, 'Push notifications are not supported.');
+            if (!$this->settings->pushEnabled()) {
+                throw A2aRpcError::a2a(A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED, 'Push notifications are not supported.');
+            }
+
+            // A2A-PUSH1: checked before anything is stored, written in the
+            // transaction that accepts the message.
+            $push = $this->pushConfigs->validate($this->object($configuration, 'taskPushNotificationConfig'), 'configuration.taskPushNotificationConfig');
         }
 
         $blocking      = !$this->bool($configuration, 'returnImmediately', 'configuration.returnImmediately') && !$streaming;
@@ -147,7 +155,7 @@ final readonly class A2aSendMessageHandler
         }
 
         if ($message->taskId !== '') {
-            return $this->continueTask($client, $message, $named, $allowed, $configuration, $blocking, $historyLength, $now);
+            return $this->continueTask($client, $message, $named, $allowed, $configuration, $blocking, $historyLength, $now, $push);
         }
 
         $profile = $this->selectProfile($allowed, $named);
@@ -209,7 +217,7 @@ final readonly class A2aSendMessageHandler
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {
-            $taskId = $this->accept($client, $profile, $message, $contextId, $digest, $decision);
+            $taskId = $this->accept($client, $profile, $message, $contextId, $digest, $decision, $push, $now);
             if ($taskId === null) {
                 // A concurrent request with the same messageId won the
                 // acceptance; this one returns its task (A2A-SV6).
@@ -233,9 +241,11 @@ final readonly class A2aSendMessageHandler
      * The acceptance transaction (A2A-SV5): the run, the task bound to it and
      * the dedup record, or none of them.
      *
+     * @param array{id: string, url: string, token: string, scheme: string, credentials: string}|null $push
+     *
      * @return string|null the new task's id; null when the dedup record of a concurrent request won
      */
-    private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $contextId, string $digest, A2aHandlerDecision $decision): ?string
+    private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $contextId, string $digest, A2aHandlerDecision $decision, ?array $push, int $now): ?string
     {
         $request = $decision->request;
         if (!$request instanceof AgentRunRequest) {
@@ -252,7 +262,7 @@ final readonly class A2aSendMessageHandler
 
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
-                function (Connection $connection) use ($client, $profile, $message, $contextId, $digest, $decision, $request, $taskId, $history, &$runUuid, &$repeated): void {
+                function (Connection $connection) use ($client, $profile, $message, $contextId, $digest, $decision, $request, $taskId, $history, $push, $now, &$runUuid, &$repeated): void {
                     // The limits checked before are checked again under the
                     // client's (and the quota profile's) row lock, so
                     // concurrent requests of one client are serialised here
@@ -289,6 +299,10 @@ final readonly class A2aSendMessageHandler
                         'task_uid'          => $taskUid,
                         'crdate'            => time(),
                     ]);
+
+                    if ($push !== null) {
+                        $this->pushConfigs->insert($connection, $client, $taskUid, $push, $now);
+                    }
 
                     if ($decision->rejected && !$this->persister->settlePolicyStopped(new AgentRunHandle($run->uid, $run->uuid), new A2aInputRefusedException('The input was refused before the run started.', 1799300202), AgentRunTerminationReason::POLICY_DENIED)) {
                         throw new A2aException('A refused A2A task could not be settled.', 1799300203);
@@ -390,14 +404,15 @@ final readonly class A2aSendMessageHandler
     /**
      * A client's later message to one of its tasks (A2A-MT1 to A2A-MT4).
      *
-     * @param list<A2aSkillProfile> $allowed
-     * @param array<string, mixed>  $configuration
+     * @param list<A2aSkillProfile>                                                                   $allowed
+     * @param array<string, mixed>                                                                    $configuration
+     * @param array{id: string, url: string, token: string, scheme: string, credentials: string}|null $push
      *
      * @return array<string, mixed>
      *
      * @throws A2aRpcError
      */
-    private function continueTask(A2aInboundClient $client, A2aMessage $message, ?string $named, array $allowed, array $configuration, bool $blocking, ?int $historyLength, int $now): array
+    private function continueTask(A2aInboundClient $client, A2aMessage $message, ?string $named, array $allowed, array $configuration, bool $blocking, ?int $historyLength, int $now, ?array $push = null): array
     {
         $row = $this->view->find($client->uid, $message->taskId);
         if ($row === null) {
@@ -489,7 +504,7 @@ final readonly class A2aSendMessageHandler
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {
-            $taskId = $this->takeIn($client, $profile, $message, $digest, $row, $runUid, $runUuid, $actor, $pause, $data);
+            $taskId = $this->takeIn($client, $profile, $message, $digest, $row, $runUid, $runUuid, $actor, $pause, $data, $push, $now);
             if ($taskId === null) {
                 $winner = $this->deduplicated($client, $message, $digest);
                 if ($winner === null) {
@@ -523,12 +538,13 @@ final readonly class A2aSendMessageHandler
      * the stored input's guarded transition lets exactly one of several
      * messages to the same pause through.
      *
-     * @param array<string, mixed> $row
-     * @param array<string, mixed> $data
+     * @param array<string, mixed>                                                                    $row
+     * @param array<string, mixed>                                                                    $data
+     * @param array{id: string, url: string, token: string, scheme: string, credentials: string}|null $push
      *
      * @return string|null the task's id; null when the dedup record of a concurrent request won
      */
-    private function takeIn(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $digest, array $row, int $runUid, string $runUuid, AiActorContext $actor, PendingPause $pause, array $data): ?string
+    private function takeIn(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $digest, array $row, int $runUid, string $runUuid, AiActorContext $actor, PendingPause $pause, array $data, ?array $push, int $now): ?string
     {
         $taskId   = is_string($row['task_id'] ?? null) ? $row['task_id'] : '';
         $taskUid  = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
@@ -536,7 +552,7 @@ final readonly class A2aSendMessageHandler
 
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
-                function (Connection $connection) use ($client, $profile, $message, $digest, $taskId, $taskUid, $runUid, $runUuid, $actor, $pause, $data, &$repeated): void {
+                function (Connection $connection) use ($client, $profile, $message, $digest, $taskId, $taskUid, $runUid, $runUuid, $actor, $pause, $data, $push, $now, &$repeated): void {
                     $this->lockRow($connection, A2aInboundClientRepository::TABLE, $client->uid);
                     if ($profile->maxActiveTasks > 0) {
                         $this->lockRow($connection, A2aSkillProfileRepository::TABLE, $profile->uid);
@@ -564,6 +580,9 @@ final readonly class A2aSendMessageHandler
                     $entry           = $message->toArray();
                     $entry['taskId'] = $taskId;
                     $this->store->appendHistory($runUid, $entry);
+                    if ($push !== null) {
+                        $this->pushConfigs->insert($connection, $client, $taskUid, $push, $now);
+                    }
 
                     $this->intake->storeInput($actor, $runUuid, new InputSubmission($data, $client->backendUserUid, $pause->turnDigest), $pause->generation);
                 },

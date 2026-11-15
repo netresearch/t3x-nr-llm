@@ -16,9 +16,9 @@ client sends a message to one of them. The message becomes an agent run that a
 worker executes; the client receives the result as an A2A task
 (:ref:`ADR-280 <adr-280>`, :ref:`ADR-282 <adr-282>`, :ref:`ADR-283 <adr-283>`).
 
-This page covers stages 3, 4 and 5a of spec 051: tasks, a client that
-answers a task waiting for input, and streams. Push notifications and file
-parts are not offered (stages 5b and 5c).
+This page covers stages 3 to 5b of spec 051: tasks, a client that answers a
+task waiting for input, streams, and push notifications to a client's
+webhook. File parts are not offered (stage 5c).
 
 Switch it on
 ============
@@ -230,6 +230,74 @@ Task states
    detail, ``CANCELED``, and ``REJECTED`` when the input was refused before
    the run started. The result is kept at the run's answer level and purged
    with the run (:ref:`ADR-282 <adr-282>`).
+
+Push notifications
+==================
+
+Push is off by default. Switched on with :guilabel:`Send A2A push notifications`
+(``a2a.server.push``), the agent card declares ``pushNotifications`` and a
+client can register webhooks for its own tasks, with
+``CreateTaskPushNotificationConfig`` or embedded in ``SendMessage``
+(:ref:`ADR-285 <adr-285>`). Another client's task is not found.
+
+- **Targets.** A webhook must be an https URL and pass the address guard when
+  it is registered and again before every delivery: public addresses only, no
+  host of this installation, and the host lists ``a2a.push.allowedHosts`` and
+  ``a2a.push.deniedHosts``, which are separate from those of the remote
+  agents. Through an HTTP proxy only with ``a2a.push.allowViaProxy`` and an
+  allowlist.
+- **Credentials.** The one supported scheme is a Bearer credential in
+  ``authentication``; it is sent as ``Authorization: Bearer``. The optional
+  ``token`` is stored and returned but never sent. Both are stored sealed,
+  like the run state; ``Get`` and ``List`` answer the credential masked. A
+  secret a client puts into the URL itself, in its query string, is not a
+  credential: it is stored and shown like the rest of the URL.
+- **No update.** A ``Create`` with the id of an existing config of the same
+  task replaces it. ``Delete`` is idempotent. A task has at most
+  ``a2a.server.maxPushConfigsPerTask`` (default 4) configs, a client
+  ``a2a.server.maxPushConfigsPerClient`` (default 100).
+- **Delivery.** Every stored change of a task writes one delivery job per
+  config in the same transaction. ``nrllm:a2a:poll`` delivers them; schedule
+  it at least every minute while push is on. No request ever calls a
+  webhook. A delivery is an HTTP POST of ``{"task": …}`` with
+  ``Content-Type: application/a2a+json``: the task as it is when it is sent,
+  without history, so an older job not yet sent is superseded by the newest.
+  The timeout is 15 seconds.
+- **One pass, bounded.** A run of ``nrllm:a2a:poll`` claims no further
+  delivery once 30 seconds have passed since its deliveries started, so it
+  lasts at most that plus one attempt. It takes at most 10 deliveries per
+  client, and the clients take turns: a client whose webhooks answer slowly
+  does not hold back the deliveries of the others. What is left goes out in
+  the next run.
+- **Outcomes.** 2xx acknowledges. A timeout, a broken connection, 429, 502,
+  503, 504 and a redirect are retried after 5, 10, 20 … seconds, at most
+  eight attempts and within a day; then the job is abandoned and logged. The
+  backoff and the attempts belong to the config, not to one change: a new
+  change of the task while a delivery waits to be retried waits for the same
+  backoff and continues the count. A change written while an attempt is on
+  its way is normally not sent before that attempt ends. When the attempt
+  succeeds, that change goes out at once with all eight attempts; when the
+  eighth attempt fails, it is abandoned with it, and the next change starts
+  over. An attempt counts once it is started, also when the worker fails
+  before it records the answer. 401 and 403 pause the config
+  (``auth_failed``); 404, 410 and a refused address
+  stop it (``stopped``). A paused or stopped config sends nothing more; the
+  client registers a new one. Any other answer fails that one delivery.
+- **After a delete** no new attempt starts. A request already on its way may
+  still arrive.
+- **Revoked clients and new tokens.** Revoking a client, or issuing it a
+  new token, stops its configs: a config belongs to the token it was created
+  with. Before every attempt the sender checks again that the client still
+  holds that token, is enabled and not expired, and that its technical
+  backend user is usable; otherwise the config stops.
+- **Switching push off** stops every delivery at once and writes no new
+  jobs; the methods answer ``-32003``. Jobs already written wait and go out
+  if push is switched on again within a day. ``nrllm:a2a:poll`` still
+  abandons the jobs past that day and removes finished jobs after a week
+  while push is off.
+- **In the backend** the configs are records of the type
+  :guilabel:`A2A Push Config` on the root page, read-only, with their state
+  and the reason of the last refusal; the credential is not shown.
 
 Limits and protection
 =====================

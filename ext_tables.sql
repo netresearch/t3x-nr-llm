@@ -1923,3 +1923,69 @@ CREATE TABLE tx_nrllm_a2a_stream_slot (
     KEY client (client_uid),
     KEY task (task_id)
 );
+
+#
+# Table structure for table 'tx_nrllm_a2a_push_config'
+# A push notification config of the server role (spec 051 A2A-PUSH1,
+# A2A-PUSH2, ADR-285): a webhook a client registered for one of its tasks.
+# The credential and the token are sealed, never stored in clear; the state
+# says whether deliveries go on (active), wait for a new config after a 401 or
+# 403 (auth_failed), or stopped for good (stopped).
+#
+CREATE TABLE tx_nrllm_a2a_push_config (
+    uid int(11) NOT NULL auto_increment,
+    pid int(11) DEFAULT '0' NOT NULL,
+
+    -- At most 191 characters, so the unique key fits utf8mb4 index limits.
+    config_id varchar(191) DEFAULT '' NOT NULL,
+    task_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    -- The hash of the client token the config was created with; a config
+    -- delivers only while the client still holds that token.
+    client_token_hash varchar(64) DEFAULT '' NOT NULL,
+    url text,
+    -- Sealed (AgentStateCodec, purpose nrllm:a2a:push-credential).
+    token text,
+    auth_scheme varchar(32) DEFAULT '' NOT NULL,
+    credentials text,
+    state varchar(16) DEFAULT 'active' NOT NULL,
+    reason varchar(255) DEFAULT '' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY config (task_uid, config_id),
+    KEY owner (owner_client_uid)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_push_outbox'
+# Delivery jobs of push notifications (spec 051 A2A-PUSH3, A2A-PUSH5): one
+# per active config and task event, written in the transaction that writes
+# the event. A job holds no content; the worker renders the task when it
+# delivers. A newer event of the same config supersedes a job not yet sent.
+#
+CREATE TABLE tx_nrllm_a2a_push_outbox (
+    uid int(11) NOT NULL auto_increment,
+
+    config_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    task_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    revision int(11) unsigned DEFAULT '0' NOT NULL,
+    state varchar(16) DEFAULT 'pending' NOT NULL,
+    attempts int(11) unsigned DEFAULT '0' NOT NULL,
+    next_attempt int(11) unsigned DEFAULT '0' NOT NULL,
+    deadline int(11) unsigned DEFAULT '0' NOT NULL,
+    lease_holder varchar(64) DEFAULT '' NOT NULL,
+    lease_until int(11) unsigned DEFAULT '0' NOT NULL,
+    last_status int(11) DEFAULT '0' NOT NULL,
+    last_reason varchar(255) DEFAULT '' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY job (config_uid, revision),
+    KEY due (state, next_attempt),
+    KEY task (task_uid)
+);

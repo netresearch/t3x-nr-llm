@@ -219,11 +219,20 @@ final readonly class A2aInboundClientRepository
             $criteria += ['self_service' => 1, 'be_user' => $selfServiceOwnerUid];
         }
 
-        return $this->connectionPool->getConnectionForTable(self::TABLE)->update(
+        $revoked = $this->connectionPool->getConnectionForTable(self::TABLE)->update(
             self::TABLE,
             ['enabled' => 0, 'token_hash' => '', 'tstamp' => time()],
             $criteria,
         ) > 0;
+        if ($revoked) {
+            // A revoked client gets no more push notifications: its configs
+            // stop and their pending deliveries end (A2A-PUSH3). The sender
+            // checks the client again before every attempt, for a client that
+            // is disabled or expires some other way.
+            A2aPushConfigStore::stopAllOf($this->connectionPool, $uid, 'CLIENT_REVOKED');
+        }
+
+        return $revoked;
     }
 
     /**
@@ -240,7 +249,8 @@ final readonly class A2aInboundClientRepository
      */
     public function issueToken(int $uid): string
     {
-        if (!$this->findByUid($uid) instanceof A2aInboundClient) {
+        $previous = $this->findByUid($uid);
+        if (!$previous instanceof A2aInboundClient) {
             throw new A2aException(sprintf('There is no A2A client record %d.', $uid), 1799300101);
         }
 
@@ -252,6 +262,13 @@ final readonly class A2aInboundClientRepository
             ['token_prefix' => $prefix, 'token_hash' => self::hash($token), 'token_issued' => time(), 'tstamp' => time()],
             ['uid' => $uid],
         );
+
+        if ($previous->tokenHash !== '') {
+            // A rotated token takes the push configs created with the old
+            // one along; the sender also refuses a config whose token is not
+            // the client's current one (A2A-PUSH3).
+            A2aPushConfigStore::stopAllOf($this->connectionPool, $uid, 'TOKEN_ROTATED');
+        }
 
         return $token;
     }

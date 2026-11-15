@@ -36,6 +36,9 @@ final readonly class A2aUrlGuardFactory
     /** Egress group of every call to a registered remote agent, card import included. */
     public const GROUP_AGENT = 'a2a_agent';
 
+    /** Egress group of URLs that come from outside: push webhooks, `url` parts (ADR-279, ADR-285). */
+    public const GROUP_EXTERNAL = 'a2a_external';
+
     public function __construct(
         private EgressPolicyService $egressPolicy,
         private HostResolverInterface $resolver,
@@ -47,11 +50,39 @@ final readonly class A2aUrlGuardFactory
 
     public function create(): ExternalUrlGuard
     {
+        return $this->guard(['a2a', 'client']);
+    }
+
+    /**
+     * The guard of push webhooks (ADR-285), with the host lists of `a2a.push`:
+     * a webhook is chosen by a client, not by the operator, and is limited
+     * separately from the remote agents.
+     */
+    public function createForPush(): ExternalUrlGuard
+    {
+        return $this->guard(['a2a', 'push']);
+    }
+
+    /**
+     * Whether a plain-http URL may be used for an outside target. Only in the
+     * Testing context with test networks named, like the classifier (A2A-SEC10):
+     * the TCK's webhook receiver listens on http inside the job's network.
+     */
+    public function permitsPlainHttp(): bool
+    {
+        return ($this->context ?? Environment::getContext())->isTesting() && $this->configuredTestNetworks() !== [];
+    }
+
+    /**
+     * @param non-empty-list<string> $settingsPath
+     */
+    private function guard(array $settingsPath): ExternalUrlGuard
+    {
         return new ExternalUrlGuard(
             $this->egressPolicy,
             $this->resolver,
             $this->classifier(),
-            new ExternalFetchSettings($this->extensionConfiguration, ['a2a', 'client']),
+            new ExternalFetchSettings($this->extensionConfiguration, $settingsPath),
             $this->proxyDetector,
         );
     }

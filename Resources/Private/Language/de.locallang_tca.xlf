@@ -2230,6 +2230,46 @@
                 <source>Upper bound for one request, from sending to the last byte of the response.</source>
                 <target>Obergrenze für eine Anfrage, vom Senden bis zum letzten Byte der Antwort.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config">
+                <source>A2A Push Config</source>
+                <target>A2A-Push-Konfiguration</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.url">
+                <source>Webhook URL</source>
+                <target>Webhook-URL</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state">
+                <source>State</source>
+                <target>Zustand</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state.active">
+                <source>Active</source>
+                <target>Aktiv</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state.auth_failed">
+                <source>Paused: the receiver refused the credential</source>
+                <target>Pausiert: Der Empfänger hat die Zugangsdaten abgelehnt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state.stopped">
+                <source>Stopped: the target is gone or not allowed</source>
+                <target>Beendet: Das Ziel existiert nicht mehr oder ist nicht erlaubt</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.reason">
+                <source>Reason</source>
+                <target>Grund</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.config_id">
+                <source>Config ID</source>
+                <target>Konfigurations-ID</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.task_uid">
+                <source>Task (UID)</source>
+                <target>Aufgabe (UID)</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.owner_client_uid">
+                <source>Client</source>
+                <target>Client</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_client">
                 <source>A2A Client</source>
                 <target>A2A-Client</target>

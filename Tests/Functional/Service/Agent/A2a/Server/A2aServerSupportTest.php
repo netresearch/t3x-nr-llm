@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aClientAccess;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aDomainHandlerItems;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aProfileToolList;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushConfigStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcError;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerRecordSaveHook;
@@ -442,6 +443,7 @@ final class A2aServerSupportTest extends AbstractFunctionalTestCase
             $pool ?? $this->getService(ConnectionPool::class),
             $this->getService(DurableDecisionIntakeInterface::class),
             $this->getService(A2aClientAccess::class),
+            $this->getService(A2aPushConfigStore::class),
             null,
             $bus,
         );

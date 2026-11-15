@@ -12,8 +12,8 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Runtime;
 /**
  * What one poller tick did (spec 051 A2A-R10): runs resumed with a remote
  * result, resumed at their deadline, still waiting after a look, not yet due,
- * failed because their checkpoint could not be read, and task events written
- * by the projector's retry.
+ * failed because their checkpoint could not be read, task events written
+ * by the projector's retry, and push notifications delivered.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -31,4 +31,7 @@ final class A2aPollReport
 
     /** A2A task events the projector caught up on (A2A-R15). */
     public int $projected = 0;
+
+    /** Push notifications a receiver acknowledged (A2A-PUSH3). */
+    public int $pushed = 0;
 }
