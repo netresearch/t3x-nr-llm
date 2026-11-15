@@ -9,7 +9,8 @@
 ADR-216: Invocation policies see the call they decide
 ==============================================================
 
-:Status: Accepted (amended)
+:Status: Accepted (amended: a history entry may carry digests, see
+   :ref:`ADR-298 <adr-298>`)
 :Date: 2026-10-09
 :Amended: 2026-11-15 by :ref:`ADR-298 <adr-298>` (a history entry may carry a
    keyed digest of the call's arguments and of the record state it observed)
