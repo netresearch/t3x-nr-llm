@@ -69,9 +69,10 @@ workspace shows no such row (deleted, a version of another workspace, a
 table without versioning seen from a draft workspace), the table is unknown,
 the field list is empty, or a listed field is not a database column of the
 table. It reads with the deleted restriction only, so a hidden record has a
-state. ``ObservedState`` holds only a digest; its constructor refuses anything but the ``v1:`` format and is ``@internal``,
-so tools take one from ``observe()``; its digest is the public readonly
-property ``digest``. A tool reports it through
+state. ``ObservedState`` holds the digest and the field values it was
+computed from, as the public readonly properties ``digest`` and
+``values``; its constructor is ``@internal`` and refuses anything but the
+``v1:`` format, so tools take one from ``observe()``. A tool reports it through
 ``ToolResult::withObservedState(ObservedState)``, kept as the public
 readonly property ``observedState`` and carried by every ``ToolResult``
 wither, and the runtime copies its digest into the entry.
@@ -81,8 +82,8 @@ A rule computes ``arguments()`` of the call in front of it and
 most recent ``ok`` entry of the check tool, so a later check of another
 variant replaces an earlier one. Equal means the same final arguments and
 the same fields as the run's workspace shows them. When either returns
-``null`` at that moment, the rule refuses. Which fields count is the tool's and rule's
-shared declaration: the fields the check judged, not ``tstamp``, which a
+``null`` at that moment, the rule refuses. Which fields count is the tool's
+and rule's shared declaration: the fields the check judged, not ``tstamp``, which a
 hook moves without a relevant change (the same reason
 :ref:`ADR-184 <adr-184>` gives).
 
@@ -120,8 +121,10 @@ gains ``withObservedState(ObservedState)`` and the property
 ``InvocationDigests`` and ``ObservedState`` are public, so that a tool and a
 rule, in nr-llm or outside it, compute the same digests.
 
-A check tool calls ``observe()`` before the read its verdict rests on, so a
-change between the two reads leaves a digest the write cannot match. A
+A check tool judges the ``values`` of the ``ObservedState`` it reports and
+reads the record no second time, so its verdict and its digest describe the
+same snapshot. A record changed and changed back between two reads cannot
+make a check pass on values it never judged. A
 binding rule does not require a complete history
 (``requiresCompleteHistory()`` is ``false``): an incomplete history after a
 retry still holds the check the model makes next.
