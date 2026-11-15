@@ -9,16 +9,20 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server\Handler;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedState;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\InvocationDigests;
 use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
 use Netresearch\NrLlm\Service\Tool\Scope\DatabaseRecordTopology;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
 use Throwable;
@@ -27,7 +31,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * The deterministic conditions a write of the page metadata skill must meet
- * before it reaches an approval (ADR-297, spec 055 PC1 to PC6). It holds a
+ * before it reaches an approval (ADR-297, spec 055 PC1 to PC3 and PC6). It holds a
  * call of `update_page_metadata` in a run whose A2A task belongs to a profile
  * with the handler `nr_llm.page_metadata.v1` to the request the client sent:
  *
@@ -35,13 +39,17 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   requested language) still exists, and the call names its live uid; a
  *   row the scope refuses is left to the scope of the run (ADR-295), which
  *   refuses it with its own reason, and every other row is refused;
- * - it sets only fields the request names, each as text within its length;
- * - the row has not changed since the task was accepted.
+ * - it sets only fields the request names, each as text within its length.
  *
  * It answers from the call, the task and the database, never from the
  * invocation history, so the loop asks it before the approval card
- * (ADR-293). The read before the write depends on the history and is
- * {@see A2aPageMetadataReadFirstRule}'s, asked when the call runs.
+ * (ADR-293). That a passed check of exactly this proposal precedes the write,
+ * on the record as it still is, depends on the history and is
+ * {@see A2aPageMetadataBindingRule}'s, asked when the call runs (ADR-298).
+ *
+ * The check tool `check_page_metadata` judges a proposal with the same
+ * conditions ({@see self::proposalRefusal()}), and the check and the binding
+ * rule observe the same record and fields ({@see self::observe()}).
  *
  * The request is read from the task's first message, the one the handler
  * checked, with the same parser. A run of any other origin, and any other
@@ -61,8 +69,6 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
     public const REASON_FIELD = 'field_not_requested';
 
     public const REASON_VALUE = 'value_not_allowed';
-
-    public const REASON_CHANGED = 'changed_since_accepted';
 
     /**
      * The longest value per field, in characters. Titles follow what search
@@ -89,6 +95,7 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
         private ConnectionPool $connectionPool,
         private AgentStateCodec $codec,
         private A2aPageMetadataRows $rows,
+        private InvocationDigests $digests,
     ) {}
 
     public function identifier(): string
@@ -140,14 +147,30 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
 
     public function decide(ToolInvocationContext $context): ToolInvocationDecision
     {
-        $run = $context->execution->run;
-        if ($context->toolName !== A2aPageMetadataDomainHandler::WRITE_TOOL || !$run instanceof AgentRunReference) {
+        if ($context->toolName !== A2aPageMetadataDomainHandler::WRITE_TOOL) {
             return ToolInvocationDecision::allow();
         }
 
-        $task = $this->task($run->uid);
+        $request = $this->requestFor($context->execution->run);
+        if (!$request instanceof A2aPageMetadataRequest) {
+            return $request ?? ToolInvocationDecision::allow();
+        }
+
+        return $this->proposalRefusal($request, $context->arguments, $context->execution, fn (): bool => $this->scopeRefuses($context))
+            ?? ToolInvocationDecision::allow();
+    }
+
+    /**
+     * The request of a run of this skill, read from its task; null for a run
+     * without an A2A task or whose task belongs to another handler; the
+     * refusal `request_unreadable` when the profile row is gone or the
+     * request cannot be read.
+     */
+    public function requestFor(?AgentRunReference $run): A2aPageMetadataRequest|ToolInvocationDecision|null
+    {
+        $task = $run instanceof AgentRunReference ? $this->task($run->uid) : null;
         if ($task === null) {
-            return ToolInvocationDecision::allow();
+            return null;
         }
 
         $handler = $this->handlerOf(A2aPageMetadataRows::int($task['profile_uid'] ?? 0));
@@ -156,22 +179,63 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
         }
 
         if ($handler !== A2aPageMetadataDomainHandler::IDENTIFIER) {
-            return ToolInvocationDecision::allow();
+            return null;
         }
 
-        $request = $this->request($task);
-        if (!$request instanceof A2aPageMetadataRequest) {
-            return ToolInvocationDecision::deny(self::REASON_UNREADABLE, 'The request of this task cannot be read, so no write is allowed. Nothing was changed.');
-        }
-
-        return $this->decideFor($request, $context, A2aPageMetadataRows::int($task['crdate'] ?? 0));
+        return $this->request($task) ?? ToolInvocationDecision::deny(self::REASON_UNREADABLE, 'The request of this task cannot be read, so no write is allowed. Nothing was changed.');
     }
 
-    private function decideFor(A2aPageMetadataRequest $request, ToolInvocationContext $context, int $acceptedAt): ToolInvocationDecision
+    /**
+     * The state of the record a proposal of this request is bound to: the
+     * requested row, as the run's workspace shows it, with the fields the proposal sets
+     * (ADR-298). The check tool reports it and the binding rule compares it,
+     * so both observe the same record and the same fields. Null when the row
+     * no longer exists or the proposal sets no field.
+     *
+     * @param array<array-key, mixed> $arguments
+     */
+    public function observe(A2aPageMetadataRequest $request, array $arguments, ToolExecutionContext $execution): ?ObservedState
     {
-        $workspace = $context->execution->actor->workspaceId ?? 0;
+        $target = $this->rows->target($request, $execution->actor->workspaceId ?? 0);
+        $fields = self::proposedFields($arguments);
+
+        return $target === null || $fields === [] ? null : $this->digests->observe('pages', $target, $fields, $execution);
+    }
+
+    /**
+     * The fields a proposal sets: every argument but `uid`.
+     *
+     * @param array<array-key, mixed> $arguments
+     *
+     * @return list<string>
+     */
+    public static function proposedFields(array $arguments): array
+    {
+        $fields = [];
+        foreach (array_keys($arguments) as $key) {
+            if ($key !== 'uid') {
+                $fields[] = (string) $key;
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * The refusal of a proposal under PC1 to PC3, or null when it passes:
+     * the requested row, only requested fields and each value text within its
+     * length. `$leftToTheScope` answers whether a row other than the
+     * requested one is the scope's to refuse; the check tool passes none,
+     * and refuses every other row itself.
+     *
+     * @param array<array-key, mixed> $arguments
+     * @param ?Closure(): bool        $leftToTheScope
+     */
+    public function proposalRefusal(A2aPageMetadataRequest $request, array $arguments, ToolExecutionContext $execution, ?Closure $leftToTheScope = null): ?ToolInvocationDecision
+    {
+        $workspace = $execution->actor->workspaceId ?? 0;
         $target    = $this->rows->target($request, $workspace);
-        $uid       = $context->arguments['uid'] ?? null;
+        $uid       = $arguments['uid'] ?? null;
         $uid       = is_int($uid) ? $uid : (is_string($uid) ? filter_var($uid, FILTER_VALIDATE_INT) : false);
         if ($target === null) {
             return ToolInvocationDecision::deny(self::REASON_ROW, sprintf(
@@ -187,20 +251,20 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
             // A row the scope refuses is the scope's (ADR-295), with its own
             // reason. A row it admits that is not the requested row is
             // refused here, whatever path the scope admitted it by.
-            if ($this->scopeRefuses($context)) {
-                return ToolInvocationDecision::allow();
+            if ($leftToTheScope instanceof Closure && $leftToTheScope()) {
+                return null;
             }
 
             return ToolInvocationDecision::deny(self::REASON_ROW, sprintf('This task may only write pages:%d. Nothing was changed.', $target));
         }
 
-        $fields = array_values(array_filter(array_keys($context->arguments), static fn (int|string $key): bool => $key !== 'uid'));
+        $fields = self::proposedFields($arguments);
         foreach ($fields as $field) {
             if (!in_array($field, $request->fields, true)) {
                 return ToolInvocationDecision::deny(self::REASON_FIELD, sprintf('This task may only set %s. Nothing was changed.', implode(', ', $request->fields)));
             }
 
-            $value = $context->arguments[$field];
+            $value = $arguments[$field];
             $limit = self::MAX_LENGTH[$field] ?? 0;
             if (!is_string($value) || preg_match('/[^\s\p{Z}\p{Cf}]/u', $value) !== 1 || mb_strlen($value) > $limit) {
                 return ToolInvocationDecision::deny(self::REASON_VALUE, sprintf('The value of %s must be non-empty text of at most %d characters. Nothing was changed.', $field, $limit));
@@ -211,12 +275,7 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
             return ToolInvocationDecision::deny(self::REASON_FIELD, sprintf('This task sets %s; the call names none of them. Nothing was changed.', implode(', ', $request->fields)));
         }
 
-        $row = $this->rows->page($target, $workspace);
-        if ($row === null || A2aPageMetadataRows::int($row['tstamp'] ?? 0) > $acceptedAt) {
-            return ToolInvocationDecision::deny(self::REASON_CHANGED, 'The record changed after this task was accepted. Nothing was changed; the client has to send the task again.');
-        }
-
-        return ToolInvocationDecision::allow();
+        return null;
     }
 
     /**
@@ -230,7 +289,7 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
 
         $query = $this->connectionPool->getQueryBuilderForTable(A2aTaskStore::TABLE);
         $query->getRestrictions()->removeAll();
-        $row = $query->select('profile_uid', 'history', 'crdate')->from(A2aTaskStore::TABLE)
+        $row = $query->select('profile_uid', 'history')->from(A2aTaskStore::TABLE)
             ->where($query->expr()->eq('run_uid', $query->createNamedParameter($runUid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchAssociative();

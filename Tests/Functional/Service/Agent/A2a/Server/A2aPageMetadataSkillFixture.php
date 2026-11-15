@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\InvocationDigests;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface;
@@ -54,7 +55,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *
  * The runtime runs over a scripted model with the container's persister, tool
  * registry, tool and invocation policies, governance log, event dispatcher,
- * worker write environment and resume guard.
+ * worker write environment, history digests and resume guard.
  */
 trait A2aPageMetadataSkillFixture
 {
@@ -117,12 +118,12 @@ trait A2aPageMetadataSkillFixture
         $this->db('be_groups')->insert('be_groups', ['uid' => self::GROUP, 'pid' => 0, 'title' => 'A2A editors', 'db_mountpoints' => '1', 'allowed_languages' => '0,1']);
         $this->db('be_users')->update('be_users', ['usergroup' => (string) self::GROUP], ['uid' => 7]);
 
-        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['handler' => A2aPageMetadataDomainHandler::IDENTIFIER, 'may_write' => 1, 'tools' => 'get_page_content,update_page_metadata,ask_choice'], ['uid' => 1]);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['handler' => A2aPageMetadataDomainHandler::IDENTIFIER, 'may_write' => 1, 'tools' => 'get_page_content,check_page_metadata,update_page_metadata,ask_choice'], ['uid' => 1]);
         $this->db('sys_workspace')->insert('sys_workspace', ['uid' => self::WORKSPACE, 'pid' => 0, 'title' => 'Draft', 'members' => 'be_users_7']);
         $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['workspace' => self::WORKSPACE], ['uid' => 1]);
         $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['require_draft_workspace' => 1, 'require_assignment_scope' => 1], ['uid' => 1]);
         $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['trust_zone' => 'local'], ['uid' => 1]);
-        foreach (['update_page_metadata', 'get_page_content', 'ask_choice'] as $tool) {
+        foreach (['update_page_metadata', 'check_page_metadata', 'get_page_content', 'ask_choice'] as $tool) {
             $this->db('tx_nrllm_tool_state')->insert('tx_nrllm_tool_state', ['tool_name' => $tool, 'enabled' => 1]);
         }
     }
@@ -208,6 +209,7 @@ trait A2aPageMetadataSkillFixture
             eventDispatcher: $this->getService(EventDispatcherInterface::class),
             invocationPolicy: $this->getService(ToolInvocationPolicyInterface::class),
             writeEnvironment: $this->getService(WorkerWriteEnvironment::class),
+            invocationDigests: $this->getService(InvocationDigests::class),
         );
         $persister = $this->getService(AgentRunPersister::class);
 
@@ -232,13 +234,14 @@ trait A2aPageMetadataSkillFixture
     }
 
     /**
-     * The result the model read for the last update_page_metadata call.
+     * The result the model read for the last call of the tool,
+     * update_page_metadata unless named.
      */
-    private function toolResultOf(AgentRun $run): string
+    private function toolResultOf(AgentRun $run, string $tool = 'update_page_metadata'): string
     {
         $result = '';
         foreach ($this->getService(AgentRunPersister::class)->findEvents($run->uid) as $event) {
-            if ($event->kind === AgentEventKind::TOOL->value && ($event->payload['toolName'] ?? null) === 'update_page_metadata') {
+            if ($event->kind === AgentEventKind::TOOL->value && ($event->payload['toolName'] ?? null) === $tool) {
                 $result = self::text($event->payload['toolResult'] ?? '');
             }
         }

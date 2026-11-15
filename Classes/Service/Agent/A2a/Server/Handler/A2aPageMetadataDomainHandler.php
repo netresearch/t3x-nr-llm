@@ -40,11 +40,14 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * The user message of the run is built from the checked values only. The
  * field list is an instruction to the model here; the write tool accepts any
  * of its fields on the scoped row, and {@see A2aPageMetadataContractRule}
- * holds the call to the list (ADR-297). A client that is not pinned to a draft workspace never
- * reaches this handler: the server refuses a writing profile for it first. The run
- * may use `get_page_content` and `update_page_metadata`, and `ask_choice` when
- * the profile grants it, and nothing else; it runs only when the profile grants
- * the first two and may write. Its LLM configuration must
+ * holds the call to the list (ADR-297); {@see A2aPageMetadataBindingRule} holds
+ * it to a passed `check_page_metadata` of exactly its arguments, on the record
+ * as that check saw it (ADR-298). A client that is not pinned to a draft
+ * workspace never reaches this handler: the server refuses a writing profile
+ * for it first. The run may use `get_page_content`, `check_page_metadata` and
+ * `update_page_metadata`, and `ask_choice` when the profile grants it, and
+ * nothing else; it runs only when the profile grants the first three and may
+ * write. Its LLM configuration must
  * require a draft workspace and a scope, so the same configuration reached
  * through another profile cannot write without them either.
  *
@@ -57,6 +60,9 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     public const WRITE_TOOL = 'update_page_metadata';
 
     public const READ_TOOL = 'get_page_content';
+
+    /** The check a write must follow, of exactly its arguments (ADR-298). */
+    public const CHECK_TOOL = 'check_page_metadata';
 
     /** The one further tool the run may use when the profile grants it: a question to the client. */
     public const QUESTION_TOOL = 'ask_choice';
@@ -111,16 +117,16 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     }
 
     /**
-     * The read and the write tool, and the question tool when the profile
-     * grants it; no other tool the profile lists.
+     * The read, the check and the write tool, and the question tool when the
+     * profile grants it; no other tool the profile lists.
      *
      * @return list<string>
      */
     private function tools(A2aRunContext $context): array
     {
         return in_array(self::QUESTION_TOOL, $context->toolNames, true)
-            ? [self::READ_TOOL, self::WRITE_TOOL, self::QUESTION_TOOL]
-            : [self::READ_TOOL, self::WRITE_TOOL];
+            ? [self::READ_TOOL, self::CHECK_TOOL, self::WRITE_TOOL, self::QUESTION_TOOL]
+            : [self::READ_TOOL, self::CHECK_TOOL, self::WRITE_TOOL];
     }
 
     public function artifacts(string $answer): array
@@ -144,6 +150,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             !$profile->mayWrite                                    => 'the profile may not write',
             !in_array(self::WRITE_TOOL, $context->toolNames, true) => 'the profile does not grant update_page_metadata',
             !in_array(self::READ_TOOL, $context->toolNames, true)  => 'the profile does not grant get_page_content',
+            !in_array(self::CHECK_TOOL, $context->toolNames, true) => 'the profile does not grant check_page_metadata',
             !$context->configuration->getRequireDraftWorkspace()   => 'its LLM configuration does not require a draft workspace',
             !$context->configuration->getRequireAssignmentScope()  => 'its LLM configuration does not require the scope of an assignment',
             default                                                => null,
@@ -245,7 +252,8 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
         return implode("\n", [
             sprintf('Write page metadata for page %d in language %d.', $request->page, $request->language),
             sprintf('The record to update is pages:%d. Read it first with get_page_content (uid %d, language %d).', $target, $request->page, $request->language),
-            sprintf('Then call update_page_metadata once with uid %d and exactly these fields: %s.', $target, implode(', ', $request->fields)),
+            sprintf('Then check your proposal with check_page_metadata: uid %d and exactly these fields: %s.', $target, implode(', ', $request->fields)),
+            'When the check passes, call update_page_metadata once with exactly the arguments you checked. When it fails, correct the proposal and check it again.',
             'Write each value in the language of that record. Do not change any other field or record.',
         ]);
     }
