@@ -66,6 +66,17 @@ final readonly class A2aFileValidator
     /**
      * Why $bytes are not a file of $mediaType, or null when they are.
      */
+    /**
+     * The pixels an image's header names, read without decoding it; 0 for
+     * bytes that name none.
+     */
+    public function pixels(string $bytes): int
+    {
+        $size = $this->quietly(static fn (): array|false => getimagesizefromstring($bytes));
+
+        return is_array($size) && is_int($size[0] ?? null) && is_int($size[1] ?? null) ? $size[0] * $size[1] : 0;
+    }
+
     public function refusal(string $mediaType, string $bytes): ?string
     {
         return match (self::normalise($mediaType)) {

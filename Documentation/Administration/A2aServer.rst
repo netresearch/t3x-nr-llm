@@ -328,9 +328,12 @@ What is accepted
    and must not name JavaScript, launch actions, embedded files, rich media
    or XFA forms; an image must carry its type's signature, be at most 4096 x
    4096 pixels and decode with GD (without the GD extension no image is
-   accepted). Archives, HTML, SVG and any other type, a part without a
-   ``mediaType`` and a ``data`` part are refused with ``-32005``. A message
-   that answers a waiting task carries text only.
+   accepted). The images of one message may hold at most 16,777,216 pixels
+   together, read from their headers before any is decoded (``-32602``).
+   The content is checked only after the skill, its input modes and the
+   client's limits allow the message. Archives, HTML, SVG and any other
+   type, a part without a ``mediaType`` and a ``data`` part are refused with
+   ``-32005``. A message that answers a waiting task carries text only.
 
 File URLs
    A ``url`` part with the same ``mediaType`` rules is accepted only from a

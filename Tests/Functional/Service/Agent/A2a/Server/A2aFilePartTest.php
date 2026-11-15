@@ -667,6 +667,50 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A file's content is checked only after the skill, its input modes
+     * and the client's limits passed: a broken image for a skill that does
+     * not take images is refused for the type, and one from a client at its
+     * task limit for the limit, never for its content.
+     */
+    #[Test]
+    public function theContentIsCheckedOnlyAfterTheSkillAndTheLimits(): void
+    {
+        $broken = self::raw("\x89PNG\r\n\x1a\nnot an image", 'image/png');
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['input_modes' => 'text/plain'], ['uid' => 1]);
+        $this->assertRefused([$broken], -32005, 'does not take image/png');
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['input_modes' => self::ALL_TYPES], ['uid' => 1]);
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['task_limit' => 1], ['uid' => 1]);
+        $this->taskOf($this->send([['text' => 'First.']]));
+        $reply = $this->send([$broken]);
+        self::assertStringNotContainsString('image/png', $this->errorText($reply), (string) json_encode($reply));
+        self::assertNotSame([], $this->errorOf($reply));
+    }
+
+    /**
+     * The images of one message may hold at most 16 M pixels together, read
+     * from their headers before any image is decoded.
+     */
+    #[Test]
+    public function theImagesOfAMessageShareOnePixelBudget(): void
+    {
+        $this->assertRefused([self::raw($this->pngHeader(4096, 4096), 'image/png'), self::raw($this->pngHeader(4096, 4096), 'image/png')], -32602, 'pixels');
+        $this->assertNothingStored();
+    }
+
+    /**
+     * The start of a PNG up to its header: enough for the dimensions, not an
+     * image that decodes.
+     */
+    private function pngHeader(int $width, int $height): string
+    {
+        $ihdr = pack('NNCCCCC', $width, $height, 8, 2, 0, 0, 0);
+
+        return "\x89PNG\r\n\x1a\n" . pack('N', 13) . 'IHDR' . $ihdr . pack('N', crc32('IHDR' . $ihdr));
+    }
+
+    /**
      * A2A-FILE4: once the task ends, its input files keep their record (id,
      * size, digest, states) but no longer their bytes or URL, whatever the
      * answer level: nothing reads them after a final state.

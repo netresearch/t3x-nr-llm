@@ -220,6 +220,10 @@ final readonly class A2aSendMessageHandler
             throw $refused;
         }
 
+        // A2A-FILE1: a file's content is decoded and checked only once the
+        // skill, its input modes and the client's limits allow the message.
+        $this->filePolicy?->checkContent($files);
+
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {

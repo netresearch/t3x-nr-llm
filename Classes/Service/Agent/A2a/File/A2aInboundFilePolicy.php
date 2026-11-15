@@ -95,7 +95,10 @@ final readonly class A2aInboundFilePolicy
     }
 
     /**
-     * The files of a parsed message, checked; text parts are not files.
+     * The files of a parsed message, checked for their kind, declared type,
+     * size and URL; text parts are not files. Their content is checked by
+     * {@see self::checkContent()}, once the skill and the client's limits
+     * allow the message.
      *
      * @return list<A2aInboundFile>
      *
@@ -145,6 +148,37 @@ final readonly class A2aInboundFilePolicy
         }
 
         return $files;
+    }
+
+    /**
+     * Check the content of a message's raw files against their types
+     * (A2A-FILE1). The images of one message may name at most
+     * {@see A2aFileValidator::MAX_PIXELS} pixels together, read from their
+     * headers before any of them is decoded.
+     *
+     * @param list<A2aInboundFile> $files
+     *
+     * @throws A2aRpcError
+     */
+    public function checkContent(array $files): void
+    {
+        $pixels = 0;
+        foreach ($files as $file) {
+            if ($file->isRaw() && str_starts_with($file->mediaType, 'image/')) {
+                $pixels += $this->validator->pixels($file->bytes);
+            }
+        }
+
+        if ($pixels > A2aFileValidator::MAX_PIXELS) {
+            throw A2aRpcError::invalidParams('message.parts', sprintf('the images of one message hold more than %d pixels', A2aFileValidator::MAX_PIXELS));
+        }
+
+        foreach ($files as $file) {
+            $refusal = $file->isRaw() ? $this->validator->refusal($file->mediaType, $file->bytes) : null;
+            if ($refusal !== null) {
+                throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, sprintf('The file part %d is not %s: %s.', $file->partIndex, $file->mediaType, $refusal));
+            }
+        }
     }
 
     /**
@@ -214,12 +248,6 @@ final readonly class A2aInboundFilePolicy
 
         if (!A2aFileValidator::accepts($mediaType)) {
             throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, sprintf('Files of type %s are not accepted.', $mediaType));
-        }
-
-        // A url part's content is checked by the worker once it is fetched.
-        $refusal = $part->kind === A2aPartKind::RAW ? $this->validator->refusal($mediaType, $part->raw) : null;
-        if ($refusal !== null) {
-            throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, sprintf('The file part %d is not %s: %s.', $index, $mediaType, $refusal));
         }
 
         return $mediaType;
