@@ -64,6 +64,8 @@ final class A2aPageMetadataRequestTest extends TestCase
         yield 'a language as null' => ['{"page": 1, "language": null, "fields": ["title"]}', '"language" must be an integer of 0 or more'];
         yield 'empty fields' => ['{"page": 1, "language": 0, "fields": []}', '"fields" must be a non-empty list of field names'];
         yield 'fields as object' => ['{"page": 1, "language": 0, "fields": {"a": "title"}}', '"fields" must be a non-empty list of field names'];
+        yield 'fields as object with list keys' => ['{"page": 1, "language": 0, "fields": {"0": "title"}}', '"fields" must be a non-empty list of field names'];
+        yield 'too long before trimming' => [str_repeat(' ', A2aPageMetadataRequest::MAX_TEXT_BYTES) . '{"page": 1, "language": 0, "fields": ["title"]}', $shape];
         yield 'a field outside the list' => ['{"page": 1, "language": 0, "fields": ["slug"]}', $only];
         yield 'a field of another case' => ['{"page": 1, "language": 0, "fields": ["Title"]}', $only];
         yield 'a field twice' => ['{"page": 1, "language": 0, "fields": ["title", "title"]}', '"fields" names a field twice'];

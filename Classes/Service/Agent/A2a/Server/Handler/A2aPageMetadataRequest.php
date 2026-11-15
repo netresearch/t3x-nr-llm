@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server\Handler;
 
 use JsonException;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcError;
+use stdClass;
 
 /**
  * The input contract of the page metadata skill, version 1 (ADR-296): the
@@ -79,20 +80,24 @@ final readonly class A2aPageMetadataRequest
      */
     public static function fromText(string $text): self
     {
-        $text = trim($text);
-        if ($text === '' || strlen($text) > self::MAX_TEXT_BYTES) {
+        // The limit is on what the client sent, before any trimming.
+        if (strlen($text) > self::MAX_TEXT_BYTES || trim($text) === '') {
             throw self::refusal(self::SHAPE);
         }
 
+        // Objects stay objects, so a JSON object with keys "0", "1", ...
+        // is not taken for a list.
         try {
-            $data = json_decode($text, true, 4, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
+            $decoded = json_decode(trim($text), false, 4, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
         } catch (JsonException) {
             throw self::refusal(self::SHAPE);
         }
 
-        if (!is_array($data) || array_is_list($data)) {
+        if (!$decoded instanceof stdClass) {
             throw self::refusal(self::SHAPE);
         }
+
+        $data = get_object_vars($decoded);
 
         foreach (array_keys($data) as $key) {
             if (!in_array($key, self::KEYS, true)) {
