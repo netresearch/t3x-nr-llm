@@ -308,6 +308,7 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
 
         $this->db('be_groups')->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::GROUP]);
         self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . self::PAGE . ', "language": 1, "fields": ["description"]}', 'l-1'), 'error.message'));
+        self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . self::UNTRANSLATED . ', "language": 1, "fields": ["description"]}', 'l-2'), 'error.message'), 'no translation is not told apart in a language the user may not edit');
         self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
     }
 
@@ -324,6 +325,25 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
         $task = $this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']]);
 
         self::assertStringContainsString('pages:' . self::TRANSLATION, self::text(self::j($this->queuedRequestOf(self::text($task['id'] ?? '')), 'messages.0.content')));
+    }
+
+    /**
+     * The default-language page of a translation only has to be visible to
+     * the technical user; the translation row is what it has to edit.
+     */
+    #[Test]
+    public function aPageTheUserMayOnlySeeIsServedForItsEditableTranslation(): void
+    {
+        $this->db('pages')->update('pages', ['perms_everybody' => Permission::PAGE_SHOW], ['uid' => self::PAGE]);
+
+        $task = $this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']]);
+
+        self::assertStringContainsString('pages:' . self::TRANSLATION, self::text(self::j($this->queuedRequestOf(self::text($task['id'] ?? '')), 'messages.0.content')));
+        self::assertSame(
+            'Invalid params: "page" and "language" do not name a page this skill may work on in the client\'s workspace',
+            self::j($this->sendRaw('{"page": ' . self::PAGE . ', "language": 0, "fields": ["description"]}', 'v-1'), 'error.message'),
+            'the same page is not served as the row to write',
+        );
     }
 
     /**
