@@ -67,19 +67,23 @@ invocation history, so it is asked before the approval card (ADR-293).
 history, which before the card does not yet hold the calls of the same turn,
 so this rule is asked only when the call runs, after its approval. A read
 and a write the model asks for in one turn are shown together, and the write
-runs after the read.
+runs after the read. A run whose history is incomplete (a requeued run, a
+state suspended without one) cannot show a read, so the rule refuses its
+writes of this skill (``history_incomplete``) and leaves every other call
+alone.
 
 A version row counts as the requested row only when it belongs to the live
 workspace or to the client's workspace.
 
-The call's uid is resolved as the scope resolves it. The requested row and
-its version in the client's workspace are checked as above; the scope admits
-both. Any other row of the requested page in the requested language, such as
-a second translation, is refused (``not_the_requested_row``), as is a
-requested row that no longer exists. A row of another page or language is
-left to the scope, which refuses it with its own reason (``outside_scope``,
-``language_not_allowed``); otherwise the first refusing rule would hide that
-reason.
+The requested row and its version in the client's workspace are checked as
+above; the scope admits both. A row the scope refuses (another page, another
+language, an unresolvable uid) is left to the scope, which refuses it with
+its own reason (``outside_scope``, ``language_not_allowed``,
+``scope_unresolvable``); otherwise the first refusing rule would hide that
+reason. Every other row is refused (``not_the_requested_row``): a second
+translation, a row the scope admits by another path, and a requested row
+that no longer exists. The decision which rows to leave to the scope is the
+scope's own check, so the two cannot drift apart.
 
 **The values live in code, not in the prompt and not in a configuration.**
 They are part of the contract version (``…v1``): a change of a limit is a
@@ -118,8 +122,9 @@ Consequences
 - ◑ The rule reads the profile's handler when the call is decided. An
   administrator who changes the handler of a profile while a call waits for
   its approval switches the contract off for that task.
-- ✕ One more database read per ``update_page_metadata`` call of every run
-  (the task lookup); a run without an A2A task stops there.
+- ✕ Database reads per ``update_page_metadata`` call of every run: the task
+  lookup in both rules, which is where a run without an A2A task stops; for
+  the skill's runs the profile, the rows and the scope's own lookups.
 
 Net Score: 0
 

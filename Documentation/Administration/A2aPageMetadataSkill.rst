@@ -111,6 +111,11 @@ identifier and one of these reasons:
    when the call runs, after its approval, so an editor can approve a write
    that is then refused.
 
+``history_incomplete`` (rule ``page_metadata_read_first``)
+   The run's history is incomplete, for example after a requeue, so it
+   cannot show a read. Writes of this skill in that run are refused; other
+   calls are not affected.
+
 ``changed_since_accepted``
    The row's ``tstamp`` as the client's workspace shows it (its draft
    version when one exists, else the live row) is later than the task's

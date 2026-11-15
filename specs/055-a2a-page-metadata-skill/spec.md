@@ -70,14 +70,13 @@ parser. A refusal goes back
 to the model and into the governance log as `invocation_denied` with the
 rule's identifier.
 
-- **PC1 Row.** The call's uid is resolved as the scope resolves it. A call
-  aimed at the requested row (the page, or its translation in the requested
-  language, as the client's workspace shows them) or at its version in the
-  live or the client's workspace is checked by PC2 to PC5. Any other row of that page in that
-  language, and a requested row that no longer exists, is
-  `not_the_requested_row`. A row of another page or language is left to the
-  scope (PM3), whose reason the model reads; an unreadable request is
-  `request_unreadable`.
+- **PC1 Row.** A call aimed at the requested row (the page, or its
+  translation in the requested language, as the client's workspace shows
+  them) or at its version in the live or the client's workspace is checked
+  by PC2 to PC5. A row the scope's own check refuses is left to the scope
+  (PM3), whose reason the model reads. Every other row, including a row the
+  scope admits by another path and a requested row that no longer exists, is
+  `not_the_requested_row`; an unreadable request is `request_unreadable`.
 - **PC2 Fields.** Only fields the request names, at least one:
   `field_not_requested`.
 - **PC3 Values.** Each value text with at least one visible character
@@ -89,7 +88,9 @@ rule's identifier.
 - **PC4 Read first.** A successful `get_page_content` of any page earlier
   in the run: `page_not_read`, by the rule `page_metadata_read_first`. It
   depends on the history and is asked when the call runs, after its
-  approval (ADR-293); a read and a write in one turn reach the approval.
+  approval (ADR-293); a read and a write in one turn reach the approval. A
+  run with an incomplete history has its writes of this skill refused
+  (`history_incomplete`); other calls are not affected.
 - **PC5 Unchanged.** The row's `tstamp` as the client's workspace shows it
   (its draft version when one exists, else the live row) is not later than
   the task's creation: `changed_since_accepted`. `tstamp`
@@ -123,9 +124,9 @@ rule's identifier.
 | PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |
 | PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler); `A2aPageMetadataContractRuleTest::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` end to end |
-| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
+| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aRowTheScopeAdmitsThroughATranslationIsHeldToTheContract`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
 | PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
 | PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (only whitespace and format characters) |
-| PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` (refused after the approval, no draft), `::aReadAndAWriteInOneTurnReachTheApproval` |
+| PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` (refused after the approval, no draft), `::aReadAndAWriteInOneTurnReachTheApproval`, `::anIncompleteHistoryRefusesOnlyAWriteOfThisSkill` |
 | PC5 | `A2aPageMetadataContractRuleTest::aRowChangedAfterTheTaskWasAcceptedIsRefused` |
 | PC6 | `A2aPageMetadataContractRuleTest::aTaskOfAnotherSkillIsNotHeldToTheContract`, `::aHiddenProfileDoesNotSwitchTheContractOff` (a hidden profile is still held; a missing one refuses), `::aHistoryPastItsCapIsNotReadAsTheRequest` |
