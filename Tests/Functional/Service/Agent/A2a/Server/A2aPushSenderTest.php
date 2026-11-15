@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Closure;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushConfigStore;
@@ -25,6 +26,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\ScriptedA2aTransport;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -504,6 +506,188 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A delivery pass has a time budget: once it is spent, no further job is
+     * claimed, so slow receivers cannot hold the worker's tick for long. The
+     * jobs left over stay pending and unclaimed for the next tick.
+     */
+    #[Test]
+    public function aDeliveryPassStopsClaimingOnceItsTimeIsSpent(): void
+    {
+        $task = $this->newTask();
+        foreach (['c-1', 'c-2', 'c-3'] as $id) {
+            $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, $id)));
+        }
+
+        $this->cancel($task);
+        self::assertSame(3, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'pending']));
+
+        $clock = time();
+        for ($i = 0; $i < 3; ++$i) {
+            $this->transport->then(static function () use (&$clock): A2aTransportResult {
+                // A receiver that answers only after more than half the budget.
+                $clock += intdiv(A2aPushDeliverer::PASS_BUDGET_SECONDS, 2) + 1;
+
+                return A2aTransportResult::response(200, '', '', '', false);
+            });
+        }
+
+        self::assertSame(2, $this->deliverer(null, static function () use (&$clock): int {
+            return $clock;
+        })->deliverDue(time()));
+
+        self::assertCount(2, $this->transport->requests);
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'pending', 'lease_until' => 0]), 'the third job was not claimed');
+    }
+
+    /**
+     * One client's jobs cannot fill a pass: each client gets a bounded number
+     * of jobs per pass, and the clients take turns, so another client's
+     * delivery is not held behind a client with many due jobs.
+     */
+    #[Test]
+    public function oneClientCannotTakeEveryTurnOfAPass(): void
+    {
+        $mine  = $this->newTask();
+        $count = A2aPushDeliverer::MAX_JOBS_PER_CLIENT_PER_PASS + 5;
+        for ($i = 0; $i < $count; ++$i) {
+            $this->db(A2aPushConfigStore::TABLE)->insert(A2aPushConfigStore::TABLE, ['config_id' => 'raw-' . $i, 'task_uid' => $this->taskUid($mine), 'owner_client_uid' => 1, 'client_token_hash' => A2aInboundClientRepository::hash($this->tokens[1]), 'url' => self::HOOK, 'state' => 'active']);
+            $configUid = (int) $this->db(A2aPushConfigStore::TABLE)->lastInsertId();
+            // Due long before the other client's job, so they sort first.
+            $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'task_uid' => $this->taskUid($mine), 'revision' => 1, 'state' => 'pending', 'next_attempt' => 0, 'deadline' => time() + 100]);
+        }
+
+        $theirs = $this->newTask(4);
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', ['taskId' => $theirs, 'id' => 'c-4', 'url' => 'https://93.184.215.15/four'], 4));
+        $this->cancel($theirs, 4);
+
+        for ($i = 0; $i < 2 * $count; ++$i) {
+            $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(200, '', '', '', false));
+        }
+
+        $this->deliverer()->deliverDue(time(), 3);
+        $urls = array_map(static fn (A2aHttpRequest $request): string => $request->url, $this->transport->requests);
+        self::assertCount(3, $urls);
+        self::assertContains('https://93.184.215.15/four', $urls, 'the other client had a turn in the same pass');
+
+        $this->deliverer()->deliverDue(time(), 100);
+        self::assertCount(3 + A2aPushDeliverer::MAX_JOBS_PER_CLIENT_PER_PASS, $this->transport->requests, 'one client gets a bounded number of jobs per pass');
+    }
+
+    /**
+     * A2A-PUSH5: the backoff holds per config, not per event. A new event of
+     * a config whose delivery is failing waits for the backoff and carries the
+     * attempts on, also when it was written while an attempt was on its way.
+     */
+    #[Test]
+    public function aNewEventWaitsForTheBackoffOfItsConfig(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        $taskUid = $this->taskUid($task);
+        $now     = time();
+
+        $this->transport->then(function () use ($taskUid, $now): A2aTransportResult {
+            // A new event of the task while the attempt is on its way.
+            A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 50, $now);
+
+            return A2aTransportResult::response(503, '', '', '', false);
+        });
+        $this->deliverer()->deliverDue($now);
+        self::assertCount(1, $this->transport->requests);
+
+        $this->deliverer()->deliverDue($now + 1);
+        self::assertCount(1, $this->transport->requests, 'the event written in flight waits for the backoff');
+
+        A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 51, $now + 2);
+        $this->deliverer()->deliverDue($now + 3);
+        self::assertCount(1, $this->transport->requests, 'an event written later waits for the backoff too');
+
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(503, '', '', '', false));
+        $this->deliverer()->deliverDue($now + 5);
+        self::assertCount(2, $this->transport->requests, 'after the backoff the newest event goes out');
+        self::assertSame(2, (int) $this->job('attempts'), 'the attempts count on per config');
+    }
+
+    /**
+     * Switching push off stops sending, not the housekeeping: finished jobs
+     * past the retention are removed and jobs past their deadline are
+     * abandoned while push stays off.
+     */
+    #[Test]
+    public function switchingPushOffKeepsTheOutboxTidy(): void
+    {
+        $this->serverSettings(self::SERVER_SETTINGS);
+        $now = time();
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => 1, 'task_uid' => 1, 'revision' => 1, 'state' => 'delivered', 'deadline' => $now, 'tstamp' => $now - (8 * 86400)]);
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => 2, 'task_uid' => 1, 'revision' => 1, 'state' => 'pending', 'deadline' => $now - 1]);
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => 3, 'task_uid' => 1, 'revision' => 1, 'state' => 'pending', 'deadline' => $now + 100]);
+
+        self::assertSame(0, $this->deliverer()->deliverDue($now));
+
+        self::assertSame([], $this->transport->requests);
+        self::assertSame(0, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'delivered']), 'a finished job past the retention is removed');
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => 2, 'state' => 'abandoned', 'last_reason' => 'DEADLINE_PASSED']));
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => 3, 'state' => 'pending']), 'a job within its deadline waits');
+    }
+
+    /**
+     * An attempt counts once it is claimed: a failure after the request left
+     * (here in the backoff computation) cannot make the job retry beyond the
+     * eight attempts every time its lease runs out.
+     */
+    #[Test]
+    public function anAttemptThatFailsAfterTheSendStillCounts(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        for ($i = 0; $i < 12; ++$i) {
+            $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(503, '', '', '', false));
+        }
+
+        $deliverer = $this->deliverer(static function (): int {
+            throw new RuntimeException('the outcome could not be recorded', 1794757001);
+        });
+        $now = time();
+        for ($i = 0; $i < 12; ++$i) {
+            $deliverer->deliverDue($now);
+            // Past the lease of the attempt that failed.
+            $now += 1000;
+        }
+
+        self::assertCount(A2aPushDeliverer::MAX_ATTEMPTS, $this->transport->requests);
+        self::assertSame(['abandoned', A2aPushDeliverer::MAX_ATTEMPTS], [$this->job('state'), (int) $this->job('attempts')]);
+    }
+
+    /**
+     * A2A-PUSH5: an event written while the last of the eight attempts is on
+     * its way takes the used-up count over; it is abandoned, not sent.
+     */
+    #[Test]
+    public function anEventWrittenDuringTheLastAttemptIsNotSent(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $taskUid = $this->taskUid($task);
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $this->configUid(), 'task_uid' => $taskUid, 'revision' => 5, 'state' => 'pending', 'attempts' => A2aPushDeliverer::MAX_ATTEMPTS - 1, 'next_attempt' => 0, 'deadline' => time() + 10000]);
+        $now = time();
+
+        $this->transport->then(function () use ($taskUid, $now): A2aTransportResult {
+            A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 6, $now);
+
+            return A2aTransportResult::response(503, '', '', '', false);
+        });
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(200, '', '', '', false));
+
+        $this->deliverer()->deliverDue($now);
+        $this->deliverer()->deliverDue($now + 1000);
+
+        self::assertCount(1, $this->transport->requests);
+        self::assertSame(['abandoned', 'MAX_ATTEMPTS'], [$this->job('state'), $this->job('last_reason')]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function agentCard(): array
@@ -513,7 +697,11 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
         return self::objectOf($card);
     }
 
-    private function deliverer(): A2aPushDeliverer
+    /**
+     * @param (Closure(int): int)|null $jitter
+     * @param (Closure(): int)|null    $clock
+     */
+    private function deliverer(?Closure $jitter = null, ?Closure $clock = null): A2aPushDeliverer
     {
         return new A2aPushDeliverer(
             $this->getService(ConnectionPool::class),
@@ -524,7 +712,8 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
             $this->getService(A2aServerSettings::class),
             $this->getService(A2aAuthenticator::class),
             null,
-            static fn (int $delay): int => 0,
+            $jitter ?? static fn (int $delay): int => 0,
+            $clock,
         );
     }
 

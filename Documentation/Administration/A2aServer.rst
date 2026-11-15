@@ -263,9 +263,21 @@ client can register webhooks for its own tasks, with
   ``Content-Type: application/a2a+json``: the task as it is when it is sent,
   without history, so an older job not yet sent is superseded by the newest.
   The timeout is 15 seconds.
+- **One pass, bounded.** A run of ``nrllm:a2a:poll`` claims no further
+  delivery once 30 seconds have passed since its deliveries started, so it
+  lasts at most that plus one attempt. It takes at most 10 deliveries per
+  client, and the clients take turns: a client whose webhooks answer slowly
+  does not hold back the deliveries of the others. What is left goes out in
+  the next run.
 - **Outcomes.** 2xx acknowledges. A timeout, a broken connection, 429, 502,
   503, 504 and a redirect are retried after 5, 10, 20 … seconds, at most
-  eight attempts and within a day; then the job is abandoned and logged. 401
+  eight attempts and within a day; then the job is abandoned and logged. The
+  backoff and the attempts belong to the config, not to one change: a new
+  change of the task while a delivery waits to be retried waits for the same
+  backoff and continues the count. When the eighth attempt fails, a change
+  written while it was on its way is abandoned with it; the next change
+  starts over. An attempt counts once it is started, also when the worker
+  fails before it records the answer. 401
   and 403 pause the config (``auth_failed``); 404, 410 and a refused address
   stop it (``stopped``). A paused or stopped config sends nothing more; the
   client registers a new one. Any other answer fails that one delivery.
@@ -278,7 +290,9 @@ client can register webhooks for its own tasks, with
   backend user is usable; otherwise the config stops.
 - **Switching push off** stops every delivery at once and writes no new
   jobs; the methods answer ``-32003``. Jobs already written wait and go out
-  if push is switched on again within a day.
+  if push is switched on again within a day. ``nrllm:a2a:poll`` still
+  abandons the jobs past that day and removes finished jobs after a week
+  while push is off.
 - **In the backend** the configs are records of the type
   :guilabel:`A2A Push Config` on the root page, read-only, with their state
   and the reason of the last refusal; the credential is not shown.

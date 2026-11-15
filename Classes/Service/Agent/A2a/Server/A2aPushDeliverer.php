@@ -33,12 +33,18 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   history: a bare `StreamResponse` `{"task": …}`. So only the newest pending
  *   job of a config is sent; older ones are superseded by it.
  * - A job is claimed with a lease before it is sent, so two workers never
- *   send the same job at once. Before the attempt the config is read again:
- *   a deleted or paused config sends nothing. The address guard runs inside
- *   the transport on every attempt (A2A-SEC5).
+ *   send the same job at once; the claim counts the attempt. Before the
+ *   attempt the config is read again: a deleted or paused config sends
+ *   nothing. The address guard runs inside the transport on every attempt
+ *   (A2A-SEC5).
+ * - A pass is bounded: it claims no job once its time budget is spent, takes
+ *   at most a few jobs per client, and lets the clients take turns, so a
+ *   client with many slow receivers does not hold the others back.
  * - 2xx acknowledges. A timeout, a connection that broke after the request
  *   left, 429, 502, 503 and 504 are retried with exponential backoff and
- *   jitter, at most eight attempts and never after the job's deadline. 401
+ *   jitter, at most eight attempts and never after the job's deadline. The
+ *   backoff and the attempts belong to the config, not to one event: a new
+ *   event of a config waiting to retry takes them over. 401
  *   and 403 mark the config `auth_failed`; 404, 410 and a refused address
  *   stop it. A redirect is never followed: it is a failed attempt. Any other
  *   answer fails the job and leaves the config as it is.
@@ -64,9 +70,28 @@ final readonly class A2aPushDeliverer
 
     public const MAX_ATTEMPTS = 8;
 
+    /**
+     * Seconds after the start of a pass in which it still claims a job. A pass
+     * lasts at most this plus one attempt, so a tick scheduled every minute
+     * is not held up by slow receivers.
+     */
+    public const PASS_BUDGET_SECONDS = 30;
+
+    /** Jobs of one client a pass takes at most, so the other clients get turns. */
+    public const MAX_JOBS_PER_CLIENT_PER_PASS = 10;
+
     private const KEEP_FINISHED_SECONDS = 604800;
 
-    private const LEASE_SECONDS = 60;
+    /**
+     * How long a claimed job is held. It covers one attempt: the address
+     * check with its DNS lookup (bounded by the resolver's own timeouts, not
+     * by this class: glibc's defaults of 5 seconds, 2 attempts and at most 3
+     * name servers allow about 30 seconds; not measured here) and the request
+     * of at most TIMEOUT_SECONDS, with margin. A lookup slower than that lets
+     * another worker claim the job again; the attempt is counted at the claim,
+     * so the cap on attempts still holds.
+     */
+    private const LEASE_SECONDS = 120;
 
     private const TIMEOUT_SECONDS = 15;
 
@@ -87,8 +112,12 @@ final readonly class A2aPushDeliverer
     /** @var Closure(int): int */
     private Closure $jitter;
 
+    /** @var Closure(): int */
+    private Closure $clock;
+
     /**
      * @param (Closure(int): int)|null $jitter the jitter added to a delay, 0 to a quarter of it by default; tests pass a fixed one
+     * @param (Closure(): int)|null    $clock  the wall clock, `time()` by default; tests pass one they move
      */
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -100,26 +129,36 @@ final readonly class A2aPushDeliverer
         private A2aAuthenticator $authenticator,
         private ?LoggerInterface $logger = null,
         ?Closure $jitter = null,
+        ?Closure $clock = null,
     ) {
         $this->jitter = $jitter ?? static fn (int $delay): int => random_int(0, max(0, intdiv($delay, 4)));
+        $this->clock  = $clock ?? time(...);
     }
 
     /**
      * Writes one job per active config of the task for this revision. Called
      * by the projector inside the transaction that writes the event, so an
      * event and its jobs commit together (A2A-PUSH3).
+     *
+     * A config with a pending job is a delivery under way: the new job takes
+     * over its attempts and its next attempt, so a failing receiver is not
+     * tried again from the start with every event (A2A-PUSH5).
      */
     public static function enqueue(Connection $connection, int $taskUid, int $revision, int $now): void
     {
+        $outbox = $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE);
         $connection->executeStatement(
-            'INSERT INTO ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
+            'INSERT INTO ' . $outbox
             . ' (config_uid, task_uid, revision, state, attempts, next_attempt, deadline, lease_holder, lease_until, last_status, last_reason, crdate, tstamp)'
-            . ' SELECT p.uid, p.task_uid, ?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?'
+            . ' SELECT p.uid, p.task_uid, ?, ?,'
+            . ' COALESCE((SELECT MAX(q.attempts) FROM ' . $outbox . ' q WHERE q.config_uid = p.uid AND q.state = ?), 0),'
+            . ' COALESCE((SELECT MAX(q.next_attempt) FROM ' . $outbox . ' q WHERE q.config_uid = p.uid AND q.state = ?), ?),'
+            . ' ?, ?, 0, 0, ?, ?, ?'
             . ' FROM ' . $connection->quoteIdentifier(A2aPushConfigStore::TABLE) . ' p'
             . ' WHERE p.task_uid = ? AND p.state = ?'
             . ' AND EXISTS (SELECT 1 FROM ' . $connection->quoteIdentifier(A2aInboundClientRepository::TABLE) . ' c WHERE c.uid = p.owner_client_uid AND c.enabled = 1 AND c.deleted = 0)',
-            [$revision, self::JOB_PENDING, $now, $now + self::DEADLINE_SECONDS, '', '', $now, $now, $taskUid, A2aPushConfigStore::STATE_ACTIVE],
-            [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR],
+            [$revision, self::JOB_PENDING, self::JOB_PENDING, self::JOB_PENDING, $now, $now + self::DEADLINE_SECONDS, '', '', $now, $now, $taskUid, A2aPushConfigStore::STATE_ACTIVE],
+            [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR],
         );
     }
 
@@ -130,6 +169,12 @@ final readonly class A2aPushDeliverer
      */
     public function deliverDue(int $now, int $limit = 50): int
     {
+        $started = ($this->clock)();
+        // Housekeeping runs whether push is on or not: switching push off
+        // stops what is sent, not the removal of old jobs and the end of jobs
+        // past their deadline.
+        $this->tidy($now);
+
         if (!$this->settings->pushEnabled()) {
             // The switch is a kill switch: while push is off nothing is sent.
             // Pending jobs are kept and go out if push is switched on again
@@ -137,37 +182,19 @@ final readonly class A2aPushDeliverer
             return 0;
         }
 
-        $connection = $this->connection();
-        $table      = $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE);
-        // A finished job is kept for a week as the record of what happened,
-        // then removed: the outbox does not grow with every event ever sent.
-        $connection->executeStatement(
-            'DELETE FROM ' . $table . ' WHERE state <> ? AND tstamp < ?',
-            [self::JOB_PENDING, $now - self::KEEP_FINISHED_SECONDS],
-            [Connection::PARAM_STR, Connection::PARAM_INT],
-        );
-
-        // The newest pending job of each config; the older ones are sent by
-        // it, since every delivery carries the task as it is now.
-        $uids = $connection->executeQuery(
-            'SELECT o.uid FROM ' . $table . ' o WHERE o.state = ? AND o.next_attempt <= ? AND o.lease_until < ?'
-            . ' AND NOT EXISTS (SELECT 1 FROM ' . $table . ' n WHERE n.config_uid = o.config_uid AND n.state = ? AND n.revision > o.revision)'
-            . ' ORDER BY o.next_attempt, o.uid LIMIT ' . max(1, $limit),
-            [self::JOB_PENDING, $now, $now, self::JOB_PENDING],
-            [Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR],
-        )->fetchFirstColumn();
-
         $delivered = 0;
-        foreach ($uids as $uid) {
-            if (!is_numeric($uid)) {
-                continue;
+        foreach ($this->dueJobs($now, max(1, $limit)) as $uid) {
+            if (($this->clock)() - $started >= self::PASS_BUDGET_SECONDS) {
+                // The budget is spent: the rest waits for the next tick, so a
+                // pass of slow receivers does not hold up the worker.
+                break;
             }
 
             try {
                 // The clock is read per attempt: a pass that sends many jobs to
                 // slow receivers outlasts a lease taken from the tick's start,
                 // and another worker could claim the same job again.
-                $delivered += $this->attempt((int) $uid, max($now, time())) ? 1 : 0;
+                $delivered += $this->attempt($uid, max($now, ($this->clock)())) ? 1 : 0;
             } catch (Throwable $e) {
                 // One job must not stop the others; its lease runs out and it
                 // is tried again.
@@ -178,13 +205,97 @@ final readonly class A2aPushDeliverer
         return $delivered;
     }
 
+    /**
+     * Removes finished jobs past their retention and abandons pending jobs
+     * past their deadline that no attempt holds.
+     */
+    private function tidy(int $now): void
+    {
+        $connection = $this->connection();
+        $table      = $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE);
+        // A finished job is kept for a week as the record of what happened,
+        // then removed: the outbox does not grow with every event ever sent.
+        $connection->executeStatement(
+            'DELETE FROM ' . $table . ' WHERE state <> ? AND tstamp < ?',
+            [self::JOB_PENDING, $now - self::KEEP_FINISHED_SECONDS],
+            [Connection::PARAM_STR, Connection::PARAM_INT],
+        );
+
+        $abandoned = $connection->executeStatement(
+            'UPDATE ' . $table . ' SET state = ?, last_reason = ?, lease_holder = ?, lease_until = 0, tstamp = ?'
+            . ' WHERE state = ? AND deadline < ? AND lease_until < ?',
+            [self::JOB_ABANDONED, 'DEADLINE_PASSED', '', $now, self::JOB_PENDING, $now, $now],
+            [Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT],
+        );
+        if ($abandoned > 0) {
+            $this->logger?->warning('A2A push jobs were abandoned at their deadline', ['jobs' => $abandoned]);
+        }
+    }
+
+    /**
+     * The jobs of this pass: the newest pending job of each config (the older
+     * ones are sent by it, since every delivery carries the task as it is
+     * now), at most MAX_JOBS_PER_CLIENT_PER_PASS per client, the clients
+     * taking turns in the order their oldest due job waits.
+     *
+     * @return list<int>
+     */
+    private function dueJobs(int $now, int $limit): array
+    {
+        $connection = $this->connection();
+        $outbox     = $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE);
+        // A job whose config is gone has no client; it is still picked, as
+        // client 0, so the attempt drops it.
+        $due = ' FROM ' . $outbox . ' o LEFT JOIN ' . $connection->quoteIdentifier(A2aPushConfigStore::TABLE) . ' p ON p.uid = o.config_uid'
+            . ' WHERE o.state = ? AND o.next_attempt <= ? AND o.lease_until < ?'
+            . ' AND NOT EXISTS (SELECT 1 FROM ' . $outbox . ' n WHERE n.config_uid = o.config_uid AND n.state = ? AND n.revision > o.revision)';
+        $params = [self::JOB_PENDING, $now, $now, self::JOB_PENDING];
+        $types  = [Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR];
+
+        $clients = $connection->executeQuery(
+            'SELECT COALESCE(p.owner_client_uid, 0) AS client, MIN(o.next_attempt) AS first' . $due
+            . ' GROUP BY COALESCE(p.owner_client_uid, 0) ORDER BY first, client LIMIT ' . $limit,
+            $params,
+            $types,
+        )->fetchFirstColumn();
+
+        $queues = [];
+        foreach ($clients as $client) {
+            $queues[] = array_values(array_map(
+                $this->int(...),
+                $connection->executeQuery(
+                    'SELECT o.uid' . $due . ' AND COALESCE(p.owner_client_uid, 0) = ? ORDER BY o.next_attempt, o.uid LIMIT ' . self::MAX_JOBS_PER_CLIENT_PER_PASS,
+                    [...$params, $this->int($client)],
+                    [...$types, Connection::PARAM_INT],
+                )->fetchFirstColumn(),
+            ));
+        }
+
+        // Round robin: every client's first job, then every client's second.
+        $jobs    = [];
+        $longest = max([0, ...array_map(count(...), $queues)]);
+        for ($turn = 0; $turn < $longest; ++$turn) {
+            foreach ($queues as $queue) {
+                if (isset($queue[$turn])) {
+                    $jobs[] = $queue[$turn];
+                }
+            }
+        }
+
+        return array_slice($jobs, 0, $limit);
+    }
+
     private function attempt(int $jobUid, int $now): bool
     {
         $connection = $this->connection();
         $holder     = Uuid::v4()->toRfc4122();
-        $claimed    = $connection->executeStatement(
+        // The claim counts the attempt, before anything is sent: an attempt
+        // that fails after its request left (an error recording the outcome)
+        // still counts, so its lease running out cannot repeat it beyond the
+        // cap (A2A-PUSH5).
+        $claimed = $connection->executeStatement(
             'UPDATE ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
-            . ' SET lease_holder = ?, lease_until = ?, tstamp = ? WHERE uid = ? AND state = ? AND lease_until < ?',
+            . ' SET lease_holder = ?, lease_until = ?, attempts = attempts + 1, tstamp = ? WHERE uid = ? AND state = ? AND lease_until < ?',
             [$holder, $now + self::LEASE_SECONDS, $now, $jobUid, self::JOB_PENDING, $now],
             [Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
         );
@@ -197,10 +308,23 @@ final readonly class A2aPushDeliverer
             return false;
         }
 
+        // This attempt is counted; an exit that sends nothing records the
+        // count before it.
         $attempts = $this->int($job['attempts'] ?? 0);
+        $unsent   = max(0, $attempts - 1);
         if ($now > $this->int($job['deadline'] ?? 0)) {
-            $this->finish($jobUid, $holder, self::JOB_ABANDONED, 0, 'DEADLINE_PASSED', $attempts, $now);
+            $this->finish($jobUid, $holder, self::JOB_ABANDONED, 0, 'DEADLINE_PASSED', $unsent, $now);
             $this->logger?->warning('An A2A push was abandoned at its deadline', ['job' => $jobUid]);
+
+            return false;
+        }
+
+        if ($attempts > self::MAX_ATTEMPTS) {
+            // The attempts of the config are used up, by this job or by the
+            // job it took them over from.
+            $this->finish($jobUid, $holder, self::JOB_ABANDONED, $this->int($job['last_status'] ?? 0), 'MAX_ATTEMPTS', $unsent, $now);
+            $this->supersedeOlder($job, $now);
+            $this->logger?->warning('An A2A push was abandoned after its last attempt', ['job' => $jobUid]);
 
             return false;
         }
@@ -209,7 +333,7 @@ final readonly class A2aPushDeliverer
         // the job was written sends nothing (A2A-PUSH3, A2A-PUSH5).
         $config = $connection->select(['*'], A2aPushConfigStore::TABLE, ['uid' => $this->int($job['config_uid'] ?? 0)])->fetchAssociative();
         if (!is_array($config) || ($config['state'] ?? '') !== A2aPushConfigStore::STATE_ACTIVE) {
-            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'CONFIG_GONE', $attempts, $now);
+            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'CONFIG_GONE', $unsent, $now);
 
             return false;
         }
@@ -220,7 +344,7 @@ final readonly class A2aPushDeliverer
         // stops.
         if (!$this->authenticator->mayStillAct($this->int($config['owner_client_uid'] ?? 0), is_string($config['client_token_hash'] ?? null) ? $config['client_token_hash'] : '', $now)) {
             $this->stopConfig($config, A2aPushConfigStore::STATE_STOPPED, 'CLIENT_INACTIVE', $now);
-            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'CLIENT_INACTIVE', $attempts, $now);
+            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'CLIENT_INACTIVE', $unsent, $now);
 
             return false;
         }
@@ -231,27 +355,26 @@ final readonly class A2aPushDeliverer
             // A credential that cannot be opened (a key that is gone) never
             // will be: the config stops instead of being retried every tick.
             $this->stopConfig($config, A2aPushConfigStore::STATE_STOPPED, 'CREDENTIAL_UNREADABLE', $now);
-            $this->finish($jobUid, $holder, self::JOB_FAILED, 0, 'CREDENTIAL_UNREADABLE', $attempts, $now);
+            $this->finish($jobUid, $holder, self::JOB_FAILED, 0, 'CREDENTIAL_UNREADABLE', $unsent, $now);
             $this->logger?->error('The credential of an A2A push config cannot be read; the config is stopped', ['config' => $config['uid'] ?? 0]);
 
             return false;
         }
 
         if ($request === null) {
-            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'TASK_GONE', $attempts, $now);
+            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'TASK_GONE', $unsent, $now);
 
             return false;
         }
 
         if ($request === false) {
             $this->stopConfig($config, A2aPushConfigStore::STATE_STOPPED, 'NOT_HTTPS', $now);
-            $this->finish($jobUid, $holder, self::JOB_FAILED, 0, 'NOT_HTTPS', $attempts + 1, $now);
+            $this->finish($jobUid, $holder, self::JOB_FAILED, 0, 'NOT_HTTPS', $attempts, $now);
 
             return false;
         }
 
         $result = $this->transport->send($request);
-        ++$attempts;
 
         return $this->outcome($job, $config, $holder, $result, $attempts, $now);
     }
@@ -293,7 +416,7 @@ final readonly class A2aPushDeliverer
             $delay = min(self::BACKOFF_MAX_SECONDS, self::BACKOFF_BASE_SECONDS * (2 ** ($attempts - 1)));
             $next  = $now + $delay + ($this->jitter)($delay);
             if ($next <= $this->int($job['deadline'] ?? 0)) {
-                $this->retryLater($jobUid, $holder, $status, $reason, $attempts, $next, $now);
+                $this->retryLater($jobUid, $this->int($job['config_uid'] ?? 0), $holder, $status, $reason, $attempts, $next, $now);
 
                 return false;
             }
@@ -392,12 +515,21 @@ final readonly class A2aPushDeliverer
         $connection->update(A2aPushConfigStore::OUTBOX_TABLE, ['state' => self::JOB_DROPPED, 'last_reason' => 'CONFIG_' . strtoupper($state), 'tstamp' => $now], ['config_uid' => $configUid, 'state' => self::JOB_PENDING]);
     }
 
-    private function retryLater(int $jobUid, string $holder, int $status, string $reason, int $attempts, int $next, int $now): void
+    private function retryLater(int $jobUid, int $configUid, string $holder, int $status, string $reason, int $attempts, int $next, int $now): void
     {
-        $this->connection()->update(
+        $connection = $this->connection();
+        $connection->update(
             A2aPushConfigStore::OUTBOX_TABLE,
             ['attempts' => $attempts, 'next_attempt' => $next, 'lease_holder' => '', 'lease_until' => 0, 'last_status' => $status, 'last_reason' => $reason, 'tstamp' => $now],
             ['uid' => $jobUid, 'lease_holder' => $holder],
+        );
+        // A job of the config written while this attempt was on its way took
+        // over the state from before it; it waits for the same backoff.
+        $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
+            . ' SET attempts = ?, next_attempt = ?, tstamp = ? WHERE config_uid = ? AND state = ? AND uid <> ? AND attempts <= ?',
+            [$attempts, $next, $now, $configUid, self::JOB_PENDING, $jobUid, $attempts],
+            [Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT],
         );
     }
 
