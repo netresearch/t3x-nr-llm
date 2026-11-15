@@ -425,6 +425,31 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check($text, $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
+    /**
+     * A pattern engine that gives up must not read as "no term": with a
+     * tiny backtrack limit and no JIT, a long JSON text still never passes.
+     */
+    #[Test]
+    public function aJsonTextThePatternEngineGivesUpOnDoesNotPass(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+        $text        = '{"post":"' . str_repeat('a\\"b ', 5000) . '\\u0052abatt"}';
+        $jit         = ini_get('pcre.jit');
+        $limit       = ini_get('pcre.backtrack_limit');
+        ini_set('pcre.jit', '0');
+        ini_set('pcre.backtrack_limit', '10');
+
+        try {
+            $report = $this->check()->check($text, $this->configuration(RuleJudgeMode::OFF));
+        } finally {
+            ini_set('pcre.jit', (string) $jit);
+            ini_set('pcre.backtrack_limit', (string) $limit);
+        }
+
+        self::assertNotSame(ExternalTextStatus::PASSED, $report->status);
+        self::assertTrue($report->blocks());
+    }
+
     #[Test]
     public function aWriterGivenAsWhiteSpaceIsTheConfigurationsProvider(): void
     {

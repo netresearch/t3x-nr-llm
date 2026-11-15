@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeUnavailableException;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeViolation;
 use Netresearch\NrLlm\Service\Guardrail\Judge\RuleJudge;
 use Netresearch\NrLlm\Service\Guardrail\Judge\RuleSetResolver;
+use Netresearch\NrLlm\Service\Guardrail\Term\TermCheckFailedException;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListResolverInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListRule;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
@@ -31,6 +32,7 @@ use function in_array;
 use function is_string;
 use function json_decode;
 use function json_last_error;
+use function preg_last_error_msg;
 use function preg_match_all;
 use function preg_replace;
 use function trim;
@@ -334,8 +336,16 @@ final readonly class ExternalTextCheck
 
         // Every string literal, decoded on its own: a decoder keeps only the
         // last of two members with one key, and keys and a string root are
-        // strings a consumer may read too.
-        preg_match_all('/"(?:[^"\\\\]|\\\\.)*"/s', $body, $literals);
+        // strings a consumer may read too. json_decode() cannot keep both
+        // members; on a text json_decode() accepted, a string literal is a
+        // quote, possessive runs of non-quote non-backslash characters or
+        // escapes, and a quote, which this pattern matches without
+        // backtracking.
+        if (preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"/s', $body, $literals) === false) {
+            // An engine that gives up must not read as "no term" (X4).
+            throw new TermCheckFailedException('JSON string pattern failed: ' . preg_last_error_msg(), 1799430101);
+        }
+
         foreach ($literals[0] as $literal) {
             $value = json_decode($literal);
             if (is_string($value)) {
