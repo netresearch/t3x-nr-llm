@@ -764,6 +764,37 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A failed eighth attempt ends only the jobs that took over its used-up
+     * count: a change with a fresh count, and a job another worker holds
+     * with attempts left, stay pending.
+     */
+    #[Test]
+    public function aFailedLastAttemptEndsOnlyJobsWithTheUsedUpCount(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $taskUid   = $this->taskUid($task);
+        $configUid = $this->configUid();
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'task_uid' => $taskUid, 'revision' => 5, 'state' => 'pending', 'attempts' => A2aPushDeliverer::MAX_ATTEMPTS - 1, 'next_attempt' => 0, 'deadline' => time() + 100000]);
+        $now = time();
+
+        $this->transport->then(function () use ($configUid, $taskUid, $now): A2aTransportResult {
+            // Before the outcome is recorded: a change with a fresh count,
+            // and a job another worker holds with attempts left.
+            $outbox = $this->db(A2aPushConfigStore::OUTBOX_TABLE);
+            $outbox->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'task_uid' => $taskUid, 'revision' => 10, 'state' => 'pending', 'attempts' => 0, 'next_attempt' => $now, 'deadline' => $now + 100000]);
+            $outbox->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'task_uid' => $taskUid, 'revision' => 11, 'state' => 'pending', 'attempts' => 3, 'next_attempt' => $now, 'lease_holder' => 'another-worker', 'lease_until' => $now + 100, 'deadline' => $now + 100000]);
+
+            return A2aTransportResult::response(503, '', '', '', false);
+        });
+        $this->deliverer(null, static fn (): int => $now)->deliverDue($now);
+
+        self::assertSame(['abandoned', A2aPushDeliverer::MAX_ATTEMPTS], [$this->db(A2aPushConfigStore::OUTBOX_TABLE)->select(['state'], A2aPushConfigStore::OUTBOX_TABLE, ['revision' => 5])->fetchOne(), (int) $this->db(A2aPushConfigStore::OUTBOX_TABLE)->select(['attempts'], A2aPushConfigStore::OUTBOX_TABLE, ['revision' => 5])->fetchOne()]);
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['revision' => 10, 'state' => 'pending', 'attempts' => 0]), 'a change with a fresh count stays');
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['revision' => 11, 'state' => 'pending', 'attempts' => 3]), 'a job another worker holds stays');
+    }
+
+    /**
      * A job whose eighth attempt was sent but whose outcome was never
      * recorded (the worker failed after the request left) is not sent a
      * ninth time when its lease runs out.

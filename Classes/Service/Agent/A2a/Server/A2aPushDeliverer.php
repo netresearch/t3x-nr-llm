@@ -442,9 +442,9 @@ final readonly class A2aPushDeliverer
             $connection = $this->connection();
             $connection->executeStatement(
                 'UPDATE ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
-                . ' SET state = ?, last_reason = ?, tstamp = ? WHERE config_uid = ? AND state = ? AND uid <> ?',
-                [self::JOB_ABANDONED, 'MAX_ATTEMPTS', $now, $this->int($job['config_uid'] ?? 0), self::JOB_PENDING, $jobUid],
-                [Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
+                . ' SET state = ?, last_reason = ?, tstamp = ? WHERE config_uid = ? AND state = ? AND uid <> ? AND attempts >= ?',
+                [self::JOB_ABANDONED, 'MAX_ATTEMPTS', $now, $this->int($job['config_uid'] ?? 0), self::JOB_PENDING, $jobUid, self::MAX_ATTEMPTS],
+                [Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT],
             );
         }
 
