@@ -79,23 +79,34 @@ final readonly class A2aAuthenticator
             return $client;
         }
 
+        $this->refuse($request, $now, match (true) {
+            $token === ''                        => 'no bearer credential',
+            !$client instanceof A2aInboundClient => 'unknown credential',
+            !$valid                              => 'wrong credential',
+            $client->withdrawnReason !== null    => 'self-service token withdrawn: ' . $client->withdrawnReason,
+            !$client->isActive($now)             => 'disabled or expired client',
+            default                              => 'unusable technical backend user',
+        });
+    }
+
+    /**
+     * Refuse a request whose credential failed: logged with the source
+     * address and the reason, never the credential, and counted per source
+     * address; over the limit it is refused as rate limited and not logged
+     * again. A failed bearer token and a failed file capability (A2A-FILE5)
+     * share this path and its limit.
+     *
+     * @throws A2aRpcError UNAUTHENTICATED or RATE_LIMITED, always
+     */
+    public function refuse(ServerRequestInterface $request, int $now, string $why): never
+    {
         $address = $this->sourceAddress($request);
         $state   = $this->limiter($address)->consume(1);
         if (!$state->isAccepted()) {
             throw A2aRpcError::rateLimited(max(1, $state->getRetryAfter()->getTimestamp() - $now));
         }
 
-        $this->logger->warning('A2A request refused: authentication failed', [
-            'source' => $address,
-            'why'    => match (true) {
-                $token === ''                        => 'no bearer credential',
-                !$client instanceof A2aInboundClient => 'unknown credential',
-                !$valid                              => 'wrong credential',
-                $client->withdrawnReason !== null    => 'self-service token withdrawn: ' . $client->withdrawnReason,
-                !$client->isActive($now)             => 'disabled or expired client',
-                default                              => 'unusable technical backend user',
-            },
-        ]);
+        $this->logger->warning('A2A request refused: authentication failed', ['source' => $address, 'why' => $why]);
 
         throw A2aRpcError::unauthenticated();
     }

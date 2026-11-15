@@ -419,6 +419,14 @@ Downloading a file
        reads the file until it expires, without any other credential. It
        stops working when it expires, when the client gets a new token and
        when the client is disabled. Hand it on only where the file may go.
+       The capability sits in the query string, so it can end up in the
+       access log of a proxy or web server in front of the endpoint; keep
+       those logs as you would keep the file.
+
+   A wrong, expired or revoked capability answers ``401`` and is logged and
+   counted per source address together with failed bearer tokens, under the
+   same limit (``nrllm-a2a-auth``, 10 failures per 15 minutes); over it the
+   answer is ``429``.
 
    Asking for a capability again issues a new URL and changes nothing of
    the task: its status, the artifact ids, the digest and the content stay

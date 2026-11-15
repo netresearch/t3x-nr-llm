@@ -73,7 +73,7 @@ final readonly class A2aFileDownload
 
         try {
             $client = is_string($capability) && $capability !== ''
-                ? $this->byCapability($capability, $fileId, $now)
+                ? $this->byCapability($request, $capability, $fileId, $now)
                 : $this->authenticator->authenticate($request, $now);
         } catch (A2aRpcError $error) {
             return A2aRpcReply::error(null, $error)->toResponse();
@@ -123,17 +123,18 @@ final readonly class A2aFileDownload
 
     /**
      * The client a capability was issued to, while it still grants this file
-     * and the client would still be authenticated.
+     * and the client would still be authenticated. A failure is logged and
+     * counted like a failed bearer token (A2A-SEC1).
      *
-     * @throws A2aRpcError UNAUTHENTICATED
+     * @throws A2aRpcError UNAUTHENTICATED or RATE_LIMITED
      */
-    private function byCapability(string $token, string $fileId, int $now): A2aInboundClient
+    private function byCapability(ServerRequestInterface $request, string $token, string $fileId, int $now): A2aInboundClient
     {
         $client = $this->clients->findByUid($this->capabilities->claimedClient($token));
         if (!$client instanceof A2aInboundClient
             || !$this->capabilities->grants($token, $fileId, $client->tokenHash, $now)
             || !$this->authenticator->stillValid($client, $now)) {
-            throw A2aRpcError::unauthenticated();
+            $this->authenticator->refuse($request, $now, 'invalid, expired or revoked file capability');
         }
 
         return $client;

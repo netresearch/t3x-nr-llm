@@ -193,6 +193,27 @@ final class A2aDownloadTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SEC1: a failed capability is counted per source address like a
+     * failed bearer token, against the same limit; a valid token still
+     * passes.
+     */
+    #[Test]
+    public function aFailedCapabilityIsCountedLikeAFailedToken(): void
+    {
+        [, $fileId] = $this->completedWith([[str_repeat('l', 2000), 'text/plain', 'l.txt']]);
+
+        for ($attempt = 1; $attempt <= 10; ++$attempt) {
+            self::assertSame(401, $this->fetch(self::BASE . '/files/' . $fileId . '?capability=forged.' . $attempt, null)->getStatusCode(), 'attempt ' . $attempt);
+        }
+
+        $limited = $this->fetch(self::BASE . '/files/' . $fileId . '?capability=forged.11', null);
+        self::assertSame(429, $limited->getStatusCode());
+        self::assertNotSame('', $limited->getHeaderLine('Retry-After'));
+        self::assertSame(429, $this->call('GetTask', ['id' => 'x'], null, ['Authorization' => 'Bearer nra2a_wrong'])['_status'], 'one limit for both');
+        self::assertSame(200, $this->fetch(self::BASE . '/files/' . $fileId, 1)->getStatusCode());
+    }
+
+    /**
      * A2A-FILE5, A2A-SEC2: another client cannot have a capability issued for
      * a file it does not own; the answer is the unknown file's.
      */

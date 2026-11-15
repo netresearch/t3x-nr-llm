@@ -689,9 +689,11 @@ Client role (receiver):
   prefix and is checked against a stored hash with a constant-time comparison
   (ADR-280). Missing, unknown, disabled or expired: HTTP 401,
   `WWW-Authenticate: Bearer realm="a2a"`, JSON-RPC `-32000` with `reason`
-  `UNAUTHENTICATED`. The agent card is the only unauthenticated response.
-  Failed attempts are logged without the token and rate-limited per source
-  address.
+  `UNAUTHENTICATED`. The agent card is the only response without
+  authentication. A file download may present a capability URL instead of
+  the bearer token (A2A-FILE5, ADR-284); a failed capability is logged and
+  limited like a failed token. Failed attempts are logged without the token
+  and rate-limited per source address.
 - **A2A-SEC2 Scoping before lookup.** The owner of a task is the client
   record uid. Every query that reads a task, a context, a cursor, a file or a
   push config has the owner in its `WHERE` clause; a task id of another client
