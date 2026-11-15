@@ -217,6 +217,34 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
         self::assertLessThan(4.0, $elapsed, 'the client waited for the rest of the body before applying its limit');
     }
 
+    /**
+     * A push webhook is checked against the host lists of `a2a.push`, every
+     * other request against those of `a2a.client` (ADR-285): a host only the
+     * push denylist names is refused for a webhook and reached for an agent.
+     */
+    #[Test]
+    public function aPushWebhookIsCheckedAgainstThePushHostLists(): void
+    {
+        $settings = [
+            'client' => ['allowedHosts' => '127.0.0.1:' . self::PORT],
+            'push'   => ['allowedHosts' => '127.0.0.1:' . self::PORT, 'deniedHosts' => '127.0.0.1'],
+        ];
+        $url = 'http://127.0.0.1:' . self::PORT . '/rpc';
+
+        $push = $this->transport([], null, $settings)->send($this->request($url, 4096, '', A2aUrlGuardFactory::GROUP_EXTERNAL));
+
+        self::assertSame(A2aTransportOutcome::NOT_SENT, $push->outcome);
+        self::assertSame('ADDRESS_REFUSED', $push->reason);
+        self::assertStringContainsString('denylist', $push->detail);
+        self::assertSame([], $this->hits());
+
+        $agent = $this->transport([], null, $settings)->send($this->request($url));
+
+        self::assertSame(A2aTransportOutcome::RESPONSE, $agent->outcome, $agent->detail);
+        self::assertSame(200, $agent->status);
+        self::assertCount(1, $this->hits());
+    }
+
     private function listening(): bool
     {
         set_error_handler(static fn (): bool => true);
@@ -235,7 +263,7 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
         return true;
     }
 
-    private function request(string $url, int $maxBytes = 4096, string $credential = ''): A2aHttpRequest
+    private function request(string $url, int $maxBytes = 4096, string $credential = '', string $egressGroup = A2aUrlGuardFactory::GROUP_AGENT): A2aHttpRequest
     {
         return new A2aHttpRequest(
             'POST',
@@ -247,13 +275,15 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
             10,
             $maxBytes,
             'A2aVaultTransportTest',
+            $egressGroup,
         );
     }
 
     /**
-     * @param list<string> $extraAllowed
+     * @param list<string>                              $extraAllowed
+     * @param array<string, array<string, string>>|null $settings     the `a2a` settings, replacing the default allowlist
      */
-    private function transport(array $extraAllowed = [], ?VaultServiceInterface $vault = null): A2aVaultTransport
+    private function transport(array $extraAllowed = [], ?VaultServiceInterface $vault = null, ?array $settings = null): A2aVaultTransport
     {
         $resolver = new class implements HostResolverInterface {
             public function resolve(string $host): array
@@ -262,7 +292,7 @@ final class A2aVaultTransportTest extends AbstractFunctionalTestCase
             }
         };
         $configuration = self::createStub(ExtensionConfiguration::class);
-        $configuration->method('get')->willReturn(['a2a' => ['client' => [
+        $configuration->method('get')->willReturn(['a2a' => $settings ?? ['client' => [
             'allowedHosts' => implode(',', ['127.0.0.1:' . self::PORT, 'agent.invalid:' . self::PORT, ...$extraAllowed]),
         ]]]);
 
