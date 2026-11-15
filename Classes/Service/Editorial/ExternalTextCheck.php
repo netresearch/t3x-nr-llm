@@ -331,11 +331,13 @@ final readonly class ExternalTextCheck
     /**
      * The text with every JSON escape decoded, read left to right without
      * pairing quotes: an escape counts wherever it stands, inside a JSON
-     * literal, after a stray quote in prose, in a single-quoted literal or
-     * in a key. An escaped backslash is consumed first, so `\\u0052` stays a
-     * backslash and `u0052`. A lone surrogate becomes U+FFFD, as a lenient
-     * decoder shows it. This adds a form; the text itself is searched as it
-     * is anyway.
+     * literal, after a stray quote in prose, in a single-quoted literal or in
+     * a key. The text is usually prose, so it is not decoded as a whole; only
+     * runs of escapes are, each by json_decode(). An escaped backslash is
+     * consumed first, so `\\u0052` stays a backslash and `u0052`. A run
+     * json_decode() refuses (a lone surrogate) is decoded escape by escape,
+     * and an escape it still refuses becomes U+FFFD, as a lenient decoder
+     * shows it. This adds a form; the text itself is searched as it is anyway.
      *
      * @throws TermCheckFailedException when the pattern engine gives up, which
      *                                  must not read as "no term" (X4)
@@ -347,34 +349,28 @@ final readonly class ExternalTextCheck
         }
 
         $decoded = preg_replace_callback(
-            '/\\\\(?:u([dD][89abAB][0-9a-fA-F]{2})\\\\u([dD][c-fC-F][0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|(["\\\\\/bfnrt]))/',
-            static function (array $match): string {
-                if ($match[1] !== '') {
-                    $high = (int) hexdec($match[1]);
-                    $low  = (int) hexdec($match[2]);
-
-                    return mb_chr(0x10000 + (($high - 0xD800) << 10) + ($low - 0xDC00), 'UTF-8') ?: "\u{FFFD}";
-                }
-
-                if ($match[3] !== '') {
-                    $code = (int) hexdec($match[3]);
-
-                    return $code >= 0xD800 && $code <= 0xDFFF ? "\u{FFFD}" : (mb_chr($code, 'UTF-8') ?: "\u{FFFD}");
-                }
-
-                return match ($match[4]) {
-                    'b'     => "\x08",
-                    'f'     => "\f",
-                    'n'     => "\n",
-                    'r'     => "\r",
-                    't'     => "\t",
-                    default => $match[4],
-                };
-            },
+            '/(?:\\\\(?:u[0-9a-fA-F]{4}|["\\\\\/bfnrt]))++/',
+            fn (array $match): string => $this->decodedRun($match[0]),
             $text,
         );
         if ($decoded === null) {
             throw new TermCheckFailedException('JSON escape pattern failed: ' . preg_last_error_msg(), 1799430101);
+        }
+
+        return $decoded;
+    }
+
+    private function decodedRun(string $run): string
+    {
+        $whole = json_decode('"' . $run . '"');
+        if (is_string($whole)) {
+            return $whole;
+        }
+
+        $decoded = '';
+        foreach (preg_split('/(?=\\\\)/', $run, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $escape) {
+            $one = json_decode('"' . $escape . '"');
+            $decoded .= is_string($one) ? $one : "\u{FFFD}";
         }
 
         return $decoded;

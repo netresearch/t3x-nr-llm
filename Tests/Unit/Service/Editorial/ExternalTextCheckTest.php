@@ -460,6 +460,18 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
      * An escaped backslash before a `u` is a backslash, not an escape: the
      * text says `\\u0052abatt` literally and holds no forbidden word.
      */
+    /**
+     * A digit written as an escape is the digit: `\u0030` is "0", which PHP
+     * reads as false, never U+FFFD.
+     */
+    #[Test]
+    public function aTermWithAZeroWrittenAsEscapesIsFound(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['A0'], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('{"post":"Modell \\u0041\\u0030 jetzt"}', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
     #[Test]
     public function anEscapedBackslashIsNotDecodedAsAnEscape(): void
     {
