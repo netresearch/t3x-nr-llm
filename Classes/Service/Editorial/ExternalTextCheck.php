@@ -385,8 +385,10 @@ final readonly class ExternalTextCheck
      */
     private function decodedJson(string $text): mixed
     {
-        $body = preg_replace('/(?:^\s*```[a-z0-9]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
-        $body = preg_replace('/(?:\A[\s\p{Z}\x{FEFF}]++)|(?:[\s\p{Z}\x{FEFF}]++\z)/u', '', $body) ?? $body;
+        $body = preg_replace('/^\s*```[a-z0-9]*\s*/i', '', $text) ?? $text;
+        $body = preg_replace('/\s*```\s*$/', '', $body) ?? $body;
+        $body = preg_replace('/\A[\s\p{Z}\x{FEFF}]++/u', '', $body) ?? $body;
+        $body = preg_replace('/[\s\p{Z}\x{FEFF}]++\z/u', '', $body) ?? $body;
         try {
             // Object mode: a node that was an object stays one, whatever
             // its keys look like, so every key is searched (strings()).

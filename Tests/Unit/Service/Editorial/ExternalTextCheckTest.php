@@ -715,9 +715,13 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         }
 
         $ruleSets = self::createStub(RuleSetResolver::class);
-        $ruleSets->method('forTags')->willReturnCallback(fn (): RuleSet => $ruleSetFailure instanceof Throwable ? throw $ruleSetFailure : RuleSet::fromSnippets(
-            $this->ruleText === '' ? [] : [['name' => 'Ton', 'text' => $this->ruleText, 'dataClass' => null]],
-        ));
+        $ruleSets->method('forTags')->willReturnCallback(function () use ($ruleSetFailure): RuleSet {
+            if ($ruleSetFailure instanceof Throwable) {
+                throw $ruleSetFailure;
+            }
+
+            return RuleSet::fromSnippets($this->ruleText === '' ? [] : [['name' => 'Ton', 'text' => $this->ruleText, 'dataClass' => null]]);
+        });
 
         if (!$judge instanceof RuleJudge) {
             $judge = self::createStub(RuleJudge::class);
