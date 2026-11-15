@@ -11,7 +11,7 @@ ADR-278: A2A is an agent interface in both roles
 
 :Status: Accepted (amended)
 :Date: 2026-11-10
-:Amended: 2026-11-15 (MCP now has durable tasks; nr-llm offers none, and A2A
+:Amended: 2026-11-15 (MCP has durable tasks; nr-llm offers none, and A2A
    stays its agent-to-agent interface; see the amendment at the end)
 :Authors: Netresearch DTT GmbH
 
@@ -138,19 +138,20 @@ Amendment (2026-11-15): MCP has tasks; nr-llm does not offer them
 =================================================================
 
 The context above says that MCP covers neither request because "an MCP server
-offers tools that the calling model drives step by step". That was true of the
-MCP core when this record was written and is no longer the whole picture.
-SEP-2663, "Tasks Extension" (status Final, extensions track, identifier
-``io.modelcontextprotocol/tasks``), moves the experimental tasks of the
-2025-11-25 specification out of the core into an official extension, and the
-changelog of the 2026-07-28 specification lists that move. With the
-extension, a server may answer a ``tools/call`` with a durable task handle
-instead of a result. The client polls the task with ``tasks/get``, answers a
-task in the state ``input_required`` with ``tasks/update``, and cancels it
-with ``tasks/cancel``. Tasks exist for ``tools/call`` only, and a server must
-not return a task handle to a client that did not declare the extension on
-that request. Sources:
-`SEP-2663 <https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/seps/2663-tasks-extension.md>`__
+offers tools that the calling model drives step by step". That describes the
+MCP core, and it was not the whole picture even on 2026-11-10. SEP-2663,
+"Tasks Extension" (status Final, extensions track, identifier
+``io.modelcontextprotocol/tasks``), was accepted in May 2026 and moves the
+experimental tasks of the 2025-11-25 specification out of the core into an
+official extension; the changelog of the 2026-07-28 specification lists that
+move. With the extension, a server may answer a ``tools/call`` with a durable
+task handle instead of a result. The client polls the task with
+``tasks/get``, answers a task in the state ``input_required`` with
+``tasks/update``, and cancels it with ``tasks/cancel``. Tasks currently exist
+for ``tools/call`` only. A client declares the extension in the capabilities
+it sends with each request (there is no separate ``task`` flag on a call), and
+a server must not return a task handle to a client that did not. Sources:
+`SEP-2663 <https://github.com/modelcontextprotocol/modelcontextprotocol/blob/9b44c6b4dcd2451bc49abd39e47eda36b396e8dd/seps/2663-tasks-extension.md>`__
 and the extension repository
 `modelcontextprotocol/ext-tasks <https://github.com/modelcontextprotocol/ext-tasks>`__.
 
@@ -162,11 +163,12 @@ and the extension repository
 - A2A stays the interface through which another agent gives nr-llm a task and
   through which nr-llm gives one to another agent. A remote caller of a
   published skill reaches it over A2A, as this record decided.
-- The sentence in the context is read as a statement about the MCP core of
-  2026-11-10. The difference that remains is the one this record relies on: an
-  A2A agent publishes skills and runs a task on its own, with its own model and
-  configuration; an MCP task is still the result of one tool call that the
-  calling model chose.
+- The reason is not that MCP cannot carry a long-running task; with the
+  extension it can, and a server may run its own agent behind a tool call.
+  The reasons are that nr-llm has no MCP server to offer tasks from, and that
+  A2A defines what this record needs beyond one task: an agent card that
+  publishes skills, a context across turns, ``ListTasks``, push notifications
+  and ``AUTH_REQUIRED``.
 
 **What this does not decide.** Whether a later change offers a published
 skill to MCP clients as well, through tasks or through plain start, status,
@@ -176,7 +178,7 @@ support the extension today was not checked.
 
 Consequences of the amendment:
 
-- ● The record no longer states something about MCP that a reader can refute
-  from the current MCP specification.
+- ● The context sentence is now read as a statement about the MCP core; the
+  amendment names the extension it left out.
 - ◑ "MCP does not cover it" is no longer a reason against an MCP bridge; the
   reason left is that nr-llm has no MCP server to put one in.

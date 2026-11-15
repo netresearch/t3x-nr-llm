@@ -75,13 +75,13 @@ depends on.
 
 | Stage | Adds | Depends on | Status |
 | --- | --- | --- | --- |
-| 0 | This specification and ADR-278 to ADR-285; the stage-0 spike (SDK and HTTP-adapter measurement, interop smoke, pinned proto fixture) | — | merged (#1340) |
+| 0 | This specification and ADR-278 to ADR-285; the stage-0 spike (SDK and HTTP-adapter measurement, interop smoke, pinned proto fixture) | — | merged (#1340; proto fixture #1343, interop job #1348) |
 | 1 | Client: remote-agent records, card import, `A2aClient` (SendMessage, GetTask, ListTasks, CancelTask), send-intent journal, client-side ownership, CLI example | 0 | merged (#1343, #1344, #1345) |
 | 2 | Runtime: the dependency status and checkpoint, the delegation tool, the polling coordinator, resume, cancel propagation, the result store and the A2A event journal | 1 | merged (#1347) |
 | 3 | Server: frontend endpoint, client records, publication profiles, agent card, JSON-RPC methods, transactional acceptance, worker execution, TCK fixture and CI job | 2 | merged (#1348) |
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
-| 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | in progress (#1378); on `main` both methods answer `UnsupportedOperationError` |
-| 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | not built; the push methods answer `PushNotificationNotSupportedError` |
+| 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | in progress (#1378); on `main` both methods answer `-32004` UnsupportedOperation |
+| 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | not built; the push methods answer `-32003` PushNotificationNotSupported |
 | 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | not built; the server accepts `text/plain` parts only |
 
 Each stage is released only with its own gates (see "Verification") and the
