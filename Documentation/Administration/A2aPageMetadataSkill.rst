@@ -106,8 +106,9 @@ identifier and one of these reasons:
    descriptions; 100 for the SEO, Open Graph and X titles.
 
 ``page_not_read`` (rule ``page_metadata_read_first``)
-   The run has not called ``get_page_content`` yet. Any call counts, also
-   one that answered that a page was not found; the rule does not know which
+   The run has no ``get_page_content`` call with the outcome ``ok`` yet.
+   Such a call counts for any page, also when it answered that a page was
+   not found; the rule does not know which
    page was read. This rule is asked
    when the call runs, after its approval, so an editor can approve a write
    that is then refused.

@@ -66,8 +66,9 @@ invocation history, so it is asked before the approval card (ADR-293).
 ``get_page_content`` **earlier in the run.** That answer depends on the
 history, which before the card does not yet hold the calls of the same turn,
 so this rule is asked only when the call runs, after its approval. A read
-and a write the model asks for in one turn are shown together, and the write
-runs after the read. A run whose history is incomplete (a requeued run, a
+and a write the model asks for in one turn, in that order, are shown
+together, and the write runs after the read; in the other order the write is
+refused after its approval. A run whose history is incomplete (a requeued run, a
 state suspended without one) may have lost an earlier read: unless it reads
 again, its writes of this skill are refused (``history_incomplete``), and
 every other call is left alone.

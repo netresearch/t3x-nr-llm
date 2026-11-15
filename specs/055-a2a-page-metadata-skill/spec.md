@@ -85,12 +85,13 @@ rule's identifier.
   subtitle, nav_title, keywords, twitter_card 255; abstract 1000;
   description, og_description, twitter_description 300; seo_title, og_title,
   twitter_title 100 characters): `value_not_allowed`.
-- **PC4 Read first.** A successful `get_page_content` of any page earlier
-  in the run: `page_not_read`, by the rule `page_metadata_read_first`. It
+- **PC4 Read first.** A `get_page_content` call with the outcome `ok`
+  earlier in the run, of any page and including its answer that a page was
+  not found: `page_not_read`, by the rule `page_metadata_read_first`. It
   depends on the history and is asked when the call runs, after its
   approval (ADR-293); a read and a write in one turn reach the approval. A
-  run with an incomplete history has its writes of this skill refused
-  (`history_incomplete`); other calls are not affected.
+  run with an incomplete history and no read since has its writes of this
+  skill refused (`history_incomplete`); other calls are not affected.
 - **PC5 Unchanged.** The row's `tstamp` as the client's workspace shows it
   (its draft version when one exists, else the live row) is not later than
   the task's creation: `changed_since_accepted`. `tstamp`
