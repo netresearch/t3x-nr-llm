@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aPushRegistrationStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aCallFailedException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
@@ -42,6 +43,9 @@ use Throwable;
  * checkpoint names the send row, and a run can hold several, so there is no
  * row to pick without it. The remote task then runs on.
  *
+ * The push registration of the delegation closes with the run (spec 051
+ * A2A-PUSH8).
+ *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 final readonly class A2aDependencyCanceller implements DependencyCancellerInterface
@@ -55,6 +59,7 @@ final readonly class A2aDependencyCanceller implements DependencyCancellerInterf
         private A2aClient $client,
         private WorkerVaultScope $vaultScope,
         private ?LoggerInterface $logger = null,
+        private ?A2aPushRegistrationStore $pushRegistrations = null,
     ) {}
 
     public function cancelWaiting(AgentRun $run): bool
@@ -67,6 +72,10 @@ final readonly class A2aDependencyCanceller implements DependencyCancellerInterf
         $intent = $checkpoint instanceof DependencyCheckpoint ? $this->journal->findForRun($run->uid, $checkpoint->journalUid) : null;
         if ($intent instanceof A2aSendIntent && $intent->remoteTaskId !== '') {
             $this->cancelRemote($intent);
+        }
+
+        if ($checkpoint instanceof DependencyCheckpoint) {
+            $this->closePush($checkpoint->journalUid);
         }
 
         return true;
@@ -97,6 +106,21 @@ final readonly class A2aDependencyCanceller implements DependencyCancellerInterf
             }
         });
         $this->record($intent, $outcome);
+    }
+
+    /**
+     * The push registration of the cancelled delegation closes with it, so the
+     * remote's later callbacks are refused (spec 051 A2A-PUSH8). A failure is
+     * logged; the poller's sweep removes a registration whose run no longer
+     * waits.
+     */
+    private function closePush(int $sendUid): void
+    {
+        try {
+            $this->pushRegistrations?->close($sendUid);
+        } catch (Throwable $e) {
+            $this->logger?->error('The push registration of a cancelled delegation could not be closed', ['intent' => $sendUid, 'exception' => $e]);
+        }
     }
 
     /**

@@ -479,6 +479,69 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
     }
 
+    /**
+     * Cancelling a waiting run closes its registration with it: a later
+     * callback with the right credential is 401 and stores nothing, and the
+     * callbacks already stored go too.
+     */
+    #[Test]
+    public function cancellingAWaitingRunClosesItsRegistration(): void
+    {
+        $this->agent();
+        [$run]      = $this->suspendedRun();
+        $credential = 'Bearer ' . $this->credentialOf(1);
+        self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+
+        self::assertTrue($this->canceller()->cancelWaiting($this->runOf($run->uuid)));
+
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::TABLE));
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+    }
+
+    /**
+     * At the deadline the run resumes with "timed out" and its registration
+     * closes.
+     */
+    #[Test]
+    public function theDeadlineClosesTheRegistration(): void
+    {
+        $this->agent();
+        [, $checkpoint] = $this->suspendedRun();
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+
+        self::assertSame(1, $this->poller()->tick($checkpoint->deadline)->timedOut);
+
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::TABLE));
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), 'Bearer ' . $this->credentialOf(1))->getStatusCode());
+    }
+
+    /**
+     * A run that ended any other way (failed, reaped, settled by another
+     * path) no longer waits: its registration accepts no callback, and the
+     * next poller tick deletes the registration and its callbacks, so they
+     * no longer count against the inbox bound.
+     */
+    #[Test]
+    public function aRegistrationOfARunThatNoLongerWaitsAcceptsNothing(): void
+    {
+        $this->agent();
+        [$run]      = $this->suspendedRun();
+        $credential = 'Bearer ' . $this->credentialOf(1);
+        self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['status' => AgentRunStatus::FAILED->value], ['uid' => $run->uid]);
+
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+
+        $this->poller()->tick(time());
+
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::TABLE));
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+    }
+
     // ------------------------------------------------------------------
 
     /**
@@ -652,7 +715,7 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
 
     private function canceller(): A2aDependencyCanceller
     {
-        return new A2aDependencyCanceller($this->persister, $this->journal, $this->getService(A2aRemoteAgentRepository::class), $this->client(), $this->vaultScope());
+        return new A2aDependencyCanceller($this->persister, $this->journal, $this->getService(A2aRemoteAgentRepository::class), $this->client(), $this->vaultScope(), pushRegistrations: $this->store());
     }
 
     private function registry(): ToolRegistry

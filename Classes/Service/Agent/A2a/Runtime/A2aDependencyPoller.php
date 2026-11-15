@@ -51,8 +51,9 @@ use Psr\Log\LoggerInterface;
  * - A push callback the receiver stored (A2A-PUSH8) brings the next look
  *   forward, to the record's minimum interval after the last look, never
  *   closer. The look is GetTask as the owner; the callback body decides
- *   nothing. Each look reconciles the callbacks received until then; the
- *   push registration closes when the run resumes.
+ *   nothing. Each look reconciles the callbacks received until then; at the
+ *   end of each tick the registrations of runs that ended, those resumed
+ *   in the tick included, are closed.
  *
  * Every remote call runs as the intent's owner inside the worker's vault scope,
  * and so does the continued run. Polling stays the repair path when push
@@ -105,6 +106,10 @@ final readonly class A2aDependencyPoller
             }
         } while (count($page) === $limit);
 
+        // Push registrations of runs that no longer run or wait, those this
+        // tick resumed included, close here (A2A-PUSH8).
+        $this->pushInbox?->closeEnded();
+
         // The worker's retry of a projection that failed after its commit
         // (A2A-R15): from the committed task view, never by running anything.
         $report->projected = $this->projector?->projectPending($limit) ?? 0;
@@ -155,7 +160,6 @@ final readonly class A2aDependencyPoller
                 $this->canceller->cancelRemote($intent);
             });
             $report->timedOut += $result instanceof AgentRunResult ? 1 : 0;
-            $this->pushInbox?->close($intent->uid);
 
             return;
         }
@@ -177,7 +181,6 @@ final readonly class A2aDependencyPoller
         $this->pushInbox?->looked($intent->uid, $now);
         if ($task instanceof ToolResult) {
             $report->resumed += $this->resume($run, $checkpoint, $task) instanceof AgentRunResult ? 1 : 0;
-            $this->pushInbox?->close($intent->uid);
 
             return;
         }
@@ -185,7 +188,6 @@ final readonly class A2aDependencyPoller
         $state = $task?->status->state;
         if ($task instanceof A2aTask && $state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted())) {
             $report->resumed += $this->resume($run, $checkpoint, A2aToolResults::task($title, $task)) instanceof AgentRunResult ? 1 : 0;
-            $this->pushInbox?->close($intent->uid);
 
             return;
         }

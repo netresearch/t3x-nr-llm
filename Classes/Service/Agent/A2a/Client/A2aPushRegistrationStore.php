@@ -30,8 +30,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   worker has not reconciled yet; the bound per registration is checked
  *   under a lock on the registration row, the bound in total in the same
  *   transaction.
- * - The registration and its inbox are removed when the dependency resolves,
- *   and with their run by the run purge.
+ * - Only a registration whose run is running or waits for its remote task
+ *   accepts a callback. The registration and its inbox are removed when the dependency
+ *   resolves or the run is cancelled, by the poller's sweep once the run has
+ *   ended any other way, and with their run by the run purge.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -59,6 +61,15 @@ final readonly class A2aPushRegistrationStore
 
     /** States in which a callback is accepted. */
     private const OPEN_STATES = [self::STATE_PENDING, self::STATE_ACTIVE, self::STATE_OUTCOME_UNKNOWN];
+
+    private const RUN_TABLE = 'tx_nrllm_agentrun';
+
+    /**
+     * The run statuses in which a registration takes callbacks: running (the
+     * delegation tool registers while its segment runs) and waiting for the
+     * remote task (ADR-281).
+     */
+    private const RUN_OPEN = ['running', 'waiting_for_dependency'];
 
     /** Compared when no registration matched, so both paths hash and compare. */
     private const NO_HASH = '0000000000000000000000000000000000000000000000000000000000000000';
@@ -124,7 +135,7 @@ final readonly class A2aPushRegistrationStore
     {
         $prefix = self::prefixOf($credential);
         $row    = $prefix !== null
-            ? $this->connection()->select(['uid', 'credential_hash', 'state'], self::TABLE, ['credential_prefix' => $prefix])->fetchAssociative()
+            ? $this->connection()->select(['uid', 'credential_hash', 'state', 'run_uid'], self::TABLE, ['credential_prefix' => $prefix])->fetchAssociative()
             : false;
         $hash  = is_array($row) && is_string($row['credential_hash'] ?? null) ? $row['credential_hash'] : self::NO_HASH;
         $valid = hash_equals($hash, hash('sha256', $credential));
@@ -133,7 +144,41 @@ final readonly class A2aPushRegistrationStore
             return null;
         }
 
-        return (int) $row['uid'];
+        // A run that ended (cancelled, failed, reaped, completed) takes no
+        // callback, even before its registration is closed.
+        $status = $this->connectionPool->getConnectionForTable(self::RUN_TABLE)
+            ->select(['status'], self::RUN_TABLE, ['uid' => is_numeric($row['run_uid'] ?? null) ? (int) $row['run_uid'] : 0])
+            ->fetchOne();
+
+        return in_array($status, self::RUN_OPEN, true) ? (int) $row['uid'] : null;
+    }
+
+    /**
+     * Close every registration whose run is neither running nor waiting for
+     * its remote task, or is gone: the paths that end a run without the poller (a failure, the
+     * reaper, a cancel whose close failed) leave one behind otherwise.
+     *
+     * @return int the registrations closed
+     */
+    public function closeEnded(): int
+    {
+        $builder = $this->connection()->createQueryBuilder();
+        $rows    = $builder
+            ->select('r.send_uid', 'a.status')
+            ->from(self::TABLE, 'r')
+            ->leftJoin('r', self::RUN_TABLE, 'a', $builder->expr()->eq('a.uid', $builder->quoteIdentifier('r.run_uid')))
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $closed = 0;
+        foreach ($rows as $row) {
+            if (!in_array($row['status'] ?? null, self::RUN_OPEN, true) && is_numeric($row['send_uid'] ?? null)) {
+                $this->close((int) $row['send_uid']);
+                ++$closed;
+            }
+        }
+
+        return $closed;
     }
 
     /**

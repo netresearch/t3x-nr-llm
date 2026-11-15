@@ -343,9 +343,13 @@ the next ``GetTask`` forward.
    as reconciled. When the run continues, its registration and its callbacks
    are deleted; a later callback is 401, and a duplicate never continues a
    run twice.
--  **Cleanup.** Registrations and callbacks are deleted when the run
-   continues, and with their run by ``nrllm:privacy:purge``. The remote's
-   config is not deleted; a sender that keeps posting gets 401.
+-  **Cleanup.** A registration takes callbacks only while its run is running
+   or waiting for the remote task. Registrations and their callbacks are
+   deleted when the run continues (with the remote's result or at its
+   deadline) or is cancelled, by ``nrllm:a2a:poll`` once the run has ended
+   any other way (it failed, was reaped), and with their run by
+   ``nrllm:privacy:purge``. The remote's config is not deleted; a sender that
+   keeps posting gets 401.
 
 ..  _administration-a2a-remote-agents-limits:
 
