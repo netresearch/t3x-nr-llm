@@ -390,6 +390,27 @@ final class A2aSseTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SSE3: a slot whose lease ran out cannot be bound back to life: a
+     * stream of the same client admitted meanwhile counted it out, and
+     * reviving it would put the client over its limit.
+     */
+    #[Test]
+    public function aLapsedSlotCannotBeBoundBackOverTheLimit(): void
+    {
+        $slots = $this->getService(A2aStreamSlots::class);
+        $lower = $slots->take(2, '', 2, 1, 3, 1000);
+        self::assertIsString($lower);
+        $lapsed = $slots->take(1, '', 2, 1, 3, 1000);
+        self::assertIsString($lapsed, 'slot 2');
+        $slots->release($lower);
+        $now = 1001 + A2aStreamSlots::LEASE_SECONDS;
+        self::assertIsString($slots->take(1, 'task-x', 2, 1, 3, $now), 'admitted into slot 1: the lapsed slot 2 no longer counts');
+
+        self::assertFalse($slots->bind($lapsed, 'task-y', 2, $now));
+        self::assertSame(1, (int) $this->db(A2aStreamSlots::TABLE)->executeQuery('SELECT COUNT(*) FROM ' . A2aStreamSlots::TABLE . " WHERE client_uid = 1 AND holder <> '' AND expires >= " . $now)->fetchOne(), 'the client stays at its limit of one');
+    }
+
+    /**
      * A2A-SSE3: the client is checked again before events are sent that a
      * poll returned after the renewal was due, a terminal one included.
      */

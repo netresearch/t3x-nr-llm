@@ -102,14 +102,24 @@ final readonly class A2aStreamSlots
     /**
      * Name the task a slot taken for a not yet existing task reads, with a
      * fresh lease: the acceptance in between may have taken a while. False
-     * when the slot is gone (its lease ran out during the acceptance and
-     * another stream took it), and false, with the task taken off the slot
+     * when the slot is gone or its lease ran out during the acceptance (the
+     * caller then takes a fresh slot, which checks every limit again), and
+     * false, with the task taken off the slot
      * again, when the task then has more than $perTask live streams. The
      * caller releases the slot.
      */
     public function bind(string $holder, string $taskId, int $perTask, int $now): bool
     {
-        if ($this->connection()->update(self::TABLE, ['task_id' => $taskId, 'expires' => $now + self::LEASE_SECONDS], ['holder' => $holder]) !== 1) {
+        // Only a lease that has not run out is extended, as in renew(): a
+        // lapsed slot no longer counts, and the streams admitted since must
+        // not find it alive again.
+        $connection = $this->connection();
+        $bound      = $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(self::TABLE) . ' SET task_id = ?, expires = ? WHERE holder = ? AND expires >= ?',
+            [$taskId, $now + self::LEASE_SECONDS, $holder, $now],
+            [Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
+        );
+        if ($bound !== 1) {
             return false;
         }
 
