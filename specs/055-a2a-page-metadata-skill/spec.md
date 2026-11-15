@@ -43,9 +43,13 @@ to what the request names.
   profile grants it; no other tool.
 - **PM5 Setup.** The handler refuses with `-32004` "This skill is not
   available." and logs the reason when the profile does not write or does not
-  grant `get_page_content` and `update_page_metadata`, when the client is not
-  pinned to a draft workspace, or when the LLM configuration does not require
-  a draft workspace (ADR-293) and the scope of an assignment (ADR-295).
+  grant `get_page_content` and `update_page_metadata`, or when the LLM
+  configuration does not require a draft workspace (ADR-293) and the scope of
+  an assignment (ADR-295). A client not pinned to a draft workspace is refused
+  before the handler, as for every writing profile (spec 051 A2A-MT5).
+- **PM4a Fields.** The requested fields are named in the run's message; this
+  handler does not hold the write tool to them (the tool accepts any of its
+  fields on the scoped row). A pre-write rule does.
 - **PM6 Result.** The task's artifacts are those of a writing A2A task: the
   answer as text and the `writes` artifact of A2A-MT6.
 

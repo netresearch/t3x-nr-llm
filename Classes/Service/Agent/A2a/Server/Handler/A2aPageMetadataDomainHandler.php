@@ -40,7 +40,11 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * fixed here, from the checked values, so no text of the client and no answer
  * of the model can widen it, and a queued, paused or resumed run keeps it.
  *
- * The user message of the run is built from the checked values only. The run
+ * The user message of the run is built from the checked values only. The
+ * field list is an instruction to the model in this handler; the write tool
+ * accepts any of its fields on the scoped row, and a pre-write rule holds the
+ * call to the list. A client that is not pinned to a draft workspace never
+ * reaches this handler: the server refuses a writing profile for it first. The run
  * may use `get_page_content` and `update_page_metadata`, and `ask_choice` when
  * the profile grants it, and nothing else; it runs only when the profile grants
  * the first two and may write. Its LLM configuration must
@@ -142,7 +146,6 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             !in_array(self::READ_TOOL, $context->toolNames, true)  => 'the profile does not grant get_page_content',
             !$context->configuration->getRequireDraftWorkspace()   => 'its LLM configuration does not require a draft workspace',
             !$context->configuration->getRequireAssignmentScope()  => 'its LLM configuration does not require the scope of an assignment',
-            ($context->actor->workspaceId ?? 0) < 1                => 'the client is not pinned to a draft workspace',
             default                                                => null,
         };
 

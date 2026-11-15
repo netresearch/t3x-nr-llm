@@ -71,8 +71,9 @@ user may not read. Version 1 does not create a translation.
 profile lists is not offered to this run.
 
 **The skill runs only where the installation is set up for it.** The profile
-must be writing and grant both tools, and the client must be pinned to a draft
-workspace. The LLM configuration must require a draft workspace
+must be writing and grant both tools; a client that is not pinned to a draft
+workspace is already refused by the server for any writing profile (spec 051
+A2A-MT5). The LLM configuration must require a draft workspace
 (:ref:`ADR-293 <adr-293>`) and the scope of an assignment
 (:ref:`ADR-295 <adr-295>`), so that the same configuration reached through
 another profile cannot write without them. Otherwise the request is refused
@@ -91,10 +92,15 @@ second approver applies as it does to every A2A run.
 Consequences
 ============
 
-- ●● A client cannot widen what the run writes, through its text or through
-  the model: the scope is fixed from checked values before the task exists,
-  and every later write, also after a question and the client's answer, is
-  checked against it by the rule and the DataHandler hook of ADR-295.
+- ●● A client cannot widen which row the run writes, through its text or
+  through the model: the scope is fixed from checked values before the task
+  exists, and every later write, also after a question and the client's
+  answer, is checked against it by the rule and the DataHandler hook of
+  ADR-295. Which fields of that row are written is an instruction to the
+  model here; holding the call to the requested fields is the work of a
+  pre-write rule.
+- ◑ Reads are not scoped: ``get_page_content`` reads what the technical user
+  may read, and the answer goes back to the client, as with ``nr_llm.text``.
 - ● A wrong request costs no task, no run and no capacity, and the client
   learns which rule it broke.
 - ◑ The contract is documented, not machine-readable on the agent card. A

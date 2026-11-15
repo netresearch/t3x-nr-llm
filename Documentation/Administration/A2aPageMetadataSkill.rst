@@ -13,8 +13,8 @@ The domain handler ``nr_llm.page_metadata.v1`` publishes one defined task
 through the :ref:`A2A server role <administration-a2a-server>`: write the
 named metadata fields of one page in one language, as a draft in the
 client's workspace (:ref:`ADR-296 <adr-296>`). The client sends checked
-values instead of prose, and the run is held to the page, the table
-``pages`` and the language the request names.
+values instead of prose, and the run's writes are held to the page, the
+table ``pages`` and the language the request names.
 
 ..  _a2a-page-metadata-skill-request:
 
@@ -73,7 +73,12 @@ What the run may do
   ``ask_choice`` when the profile grants it. Other tools of the profile are
   not offered to this skill.
 - Its user message is written by the handler from the checked values and
-  names the record to update. Nothing the client writes reaches the model.
+  names the record to update and the requested fields. The client's text
+  does not reach the model; after an ``ask_choice`` question, the client's
+  answer does, as one of the options the model offered.
+- The requested fields are an instruction to the model. The write tool
+  accepts any of its fields on the scoped row; the approval card shows which
+  fields a call sets.
 - A write waits for an approval in the backend like every A2A write. A
   configuration that requires a second approver applies as to every run.
 
@@ -92,11 +97,13 @@ Setting it up
    ``nr_llm.page_metadata.v1``, that configuration, the two tools (and
    ``ask_choice`` if the run may ask the client), and :guilabel:`May write`.
 #. Pin the client that may call it to a draft workspace its technical user
-   is a member of.
+   is a member of, and give that user read access to the pages and edit
+   access to the languages the skill may work on.
 
 When the profile or the configuration does not meet these conditions, a
 request is answered with ``-32004`` "This skill is not available." and the
-reason is logged as a warning.
+reason is logged as a warning. A client that is not pinned to a draft
+workspace is refused earlier, as for every writing profile.
 
 ..  _a2a-page-metadata-skill-result:
 
