@@ -24,7 +24,8 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
  *
  * Every URL in it is built from the site's configured base URL. It declares
  * only what the installation offers: streaming when `a2a.server.streaming` is
- * on (A2A-OPS2), no push notifications, no extended card; one bearer scheme; the profile selector extension, not required; and
+ * on (A2A-OPS2), push notifications when `a2a.server.push` is on, no
+ * extended card; one bearer scheme; the profile selector extension, not required; and
  * one skill per public publication profile that can be served now: its
  * handler is available here, and its configuration is switched on and keeps
  * a result under the current privacy policy (ADR-282). A profile that cannot is left out rather
@@ -62,7 +63,7 @@ final readonly class A2aAgentCardBuilder
             'version'      => $this->version(),
             'capabilities' => [
                 'streaming'         => $this->settings->streamingEnabled(),
-                'pushNotifications' => false,
+                'pushNotifications' => $this->settings->pushEnabled(),
                 'extensions'        => [[
                     'uri'         => A2aSendMessageHandler::PROFILE_EXTENSION,
                     'description' => 'Names the skill a SendMessage is for: SendMessageRequest.metadata["' . A2aSendMessageHandler::PROFILE_EXTENSION . '"] = <skill id>. Required when the client may call more than one skill.',

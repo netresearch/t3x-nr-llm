@@ -21,6 +21,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aClientAccess;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aProfileToolList;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushConfigStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aResumeGuard;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
@@ -828,6 +829,7 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
             $this->getService(ConnectionPool::class),
             $this->getService(DurableDecisionIntakeInterface::class),
             $this->getService(A2aClientAccess::class),
+            $this->getService(A2aPushConfigStore::class),
             null,
             $bus,
         );

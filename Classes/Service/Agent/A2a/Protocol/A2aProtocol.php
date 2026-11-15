@@ -40,6 +40,14 @@ final class A2aProtocol
 
     public const METHOD_SUBSCRIBE_TO_TASK = 'SubscribeToTask';
 
+    public const METHOD_CREATE_PUSH_CONFIG = 'CreateTaskPushNotificationConfig';
+
+    public const METHOD_GET_PUSH_CONFIG = 'GetTaskPushNotificationConfig';
+
+    public const METHOD_LIST_PUSH_CONFIGS = 'ListTaskPushNotificationConfigs';
+
+    public const METHOD_DELETE_PUSH_CONFIG = 'DeleteTaskPushNotificationConfig';
+
     /** The media type of a streaming method's answer (A2A-SSE1). */
     public const EVENT_STREAM_CONTENT_TYPE = 'text/event-stream';
 

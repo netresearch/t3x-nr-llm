@@ -59,9 +59,18 @@ final class A2aRequestFieldNames
             'return_immediately'            => null,
         ],
         'TaskPushNotificationConfig' => [
-            'task_id' => null,
+            'task_id'        => null,
+            'authentication' => 'AuthenticationInfo',
         ],
-        'GetTaskRequest' => [
+        'AuthenticationInfo'                     => [],
+        'GetTaskPushNotificationConfigRequest'   => ['task_id' => null],
+        'ListTaskPushNotificationConfigsRequest' => [
+            'task_id'    => null,
+            'page_size'  => null,
+            'page_token' => null,
+        ],
+        'DeleteTaskPushNotificationConfigRequest' => ['task_id' => null],
+        'GetTaskRequest'                          => [
             'history_length' => null,
         ],
         'ListTasksRequest' => [
@@ -84,6 +93,11 @@ final class A2aRequestFieldNames
         // SendStreamingMessage takes a SendMessageRequest (proto rpc).
         A2aProtocol::METHOD_SEND_STREAMING_MESSAGE => 'SendMessageRequest',
         A2aProtocol::METHOD_SUBSCRIBE_TO_TASK      => 'SubscribeToTaskRequest',
+        // CreateTaskPushNotificationConfig takes the config itself (proto rpc).
+        A2aProtocol::METHOD_CREATE_PUSH_CONFIG => 'TaskPushNotificationConfig',
+        A2aProtocol::METHOD_GET_PUSH_CONFIG    => 'GetTaskPushNotificationConfigRequest',
+        A2aProtocol::METHOD_LIST_PUSH_CONFIGS  => 'ListTaskPushNotificationConfigsRequest',
+        A2aProtocol::METHOD_DELETE_PUSH_CONFIG => 'DeleteTaskPushNotificationConfigRequest',
     ];
 
     /**

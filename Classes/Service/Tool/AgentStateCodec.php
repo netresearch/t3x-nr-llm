@@ -60,6 +60,9 @@ final readonly class AgentStateCodec
     /** The payload of an A2A event journal row (ADR-282). */
     public const PURPOSE_A2A_EVENT = 'nrllm:a2a:event';
 
+    /** The token and credential of an A2A push config (ADR-285). */
+    public const PURPOSE_A2A_PUSH_CREDENTIAL = 'nrllm:a2a:push-credential';
+
     public function __construct(
         private EnvelopeCodecInterface $envelopeCodec,
     ) {}

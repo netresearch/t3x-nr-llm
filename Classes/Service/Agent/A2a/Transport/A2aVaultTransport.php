@@ -188,7 +188,10 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
      */
     private function prepare(A2aHttpRequest $request): A2aTransportResult|array
     {
-        $target = $this->guardFactory->create()->check(A2aUrlGuardFactory::GROUP_AGENT, $request->url);
+        // A push webhook has host lists of its own (ADR-285); every other
+        // request goes to a registered remote agent.
+        $guard  = $request->egressGroup === A2aUrlGuardFactory::GROUP_EXTERNAL ? $this->guardFactory->createForPush() : $this->guardFactory->create();
+        $target = $guard->check($request->egressGroup, $request->url);
         if (!$target->allowed) {
             return A2aTransportResult::notSent('ADDRESS_REFUSED', $target->reason);
         }

@@ -16,9 +16,9 @@ client sends a message to one of them. The message becomes an agent run that a
 worker executes; the client receives the result as an A2A task
 (:ref:`ADR-280 <adr-280>`, :ref:`ADR-282 <adr-282>`, :ref:`ADR-283 <adr-283>`).
 
-This page covers stages 3, 4 and 5a of spec 051: tasks, a client that
-answers a task waiting for input, and streams. Push notifications and file
-parts are not offered (stages 5b and 5c).
+This page covers stages 3 to 5b of spec 051: tasks, a client that answers a
+task waiting for input, streams, and push notifications to a client's
+webhook. File parts are not offered (stage 5c).
 
 Switch it on
 ============
@@ -230,6 +230,48 @@ Task states
    detail, ``CANCELED``, and ``REJECTED`` when the input was refused before
    the run started. The result is kept at the run's answer level and purged
    with the run (:ref:`ADR-282 <adr-282>`).
+
+Push notifications
+==================
+
+Push is off by default. Switched on with :guilabel:`Send A2A push notifications`
+(``a2a.server.push``), the agent card declares ``pushNotifications`` and a
+client can register webhooks for its own tasks, with
+``CreateTaskPushNotificationConfig`` or embedded in ``SendMessage``
+(:ref:`ADR-285 <adr-285>`). Another client's task is not found.
+
+- **Targets.** A webhook must be an https URL and pass the address guard when
+  it is registered and again before every delivery: public addresses only, no
+  host of this installation, and the host lists ``a2a.push.allowedHosts`` and
+  ``a2a.push.deniedHosts``, which are separate from those of the remote
+  agents. Through an HTTP proxy only with ``a2a.push.allowViaProxy`` and an
+  allowlist.
+- **Credentials.** The one supported scheme is a Bearer credential in
+  ``authentication``; it is sent as ``Authorization: Bearer``. The optional
+  ``token`` is stored and returned but never sent. Both are stored sealed,
+  like the run state; ``Get`` and ``List`` answer the credential masked.
+- **No update.** A ``Create`` with the id of an existing config of the same
+  task replaces it. ``Delete`` is idempotent. A task has at most
+  ``a2a.server.maxPushConfigsPerTask`` (default 4) configs, a client
+  ``a2a.server.maxPushConfigsPerClient`` (default 100).
+- **Delivery.** Every stored change of a task writes one delivery job per
+  config in the same transaction. ``nrllm:a2a:poll`` delivers them; schedule
+  it at least every minute while push is on. No request ever calls a
+  webhook. A delivery is an HTTP POST of ``{"task": …}`` with
+  ``Content-Type: application/a2a+json``: the task as it is when it is sent,
+  without history, so an older job not yet sent is superseded by the newest.
+  The timeout is 15 seconds.
+- **Outcomes.** 2xx acknowledges. A timeout, a broken connection, 429, 502,
+  503, 504 and a redirect are retried after 5, 10, 20 … seconds, at most
+  eight attempts and within a day; then the job is abandoned and logged. 401
+  and 403 pause the config (``auth_failed``); 404, 410 and a refused address
+  stop it (``stopped``). A paused or stopped config sends nothing more; the
+  client registers a new one. Any other answer fails that one delivery.
+- **After a delete** no new attempt starts. A request already on its way may
+  still arrive.
+- **In the backend** the configs are records of the type
+  :guilabel:`A2A Push Config` on the root page, read-only, with their state
+  and the reason of the last refusal; the credential is not shown.
 
 Limits and protection
 =====================

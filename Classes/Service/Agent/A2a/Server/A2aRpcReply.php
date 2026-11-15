@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 use Closure;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
 use Psr\Http\Message\ResponseInterface;
+use stdClass;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\NullResponse;
 
@@ -49,7 +50,8 @@ final readonly class A2aRpcReply
      */
     public static function result(int|string|null $id, array $result): self
     {
-        return new self(200, ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result], []);
+        // An empty result is the proto's `Empty`, a JSON object, never `[]`.
+        return new self(200, ['jsonrpc' => '2.0', 'id' => $id, 'result' => $result === [] ? new stdClass() : $result], []);
     }
 
     public static function error(int|string|null $id, A2aRpcError $error): self

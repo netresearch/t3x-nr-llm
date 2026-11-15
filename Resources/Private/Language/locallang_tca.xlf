@@ -1681,6 +1681,36 @@
             <trans-unit id="tx_nrllm_a2a_agent.read_timeout_seconds.description">
                 <source>Upper bound for one request, from sending to the last byte of the response.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config">
+                <source>A2A Push Config</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.url">
+                <source>Webhook URL</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state">
+                <source>State</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state.active">
+                <source>Active</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state.auth_failed">
+                <source>Paused: the receiver refused the credential</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.state.stopped">
+                <source>Stopped: the target is gone or not allowed</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.reason">
+                <source>Reason</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.config_id">
+                <source>Config ID</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.task_uid">
+                <source>Task (UID)</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_push_config.owner_client_uid">
+                <source>Client</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_client">
                 <source>A2A Client</source>
             </trans-unit>

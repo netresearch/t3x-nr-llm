@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aErrorCode;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRemoteError;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushDeliverer;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
@@ -72,6 +73,7 @@ final readonly class A2aDependencyPoller
         private WorkerVaultScope $vaultScope,
         private ?A2aTaskProjector $projector = null,
         private ?LoggerInterface $logger = null,
+        private ?A2aPushDeliverer $pushes = null,
         ?Closure $jitter = null,
     ) {
         $this->jitter = $jitter ?? static fn (int $interval): int => random_int(0, max(0, intdiv($interval, 4)));
@@ -98,6 +100,10 @@ final readonly class A2aDependencyPoller
         // The worker's retry of a projection that failed after its commit
         // (A2A-R15): from the committed task view, never by running anything.
         $report->projected = $this->projector?->projectPending($limit) ?? 0;
+
+        // The push outbox of the server role (A2A-PUSH3): delivered here, in
+        // the worker, never in a request.
+        $report->pushed = $this->pushes?->deliverDue($now, $limit) ?? 0;
 
         return $report;
     }

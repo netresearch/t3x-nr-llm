@@ -19,7 +19,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 /**
  * One tick of the A2A polling coordinator (spec 051 A2A-R10). Schedule it
  * like `nrllm:agent:work`, at least as often as the shortest minimum poll
- * interval of the remote agent records.
+ * interval of the remote agent records. It also delivers the push
+ * notifications of the server role (A2A-PUSH3).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -51,13 +52,14 @@ final class A2aPollCommand extends Command
 
         $report = $this->poller->tick(time(), (int) $limit);
         $output->writeln(sprintf(
-            'Resumed %d, timed out %d, still waiting %d, not due %d, failed %d; %d task event(s) projected.',
+            'Resumed %d, timed out %d, still waiting %d, not due %d, failed %d; %d task event(s) projected, %d push notification(s) delivered.',
             $report->resumed,
             $report->timedOut,
             $report->waiting,
             $report->notDue,
             $report->failed,
             $report->projected,
+            $report->pushed,
         ));
 
         return Command::SUCCESS;

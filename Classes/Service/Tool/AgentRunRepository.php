@@ -49,6 +49,10 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_A2A_WRITE = 'tx_nrllm_a2a_write';
 
+    private const TABLE_A2A_PUSH_CONFIG = 'tx_nrllm_a2a_push_config';
+
+    private const TABLE_A2A_PUSH_OUTBOX = 'tx_nrllm_a2a_push_outbox';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -1394,6 +1398,16 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             ->delete(self::TABLE_A2A_WRITE)
             ->where($writes->expr()->in('task_uid', $writes->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
             ->executeStatement();
+
+        // A task's push configs, with their sealed credentials, and their
+        // delivery jobs (spec 051 A2A-PUSH1, A2A-PUSH3) go with it too.
+        foreach ([self::TABLE_A2A_PUSH_OUTBOX, self::TABLE_A2A_PUSH_CONFIG] as $pushTable) {
+            $push = $this->connectionPool->getConnectionForTable($pushTable)->createQueryBuilder();
+            $push
+                ->delete($pushTable)
+                ->where($push->expr()->in('task_uid', $push->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
+        }
 
         // Then the tasks: the projector writes an event only under a lock on its
         // task row, so a projection still running holds this delete, and one

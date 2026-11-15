@@ -62,6 +62,10 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
         'tx_nrllm_a2a_event' => [
             'payload' => AgentStateCodec::PURPOSE_A2A_EVENT,
         ],
+        'tx_nrllm_a2a_push_config' => [
+            'token'       => AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL,
+            'credentials' => AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL,
+        ],
     ];
 
     /**

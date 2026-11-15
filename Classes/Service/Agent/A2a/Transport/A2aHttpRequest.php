@@ -32,5 +32,6 @@ final readonly class A2aHttpRequest
         public int $timeoutSeconds,
         public int $maxResponseBytes,
         public string $reason,
+        public string $egressGroup = A2aUrlGuardFactory::GROUP_AGENT,
     ) {}
 }
