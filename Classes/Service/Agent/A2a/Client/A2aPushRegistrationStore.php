@@ -302,6 +302,14 @@ final readonly class A2aPushRegistrationStore
         }
 
         $this->connection()->transactional(static function (Connection $connection) use ($uid): void {
+            // Lock the registration row first, in the same order as store():
+            // a callback stored at the same moment then either commits before
+            // this delete sees its inbox row, or finds no registration.
+            $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier(self::TABLE) . ' SET uid = uid WHERE uid = ?',
+                [$uid],
+                [Connection::PARAM_INT],
+            );
             $connection->delete(self::INBOX_TABLE, ['registration_uid' => $uid]);
             $connection->delete(self::TABLE, ['uid' => $uid]);
         });
