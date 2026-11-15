@@ -50,10 +50,14 @@ because TYPO3 13.4's ``HashService`` offers SHA-1 only. An empty encryption
 key gives no digest.
 
 - ``arguments`` is the digest of the call's final arguments, after any input
-  a human typed (:ref:`ADR-216 <adr-216>` item 5). The runtime fills it for
-  every entry of a call it decided or executed.
-- ``state`` is the digest of a record state a tool observed. It covers the
-  table, the uid and the listed fields with their values.
+  a human typed (:ref:`ADR-216 <adr-216>` item 5). The runtime fills it at
+  every ``append()`` of a call; a call refused before any rule saw it may
+  carry it or not, since only an ``ok`` entry is ever compared.
+- ``state`` is the digest of a record state a tool observed: the canonical
+  form of an object with the table, the uid, and the listed fields as a map
+  from field name to value (so their order does not matter). Only an ``ok``
+  result carries one; ``withObservedState()`` on an error result is ignored,
+  as ``withWriteTarget()`` is.
 
 **One public class,** ``InvocationDigests``, **computes both.**
 ``arguments(array)`` returns the digest of an arguments map, or ``null``
@@ -63,19 +67,23 @@ the workspace the writing tools write into), takes exactly the listed
 fields, writes each value as a string (``null`` stays ``null``), and returns
 an ``ObservedState``. It returns ``null``, and so no digest, when that
 workspace shows no such row (deleted, a version of another workspace, a
-table without versioning seen from a draft workspace) or a listed field is
-not a column of the table. ``ObservedState`` holds only a digest; its
+table without versioning seen from a draft workspace), the table is unknown,
+the field list is empty, or a listed field is not a column of the table. ``ObservedState`` holds only a digest; its
 constructor refuses anything but the ``v1:`` format and is ``@internal``,
-so tools take one from ``observe()``. A tool reports it through
-``ToolResult::withObservedState(ObservedState)``, carried by every
-``ToolResult`` wither, and the runtime copies its digest into the entry.
+so tools take one from ``observe()``; its digest is the public readonly
+property ``digest``. A tool reports it through
+``ToolResult::withObservedState(ObservedState)``, kept as the public
+readonly property ``observedState`` and carried by every ``ToolResult``
+wither, and the runtime copies its digest into the entry.
 
 A rule computes ``arguments()`` of the call in front of it and
 ``observe()`` of the same record and fields now, and compares both with the
 stored entry. Equal means the same final arguments and the same
-fields as the run's workspace shows them. Which fields count is the tool's
-and rule's shared declaration, in the sense of :ref:`ADR-184 <adr-184>`:
-the fields the check judged, not ``tstamp``.
+fields as the run's workspace shows them. When either returns ``null`` at
+that moment, the rule refuses. Which fields count is the tool's and rule's
+shared declaration: the fields the check judged, not ``tstamp``, which a
+hook moves without a relevant change (the same reason
+:ref:`ADR-184 <adr-184>` gives).
 
 **Canonical form, version 1.** The JSON encoding of the value, where an
 array that is not a list has its keys sorted as strings
@@ -106,24 +114,24 @@ which again fails closed.
 **The public surface grows additively.** ``ToolInvocationHistory::append()``
 gains two optional trailing ``?string`` parameters (``null`` omits the
 key), an entry's array shape gains the two optional keys, ``ToolResult``
-gains ``withObservedState(ObservedState)`` and ``observedState()``, and
+gains ``withObservedState(ObservedState)`` and the property
+``observedState``, and
 ``InvocationDigests`` and ``ObservedState`` are public, so that a tool and a
 rule, in nr-llm or outside it, compute the same digests.
 
 **A binding rule is asked when the call runs.** Its answer depends on the
 history, which before the approval card does not hold the calls of the same
 turn, so it does not implement ``PreApprovalInvocationRuleInterface``
-(:ref:`ADR-293 <adr-293>`). A check and a write in one turn are shown
-together; the write runs after the check and is compared then.
+(:ref:`ADR-293 <adr-293>`). The write runs after the check of the same
+turn and is compared then; in a run with a pinned process the check may
+already have run before the card, which changes nothing for the rule.
 
 **The first users** are a check tool and the contract rule of the A2A page
 metadata skill: a write of the skill must be preceded by a successful check
 of exactly its arguments, and the record must still be in the state that
 check observed. The check tool takes exactly the write tool's arguments, so
 the same map can be checked and written. A check whose verdict is negative
-reports ``failed``, so only a passed check counts. A write whose arguments a
-human changed by typed input no longer matches its check, and the model
-checks again.
+reports ``failed``, so only a passed check counts.
 
 Consequences
 ============
@@ -131,7 +139,8 @@ Consequences
 - ●● A rule can require that a check ran on the very proposal being written
   and that the record has not changed since; checking one variant and writing
   another, and writing over a changed record, are refused before the write
-  runs. No clock is compared.
+  runs. No clock is compared. A change between the rule's comparison and
+  the write itself is not seen, as with :ref:`ADR-184 <adr-184>`.
 - ◑ The refusal comes after the approval: an editor can approve a write
   that is then refused, and nothing is written. After an ADR-184 re-ask the
   second approval can be refused the same way.
