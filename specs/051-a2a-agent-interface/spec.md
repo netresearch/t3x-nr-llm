@@ -67,8 +67,8 @@ item of the cross-check against a second plan they come from in brackets
 
 ## Stages
 
-Every stage below is in scope. Stages 0 to 4 are implemented on `main`; 5a is
-in progress and 5b and 5c are not built yet. The Status column says where each
+Every stage below is in scope. Stages 0 to 5a are implemented on `main`; 5b
+and 5c are not built yet. The Status column says where each
 stage stands, and the change that completes a stage updates its row. The stages
 are an implementation order, nothing more: a stage builds on the ones it
 depends on.
@@ -80,7 +80,7 @@ depends on.
 | 2 | Runtime: the dependency status and checkpoint, the delegation tool, the polling coordinator, resume, cancel propagation, the result store and the A2A event journal | 1 | merged (#1347) |
 | 3 | Server: frontend endpoint, client records, publication profiles, agent card, JSON-RPC methods, transactional acceptance, worker execution, TCK fixture and CI job | 2 | merged (#1348) |
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
-| 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | in progress (#1378); on `main` both methods answer `-32004` UnsupportedOperation |
+| 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | implemented (#1378) |
 | 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | not built; the push methods answer `-32003` PushNotificationNotSupported |
 | 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | not built; the server accepts `text/plain` parts only |
 
