@@ -49,7 +49,8 @@ Integration
 :ref:`ADR-188 <adr-188>`,
 :ref:`ADR-278 <adr-278>`,
 :ref:`ADR-294 <adr-294>`,
-:ref:`ADR-296 <adr-296>`.
+:ref:`ADR-296 <adr-296>`,
+:ref:`ADR-297 <adr-297>`.
 
 .. _adr-api-design:
 

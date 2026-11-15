@@ -2,7 +2,8 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A2A skill: the metadata of one page in one language, as a draft
 
-Governing decision: ADR-296 (amends ADR-295). Builds on spec 051 (A2A server
+Governing decisions: ADR-296 (amends ADR-295) and ADR-297 (amends
+ADR-296). Builds on spec 051 (A2A server
 role, stage 4: the first write capability) and ADR-295 (the scope of an
 assignment). Baseline: `main` at 485306afe.
 
@@ -52,11 +53,39 @@ to what the request names.
   configuration does not require a draft workspace (ADR-293) and the scope of
   an assignment (ADR-295). A client not pinned to a draft workspace is refused
   before the handler, as for every writing profile (spec 051 A2A-MT5).
-- **PM4a Fields.** The requested fields are named in the run's message; this
+- **PM4a Fields.** The requested fields are named in the run's message; the
   handler does not hold the write tool to them (the tool accepts any of its
-  fields on the scoped row).
+  fields on the scoped row). The rule of PC2 does.
 - **PM6 Result.** The task's artifacts are those of a writing A2A task: the
   answer as text and the `writes` artifact of A2A-MT6.
+
+## Contract rule (ADR-297)
+
+The rule `page_metadata_contract` (a pre-approval invocation rule) holds
+every call of `update_page_metadata` in a run whose A2A task belongs to a
+profile with the handler `nr_llm.page_metadata.v1`. It reads the request
+from the task's first message with the handler's parser. A refusal goes back
+to the model and into the governance log as `invocation_denied` with the
+rule's identifier.
+
+- **PC1 Row.** A call aimed at the requested row (the page, or its
+  translation in the requested language, as the client's workspace shows
+  them) is checked by PC2 to PC5. The requested row no longer existing is
+  `not_the_requested_row`. A call aimed at another row is left to the scope
+  (PM3), whose reason the model reads; an unreadable request is
+  `request_unreadable`.
+- **PC2 Fields.** Only fields the request names, at least one:
+  `field_not_requested`.
+- **PC3 Values.** Each value non-empty text within its limit (title,
+  subtitle, nav_title, keywords, twitter_card 255; abstract 1000;
+  description, og_description, twitter_description 300; seo_title, og_title,
+  twitter_title 100 characters): `value_not_allowed`.
+- **PC4 Read first.** A successful `get_page_content` earlier in the run:
+  `page_not_read`.
+- **PC5 Unchanged.** The row's `tstamp` in the workspace is not later than
+  the task's creation: `changed_since_accepted`.
+- **PC6 Only this skill.** A run without an A2A task, or whose task belongs to
+  another handler, is not held.
 
 ## Not in scope
 
@@ -65,8 +94,8 @@ to what the request names.
 - Creating a missing translation.
 - A second approver specific to this skill; a configuration that requires one
   applies as to every A2A run.
-- Rules on the values written (lengths, "unchanged since read"): spec 055 is
-  extended for them separately.
+- A check bound to the exact proposal and the data state it read: the
+  invocation history records no arguments and no results.
 
 ## Proof
 
@@ -77,4 +106,10 @@ to what the request names.
 | PM3 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` (the stored actor), `::aWriteToAnotherPageIsRefusedAsOutsideTheScope`, `::theTranslationRowReachesTheApprovalAndTheDefaultLanguageRowIsRefused`, `::theScopeHoldsAfterAQuestionAndTheClientsAnswer` (scripted model, the container's policies) |
 | PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |
-| PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler) |
+| PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler); `A2aPageMetadataContractRuleTest::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` end to end |
+| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse` (functional) |
+| PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
+| PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`) |
+| PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` |
+| PC5 | `A2aPageMetadataContractRuleTest::aRowChangedAfterTheTaskWasAcceptedIsRefused` |
+| PC6 | `A2aPageMetadataContractRuleTest::aTaskOfAnotherSkillIsNotHeldToTheContract` |

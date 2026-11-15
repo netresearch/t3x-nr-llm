@@ -78,11 +78,43 @@ What the run may do
   names the record to update and the requested fields. The client's text
   does not reach the model; after an ``ask_choice`` question, the client's
   answer does, as one of the options the model offered.
-- The requested fields are an instruction to the model. The write tool
-  accepts any of its fields on the scoped row; the approval card shows which
-  fields a call sets.
+- A write must meet the request before it reaches an approval (see below).
 - A write waits for an approval in the backend like every A2A write. A
   configuration that requires a second approver applies as to every run.
+
+..  _a2a-page-metadata-skill-contract:
+
+What a write must meet
+======================
+
+The invocation rule ``page_metadata_contract`` (:ref:`ADR-297 <adr-297>`)
+checks every call of ``update_page_metadata`` in a run of this skill before
+it reaches an approval. A call that fails is refused, the model reads why,
+and the governance log records ``invocation_denied`` with the rule's
+identifier and one of these reasons:
+
+``field_not_requested``
+   The call sets a field the request did not name, or none.
+
+``value_not_allowed``
+   A value is empty, not text, or longer than its limit: 255 characters for
+   title, subtitle, navigation title, keywords and X card; 1000 for the
+   abstract; 300 for the description and the Open Graph and X
+   descriptions; 100 for the SEO, Open Graph and X titles.
+
+``page_not_read``
+   The run has not read the page with ``get_page_content`` yet.
+
+``changed_since_accepted``
+   The row changed after the task was accepted. The client sends the task
+   again.
+
+``not_the_requested_row``, ``request_unreadable``
+   The requested row no longer exists in the workspace, or the task's
+   request cannot be read.
+
+A call aimed at another page, table or language is refused by the scope
+with its own reason (``outside_scope``, ``language_not_allowed``).
 
 ..  _a2a-page-metadata-skill-setup:
 

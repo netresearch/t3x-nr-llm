@@ -301,4 +301,5 @@ All decision records
    Adr294AnEditorMayIssueA2aTokensThatActAsThemselves
    Adr295ARunIsBoundToTheScopeOfItsAssignment
    Adr296AnA2aSkillBindsItsRunToTheScopeOfItsRequest
+   Adr297APageMetadataWriteMeetsItsRequestBeforeItsApproval
    Adr303ANonAdminRunReadsTheMetadataOfAFileItMayAccess
