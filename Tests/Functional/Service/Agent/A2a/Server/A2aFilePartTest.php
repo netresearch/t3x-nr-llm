@@ -762,6 +762,25 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-OPS2: with files switched off after a task was accepted, the
+     * worker neither fetches nor reads its files, and the task fails before
+     * the model is asked.
+     */
+    #[Test]
+    public function withFilesSwitchedOffTheWorkerReadsNoFile(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $taskId = self::text($this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => 'text/plain']]))['id'] ?? '');
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a']['files']['enabled'] = '0';
+
+        $this->runTask($taskId, $this->preparerAnswering(new Response(200, [], 'Fetched notes.')));
+
+        self::assertSame([[], []], [$this->fetched, $this->asked]);
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf($taskId)->statusEnum());
+    }
+
+    /**
      * A file host that answers 503 is a transient failure: nothing is
      * stored, the file stays pending, and the model is not asked.
      */

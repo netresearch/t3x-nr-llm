@@ -315,7 +315,9 @@ Files
 Off by default. With :guilabel:`Accept A2A files (server role)`
 (``a2a.files.enabled``) on, a client message may carry file parts besides its
 text (:ref:`ADR-284 <adr-284>`). Off, every part other than ``text/plain``
-text is refused with ``-32005``, as before.
+text is refused with ``-32005``, as before. Switched off while a task with
+files waits for the worker, that task fails before its files are fetched
+or read.
 
 What is accepted
    A ``raw`` part (the bytes, base64 in the JSON) that names its

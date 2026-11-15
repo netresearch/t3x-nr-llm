@@ -80,10 +80,17 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
         }
 
         $taskUid = is_numeric($task['uid'] ?? null) ? (int) $task['uid'] : 0;
-        $rows    = $this->store->rowsOfTask($taskUid, $owner);
-        $vision  = $this->seesImages($request);
-        $count   = count($manifest);
-        $rows    = $this->fetchPending($manifest, $rows, $taskUid, $owner);
+        // A2A-OPS2: with files switched off no input file is fetched or read;
+        // a task accepted while they were on fails rather than running
+        // without its files.
+        if (!$this->settings->enabled()) {
+            throw new RunStartRefusedException('A2A files are switched off; the input files of the task are not read', 1799700201);
+        }
+
+        $rows   = $this->store->rowsOfTask($taskUid, $owner);
+        $vision = $this->seesImages($request);
+        $count  = count($manifest);
+        $rows   = $this->fetchPending($manifest, $rows, $taskUid, $owner);
         foreach ($manifest as $index => $entry) {
             $row   = $rows[$entry['fileId']] ?? throw new RunStartRefusedException('an input file of the A2A task is gone', 9693795336);
             $bytes = $this->approvedBytes($row, $entry, $owner);
