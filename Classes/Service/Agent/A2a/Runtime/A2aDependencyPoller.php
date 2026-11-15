@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * The polling coordinator of the A2A client (spec 051 A2A-R10, ADR-281): one
@@ -51,9 +52,11 @@ use Psr\Log\LoggerInterface;
  * - A push callback the receiver stored (A2A-PUSH8) brings the next look
  *   forward, to the record's minimum interval after the last look, never
  *   closer. The look is GetTask as the owner; the callback body decides
- *   nothing. Each look deletes the callbacks received until it began; at the
- *   end of each tick the registrations of runs that ended, those resumed
- *   in the tick included, are closed.
+ *   nothing. Each look deletes the callbacks received until it began. The
+ *   registration of a delegation closes once the poller claims its run with
+ *   the remote's result or at the deadline, before the run continues, so it
+ *   is closed even when the run goes on to wait for another delegation. At
+ *   the end of each tick the registrations of runs that ended are closed.
  *
  * Every remote call runs as the intent's owner inside the worker's vault scope,
  * and so does the continued run. Polling stays the repair path when push
@@ -239,11 +242,34 @@ final readonly class A2aDependencyPoller
     }
 
     /**
+     * Once the run is claimed and before it continues, the delegation's push
+     * registration closes (A2A-PUSH8), then $onClaimed runs.
+     *
      * @param (Closure(): void)|null $onClaimed
      */
     private function resume(AgentRun $run, DependencyCheckpoint $checkpoint, ToolResult $result, ?Closure $onClaimed = null): ?AgentRunResult
     {
-        return $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->resume($run, $checkpoint, $result, $onClaimed));
+        $claimed = function () use ($checkpoint, $onClaimed): void {
+            $this->closePush($checkpoint->journalUid);
+            if ($onClaimed instanceof Closure) {
+                $onClaimed();
+            }
+        };
+
+        return $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->resume($run, $checkpoint, $result, $claimed));
+    }
+
+    /**
+     * A failure is logged and does not stop the run; the sweep at the end of
+     * a tick removes the registration once the run has ended.
+     */
+    private function closePush(int $sendUid): void
+    {
+        try {
+            $this->pushInbox?->close($sendUid);
+        } catch (Throwable $e) {
+            $this->logger?->error('The push registration of a resolved delegation could not be closed', ['intent' => $sendUid, 'exception' => $e]);
+        }
     }
 
     private function nextInterval(?A2aRemoteAgent $agent, int $previous): int

@@ -599,7 +599,82 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
     }
 
+    /**
+     * A2A-PUSH8: when the remote's result continues the run, the
+     * delegation's registration closes at once, even when the run goes on to
+     * wait for a second delegation: the first credential is refused and
+     * stores nothing, the second one is accepted.
+     */
+    #[Test]
+    public function aResolvedDelegationClosesItsRegistrationWhileTheRunWaitsAgain(): void
+    {
+        [$first, $second] = $this->runThatDelegatesTwice(deadline: false);
+
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $first)->getStatusCode());
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+        self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $second)->getStatusCode());
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+    }
+
+    /**
+     * The same at the deadline: the run continues with "timed out", waits
+     * for a second delegation, and the first registration is closed.
+     */
+    #[Test]
+    public function aTimedOutDelegationClosesItsRegistrationWhileTheRunWaitsAgain(): void
+    {
+        [$first, $second] = $this->runThatDelegatesTwice(deadline: true);
+
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $first)->getStatusCode());
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+        self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $second)->getStatusCode());
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+    }
+
     // ------------------------------------------------------------------
+
+    /**
+     * A run delegates, suspends, is continued by the poller (with the
+     * remote's result, or at the deadline) and delegates again, so it waits
+     * for the second remote task when the tick ends.
+     *
+     * @return array{string, string} the Authorization headers of the first and the second registration
+     */
+    private function runThatDelegatesTwice(bool $deadline): array
+    {
+        $this->agent();
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_SUBMITTED')]]);
+        $this->transport->thenJson(['result' => ['id' => 'remote-config-1', 'taskId' => 'task-1', 'url' => self::PUSH_URL]]);
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+
+        $runtime = $this->runtime([
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'summarise the report'])]),
+            $this->toolTurn([new ToolCall('d2', $this->skillTool(), ['message' => 'summarise the appendix'])]),
+            $this->finalTurn('both summaries are in'),
+        ]);
+        $suspended = $runtime->run($this->request());
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $suspended->outcome, (string) $suspended->error);
+        $run     = $this->runOf($suspended->runUuid);
+        $decoded = json_decode((string) $run->suspendedState, true);
+        self::assertIsArray($decoded);
+        $checkpoint = DependencyCheckpoint::fromStoredState($decoded);
+        self::assertInstanceOf(DependencyCheckpoint::class, $checkpoint);
+
+        // The look (or, at the deadline, CancelTask), then the second delegation.
+        $this->transport->thenJson(['result' => $this->task('task-1', $deadline ? 'TASK_STATE_CANCELED' : 'TASK_STATE_COMPLETED', 'Three things.')]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-2', 'TASK_STATE_SUBMITTED')]]);
+        $this->transport->thenJson(['result' => ['id' => 'remote-config-2', 'taskId' => 'task-2', 'url' => self::PUSH_URL]]);
+        $this->transport->thenJson(['result' => $this->task('task-2', 'TASK_STATE_WORKING')]);
+
+        $report = $this->poller()->tick($deadline ? $checkpoint->deadline : $this->lastLookAt() + 10);
+
+        self::assertSame(1, $deadline ? $report->timedOut : $report->resumed);
+        self::assertSame(['SendMessage', 'CreateTaskPushNotificationConfig', 'GetTask', $deadline ? 'CancelTask' : 'GetTask', 'SendMessage', 'CreateTaskPushNotificationConfig', 'GetTask'], $this->methods());
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($run->uuid)->statusEnum(), 'waits for the second delegation');
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::TABLE), 'only the second registration is left');
+
+        return ['Bearer ' . $this->credentialOf(1), 'Bearer ' . $this->credentialOf(5)];
+    }
 
     /**
      * Runs the delegation until it suspends. Without $scripted, the remote

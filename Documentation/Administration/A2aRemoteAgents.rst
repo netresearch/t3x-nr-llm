@@ -347,7 +347,8 @@ the next ``GetTask`` forward.
 -  **Cleanup.** A registration takes callbacks only while its run is running
    or waiting for the remote task. Registrations and their callbacks are
    deleted when the run continues (with the remote's result or at its
-   deadline) or is cancelled, by ``nrllm:a2a:poll`` once the run has ended
+   deadline, also when the run then waits for another delegation) or is
+   cancelled, by ``nrllm:a2a:poll`` once the run has ended
    any other way (it failed, was reaped), and with their run by
    ``nrllm:privacy:purge``. The remote's config is not deleted; a sender that
    keeps posting gets 401.

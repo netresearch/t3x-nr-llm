@@ -32,9 +32,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   bound per registration is checked under a lock on the registration row,
  *   the bound in total in the same transaction.
  * - Only a registration whose run is running or waits for its remote task
- *   accepts a callback. The registration and its inbox are removed when the dependency
- *   resolves or the run is cancelled, by the poller's sweep once the run has
- *   ended any other way, and with their run by the run purge.
+ *   accepts a callback. The registration and its inbox are removed when its
+ *   dependency resolves (with the remote's result or at the deadline, also
+ *   when the run goes on to wait for another delegation) or the run is
+ *   cancelled, by the poller's sweep once the run has ended any other way,
+ *   and with their run by the run purge.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
