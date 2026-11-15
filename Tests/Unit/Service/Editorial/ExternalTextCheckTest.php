@@ -486,6 +486,8 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         yield 'duplicate member' => ['{"post":"\\u0052abatt","post":"clean"}'];
         yield 'nested duplicate member' => ['{"a":{"post":"clean","post":"clean"}}'];
         yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"clean"}'];
+        yield 'lone surrogate other decoders accept' => ['{"t":"\\u0052abatt","z":"\\ud800"}'];
+        yield 'nesting deeper than PHP decodes' => [str_repeat('[', 600) . '"\\u0052abatt"' . str_repeat(']', 600)];
     }
 
     #[Test]
@@ -509,10 +511,31 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
     {
         $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
 
-        $deep = str_repeat('[', 600) . '"Rabatt"' . str_repeat(']', 600);
-
-        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check($deep, $this->configuration(RuleJudgeMode::OFF))->status);
         self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('Der 24" Monitor mit Rabatt', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * A string value that starts with a colon is no key.
+     */
+    #[Test]
+    public function aValueStartingWithAColonIsNoDuplicateKey(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        $report = $this->check()->check('{"tags":[":smile:", ":wink:"],"x":[" :b"]}', $this->configuration(RuleJudgeMode::OFF));
+
+        self::assertSame(ExternalTextStatus::PASSED, $report->status);
+    }
+
+    /**
+     * A key that decodes to an integer is searched as the digits it is.
+     */
+    #[Test]
+    public function aKeyThatDecodesToAnIntegerIsSearched(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['110'], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('{"\\u0031\\u0031\\u0030":1}', $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
     /**

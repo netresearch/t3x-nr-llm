@@ -333,11 +333,12 @@ final readonly class ExternalTextCheck
             return $forms;
         }
 
+        $parts = [$forms];
         foreach ($this->strings($structure) as $string) {
-            $forms = [...$forms, ...$this->matcher->searchForms($string)];
+            $parts[] = $this->matcher->searchForms($string);
         }
 
-        return $forms;
+        return array_merge(...$parts);
     }
 
     /**
@@ -358,7 +359,13 @@ final readonly class ExternalTextCheck
         $body = preg_replace('/(?:^\s*```[a-z0-9]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
         try {
             $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+        } catch (JsonException $refused) {
+            // A document other decoders read (a lone surrogate, deeper
+            // nesting) is not vouched for; anything else is no JSON.
+            if (in_array($refused->getCode(), [JSON_ERROR_DEPTH, JSON_ERROR_UTF16], true)) {
+                throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102, $refused);
+            }
+
             return null;
         }
 
@@ -369,16 +376,34 @@ final readonly class ExternalTextCheck
             throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102);
         }
 
-        $named = preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"\s*+:/', $body);
-        if ($named === false) {
-            throw new TermCheckFailedException('JSON key count failed: ' . preg_last_error_msg(), 1799430101);
-        }
-
-        if ($named !== $this->keyCount($objects)) {
+        if ($this->namedKeys($body) !== $this->keyCount($objects)) {
             throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102);
         }
 
         return $decoded;
+    }
+
+    /**
+     * The keys a document json_decode() accepted names: its string tokens,
+     * matched one after the other from the start (outside a string a valid
+     * document holds no quote), that a colon follows.
+     *
+     * @throws TermCheckFailedException when the pattern engine gives up
+     */
+    private function namedKeys(string $body): int
+    {
+        if (preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"/', $body, $tokens, PREG_OFFSET_CAPTURE) === false) {
+            throw new TermCheckFailedException('JSON key count failed: ' . preg_last_error_msg(), 1799430101);
+        }
+
+        $keys = 0;
+        foreach ($tokens[0] as [$token, $offset]) {
+            if (preg_match('/\G\s*+:/', $body, $colon, 0, $offset + strlen($token)) === 1) {
+                ++$keys;
+            }
+        }
+
+        return $keys;
     }
 
     private function keyCount(mixed $value): int
@@ -419,16 +444,19 @@ final readonly class ExternalTextCheck
             return [];
         }
 
-        $strings = [];
+        // An object key "110" is the integer 110 in array mode: it is searched
+        // as the digits it is. A list index is no text.
+        $parts = [];
+        $list  = array_is_list($value);
         foreach ($value as $key => $item) {
-            if (is_string($key)) {
-                $strings[] = $key;
+            if (!$list) {
+                $parts[] = [(string) $key];
             }
 
-            $strings = [...$strings, ...$this->strings($item)];
+            $parts[] = $this->strings($item);
         }
 
-        return $strings;
+        return array_merge(...$parts);
     }
 
     /**

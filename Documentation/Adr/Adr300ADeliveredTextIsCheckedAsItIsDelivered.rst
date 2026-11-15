@@ -51,8 +51,9 @@ no word limit:
   searched as it is. When it is one JSON document (a code fence around it
   allowed), ``json_decode()`` decodes it once and every key and every string
   value is searched too; nothing here lexes JSON. A document that names a key
-  twice, or a key only some decoders accept, cannot be vouched for, because
-  consumers differ in which member they keep: the term check fails and the
+  twice, a key only some decoders accept, a lone surrogate or nesting deeper
+  than ``json_decode()`` goes cannot be vouched for, because other decoders
+  read what PHP refuses or keep another member: the term check fails and the
   text blocks. A text that is no JSON is plain text: an escape in it is not
   decoded. A list is found by the configuration it names, as in the pipeline, so
   a further configuration that is hidden still brings its lists. Its judge
