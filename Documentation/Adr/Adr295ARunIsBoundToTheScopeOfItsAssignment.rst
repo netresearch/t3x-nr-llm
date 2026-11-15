@@ -11,6 +11,8 @@ ADR-295: A run is bound to the scope of its assignment
 
 :Status: Accepted
 :Date: 2026-11-14
+:Amended: 2026-11-15 by :ref:`ADR-296 <adr-296>` (the A2A page metadata skill
+   is the first starter that sets a scope)
 :Amends: :ref:`ADR-293 <adr-293>` (its "Task scope is not part of this change" and the matching revisit trigger), :ref:`ADR-292 <adr-292>` (the ``tool_changes`` step also lists the writes a scope refused)
 :Authors: Netresearch DTT GmbH
 

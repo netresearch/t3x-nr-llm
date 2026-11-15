@@ -300,4 +300,5 @@ All decision records
    Adr293AConfigurationCanRequireADraftWorkspace
    Adr294AnEditorMayIssueA2aTokensThatActAsThemselves
    Adr295ARunIsBoundToTheScopeOfItsAssignment
+   Adr296AnA2aSkillBindsItsRunToTheScopeOfItsRequest
    Adr303ANonAdminRunReadsTheMetadataOfAFileItMayAccess
