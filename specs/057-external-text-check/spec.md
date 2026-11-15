@@ -43,7 +43,8 @@ edited outside nr-llm can only be checked by generating it again.
   (as ADR-288 R10, one implementation for both callers).
 - **X8 Digests.** The report carries the SHA-256 of the exact text and a digest
   of the rule state: per configuration its judge mode, judge tags, judging
-  configuration and snippet tags, the text of its selected snippets and rule
+  configuration (its uid, active flag, model and provider) and snippet tags,
+  the text of its selected snippets and rule
   snippets, and its term lists. Snippets one run forces are not included.
 - **X9 Generator and judge apart.** The report names the judging configuration
   separately from the configuration whose text was checked.
@@ -94,4 +95,4 @@ edited outside nr-llm can only be checked by generating it again.
 | Requirement | Evidence |
 | --- | --- |
 | X1-X9 | `ExternalTextCheckTest`, functional `ExternalTextCheckWiringTest` (rule-state digest included) |
-| X7 shared | `RuleSetJudgeGuardrailTest` (unchanged behaviour after the extraction) |
+| X7 shared | `RuleSetJudgeGuardrailTest` (behaviour after the extraction), `ExternalTextCheckTest::aNamedWriterThatDoesNotExistCountsAsTheMostTrustedZone` (a named provider that is gone) |

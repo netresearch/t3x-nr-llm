@@ -89,8 +89,10 @@ of its selected snippets and rule snippets, and its term lists. Snippets a
 single run forces on top of its configuration are not part of it. The judging
 configuration is named apart from the configuration whose text was checked.
 
-The pipeline itself does not change. Its limits keep protecting the calls that
-are not editorial results.
+The pipeline's limits do not change; they keep protecting the calls that are
+not editorial results. The one change to the pipeline is in the shared egress
+rule: a serving provider a response names that no longer exists now counts as
+the most trusted zone, where it fell back to the configuration's provider.
 
 Consequences
 ============
