@@ -78,7 +78,8 @@ What the run may do
   names the record to update and the requested fields. The client's text
   does not reach the model; after an ``ask_choice`` question, the client's
   answer does, as one of the options the model offered.
-- A write must meet the request before it reaches an approval (see below).
+- A write must meet the request before it reaches an approval, and follow
+  a read of the page when it runs (see below).
 - A write waits for an approval in the backend like every A2A write. A
   configuration that requires a second approver applies as to every run.
 
@@ -97,19 +98,23 @@ identifier and one of these reasons:
    The call sets a field the request did not name, or none.
 
 ``value_not_allowed``
-   A value is not text, has no visible character, or is longer than its
-   limit: 255 characters for
+   A value is not text, has no visible character (control characters such
+   as U+0001 and fill characters such as U+3164 count as visible), or is
+   longer than its limit: 255 characters for
    title, subtitle, navigation title, keywords and X card; 1000 for the
    abstract; 300 for the description and the Open Graph and X
    descriptions; 100 for the SEO, Open Graph and X titles.
 
-``page_not_read``
+``page_not_read`` (rule ``page_metadata_read_first``)
    The run has not called ``get_page_content`` successfully yet. Any page
-   counts; the rule does not know which page was read.
+   counts; the rule does not know which page was read. This rule is asked
+   when the call runs, after its approval, so an editor can approve a write
+   that is then refused.
 
 ``changed_since_accepted``
-   The row's ``tstamp`` in the live or the client's workspace is later than
-   the task's acceptance. The client sends the task again. ``tstamp`` is the
+   The row's ``tstamp`` as the client's workspace shows it (its draft
+   version when one exists, else the live row) is later than the task's
+   acceptance. The client sends the task again. ``tstamp`` is the
    start of the request that wrote the row, so a save that started before
    the task was accepted is not seen.
 
@@ -124,7 +129,8 @@ identifier and one of these reasons:
    message content. Such a configuration cannot run this skill.
 
 A call aimed at another page, table or language is refused by the scope
-with its own reason (``outside_scope``, ``language_not_allowed``).
+with its own reason (``outside_scope``, ``language_not_allowed``,
+``scope_unresolvable``).
 
 ..  _a2a-page-metadata-skill-setup:
 

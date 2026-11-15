@@ -56,9 +56,18 @@ refuses the call. For a call aimed at the requested row it requires:
   per field (title, subtitle, navigation title, keywords, X card type 255;
   abstract 1000; description, Open Graph and X descriptions 300; SEO, Open
   Graph and X titles 100 characters);
-- a successful ``get_page_content`` earlier in the run;
 - the row unchanged since the task was accepted: its ``tstamp`` in the
   client's workspace is not later than the task's creation.
+
+The rule answers from the call, the task and the database, not from the
+invocation history, so it is asked before the approval card (ADR-293).
+
+**A second rule** ``page_metadata_read_first`` **requires a successful**
+``get_page_content`` **earlier in the run.** That answer depends on the
+history, which before the card does not yet hold the calls of the same turn,
+so this rule is asked only when the call runs, after its approval. A read
+and a write the model asks for in one turn are shown together, and the write
+runs after the read.
 
 A version row counts as the requested row only when it belongs to the live
 workspace or to the client's workspace.
@@ -79,9 +88,12 @@ change of the skill, reviewed like code.
 Consequences
 ============
 
-- ●● A field the client did not ask for, an overlong value and a write
-  without a read are refused before any human sees the call, and the refusal
-  names the rule in the governance log.
+- ●● A field the client did not ask for and an overlong value are refused
+  before any human sees the call, and the refusal names the rule in the
+  governance log.
+- ◑ A write without a read reaches the approval card and is refused after
+  the editor approved it; nothing is written, and the model reads the
+  reason.
 - ● A row changed by an editor after the task was accepted is not written
   over by a proposal built on the older state; the client sends the task
   again.
@@ -103,10 +115,13 @@ Consequences
   write of the skill for the same reason.
 - ◑ The limits are fixed per contract version; an installation that wants
   others needs a new version.
+- ◑ The rule reads the profile's handler when the call is decided. An
+  administrator who changes the handler of a profile while a call waits for
+  its approval switches the contract off for that task.
 - ✕ One more database read per ``update_page_metadata`` call of every run
   (the task lookup); a run without an A2A task stops there.
 
-Net Score: +1
+Net Score: 0
 
 Alternatives considered
 =======================

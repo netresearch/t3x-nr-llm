@@ -87,9 +87,12 @@ rule's identifier.
   description, og_description, twitter_description 300; seo_title, og_title,
   twitter_title 100 characters): `value_not_allowed`.
 - **PC4 Read first.** A successful `get_page_content` of any page earlier
-  in the run: `page_not_read`.
-- **PC5 Unchanged.** The row's `tstamp` in the live or the client's workspace
-  is not later than the task's creation: `changed_since_accepted`. `tstamp`
+  in the run: `page_not_read`, by the rule `page_metadata_read_first`. It
+  depends on the history and is asked when the call runs, after its
+  approval (ADR-293); a read and a write in one turn reach the approval.
+- **PC5 Unchanged.** The row's `tstamp` as the client's workspace shows it
+  (its draft version when one exists, else the live row) is not later than
+  the task's creation: `changed_since_accepted`. `tstamp`
   is the writer's `EXEC_TIME`, the start of its request, so a writer that
   started before the task was accepted and saved after it is not seen.
 - **PC6 Only this skill.** A run without an A2A task, or whose task belongs to
@@ -123,6 +126,6 @@ rule's identifier.
 | PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
 | PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
 | PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (only whitespace and format characters) |
-| PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` |
+| PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` (refused after the approval, no draft), `::aReadAndAWriteInOneTurnReachTheApproval` |
 | PC5 | `A2aPageMetadataContractRuleTest::aRowChangedAfterTheTaskWasAcceptedIsRefused` |
 | PC6 | `A2aPageMetadataContractRuleTest::aTaskOfAnotherSkillIsNotHeldToTheContract`, `::aHiddenProfileDoesNotSwitchTheContractOff` (a hidden profile is still held; a missing one refuses), `::aHistoryPastItsCapIsNotReadAsTheRequest` |
