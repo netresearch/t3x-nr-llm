@@ -14,7 +14,9 @@ ADR-288: A rule set can be judged by a second model
 :Amends: :ref:`ADR-243 <adr-243>` (a prose rule can be checked),
    :ref:`ADR-238 <adr-238>` (in the opt-in block mode a model's verdict blocks)
 :Amended: 2026-11-11 by :ref:`ADR-290 <adr-290>` (a call that names further
-   configurations is judged by each of their judges; the strictest mode decides)
+   configurations is judged by each of their judges; the strictest mode decides);
+   2026-11-15 by :ref:`ADR-300 <adr-300>` (the egress rule of R10 is shared with
+   the check of a delivered text)
 :Authors: Netresearch DTT GmbH
 
 Context
