@@ -11,6 +11,32 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-47-0:
+
+Version 0.47.0 (2026-11-14)
+===========================
+
+A run can be bound to the pages and records it was asked to work on, and every
+write that goes through the DataHandler is checked against that scope, whoever
+the acting user is (ADR-295). Run the TYPO3 database schema update after
+updating.
+
+- **Scope of an assignment:** a starter sets the scope on the acting identity
+  with ``AiActorContext::withAssignmentScope()``: page subtrees, single records
+  and optionally the tables and languages the run may write. Nothing the model
+  sends widens it.
+- **Three checks:** a write tool states what it touches before the approval
+  card, a DataHandler hook refuses a write outside the scope while the call
+  runs, and after the call the loop reads back what was written. A write found
+  by the third check rolls the whole call back in one database transaction, in
+  the live and in a draft workspace.
+- **Settings:** a configuration can require a scope
+  (``require_assignment_scope``) and cap its depth
+  (``assignment_scope_max_depth``). Both are off by default.
+- **Limits:** a rollback takes back database rows, not files or what a hook
+  calls out to; a write that bypasses the DataHandler has the first check only.
+  The full list is in ADR-295.
+
 .. _version-0-46-1:
 
 Version 0.46.1 (2026-11-14)

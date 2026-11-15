@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-11-15
+
+### Upgrading from 0.47
+
+- Run the database analyzer: stage 5a adds the table `tx_nrllm_a2a_stream_slot`. The A2A server now declares `streaming` on its agent card while the new extension setting `a2a.server.streaming` is on, which is its default; switch it off to keep the card and the methods as they were. A stream holds a PHP-FPM worker while it is open: size `a2a.server.maxStreams` (default 8) to the pool, and check that the proxies in front of PHP-FPM pass a `text/event-stream` response on as it is written.
+
+### Added
+
+- A2A streams in both roles (spec 051 stage 5a, ADR-283). The server answers `SendStreamingMessage` and `SubscribeToTask` with Server-Sent Events read from the task's event journal: the task first, then only later stored changes, artifacts whole and only after the run finished and passed its output checks. A stream closes at a terminal state or `INPUT_REQUIRED`, stays open after `AUTH_REQUIRED`, ends after `a2a.server.streamMaxSeconds`, and never cancels its task. Streams have their own capacity per task, per client and per installation (`STREAM_CAPACITY_EXHAUSTED`). The client gains `A2aClient::sendStreamingMessage()` and `A2aClient::subscribeToTask()` and `nrllm:a2a:send --stream`, for agents whose card declares streaming; a delegating run keeps polling.
+
 ## [0.47.0] - 2026-11-14
 
 ### Upgrading from 0.46
@@ -5338,7 +5348,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.47.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.48.0...HEAD
+[0.48.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.1...v0.47.0
 [0.46.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.0...v0.46.1
 [0.46.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.45.0...v0.46.0

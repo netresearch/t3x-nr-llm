@@ -27,30 +27,26 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-47-0:
+.. _version-0-48-0:
 
-Version 0.47.0 (2026-11-14)
+Version 0.48.0 (2026-11-15)
 ===========================
 
-A run can be bound to the pages and records it was asked to work on, and every
-write that goes through the DataHandler is checked against that scope, whoever
-the acting user is (ADR-295). Run the TYPO3 database schema update after
-updating.
+A2A streams, in both roles (spec 051 stage 5a, ADR-283). Run the TYPO3
+database schema update after updating.
 
-- **Scope of an assignment:** a starter sets the scope on the acting identity
-  with ``AiActorContext::withAssignmentScope()``: page subtrees, single records
-  and optionally the tables and languages the run may write. Nothing the model
-  sends widens it.
-- **Three checks:** a write tool states what it touches before the approval
-  card, a DataHandler hook refuses a write outside the scope while the call
-  runs, and after the call the loop reads back what was written. A write found
-  by the third check rolls the whole call back in one database transaction, in
-  the live and in a draft workspace.
-- **Settings:** a configuration can require a scope
-  (``require_assignment_scope``) and cap its depth
-  (``assignment_scope_max_depth``). Both are off by default.
-- **Limits:** a rollback takes back database rows, not files or what a hook
-  calls out to; a write that bypasses the DataHandler has the first check only.
-  The full list is in ADR-295.
+- **Server:** ``SendStreamingMessage`` and ``SubscribeToTask`` answer with
+  Server-Sent Events read from the task's event journal: the task first, then
+  only later stored changes. An answer leaves whole and only once the run has
+  finished. A stream closes at a terminal state or ``INPUT_REQUIRED``, ends
+  after ``a2a.server.streamMaxSeconds`` and never cancels its task.
+- **Settings:** ``a2a.server.streaming`` (on by default) switches the card's
+  ``streaming`` and both methods; streams have their own capacity per task,
+  per client and per installation. A stream holds a PHP-FPM worker while it is
+  open, and the proxies in front of it must pass ``text/event-stream`` on as it
+  is written; nginx with FastCGI buffering on is tested.
+- **Client:** ``A2aClient::sendStreamingMessage()``,
+  ``A2aClient::subscribeToTask()`` and ``nrllm:a2a:send --stream`` read the
+  stream of an agent whose card declares it. A delegating run keeps polling.
 
 Details in the repository :file:`CHANGELOG.md`.
