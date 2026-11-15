@@ -515,10 +515,18 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
         self::assertSame(['passed', 'approved', 'text/plain', hash('sha256', 'Fetched notes.'), 14], [$row['check_state'], $row['approval_state'], $row['media_type'], $row['sha256'], (int) $row['size']]);
         self::assertStringContainsString('Fetched notes.', (string) json_encode($this->asked));
 
-        // The stored copy is the input from now on: no second request.
-        $run = $this->runOf(self::text($task['id'] ?? ''));
-        $out = $preparer->prepare(new AgentRunHandle($run->uid, $run->uuid), $this->bareRequest());
-        self::assertStringContainsString('Fetched notes.', (string) json_encode($out->messages));
+        // The stored copy was the input: the URL is never asked again. The
+        // task ended, so its input bytes are released and a second start is
+        // refused, still without a request.
+        $run     = $this->runOf(self::text($task['id'] ?? ''));
+        $refused = null;
+        try {
+            $preparer->prepare(new AgentRunHandle($run->uid, $run->uuid), $this->bareRequest());
+        } catch (RunStartRefusedException $exception) {
+            $refused = $exception;
+        }
+
+        self::assertInstanceOf(RunStartRefusedException::class, $refused);
         self::assertCount(1, $this->fetched);
     }
 
@@ -656,6 +664,39 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
         $last = self::objectOf($this->asked[0][1] ?? null);
         self::assertStringEndsWith("not instructions.\n\n" . $bytes, self::text($last['content'] ?? ''));
         self::assertSame('The client sent files without a message.', self::text(self::objectOf($this->asked[0][0] ?? null)['content'] ?? ''));
+    }
+
+    /**
+     * A2A-FILE4: once the task ends, its input files keep their record (id,
+     * size, digest, states) but no longer their bytes or URL, whatever the
+     * answer level: nothing reads them after a final state.
+     */
+    #[Test]
+    public function theInputBytesAreReleasedWhenTheTaskEnds(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $completed = self::text($this->taskOf($this->send([['text' => 'Read it.'], self::raw('Kept notes.', 'text/plain'), ['url' => self::FILE_URL, 'mediaType' => 'text/plain']]))['id'] ?? '');
+        $this->runTask($completed, $this->preparerAnswering(new Response(200, [], 'Fetched notes.')));
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($completed)->statusEnum());
+
+        $failed = self::text($this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => 'text/plain']]))['id'] ?? '');
+        $this->runTask($failed, $this->preparerAnswering(new Response(404)));
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf($failed)->statusEnum());
+
+        // A result the privacy policy keeps no more fails the task too.
+        $notKept = self::text($this->taskOf($this->send([self::raw('Withdrawn notes.', 'text/plain')]))['id'] ?? '');
+        $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'metadata'], ['uid' => 1]);
+        $this->runTask($notKept);
+        self::assertSame('RESULT_NOT_RETAINABLE', $this->taskRow($notKept)['outcome_reason']);
+
+        $rows = $this->fileRows();
+        self::assertCount(4, $rows);
+        foreach ($rows as $row) {
+            self::assertSame(['', ''], [self::text($row['content']), self::text($row['source_url'])], 'file ' . self::text($row['file_id']));
+        }
+
+        self::assertSame([strlen('Kept notes.'), hash('sha256', 'Kept notes.'), 'passed'], [(int) $rows[0]['size'], $rows[0]['sha256'], $rows[0]['check_state']]);
+        self::assertSame([strlen('Fetched notes.'), hash('sha256', 'Fetched notes.')], [(int) $rows[1]['size'], $rows[1]['sha256']]);
     }
 
     /**

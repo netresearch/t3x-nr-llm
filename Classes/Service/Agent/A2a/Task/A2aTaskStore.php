@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileStore;
 use Netresearch\NrLlm\Service\Agent\A2a\File\A2aOutboundFileArtifacts;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
@@ -256,6 +257,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $fields = ['state' => $target->value];
         if ($target->isTerminal()) {
             $fields['history'] = $ceiling->persistsContent() ? $this->historyAt($runUid, $ceiling) : '';
+            $this->releaseInputFiles($runUid);
         }
 
         $statusText = match ($target) {
@@ -390,6 +392,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             'history'        => $this->historyAt($runUid, $ceiling),
             'outcome_reason' => '',
         ]);
+        $this->releaseInputFiles($runUid);
 
         return true;
     }
@@ -413,8 +416,31 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             ])),
             'outcome_reason' => $reason,
         ]);
+        $this->releaseInputFiles($runUid);
 
         return true;
+    }
+
+    /**
+     * The input files of a task that ended keep their record (id, size,
+     * digest, states) but give up their bytes and URL, in the transaction
+     * that ends the task, whatever the answer level (spec 051 A2A-FILE4):
+     * only the worker reads them, before the run's first model call, and a
+     * task that ended never runs again. The files the task sends stay until
+     * they expire; they are its result.
+     */
+    private function releaseInputFiles(int $runUid): void
+    {
+        $taskUid = $this->connection()->select(['uid'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+        if (!is_numeric($taskUid)) {
+            return;
+        }
+
+        $this->connectionPool->getConnectionForTable(A2aFileStore::TABLE)->update(
+            A2aFileStore::TABLE,
+            ['content' => '', 'source_url' => '', 'tstamp' => time()],
+            ['task_uid' => (int) $taskUid, 'direction' => A2aFileStore::DIRECTION_IN],
+        );
     }
 
     private function profileMayWrite(int $runUid): bool

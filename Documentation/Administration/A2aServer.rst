@@ -427,7 +427,12 @@ Downloading a file
    not answered.
 
 Cleanup
-   A task's files go with the run purge, like its history.
+   When a task ends (completed, failed, canceled or refused), its input
+   files keep their record (id, size, SHA-256, check and approval state)
+   but lose their bytes and URL in the same transaction, whatever the
+   answer level: nothing reads them after a final state. The files a task
+   sends stay until they expire, because they are its result. A task's
+   files go with the run purge, like its history.
    ``nrllm:privacy:purge`` also deletes every file older than
    :guilabel:`Hours an A2A file is kept` (``a2a.files.retentionHours``,
    default 168); a queued task whose file is gone fails rather than running
