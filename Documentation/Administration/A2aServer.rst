@@ -354,10 +354,12 @@ File URLs
    is the input: the URL is never fetched again.
 
 Sizes
-   :guilabel:`Largest A2A file` (``a2a.maxRawPartBytes``, default 5 MiB)
-   bounds the decoded bytes of one file and of all files of one message
-   together. The base64 text is measured before it is decoded. Larger is
-   ``-32602``. While files are on, the largest request
+   :guilabel:`Largest A2A file` (``a2a.maxRawPartBytes``, default 5 MiB, at
+   most 8 MiB) bounds the decoded bytes of one file and of all files of one
+   message together. Sealed, a file takes about 1.8 times its size in its
+   database row, which must fit into one packet of the database
+   (``max_allowed_packet``, 16 MiB by default on MariaDB). The base64 text
+   is measured before it is decoded. Larger is ``-32602``. While files are on, the largest request
    (``a2a.server.maxRequestBytes``) grows by the base64 size of this limit.
 
 Where a file goes

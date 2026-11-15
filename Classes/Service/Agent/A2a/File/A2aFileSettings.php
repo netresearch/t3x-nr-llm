@@ -29,7 +29,11 @@ final readonly class A2aFileSettings
 
     public const RAW_PART_BYTES_MIN = 1024;
 
-    public const RAW_PART_BYTES_MAX = 16777216;
+    /**
+     * Sealed, a file takes 1.81 times its size in its row (measured at
+     * 5 MiB); 8 MiB stays below the 16 MiB a MariaDB packet holds by default.
+     */
+    public const RAW_PART_BYTES_MAX = 8388608;
 
     public const RETENTION_HOURS_DEFAULT = 168;
 

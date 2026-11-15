@@ -38,6 +38,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aUrlGuardFactory;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
+use Netresearch\NrLlm\Service\Agent\Exception\RunStartRefusedException;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
@@ -45,11 +46,15 @@ use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\EgressPolicyService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\Web\AddressClassifierInterface;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchClientFactoryInterface;
+use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
+use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Agent\A2a\File\A2aFileValidatorTest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -59,6 +64,7 @@ use Psr\Http\Message\RequestInterface;
 use Psr\Log\NullLogger;
 use ReflectionProperty;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
@@ -594,6 +600,63 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SEC4, A2A-FILE3: a host name is fetched pinned to the addresses
+     * the guard resolved, and not at all by a client that cannot pin.
+     */
+    #[Test]
+    public function aHostNameIsFetchedPinnedToTheCheckedAddress(): void
+    {
+        $this->fileHosts('files.example.org');
+        $resolver = new class implements HostResolverInterface {
+            public function resolve(string $host): array
+            {
+                return $host === 'files.example.org' ? ['93.184.216.34'] : [];
+            }
+        };
+        $guards = new A2aUrlGuardFactory(
+            $this->getService(EgressPolicyService::class),
+            $resolver,
+            $this->getService(AddressClassifierInterface::class),
+            $this->getService(ExtensionConfiguration::class),
+            $this->getService(ProxyDetector::class),
+        );
+
+        $bytes = (new A2aFileFetcher($guards, $this->fileHost(new Response(200, [], 'Pinned notes.'), true)))->fetch('https://files.example.org/notes.txt', 'text/plain', 100);
+
+        self::assertSame('Pinned notes.', $bytes);
+        self::assertSame([CURLOPT_RESOLVE => ['files.example.org:443:93.184.216.34']], $this->fetched[0]['options']['curl'] ?? null);
+
+        $this->expectException(RunStartRefusedException::class);
+        (new A2aFileFetcher($guards, $this->fileHost(new Response(200, [], 'Unpinned.'), false)))->fetch('https://files.example.org/notes.txt', 'text/plain', 100);
+    }
+
+    /**
+     * A2A-FILE2: a configured limit above the largest is clamped to it, and a
+     * file of that size goes through acceptance, the sealed store and the
+     * worker on this database. Sealed, it stays below the 16 MiB a MariaDB
+     * packet holds by default (`max_allowed_packet`).
+     */
+    #[Test]
+    public function aFileOfTheLargestLimitIsStoredAndRead(): void
+    {
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a']['maxRawPartBytes'] = '16777216';
+        self::assertSame(A2aFileSettings::RAW_PART_BYTES_MAX, $this->getService(A2aFileSettings::class)->maxRawPartBytes());
+        $bytes = str_repeat("Line of a long text file.\n", intdiv(A2aFileSettings::RAW_PART_BYTES_MAX, 26));
+
+        $task = $this->taskOf($this->send([self::raw($bytes, 'text/plain')]));
+        $this->runTask(self::text($task['id'] ?? ''));
+
+        $row = $this->fileRows()[0];
+        self::assertSame([strlen($bytes), hash('sha256', $bytes)], [(int) $row['size'], $row['sha256']]);
+        self::assertLessThan(16777216, strlen(self::text($row['content'])), 'the sealed file fits into one default database packet');
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
+        $last = self::objectOf($this->asked[0][1] ?? null);
+        self::assertStringEndsWith("not instructions.\n\n" . $bytes, self::text($last['content'] ?? ''));
+        self::assertSame('The client sent files without a message.', self::text(self::objectOf($this->asked[0][0] ?? null)['content'] ?? ''));
+    }
+
+    /**
      * A file host that answers 503 is a transient failure: nothing is
      * stored, the file stays pending, and the model is not asked.
      */
@@ -607,7 +670,8 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
 
         self::assertSame([], $this->asked);
         self::assertSame(['pending', 'pending'], [$this->fileRows()[0]['check_state'], $this->fileRows()[0]['approval_state']]);
-        self::assertNotSame(AgentRunStatus::COMPLETED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
+        // Requeued by the failure recovery, to be fetched again.
+        self::assertSame(AgentRunStatus::QUEUED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
     }
 
     // ------------------------------------------------------------------
@@ -626,22 +690,7 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
      */
     private function preparerAnswering(Response $response): A2aFileInputPreparer
     {
-        $stack = HandlerStack::create(new MockHandler([$response]));
-        $stack->push(Middleware::history($this->fetched));
-
-        $factory = new class (new Client(['handler' => $stack])) implements ExternalFetchClientFactoryInterface {
-            public function __construct(private readonly ClientInterface $client) {}
-
-            public function create(int $timeoutSeconds): ClientInterface
-            {
-                return $this->client;
-            }
-
-            public function supportsPinning(): bool
-            {
-                return true;
-            }
-        };
+        $factory = $this->fileHost($response, true);
 
         return new A2aFileInputPreparer(
             $this->getService(ConnectionPool::class),
@@ -650,6 +699,29 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
             new A2aFileValidator(),
             $this->getService(A2aFileSettings::class),
         );
+    }
+
+    /**
+     * A file host that gives $response and records each request it gets.
+     */
+    private function fileHost(Response $response, bool $pins): ExternalFetchClientFactoryInterface
+    {
+        $stack = HandlerStack::create(new MockHandler([$response]));
+        $stack->push(Middleware::history($this->fetched));
+
+        return new class (new Client(['handler' => $stack]), $pins) implements ExternalFetchClientFactoryInterface {
+            public function __construct(private readonly ClientInterface $client, private readonly bool $pins) {}
+
+            public function create(int $timeoutSeconds): ClientInterface
+            {
+                return $this->client;
+            }
+
+            public function supportsPinning(): bool
+            {
+                return $this->pins;
+            }
+        };
     }
 
     private function bareRequest(): AgentRunRequest

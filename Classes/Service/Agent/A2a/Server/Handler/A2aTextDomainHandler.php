@@ -46,15 +46,16 @@ final readonly class A2aTextDomainHandler implements A2aDomainHandlerInterface
         // The text goes into the run as the client sent it; whether it says
         // anything is decided without its outer white space.
         $text    = $message->text();
+        $hasFile = array_filter($message->parts, static fn (A2aPart $part): bool => $part->kind === A2aPartKind::RAW || $part->kind === A2aPartKind::URL) !== [];
         $request = new AgentRunRequest(
             $context->configuration,
-            [ChatMessage::user($text)],
+            // A provider may refuse an empty user message; the files follow
+            // from the worker (A2A-FILE4).
+            [ChatMessage::user(trim($text) === '' && $hasFile ? 'The client sent files without a message.' : $text)],
             $context->actor,
             allowedToolNames: $context->toolNames,
             origin: $context->origin,
         );
-
-        $hasFile = array_filter($message->parts, static fn (A2aPart $part): bool => $part->kind === A2aPartKind::RAW || $part->kind === A2aPartKind::URL) !== [];
 
         return trim($text) === '' && !$hasFile ? A2aHandlerDecision::reject($request) : A2aHandlerDecision::run($request);
     }

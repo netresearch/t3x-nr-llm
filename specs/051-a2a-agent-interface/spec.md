@@ -765,7 +765,7 @@ because `Task`, `Skill` and `ToolArtifact` are taken.
 | `tx_nrllm_a2a_task` | server task view | task id (UUID), context id, owner client uid, run uid, profile uid, state, status timestamp (ms), status message, artifacts (sealed), history (sealed), journal revision, outcome reason |
 | `tx_nrllm_a2a_dedup` | accepted messages | owner client uid, `message_id`, message sha256, task uid; unique (owner, `message_id`) |
 | `tx_nrllm_a2a_event` | A2A event journal | task uid, revision, kind, payload (sealed); unique (task, revision) |
-| `tx_nrllm_a2a_file` | private file store (5c) | owner, task uid, origin, size, media type, sha256, check state, approval state, expiry, storage location |
+| `tx_nrllm_a2a_file` | private file store (5c) | owner, task uid, origin, size, media type, sha256, check state, approval state, expiry; the bytes (and a url part's URL) sealed in the row instead of a separate storage location, so they commit with the task; the expected files in `tx_nrllm_a2a_task.input_manifest` |
 | `tx_nrllm_a2a_push_config` | push config, sender (5b) | config id, task uid, owner, URL, token and credential references, state |
 | `tx_nrllm_a2a_push_outbox` | delivery jobs, sender (5b) | config uid, event revision, attempts, next attempt, deadline, state |
 | `tx_nrllm_a2a_push_registration` | push registration, receiver (5b) | send-intent uid, remote task id, callback credential prefix and hash, remote config id, state |
