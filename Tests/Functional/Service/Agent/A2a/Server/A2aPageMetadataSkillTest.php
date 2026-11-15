@@ -105,7 +105,7 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
             [1, 0, 0, 0], [self::PAGE, 1, 0, 0], [self::NEIGHBOUR, 1, 0, 0], [self::UNTRANSLATED, 1, 0, 0],
             [self::TRANSLATION, 1, self::GERMAN, self::PAGE], [self::NEIGHBOUR_TRANSLATION, 1, self::GERMAN, self::NEIGHBOUR],
             [self::OUTSIDE_MOUNT, 0, 0, 0], [self::OUTSIDE_MOUNT + 100, 0, self::GERMAN, self::OUTSIDE_MOUNT], [self::DELETED, 1, 0, 0],
-            [self::SHOW_ONLY, 1, 0, 0], [self::FOREIGN_LANGUAGE_TRANSLATION, 1, 2, self::PAGE],
+            [self::SHOW_ONLY, 1, 0, 0], [self::FOREIGN_LANGUAGE_TRANSLATION, 1, 2, self::PAGE], [self::OUTSIDE_MOUNT + 1, 0, 0, 0],
         ];
         foreach ($pages as [$uid, $pid, $language, $parent]) {
             $this->db('pages')->insert('pages', [
@@ -283,9 +283,15 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
     public function aPageTheUserMayNotReadIsRefusedLikeOneThatDoesNotExist(): void
     {
         $refusal = 'Invalid params: "page" and "language" do not name a page this skill may work on in the client\'s workspace';
-        foreach ([self::OUTSIDE_MOUNT, self::DELETED, 9999, self::SHOW_ONLY] as $i => $page) {
+        foreach ([self::OUTSIDE_MOUNT, self::OUTSIDE_MOUNT + 1, self::OUTSIDE_MOUNT + 100, self::DELETED, 9999] as $i => $page) {
             self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . $page . ', "language": 1, "fields": ["description"]}', 'p-' . $i), 'error.message'), 'page ' . $page);
         }
+
+        self::assertSame(
+            $refusal,
+            self::j($this->sendRaw('{"page": ' . self::SHOW_ONLY . ', "language": 0, "fields": ["description"]}', 's-1'), 'error.message'),
+            'a page the user may show but not edit, as the row to write',
+        );
 
         $this->db('pages')->update('pages', ['perms_everybody' => Permission::PAGE_SHOW], ['uid' => self::NEIGHBOUR_TRANSLATION]);
         self::assertSame(
@@ -303,6 +309,21 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
         $this->db('be_groups')->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::GROUP]);
         self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . self::PAGE . ', "language": 1, "fields": ["description"]}', 'l-1'), 'error.message'));
         self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
+    }
+
+    /**
+     * A translator whose group allows only the translation's language, not
+     * the default language, may use the skill for that translation: the
+     * default-language row is only looked at, not written.
+     */
+    #[Test]
+    public function aUserWhoEditsOnlyTheTranslationsLanguageIsServed(): void
+    {
+        $this->db('be_groups')->update('be_groups', ['allowed_languages' => '1'], ['uid' => self::GROUP]);
+
+        $task = $this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']]);
+
+        self::assertStringContainsString('pages:' . self::TRANSLATION, self::text(self::j($this->queuedRequestOf(self::text($task['id'] ?? '')), 'messages.0.content')));
     }
 
     /**

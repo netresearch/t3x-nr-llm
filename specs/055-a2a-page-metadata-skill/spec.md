@@ -29,10 +29,13 @@ to what the request names.
   with JSON-RPC `-32602` on `message.parts`. The description names the rule,
   never a value of the client. A page that does not exist, is deleted (also
   as a delete placeholder in the workspace), or that the client's technical
-  user may not edit (its web mounts and page permissions), a translation row
-  that user may not edit, and a language that user may not edit (the row's
-  own or the requested one) all get one and the same refusal, so a client
-  cannot tell those pages apart from missing ones.
+  user may not see (its web mounts and page permissions), a row to write
+  (the page for language 0, else the translation) that user may not edit,
+  and a requested language that user may not edit all get one and the same
+  refusal; a page that is a translation is told apart only when the user may
+  edit its language. The default-language page of a requested translation
+  only has to be visible, so a translator who may edit only that language is
+  served.
   No task, run, dedup row or capacity is used.
 - **PM3 Scope.** The accepted run's actor carries the scope
   `pages: [{page, depth 0}]`, `tables: [pages]`, `languages: [language]`,

@@ -162,24 +162,34 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     /**
      * The uid of the row the run writes: the default-language page, or its
      * translation in the requested language, as the workspace shows them.
-     * Only a page the client's technical user may edit, in its own language
-     * and the requested one, is told apart; everything else gets
-     * {@see self::NOT_AVAILABLE}.
+     * Only a page the client's technical user may see, in a language it may
+     * edit, is told apart, and the row to write must be one it may edit;
+     * everything else gets {@see self::NOT_AVAILABLE}. The default-language
+     * page of a translation is only looked at, so seeing it is enough.
      *
      * @throws A2aRpcError
      */
     private function targetRow(A2aPageMetadataRequest $request, int $workspace, ?BackendUserAuthentication $user): int
     {
         $page = $this->visibleRow($this->rows(['uid' => $request->page], $workspace), $workspace);
-        if ($page === null || !$this->mayRead($user, $page, $request->language)) {
+        if ($page === null || !$this->may($user, $page, Permission::PAGE_SHOW, $request->language)) {
             throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
         }
 
         if ($this->int($page['sys_language_uid'] ?? 0) !== 0 || $this->int($page['l10n_parent'] ?? 0) !== 0) {
+            // Told apart only for a translation in a language the user may edit.
+            if (!$this->may($user, $page, Permission::PAGE_SHOW, $this->int($page['sys_language_uid'] ?? 0))) {
+                throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
+            }
+
             throw A2aRpcError::invalidParams('message.parts', '"page" names a translation; give the uid of the default-language page');
         }
 
         if ($request->language === 0) {
+            if (!$this->may($user, $page, Permission::PAGE_EDIT, 0)) {
+                throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
+            }
+
             return $request->page;
         }
 
@@ -188,7 +198,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             throw A2aRpcError::invalidParams('message.parts', 'the page has no translation in "language" in the client\'s workspace; this skill does not create one');
         }
 
-        if (!$this->mayRead($user, $translation, $request->language)) {
+        if (!$this->may($user, $translation, Permission::PAGE_EDIT, $request->language)) {
             throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
         }
 
@@ -252,14 +262,15 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     }
 
     /**
-     * Whether the technical user may edit the row, in its own language and in
-     * the requested one. `calcPerms()` answers no permission for a page outside
-     * the user's web mounts, and a translation inherits the permissions of
-     * its page. The tool checks the same again when it writes.
+     * Whether the technical user holds the page permission on the row and may
+     * edit the language. `calcPerms()` reads the row's own permission fields
+     * and answers no permission for a page outside the user's web mounts. The
+     * tool checks the edit permission and the row's language again when it
+     * writes.
      *
      * @param array<array-key, mixed> $page
      */
-    private function mayRead(?BackendUserAuthentication $user, array $page, int $language): bool
+    private function may(?BackendUserAuthentication $user, array $page, int $permission, int $language): bool
     {
         if (!$user instanceof BackendUserAuthentication) {
             return false;
@@ -270,8 +281,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             $row[(string) $field] = $value;
         }
 
-        return $user->doesUserHaveAccess($row, Permission::PAGE_EDIT)
-            && $user->checkLanguageAccess($this->int($row['sys_language_uid'] ?? 0))
+        return $user->doesUserHaveAccess($row, $permission)
             && $user->checkLanguageAccess($language);
     }
 

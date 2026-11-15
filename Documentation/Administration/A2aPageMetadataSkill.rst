@@ -51,11 +51,11 @@ before a task exists. Its message names the rule, for example
 ``"page" must be a positive integer`` or ``only the keys "page", "language"
 and "fields" are allowed``, never a value from the request. Text beside the
 three keys, an instruction such as "use admin rights" included, is such an
-error. A page or translation the client's technical user may not edit
-(outside its web mounts or page permissions), a deleted or missing page (also
-one deleted in the client's workspace), and a language the user may not edit
-all get the same message, so a client cannot probe the page tree through
-the answer.
+error. A page the client's technical user may not see (outside its web
+mounts or page permissions), a row to write it may not edit, a deleted or
+missing page (also one deleted in the client's workspace), and a language
+the user may not edit all get the same message, so a client cannot probe the
+page tree through the answer.
 
 The A2A agent card has no field for an input schema. Write the request format
 into the profile's :guilabel:`Description` and give one request as an
@@ -99,8 +99,10 @@ Setting it up
    ``nr_llm.page_metadata.v1``, that configuration, the two tools (and
    ``ask_choice`` if the run may ask the client), and :guilabel:`May write`.
 #. Pin the client that may call it to a draft workspace its technical user
-   is a member of, and give that user edit access to the pages and the
-   languages the skill may work on, and to the fields it may write.
+   is a member of, and give that user edit access to the rows and the
+   languages the skill may write and to the fields it may set. For a
+   translation the default-language page only has to be visible to that
+   user; a translator group that edits only its language is enough.
 
 When the profile or the configuration does not meet these conditions, a
 request is answered with ``-32004`` "This skill is not available." and the

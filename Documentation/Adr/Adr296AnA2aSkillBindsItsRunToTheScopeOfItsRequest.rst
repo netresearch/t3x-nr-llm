@@ -63,11 +63,12 @@ model offered.
 rule broken, never a value the client sent. This covers an unknown key, a
 missing key, a wrong type, a page that is a translation and a page with no
 translation in the language. A page that does not exist, is deleted (also in
-the client's workspace) or that the client's technical user may not edit, a
-translation row that user may not edit, and a language that user may not edit
+the client's workspace) or that the client's technical user may not see, a
+row to write that user may not edit, and a language that user may not edit
 get one common refusal, so the answer does not reveal pages the user may not
-edit; a difference in response time remains. Version 1 does not create a
-translation.
+see; a difference in response time remains. The default-language page of a
+requested translation only has to be visible to the user, as for core.
+Version 1 does not create a translation.
 
 **The run may use** ``get_page_content`` **and** ``update_page_metadata``,
 **and** ``ask_choice`` **when the profile grants it.** Any other tool the
