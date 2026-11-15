@@ -51,11 +51,13 @@ no word limit:
   searched as it is. When it is one JSON document (a code fence around it
   allowed), ``json_decode()`` decodes it once and every key and every string
   value is searched too; nothing here lexes JSON. A document that names a key
-  twice, a key only some decoders accept, a lone surrogate or nesting deeper
-  than ``json_decode()`` goes cannot be vouched for, because other decoders
-  read what PHP refuses or keep another member: the term check fails and the
-  text blocks. A text that is no JSON is plain text: an escape in it is not
-  decoded. A list is found by the configuration it names, as in the pipeline, so
+  twice cannot be vouched for, because decoders keep different members; nor
+  can a text shaped like a document (an object or a list from end to end,
+  after a fence, white space and a byte order mark) that ``json_decode()``
+  refuses, because other decoders may still read its escapes. In both cases
+  the term check fails and the text blocks. Every key of an object is
+  searched, whatever it looks like; the index of a list is no text. Any
+  other text is plain text: an escape in it is not decoded. A list is found by the configuration it names, as in the pipeline, so
   a further configuration that is hidden still brings its lists. Its judge
   applies exactly when the pipeline's would: both look the configuration up by
   uid in the same way. The report names all of them; the pipeline stops at the

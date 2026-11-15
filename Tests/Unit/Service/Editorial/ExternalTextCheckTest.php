@@ -487,6 +487,8 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         yield 'nested duplicate member' => ['{"a":{"post":"clean","post":"clean"}}'];
         yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"clean"}'];
         yield 'lone surrogate other decoders accept' => ['{"t":"\\u0052abatt","z":"\\ud800"}'];
+        yield 'raw control character in a document' => ["{\"t\":\"\\u0052abatt\x01\"}"];
+        yield 'trailing comma in a document' => ['{"t":"\\u0052abatt",}'];
         yield 'nesting deeper than PHP decodes' => [str_repeat('[', 600) . '"\\u0052abatt"' . str_repeat(']', 600)];
     }
 
@@ -512,6 +514,42 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
 
         self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('Der 24" Monitor mit Rabatt', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * A document with a byte order mark is decoded, not read as plain text.
+     */
+    #[Test]
+    public function aDocumentWithAByteOrderMarkIsDecoded(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check("\u{FEFF}{\"t\":\"\\u0052abatt\"}", $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * A post that starts with a bracket is prose, not a broken document.
+     */
+    #[Test]
+    public function aPostStartingWithABracketIsPlainText(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        $report = $this->check()->check('[Anzeige] Unser Sommer ohne Aktion.', $this->configuration(RuleJudgeMode::OFF));
+
+        self::assertSame(ExternalTextStatus::PASSED, $report->status);
+    }
+
+    /**
+     * Keys of an object whose keys are 0, 1, ... are keys, not list indices.
+     */
+    #[Test]
+    public function theKeysOfAnObjectThatLooksLikeAListAreSearched(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['1'], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('{"\\u0030":"a","\\u0031":"b"}', $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('["a","b"]', $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
     /**
