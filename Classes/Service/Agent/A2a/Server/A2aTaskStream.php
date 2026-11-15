@@ -40,8 +40,9 @@ use Psr\Log\NullLogger;
  *   also ends after `streamMaxSeconds`, when a frame is larger than
  *   `maxFrameBytes`, when its slot is lost, and when its client is no longer
  *   valid (checked with every lease renewal, so a revoked client reads at
- *   most {@see self::RENEW_SECONDS} longer); switching streaming off ends
- *   open streams within the same interval. Ending a stream never touches
+ *   most {@see self::RENEW_SECONDS} longer). Switching streaming off refuses
+ *   new streams; one already open runs to its time limit, because a PHP
+ *   request reads the configuration once. Ending a stream never touches
  *   the task.
  * - **Keep-alive.** A comment line before {@see self::KEEPALIVE_SECONDS}
  *   pass without a write.
@@ -154,7 +155,7 @@ final readonly class A2aTaskStream
 
             if ($this->now() - $renewed >= self::RENEW_SECONDS) {
                 $renewed = $this->now();
-                if (!$this->settings->streamingEnabled() || !$this->slots->renew($holder, (int) $renewed) || !$this->authenticator->stillValid($client, (int) $renewed)) {
+                if (!$this->slots->renew($holder, (int) $renewed) || !$this->authenticator->stillValid($client, (int) $renewed)) {
                     return;
                 }
             }

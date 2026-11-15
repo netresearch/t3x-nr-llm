@@ -324,6 +324,10 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         self::assertNull($slots->take(1, 'task-b', 1, 1, 1, 1000 + A2aStreamSlots::LEASE_SECONDS), 'held until the lease ends');
         self::assertIsString($slots->take(2, 'task-b', 1, 1, 1, 1001 + A2aStreamSlots::LEASE_SECONDS), 'free once it ran out');
         self::assertFalse($slots->renew($holder, 1002 + A2aStreamSlots::LEASE_SECONDS), 'the old holder lost it');
+
+        $lapsed = $slots->take(3, 'task-c', 1, 1, 2, 2000);
+        self::assertIsString($lapsed);
+        self::assertFalse($slots->renew($lapsed, 2001 + A2aStreamSlots::LEASE_SECONDS), 'a lease that ran out is not renewed, even while nobody took the slot');
     }
 
     /**
@@ -416,22 +420,6 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         $this->serverSettings($settings);
 
         self::assertTrue(self::j($this->card(), 'capabilities.streaming'));
-    }
-
-    /**
-     * A2A-OPS2: switching streaming off ends open streams at the next lease
-     * renewal.
-     */
-    #[Test]
-    public function switchingStreamingOffEndsOpenStreams(): void
-    {
-        $events = $this->stream('SendStreamingMessage', ['message' => $this->message()], 1, function (int $tick): void {
-            if ($tick === 1) {
-                $this->streamSettings(['streaming' => '0']);
-            }
-        });
-
-        self::assertSame(A2aTaskStream::RENEW_SECONDS * 4, $events['ticks']);
     }
 
     /**

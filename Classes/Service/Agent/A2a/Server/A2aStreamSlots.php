@@ -116,12 +116,19 @@ final readonly class A2aStreamSlots
     }
 
     /**
-     * Extend the lease of a hold; false when the hold is gone (it ran out and
-     * another stream took the slot).
+     * Extend the lease of a hold; false when the hold is gone or its lease ran
+     * out. A stream that missed its renewals has been counted out by the
+     * streams admitted since, so it ends instead of coming back over a limit.
      */
     public function renew(string $holder, int $now): bool
     {
-        return $this->connection()->update(self::TABLE, ['expires' => $now + self::LEASE_SECONDS], ['holder' => $holder]) === 1;
+        $connection = $this->connection();
+
+        return $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(self::TABLE) . ' SET expires = ? WHERE holder = ? AND expires >= ?',
+            [$now + self::LEASE_SECONDS, $holder, $now],
+            [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
+        ) === 1;
     }
 
     public function release(string $holder): void

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\A2a\Transport;
 
 use GuzzleHttp\Psr7\Response;
+use LogicException;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportOutcome;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aUrlGuardFactory;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aVaultTransport;
@@ -89,6 +90,20 @@ final class A2aTransportReadTest extends TestCase
         self::assertSame(A2aTransportOutcome::RESPONSE, $result->outcome);
         self::assertSame('', $result->body);
         self::assertTrue($body->closed, 'the transfer was stopped');
+    }
+
+    /**
+     * What the callback throws is the caller's, not a lost connection.
+     */
+    #[Test]
+    public function anExceptionOfTheCallbackReachesTheCaller(): void
+    {
+        $body = new A2aSilentBody(["data: a\n\n"]);
+
+        $this->expectException(LogicException::class);
+        $this->transport()->pump(new Response(200, ['Content-Type' => 'text/event-stream'], $body), static function (): bool {
+            throw new LogicException('the caller failed', 1799400101);
+        }, microtime(true) + 60);
     }
 
     private function silentBody(): A2aSilentBody
