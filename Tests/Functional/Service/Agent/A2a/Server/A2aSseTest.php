@@ -116,6 +116,43 @@ final class A2aSseTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-282: a completed task's content goes out at the run's current
+     * answer level. A provider tightened to `metadata` after the completion
+     * was journalled sends the completion without its artifact.
+     */
+    #[Test]
+    public function aStreamSendsSettledContentAtTheCurrentAnswerLevel(): void
+    {
+        $persister = $this->getService(AgentRunPersister::class);
+        $events    = $this->stream('SendStreamingMessage', ['message' => $this->message()], 1, function (int $tick, string $taskId) use ($persister): void {
+            if ($tick === 1) {
+                $run = $this->runOf($taskId);
+                self::assertTrue($persister->claimQueued($run, 'worker-t', time() + 300));
+                self::assertTrue($persister->settleCompleted(new AgentRunHandle($run->uid, $run->uuid), new ToolLoopResult('the secret summary', [], 1, false, UsageStatistics::fromTokens(1, 1)), 'worker-t'));
+                $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['privacy_level' => 'metadata'], []);
+            }
+        });
+
+        self::assertSame('TASK_STATE_COMPLETED', self::j($events['frames'][count($events['frames']) - 1], 'result.statusUpdate.status.state'));
+        self::assertNotContains('artifactUpdate', $this->kinds($events['frames']));
+        self::assertStringNotContainsString('the secret summary', $events['raw']);
+    }
+
+    /**
+     * A JSON-RPC id longer than 255 bytes is refused before anything is
+     * accepted: every event of a stream repeats it.
+     */
+    #[Test]
+    public function aVeryLongRequestIdIsRefused(): void
+    {
+        $tasks = $this->rows(A2aTaskStore::TABLE);
+        $reply = $this->post(json_encode(['jsonrpc' => '2.0', 'id' => str_repeat('i', 256), 'method' => 'SendStreamingMessage', 'params' => ['message' => $this->message()]], JSON_THROW_ON_ERROR));
+
+        self::assertSame(-32600, self::j(json_decode((string) $reply->getBody(), true), 'error.code'));
+        self::assertSame($tasks, $this->rows(A2aTaskStore::TABLE));
+    }
+
+    /**
      * A2A-SSE2: a stream sends only events newer than its snapshot's
      * revision; an event already contained in the snapshot is not repeated.
      */
@@ -328,6 +365,49 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         $lapsed = $slots->take(3, 'task-c', 1, 1, 2, 2000);
         self::assertIsString($lapsed);
         self::assertFalse($slots->renew($lapsed, 2001 + A2aStreamSlots::LEASE_SECONDS), 'a lease that ran out is not renewed, even while nobody took the slot');
+    }
+
+    /**
+     * A2A-SSE3: the installation's total counts every live slot, so a free
+     * low slot does not admit one more after maxStreams was lowered; and a
+     * slot taken over by another stream cannot be bound any more.
+     */
+    #[Test]
+    public function theTotalCountsEveryLiveSlotAndALostSlotCannotBeBound(): void
+    {
+        $slots = $this->getService(A2aStreamSlots::class);
+        $first = $slots->take(1, 'task-a', 2, 2, 2, 1000);
+        self::assertIsString($first);
+        self::assertIsString($slots->take(2, 'task-b', 2, 2, 2, 1000));
+        $slots->release($first);
+
+        self::assertNull($slots->take(3, 'task-c', 2, 2, 1, 1000), 'slot 2 is still held: one stream already fills a total of 1');
+
+        $lapsed = $slots->take(3, '', 2, 2, 2, 2000);
+        self::assertIsString($lapsed);
+        self::assertIsString($slots->take(4, '', 2, 2, 2, 2001 + A2aStreamSlots::LEASE_SECONDS), 'another stream takes the lapsed slot');
+        self::assertFalse($slots->bind($lapsed, 'task-d', 2, 2002 + A2aStreamSlots::LEASE_SECONDS));
+    }
+
+    /**
+     * A2A-SSE3: the client is checked again before events are sent that a
+     * poll returned after the renewal was due, a terminal one included.
+     */
+    #[Test]
+    public function eventsAfterADueRenewalAreSentOnlyToAStillValidClient(): void
+    {
+        $persister = $this->getService(AgentRunPersister::class);
+        $events    = $this->stream('SendStreamingMessage', ['message' => $this->message()], 1, function (int $tick, string $taskId) use ($persister): void {
+            if ($tick === A2aTaskStream::RENEW_SECONDS * 4) {
+                $run = $this->runOf($taskId);
+                self::assertTrue($persister->claimQueued($run, 'worker-t', time() + 300));
+                self::assertTrue($persister->settleCompleted(new AgentRunHandle($run->uid, $run->uuid), new ToolLoopResult('for the disabled client', [], 1, false, UsageStatistics::fromTokens(1, 1)), 'worker-t'));
+                $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['enabled' => 0], ['uid' => 1]);
+            }
+        });
+
+        self::assertSame(['task'], $this->kinds($events['frames']));
+        self::assertStringNotContainsString('for the disabled client', $events['raw']);
     }
 
     /**

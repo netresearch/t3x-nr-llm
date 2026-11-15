@@ -51,6 +51,10 @@ final class A2aResponseParser
 {
     private const PART_CONTENT = ['text', 'raw', 'url', 'data'];
 
+    private const LOG_KINDS_MAX = 64;
+
+    private const LOG_KEY_BYTES = 128;
+
     /** @var array<string, true> */
     private array $logged = [];
 
@@ -642,7 +646,11 @@ final class A2aResponseParser
      */
     private function logOnce(string $kind, string $message, array $context): void
     {
-        if (isset($this->logged[$kind])) {
+        // A remote that names a new kind in every frame of a stream must not
+        // grow this list without end: the key is cut, and past the cap
+        // nothing more is logged.
+        $kind = substr($kind, 0, self::LOG_KEY_BYTES);
+        if (isset($this->logged[$kind]) || count($this->logged) >= self::LOG_KINDS_MAX) {
             return;
         }
 

@@ -52,6 +52,9 @@ final readonly class A2aRpcServer
 
     private const PAGE_SIZE_DEFAULT = 50;
 
+    /** The longest JSON-RPC id accepted (A2A-SSE3: it is in every frame). */
+    private const MAX_ID_BYTES = 255;
+
     private const PAGE_SIZE_MAX = 100;
 
     private LoggerInterface $logger;
@@ -144,6 +147,12 @@ final readonly class A2aRpcServer
         $requestId = $decoded['id'] ?? null;
         if (!is_string($requestId) && !is_int($requestId) && $requestId !== null) {
             throw A2aRpcError::invalidRequest('the id is neither a string nor a number');
+        }
+
+        if (is_string($requestId) && strlen($requestId) > self::MAX_ID_BYTES) {
+            // Every event of a stream repeats the id; a longer one could keep
+            // even the smallest first event from fitting into a frame.
+            throw A2aRpcError::invalidRequest(sprintf('the id is longer than %d bytes', self::MAX_ID_BYTES));
         }
 
         $id = $requestId;
@@ -252,10 +261,13 @@ final readonly class A2aRpcServer
 
             $task   = is_array($result['task'] ?? null) ? $result['task'] : [];
             $taskId = is_string($task['id'] ?? null) ? $task['id'] : '';
-            if ($named === '' && !$this->streamSlots->bind($holder, $taskId, $this->settings->maxStreamsPerTask(), $now)) {
-                // Only a repeated messageId finds a task that already has
-                // streams; nothing new was stored for it.
-                throw A2aRpcError::unavailable(A2aRpcError::REASON_STREAM_CAPACITY_EXHAUSTED, 5);
+            if ($named === '' && !$this->streamSlots->bind($holder, $taskId, $this->settings->maxStreamsPerTask(), time())) {
+                // The slot was lost while the task was accepted (its lease ran
+                // out): the accepted task gets a slot of its own if one is
+                // free. Otherwise only a repeated messageId finds a task that
+                // already has streams, and nothing new was stored for it.
+                $this->streamSlots->release($holder);
+                $holder = $this->takeStreamSlot($client, $taskId, time());
             }
         } catch (Throwable $refused) {
             $this->streamSlots->release($holder);

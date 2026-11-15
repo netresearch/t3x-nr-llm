@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\A2a\Client;
 
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aSseParser;
-use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aInvalidAgentResponseException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -74,12 +73,12 @@ final class A2aSseParserTest extends TestCase
     }
 
     #[Test]
-    public function anEventAboveTheLimitIsRefused(): void
+    public function anEventAboveTheLimitMakesTheStreamInvalid(): void
     {
         $parser = new A2aSseParser(8);
 
-        $this->expectException(A2aInvalidAgentResponseException::class);
-        $parser->feed("data: 12345\ndata: 6789\n");
+        self::assertSame([], $parser->feed("data: 12345\ndata: 6789\n"));
+        self::assertNotNull($parser->failure());
     }
 
     #[Test]
@@ -87,7 +86,32 @@ final class A2aSseParserTest extends TestCase
     {
         $parser = new A2aSseParser(8);
 
-        $this->expectException(A2aInvalidAgentResponseException::class);
         $parser->feed('data: 1234567890');
+        self::assertNotNull($parser->failure());
+    }
+
+    /**
+     * A complete line is held to the limit as well, not only a partial one.
+     */
+    #[Test]
+    public function aCompleteLineAboveTheLimitIsRefused(): void
+    {
+        $parser = new A2aSseParser(16);
+
+        self::assertSame([], $parser->feed('event: ' . str_repeat('x', 40) . "\ndata: a\n\n"));
+        self::assertNotNull($parser->failure());
+    }
+
+    /**
+     * Events completed before an invalid line in the same piece are returned.
+     */
+    #[Test]
+    public function eventsBeforeAnInvalidLineAreStillReturned(): void
+    {
+        $parser = new A2aSseParser(16);
+
+        self::assertSame([['event' => 'message', 'data' => 'a']], $parser->feed("data: a\n\n" . str_repeat('x', 40)));
+        self::assertNotNull($parser->failure());
+        self::assertSame([], $parser->feed("data: b\n\n"), 'nothing after the failure');
     }
 }

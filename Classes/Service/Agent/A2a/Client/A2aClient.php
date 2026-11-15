@@ -296,13 +296,9 @@ final readonly class A2aClient
 
         $result = $this->transport->stream($request, function (string $bytes) use ($sse, $id, $onEvent, $isSend, &$state): bool {
             $state['bytes'] += strlen($bytes);
-            try {
-                $frames = $sse->feed($bytes);
-            } catch (A2aInvalidAgentResponseException $e) {
-                $state['failure'] = ['INVALID_AGENT_RESPONSE', $e->getMessage()];
-
-                return false;
-            }
+            // The events completed before an invalid line are handled first:
+            // a task they name is stored before the stream ends (A2A-SSE6).
+            $frames = $sse->feed($bytes);
 
             foreach ($frames as $frame) {
                 try {
@@ -347,6 +343,12 @@ final readonly class A2aClient
 
                 ++$state['events'];
                 $onEvent($event);
+            }
+
+            if ($sse->failure() !== null) {
+                $state['failure'] = ['INVALID_AGENT_RESPONSE', $sse->failure()];
+
+                return false;
             }
 
             return true;

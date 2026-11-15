@@ -86,7 +86,11 @@ final readonly class A2aStreamSlots
             return null;
         }
 
-        if ($this->live('client_uid', $clientUid, $now) > $perClient || ($taskId !== '' && $this->live('task_id', $taskId, $now) > $perTask)) {
+        // The total is counted as well: slots above a lowered maxStreams may
+        // still be held, and a free low slot must not admit one more.
+        if ($this->liveTotal($now) > $total
+            || $this->live('client_uid', $clientUid, $now) > $perClient
+            || ($taskId !== '' && $this->live('task_id', $taskId, $now) > $perTask)) {
             $this->release($holder);
 
             return null;
@@ -96,13 +100,16 @@ final readonly class A2aStreamSlots
     }
 
     /**
-     * Name the task a slot taken for a not yet existing task reads; false,
-     * with the task taken off the slot again, when the task then has more
-     * than $perTask live streams. The caller releases the slot.
+     * Name the task a slot taken for a not yet existing task reads, with a
+     * fresh lease: the acceptance in between may have taken a while. False
+     * when the slot is gone (its lease ran out during the acceptance and
+     * another stream took it), and false, with the task taken off the slot
+     * again, when the task then has more than $perTask live streams. The
+     * caller releases the slot.
      */
     public function bind(string $holder, string $taskId, int $perTask, int $now): bool
     {
-        if ($this->connection()->update(self::TABLE, ['task_id' => $taskId], ['holder' => $holder]) !== 1) {
+        if ($this->connection()->update(self::TABLE, ['task_id' => $taskId, 'expires' => $now + self::LEASE_SECONDS], ['holder' => $holder]) !== 1) {
             return false;
         }
 
@@ -134,6 +141,18 @@ final readonly class A2aStreamSlots
     public function release(string $holder): void
     {
         $this->connection()->update(self::TABLE, ['holder' => '', 'client_uid' => 0, 'task_id' => '', 'expires' => 0], ['holder' => $holder]);
+    }
+
+    private function liveTotal(int $now): int
+    {
+        $connection = $this->connection();
+        $count      = $connection->executeQuery(
+            'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE holder <> ? AND expires >= ?',
+            ['', $now],
+            [Connection::PARAM_STR, Connection::PARAM_INT],
+        )->fetchOne();
+
+        return is_numeric($count) ? (int) $count : 0;
     }
 
     private function live(string $column, int|string $value, int $now): int

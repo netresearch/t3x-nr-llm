@@ -166,6 +166,25 @@ final class A2aClientStreamTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A task event and an invalid line in the same piece: the task is stored
+     * before the stream ends as invalid.
+     */
+    #[Test]
+    public function aTaskBeforeAnInvalidLineInTheSamePieceIsStored(): void
+    {
+        $this->transport->thenStream(static function (A2aHttpRequest $request, Closure $onBytes): A2aTransportResult {
+            $onBytes((ScriptedA2aTransport::event(['task' => ['id' => 'task-9', 'status' => ['state' => 'TASK_STATE_SUBMITTED']]]))($request) . str_repeat('x', 4096));
+
+            return A2aTransportResult::response(200, 'text/event-stream', '', '', false);
+        });
+
+        $outcome = $this->client->sendStreamingMessage($this->agent(maxResponseBytes: 1024), self::OWNER, A2aMessage::userText('m-1', 'hello'), static fn (): null => null);
+
+        self::assertSame([A2aSendState::ACCEPTED, 'task-9'], [$outcome->intent->state, $outcome->intent->remoteTaskId]);
+        self::assertSame('INVALID_AGENT_RESPONSE', $outcome->endReason);
+    }
+
+    /**
      * A JSON-RPC error answered as application/json before any stream is a
      * refusal with its code, as for SendMessage.
      */
@@ -228,7 +247,7 @@ final class A2aClientStreamTest extends AbstractFunctionalTestCase
         self::assertSame(['id' => 'task-1'], ScriptedA2aTransport::envelopeOf($this->transport->requests[1])['params'] ?? null);
     }
 
-    private function agent(string $capabilities = 'streaming=1;pushNotifications=-;extendedAgentCard=-'): A2aRemoteAgent
+    private function agent(string $capabilities = 'streaming=1;pushNotifications=-;extendedAgentCard=-', int $maxResponseBytes = 0): A2aRemoteAgent
     {
         $connection = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent');
         $connection->insert('tx_nrllm_a2a_agent', [
@@ -240,7 +259,7 @@ final class A2aClientStreamTest extends AbstractFunctionalTestCase
             'credential'        => 'vault-credential-id',
             'data_class'        => ToolDataClass::PUBLIC_CONTENT->value,
             'enabled'           => 1,
-        ]);
+        ] + ($maxResponseBytes > 0 ? ['max_response_bytes' => $maxResponseBytes] : []));
 
         $agent = $this->getService(A2aRemoteAgentRepository::class)->findByUid((int) $connection->lastInsertId());
         self::assertInstanceOf(A2aRemoteAgent::class, $agent);

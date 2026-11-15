@@ -123,9 +123,32 @@ final readonly class A2aTaskStream
         $deadline = $started + $this->settings->streamMaxSeconds();
         $renewed  = $started;
         while ($this->now() < $deadline) {
-            foreach ($this->projector->eventsAfter($taskUid, $cursor) as $event) {
+            $events = $this->projector->eventsAfter($taskUid, $cursor);
+
+            // The lease and the client are checked before anything is sent:
+            // a read that took longer than a renewal interval must not
+            // deliver to a client that was disabled meanwhile.
+            if ($this->now() - $renewed >= self::RENEW_SECONDS) {
+                $renewed = $this->now();
+                if (!$this->slots->renew($holder, (int) $renewed) || !$this->authenticator->stillValid($client, (int) $renewed)) {
+                    return;
+                }
+            }
+
+            foreach ($events as $event) {
                 $cursor  = $event['revision'];
                 $payload = $event['payload'];
+                $state   = A2aTaskState::tryFrom(is_string($payload['state'] ?? null) ? $payload['state'] : '');
+                if ($state instanceof A2aTaskState && $state !== A2aTaskState::SUBMITTED && $state !== A2aTaskState::WORKING) {
+                    // Content that may leave goes through the current answer
+                    // level, as GetTask renders it (ADR-282): a tightening
+                    // since the event was written applies to the stream too.
+                    $payload = $this->underCurrentPolicy($client, $taskId, $payload);
+                    if ($payload === null) {
+                        return;
+                    }
+                }
+
                 foreach ($this->artifactsOf($payload['artifacts'] ?? null) as $artifact) {
                     $key    = $this->artifactKey($artifact);
                     $digest = $this->digest($artifact);
@@ -148,14 +171,7 @@ final readonly class A2aTaskStream
                     return;
                 }
 
-                if (self::closesAt(A2aTaskState::tryFrom(is_string($payload['state'] ?? null) ? $payload['state'] : ''))) {
-                    return;
-                }
-            }
-
-            if ($this->now() - $renewed >= self::RENEW_SECONDS) {
-                $renewed = $this->now();
-                if (!$this->slots->renew($holder, (int) $renewed) || !$this->authenticator->stillValid($client, (int) $renewed)) {
+                if (self::closesAt($state)) {
                     return;
                 }
             }
@@ -191,6 +207,35 @@ final readonly class A2aTaskStream
         $this->logger->warning('An A2A stream ended: an event is larger than a2a.server.maxFrameBytes; the client reads the task with GetTask', ['task' => $taskId]);
 
         return false;
+    }
+
+    /**
+     * A journal event with its content as the task view renders it now: the
+     * artifacts and the status message under the run's current answer
+     * level. Null when the task is gone.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>|null
+     */
+    private function underCurrentPolicy(A2aInboundClient $client, string $taskId, array $payload): ?array
+    {
+        $row = $this->view->find($client->uid, $taskId);
+        if ($row === null) {
+            return null;
+        }
+
+        $task = $this->view->render($row, 0);
+        unset($payload['artifacts'], $payload['statusMessage']);
+        if (is_array($task['artifacts'] ?? null)) {
+            $payload['artifacts'] = $task['artifacts'];
+        }
+
+        if (is_array($task['status'] ?? null) && is_array($task['status']['message'] ?? null)) {
+            $payload['statusMessage'] = $task['status']['message'];
+        }
+
+        return $payload;
     }
 
     /**

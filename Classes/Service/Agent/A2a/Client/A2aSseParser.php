@@ -44,19 +44,26 @@ final class A2aSseParser
 
     private bool $pendingCr = false;
 
+    private ?string $failure = null;
+
     public function __construct(
         private readonly int $maxEventBytes,
     ) {}
 
     /**
-     * Feed the next bytes; returns the events they completed.
+     * Feed the next bytes; returns the events they completed. A line or an
+     * event over the limit stops the parse there: the events completed
+     * before it are still returned, and {@see self::failure()} says why the
+     * stream is invalid; every later feed returns nothing.
      *
      * @return list<array{event: string, data: string}>
-     *
-     * @throws A2aInvalidAgentResponseException when a line or an event exceeds the limit
      */
     public function feed(string $bytes): array
     {
+        if ($this->failure !== null) {
+            return [];
+        }
+
         if ($this->pendingCr && $bytes !== '') {
             $this->pendingCr = false;
             if ($bytes[0] === "\n") {
@@ -91,17 +98,38 @@ final class A2aSseParser
             }
 
             $this->buffer = substr($this->buffer, $end + $skip);
-            $event        = $this->line($line);
+            if (strlen($line) > $this->maxEventBytes) {
+                $this->failure = sprintf('a line is longer than %d bytes', $this->maxEventBytes);
+
+                return $events;
+            }
+
+            try {
+                $event = $this->line($line);
+            } catch (A2aInvalidAgentResponseException $e) {
+                $this->failure = $e->getMessage();
+
+                return $events;
+            }
+
             if ($event !== null) {
                 $events[] = $event;
             }
         }
 
         if (strlen($this->buffer) > $this->maxEventBytes) {
-            throw A2aInvalidAgentResponseException::invalidField('stream', sprintf('a line is longer than %d bytes', $this->maxEventBytes));
+            $this->failure = sprintf('a line is longer than %d bytes', $this->maxEventBytes);
         }
 
         return $events;
+    }
+
+    /**
+     * Why the stream is invalid, null while it is not.
+     */
+    public function failure(): ?string
+    {
+        return $this->failure;
     }
 
     /**
