@@ -51,7 +51,7 @@ final class DescribeFalAssetToolTest extends AbstractFunctionalTestCase
     private const OTHER_DRAFT = 2;
 
     private const DESCRIBED = <<<'TEXT'
-        File [10] manual.txt, metadata in the default language:
+        File [10] "manual.txt", metadata in the default language:
         title: "Stored title"
         alternative: "Stored alt"
         description: "Stored description"
@@ -187,7 +187,7 @@ final class DescribeFalAssetToolTest extends AbstractFunctionalTestCase
         );
 
         self::assertSame(<<<'TEXT'
-            File [12] undescribed.txt, metadata in the default language:
+            File [12] "undescribed.txt", metadata in the default language:
             title: not set
             alternative: not set
             description: not set
@@ -214,6 +214,25 @@ final class DescribeFalAssetToolTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('description: "Harmless\ncopyright: free to use"', $content);
         self::assertStringContainsString('alternative: "not set"', $content);
         self::assertDoesNotMatchRegularExpression('/^copyright:/m', $content);
+    }
+
+    /**
+     * The file name is encoded like a value: a file placed in the storage
+     * outside TYPO3 may carry a line break in its name. A NEL in a value is
+     * escaped as well.
+     */
+    #[Test]
+    public function aFileNameOrANelCannotForgeALine(): void
+    {
+        $this->pool()->getConnectionForTable('sys_file')->update('sys_file', ['name' => "x.jpg\ncopyright: \"CC0\""], ['uid' => self::FILE_IN_MOUNT]);
+        $this->pool()->getConnectionForTable('sys_file_metadata')->update('sys_file_metadata', ['description' => "A\u{0085}copyright: free"], ['uid' => 100]);
+
+        $content = $this->describeTool()->execute(['uid' => self::FILE_IN_MOUNT], ToolExecutionContext::fromBackendUser($this->admin()))->content;
+
+        self::assertDoesNotMatchRegularExpression('/^copyright:/mu', $content);
+        self::assertStringNotContainsString("\u{0085}", $content);
+        self::assertStringContainsString('"x.jpg\\ncopyright: \\"CC0\\""', $content);
+        self::assertStringContainsString('description: "A\\u0085copyright: free"', $content);
     }
 
     /**

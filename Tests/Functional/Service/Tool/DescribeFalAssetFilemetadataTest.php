@@ -58,7 +58,7 @@ final class DescribeFalAssetFilemetadataTest extends AbstractFunctionalTestCase
         $content = $this->describeTool()->execute(['uid' => self::FILE], ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)))->content;
 
         self::assertSame(<<<'TEXT'
-            File [10] photo.txt, metadata in the default language:
+            File [10] "photo.txt", metadata in the default language:
             title: "Harbour at dawn"
             alternative: not set
             description: not set

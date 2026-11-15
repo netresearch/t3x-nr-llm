@@ -30,7 +30,7 @@ permissions the backend applies when it shows the same file.
   is loaded); otherwise the line is absent and no query names the column.
 - **DF5 Not set is said.** An empty or missing text, a width or height of 0, and
   an accessible file without a metadata record are reported as the bare marker
-  `not set`. A stored text is reported as a JSON string literal, so a value
+  `not set`. The file name and every stored text are reported as JSON string literals, line breaks and C1 controls escaped, so a value
   cannot be mistaken for a marker and a line break inside it cannot start a
   forged line. Nothing is inferred: usage rights are never derived from the
   file name, and the tool description says that `not set` means unknown.

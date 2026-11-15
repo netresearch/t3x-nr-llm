@@ -132,7 +132,9 @@ final readonly class DescribeFalAssetTool implements ToolInterface, ToolEffectIn
             ? []
             : $this->fetchMetadata(self::toInt($file['uid'] ?? 0), $this->workspaceToRead($context, $user), $readable);
 
-        $lines = [sprintf('File [%d] %s, metadata in the default language:', self::toInt($file['uid'] ?? 0), self::toStr($file['name'] ?? ''))];
+        // The name is encoded like every value: a file placed in the storage
+        // outside TYPO3 can carry a line break in its name.
+        $lines = [sprintf('File [%d] %s, metadata in the default language:', self::toInt($file['uid'] ?? 0), $this->quoted(self::toStr($file['name'] ?? '')))];
         foreach ($fields as $field) {
             $lines[] = $field . ': ' . (in_array($field, $withheld, true) ? self::WITHHELD : $this->rendered($field, $metadata[$field] ?? null));
         }
@@ -264,7 +266,23 @@ final readonly class DescribeFalAssetTool implements ToolInterface, ToolEffectIn
             return self::NOT_SET;
         }
 
-        return (string) json_encode($text, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        return $this->quoted($text);
+    }
+
+    /**
+     * A text as a JSON string literal. Umlauts stay readable; every line
+     * break and C1 control, NEL included, is escaped, so a value cannot start
+     * a line of its own.
+     */
+    private function quoted(string $text): string
+    {
+        $literal = (string) json_encode($text, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+
+        return preg_replace_callback(
+            '/[\x{0080}-\x{009F}\x{2028}\x{2029}]/u',
+            static fn (array $match): string => sprintf('\\u%04x', mb_ord($match[0], 'UTF-8')),
+            $literal,
+        ) ?? $literal;
     }
 
     /**

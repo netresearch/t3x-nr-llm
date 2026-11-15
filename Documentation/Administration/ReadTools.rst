@@ -38,9 +38,10 @@ and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``get_fal_references``, ``find_missing_files``, ``describe_fal_asset``)
 are offered to non-admin
 backend users — those self-enforce the acting user's TYPO3 permissions
-(page-show rights, ``tables_select``) inside the tool, so a non-admin only
-ever sees what the backend already grants them (see
-:ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
+(page-show rights, ``tables_select``; for the file tools the storages and file
+mounts, and for ``describe_fal_asset`` also the field grants of
+``non_exclude_fields``) inside the tool, so a non-admin only ever sees what the
+backend already grants them (see :ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
 too; it reads public web pages only, which no TYPO3 permission covers, under
 the controls in :ref:`administration-tools-external-pages`. ``load_skill`` is
 offered to non-admins as well; it brings in only skill text an administrator

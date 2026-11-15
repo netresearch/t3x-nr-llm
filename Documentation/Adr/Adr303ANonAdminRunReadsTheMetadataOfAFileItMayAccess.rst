@@ -64,7 +64,8 @@ default and offered to non-admins (spec 058):
    line reads ``withheld (no field permission)`` and the column is not
    selected. No ``tables_select`` grant is required, as in core's file view.
 3. **Three answers per field, never blurred.** A stored text is printed as a
-   JSON string literal, an empty field as the bare marker ``not set``, a
+   JSON string literal (the file name too, with line breaks and C1 controls
+   escaped), an empty field as the bare marker ``not set``, a
    withheld one as the bare marker above. A stored ``not set`` cannot pass for
    the marker and a line break in a description cannot start a line of its
    own. An accessible file without a metadata record reads ``not set``
