@@ -152,17 +152,28 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             !in_array(self::READ_TOOL, $context->toolNames, true)  => 'the profile does not grant get_page_content',
             !$context->configuration->getRequireDraftWorkspace()   => 'its LLM configuration does not require a draft workspace',
             !$context->configuration->getRequireAssignmentScope()  => 'its LLM configuration does not require the scope of an assignment',
-            $user === null                                         => "the client's technical user cannot act in its pinned workspace",
             default                                                => null,
         };
 
-        if ($problem !== null || $user === null) {
-            $this->logger->warning('A2A page metadata skill cannot run: ' . $problem, ['profile' => $profile->uid]);
+        if (!$user instanceof BackendUserAuthentication) {
+            $this->unavailable($profile, $problem ?? "the client's technical user cannot act in its pinned workspace");
+        }
 
-            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
+        if ($problem !== null) {
+            $this->unavailable($profile, $problem);
         }
 
         return $user;
+    }
+
+    /**
+     * @throws A2aRpcError
+     */
+    private function unavailable(A2aSkillProfile $profile, string $problem): never
+    {
+        $this->logger->warning('A2A page metadata skill cannot run: ' . $problem, ['profile' => $profile->uid]);
+
+        throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
     }
 
     /**
