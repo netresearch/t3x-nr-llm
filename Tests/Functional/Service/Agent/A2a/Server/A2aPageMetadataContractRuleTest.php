@@ -13,11 +13,15 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
+use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataContractRule;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataReadFirstRule;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataRows;
@@ -25,6 +29,9 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
+use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -169,6 +176,35 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         ]);
 
         self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->stored($run)->statusEnum(), $this->toolResultOf($run));
+    }
+
+    /**
+     * An incomplete invocation history (a requeued run, an old suspended
+     * state) refuses a write of this skill, whose read check needs the whole
+     * history, and nothing else: another tool, or the same tool in a run
+     * without an A2A task, is not this rule's business.
+     */
+    #[Test]
+    public function anIncompleteHistoryRefusesOnlyAWriteOfThisSkill(): void
+    {
+        $run    = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? ''));
+        $policy = $this->getService(ToolInvocationPolicyInterface::class);
+        $decide = static fn (string $tool, ?AgentRunReference $reference): ToolInvocationDecision => $policy->decide(new ToolInvocationContext(
+            $tool,
+            ['uid' => self::TRANSLATION, 'description' => 'Gut.'],
+            null,
+            new LlmConfiguration(),
+            new ToolExecutionContext(AiActorContext::anonymous(), run: $reference),
+            ToolInvocationHistory::fromStored(null),
+        ));
+
+        self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $decide('get_page_content', new AgentRunReference($run->uid, $run->uuid))->ruleIdentifier, 'another tool');
+        self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $decide('update_page_metadata', null)->ruleIdentifier, 'a run without an A2A task');
+
+        $write = $decide('update_page_metadata', new AgentRunReference($run->uid, $run->uuid));
+        self::assertFalse($write->allowed);
+        self::assertSame('history_incomplete', $write->reason);
+        self::assertSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $write->ruleIdentifier);
     }
 
     /**

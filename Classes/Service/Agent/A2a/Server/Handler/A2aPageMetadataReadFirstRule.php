@@ -37,9 +37,13 @@ final readonly class A2aPageMetadataReadFirstRule implements ToolInvocationRuleI
         return self::IDENTIFIER;
     }
 
+    /**
+     * The policy would refuse every tool of every run on an incomplete
+     * history; the rule checks completeness itself, for its own calls only.
+     */
     public function requiresCompleteHistory(): bool
     {
-        return true;
+        return false;
     }
 
     public function decide(ToolInvocationContext $context): ToolInvocationDecision
@@ -48,6 +52,10 @@ final readonly class A2aPageMetadataReadFirstRule implements ToolInvocationRuleI
         // model should read.
         if (!$this->contract->holds($context) || $this->contract->scopeRefuses($context)) {
             return ToolInvocationDecision::allow();
+        }
+
+        if (!$context->history->complete) {
+            return ToolInvocationDecision::deny('history_incomplete', 'This run cannot show that the page was read, so no write is allowed. Nothing was changed.');
         }
 
         foreach ($context->history->entries as $entry) {
