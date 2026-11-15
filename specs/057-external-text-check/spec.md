@@ -101,3 +101,4 @@ edited outside nr-llm can only be checked by generating it again.
 | --- | --- |
 | X1-X9 | `ExternalTextCheckTest`, functional `ExternalTextCheckWiringTest` (rule-state digest included) |
 | X7 shared | `RuleSetJudgeGuardrailTest` (behaviour after the extraction), `ExternalTextCheckTest::aNamedWriterThatDoesNotExistCountsAsTheMostTrustedZone` (a named provider that is gone) |
+| X10-X21 | functional `A2aEditorialEndCheckTest`, which ships with the end-of-run check (ADR-302) and the result contract (ADR-301): no judge call in a transaction (X11), the check record and the report at each privacy level (X12, X16), the digest binding of the delivered text (X19) |
