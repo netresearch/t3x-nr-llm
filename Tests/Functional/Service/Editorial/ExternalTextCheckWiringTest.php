@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextCheck;
+use Netresearch\NrLlm\Service\Editorial\ExternalTextCheckScope;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextReport;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextStatus;
 use Netresearch\NrLlm\Service\Editorial\RuleStateDigest;
@@ -28,6 +29,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
 /**
  * The check of a delivered text against the real container and tables
@@ -135,7 +137,7 @@ final class ExternalTextCheckWiringTest extends AbstractFunctionalTestCase
         $before = $digest->of($this->configuration(3));
 
         $this->getConnection()->update('tx_nrllm_configuration', ['is_active' => 0], ['uid' => 2]);
-        $this->getService(\TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface::class)->clearState();
+        $this->getService(PersistenceManagerInterface::class)->clearState();
 
         self::assertNotSame($before, $digest->of($this->configuration(3)));
     }
@@ -148,7 +150,7 @@ final class ExternalTextCheckWiringTest extends AbstractFunctionalTestCase
         $digest = $this->digest();
         $before = $digest->of($this->configuration(2), [4]);
 
-        $report = $this->check()->check(self::SHORT, $this->configuration(2), new \Netresearch\NrLlm\Service\Editorial\ExternalTextCheckScope(furtherConfigurations: [4]));
+        $report = $this->check()->check(self::SHORT, $this->configuration(2), new ExternalTextCheckScope(furtherConfigurations: [4]));
         self::assertSame(ExternalTextStatus::VIOLATION, $report->status);
 
         $this->getConnection()->update('tx_nrllm_term_list', ['forbidden_terms' => 'Gratis'], ['uid' => 3]);
