@@ -113,8 +113,23 @@ return [
             'config'      => ['type' => 'text', 'cols' => 40, 'rows' => 2, 'searchable' => false],
         ],
         'input_modes' => [
-            'label'  => $ll . '.input_modes',
-            'config' => ['type' => 'input', 'size' => 30, 'default' => 'text/plain', 'readOnly' => true, 'searchable' => false],
+            'label'       => $ll . '.input_modes',
+            'description' => $ll . '.input_modes.description',
+            // The five types of ADR-284 (A2aFileValidator::MEDIA_TYPES); a
+            // file type counts only while "Accept A2A files" is on.
+            'config' => [
+                'type'       => 'select',
+                'renderType' => 'selectCheckBox',
+                'items'      => [
+                    ['label' => 'text/plain', 'value' => 'text/plain'],
+                    ['label' => 'application/json', 'value' => 'application/json'],
+                    ['label' => 'application/pdf', 'value' => 'application/pdf'],
+                    ['label' => 'image/png', 'value' => 'image/png'],
+                    ['label' => 'image/jpeg', 'value' => 'image/jpeg'],
+                ],
+                'default'  => 'text/plain',
+                'minitems' => 1,
+            ],
         ],
         'output_modes' => [
             'label'  => $ll . '.output_modes',

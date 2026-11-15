@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunEnqueueFailedException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunStartRefusedException;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\Queue\QueueRouting;
@@ -256,6 +257,13 @@ final readonly class QueuedRunCoordinator
             return $refusedAtStart;
         }
 
+        $prepared = $this->preparedAtStart($handle, $request, $runUuid, $workerIdentity);
+        if ($prepared instanceof AgentRunResult) {
+            return $prepared;
+        }
+
+        $request = $prepared;
+
         // The heartbeat renews the lease under this worker's identity, and the
         // recover closure decides retry-vs-dead-letter for a failure (ADR-104).
         $recover = function (Throwable $e, array $steps) use ($handle, $runUuid, $workerIdentity): AgentRunResult {
@@ -338,6 +346,31 @@ final readonly class QueuedRunCoordinator
         );
 
         return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
+    }
+
+    /**
+     * The request after the start preparers (spec 051 A2A-FILE4), or the
+     * result of failing the run. A refusal fails it without a retry, as at
+     * {@see self::refusedAtStart()}; any other failure, a network error of a
+     * fetch among them, goes through the failure recovery.
+     */
+    private function preparedAtStart(AgentRunHandle $handle, AgentRunRequest $request, string $runUuid, string $workerIdentity): AgentRunRequest|AgentRunResult
+    {
+        try {
+            return $this->executor->prepareStart($handle, $request);
+        } catch (RunStartRefusedException $refused) {
+            $error = new RuntimeException(sprintf('Run %s may not start: %s', $runUuid, $refused->getMessage()), 1799400303, $refused);
+            $this->persister->settleFailed($handle, $error, $workerIdentity);
+            $this->recordDiagnostic(
+                function () use ($refused, $runUuid): void {
+                    $this->logger?->notice('A queued agent run was refused while it was prepared and failed', ['run' => $runUuid, 'reason' => $refused->getMessage()]);
+                },
+            );
+
+            return new AgentRunResult(outcome: AgentRunOutcome::FAILED, runUuid: $runUuid, steps: [], error: $error);
+        } catch (Throwable $e) {
+            return $this->failureRecovery->recover($handle, $runUuid, $workerIdentity, $e, []);
+        }
     }
 
     /**

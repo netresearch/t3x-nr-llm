@@ -16,9 +16,10 @@ client sends a message to one of them. The message becomes an agent run that a
 worker executes; the client receives the result as an A2A task
 (:ref:`ADR-280 <adr-280>`, :ref:`ADR-282 <adr-282>`, :ref:`ADR-283 <adr-283>`).
 
-This page covers stages 3 to 5b of spec 051: tasks, a client that answers a
+This page covers stages 3 to 5b of spec 051 (tasks, a client that answers a
 task waiting for input, streams, and push notifications to a client's
-webhook. File parts are not offered (stage 5c).
+webhook) and the inbound files of stage 5c, switched off by default. Files
+in a result (the outbound part of stage 5c) are not offered.
 
 Switch it on
 ============
@@ -105,7 +106,14 @@ Public
    Listed on the card and callable. A profile that is not public cannot be
    called by any client.
 
-Messages and results are ``text/plain`` only (files are stage 5c).
+Input modes
+   The media types a client may send to the skill: ``text/plain`` and, while
+   files are switched on (see :ref:`administration-a2a-server-files`),
+   ``application/json``, ``application/pdf``, ``image/png`` and
+   ``image/jpeg``. While files are off the card lists ``text/plain`` for
+   every skill, whatever is ticked here.
+
+Results are ``text/plain`` only.
 
 Register a client
 =================
@@ -299,6 +307,66 @@ client can register webhooks for its own tasks, with
   :guilabel:`A2A Push Config` on the root page, read-only, with their state
   and the reason of the last refusal; the credential is not shown.
 
+..  _administration-a2a-server-files:
+
+Files
+=====
+
+Off by default. With :guilabel:`Accept A2A files (server role)`
+(``a2a.files.enabled``) on, a client message may carry file parts besides its
+text (:ref:`ADR-284 <adr-284>`). Off, every part other than ``text/plain``
+text is refused with ``-32005``, as before.
+
+What is accepted
+   A ``raw`` part (the bytes, base64 in the JSON) that names its
+   ``mediaType``, one of ``text/plain``, ``application/json``,
+   ``application/pdf``, ``image/png`` and ``image/jpeg``, and that the skill
+   lists among its :guilabel:`Input modes`. Each file is checked against its
+   type before anything is stored: text must be UTF-8 without control
+   characters and must not open with HTML, SVG or XML markup; JSON must parse;
+   a PDF needs its header and cross-reference trailer, must not be encrypted
+   and must not name JavaScript, launch actions, embedded files, rich media
+   or XFA forms; an image must carry its type's signature, be at most 4096 x
+   4096 pixels and decode with GD (without the GD extension no image is
+   accepted). Archives, HTML, SVG and any other type, a part without a
+   ``mediaType``, a ``data`` part and a ``url`` part are refused with
+   ``-32005``. A message that answers a waiting task carries text only.
+
+Sizes
+   :guilabel:`Largest A2A file` (``a2a.maxRawPartBytes``, default 5 MiB)
+   bounds the decoded bytes of one file and of all files of one message
+   together. The base64 text is measured before it is decoded. Larger is
+   ``-32602``. While files are on, the largest request
+   (``a2a.server.maxRequestBytes``) grows by the base64 size of this limit.
+
+Where a file goes
+   Into a private store (``tx_nrllm_a2a_file``), not into FAL and not under
+   any public path: one row per file with the client, the task, the origin,
+   the real size, the checked type, the SHA-256, the check and approval
+   state and an expiry, the bytes sealed in the row like a task's history.
+   The task's history keeps a reference in place of the bytes (the part's
+   ``raw`` is empty, its ``metadata`` under
+   ``https://nr-llm.netresearch.de/a2a/ext/file/v1`` names the file id,
+   SHA-256 and size).
+
+What the run sees
+   Before the worker asks the model for the first time it checks the task's
+   files against the list recorded when the task was accepted: each must be
+   there, of the client, checked, approved, unexpired and unchanged.
+   Otherwise the task fails and the model is never asked. The run then
+   receives, after the client's text, one message per file, marked as data
+   the client sent and not as instructions: text and JSON as text, an image
+   as an image for a model that declares vision, and a PDF as a line naming
+   it, because a run cannot read a PDF. A large text file goes into the
+   prompt whole; set the size limit with the model's context in mind.
+
+Cleanup
+   A task's files go with the run purge, like its history.
+   ``nrllm:privacy:purge`` also deletes every file older than
+   :guilabel:`Hours an A2A file is kept` (``a2a.files.retentionHours``,
+   default 168); a queued task whose file is gone fails rather than running
+   without it.
+
 Limits and protection
 =====================
 
@@ -334,7 +402,8 @@ Limits and protection
   closes. Check the proxy chain of the installation with a
   ``SubscribeToTask`` before relying on streams.
 - **Request size.** A body above ``a2a.server.maxRequestBytes`` (default
-  1 MiB) is refused with HTTP 413 before it is parsed; a message has at most
+  1 MiB, plus the base64 size of ``a2a.maxRawPartBytes`` while files are on)
+  is refused with HTTP 413 before it is parsed; a message has at most
   16 parts. A task's history keeps the most recent 100 messages.
 - **Failed logins.** A failed authentication is logged with the source
   address, never with the token, and counted per address: after 10 failures

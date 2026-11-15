@@ -35,6 +35,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ProcessRunNeedsSecondApproverExcep
 use Netresearch\NrLlm\Service\Agent\Exception\RunCancellationRequestedException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLeaseLostException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
+use Netresearch\NrLlm\Service\Agent\Exception\RunStartRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Agent\Process\PreparedProcess;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
@@ -104,6 +105,12 @@ final readonly class AgentRunExecutor
         /** @var iterable<RunStartGuardInterface> */
         #[AutowireIterator(RunStartGuardInterface::START_TAG)]
         private iterable $startGuards = [],
+        // Asked after the start guards let a claimed queued run through,
+        // before its first segment (spec 051 A2A-FILE4): a preparer adds what
+        // only the worker may obtain, or refuses the run.
+        /** @var iterable<RunStartPreparerInterface> */
+        #[AutowireIterator(RunStartPreparerInterface::TAG)]
+        private iterable $startPreparers = [],
     ) {}
 
     /**
@@ -121,6 +128,22 @@ final readonly class AgentRunExecutor
         }
 
         return null;
+    }
+
+    /**
+     * The request a claimed queued run starts with, once every start
+     * preparer added to it. Asked by the worker after
+     * {@see self::startRefusal()}, outside the ladder.
+     *
+     * @throws RunStartRefusedException
+     */
+    public function prepareStart(AgentRunHandle $handle, AgentRunRequest $request): AgentRunRequest
+    {
+        foreach ($this->startPreparers as $preparer) {
+            $request = $preparer->prepare($handle, $request);
+        }
+
+        return $request;
     }
 
     /**

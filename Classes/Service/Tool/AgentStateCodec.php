@@ -66,6 +66,9 @@ final readonly class AgentStateCodec
     /** The body of a push callback the A2A client received (ADR-285). */
     public const PURPOSE_A2A_PUSH_INBOX = 'nrllm:a2a:push-inbox';
 
+    /** The bytes and the URL of a file in the private A2A file store (ADR-284). */
+    public const PURPOSE_A2A_FILE = 'nrllm:a2a:file';
+
     public function __construct(
         private EnvelopeCodecInterface $envelopeCodec,
     ) {}

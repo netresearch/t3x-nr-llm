@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 use DateTimeImmutable;
 use JsonException;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aErrorCode;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
@@ -75,6 +76,7 @@ final readonly class A2aRpcServer
         private A2aTaskStream $taskStream,
         private A2aPushConfigStore $pushConfigs,
         ?LoggerInterface $logger = null,
+        private ?A2aFileSettings $fileSettings = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
@@ -101,10 +103,17 @@ final readonly class A2aRpcServer
 
     /**
      * The body, read up to the limit and not one byte further (A2A-SEC6).
+     * With files switched on, the limit grows by the base64 text one
+     * message's files may hold (A2A-FILE2); it is checked before anything
+     * else, so it cannot depend on who sends the request.
      */
     private function body(ServerRequestInterface $request): string
     {
-        $limit  = $this->settings->maxRequestBytes();
+        $limit = $this->settings->maxRequestBytes();
+        if ($this->fileSettings instanceof A2aFileSettings && $this->fileSettings->enabled()) {
+            $limit += $this->fileSettings->maxBase64Length();
+        }
+
         $length = $request->getHeaderLine('Content-Length');
         if (is_numeric($length) && (int) $length > $limit) {
             throw A2aRpcError::tooLarge();

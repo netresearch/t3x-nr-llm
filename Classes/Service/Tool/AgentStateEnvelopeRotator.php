@@ -69,6 +69,10 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
         'tx_nrllm_a2a_push_inbox' => [
             'body' => AgentStateCodec::PURPOSE_A2A_PUSH_INBOX,
         ],
+        'tx_nrllm_a2a_file' => [
+            'source_url' => AgentStateCodec::PURPOSE_A2A_FILE,
+            'content'    => AgentStateCodec::PURPOSE_A2A_FILE,
+        ],
     ];
 
     /**

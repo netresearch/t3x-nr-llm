@@ -68,7 +68,7 @@ item of the cross-check against a second plan they come from in brackets
 ## Stages
 
 Every stage below is in scope. Stages 0 to 4 and 5a are implemented on
-`main`; 5b is implemented in both roles, the sender (server role) and the receiver (client role); 5c is not built yet. The Status column says where each
+`main`; 5b is implemented in both roles, the sender (server role) and the receiver (client role); 5c is implemented in part (see its row). The Status column says where each
 stage stands, and the change that completes a stage updates its row. The stages
 are an implementation order, nothing more: a stage builds on the ones it
 depends on.
@@ -82,7 +82,7 @@ depends on.
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
 | 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | merged (#1378), released in 0.48.0; a delegating run polls rather than streams (the client stream is the PHP API and `nrllm:a2a:send --stream`) |
 | 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | sender (server role, A2A-PUSH1 to A2A-PUSH5) implemented, off by default (`a2a.server.push`); receiver (client role, A2A-PUSH6 to A2A-PUSH8) implemented, off by default (`a2a.client.push`, endpoint on the site named by `a2a.client.pushSite`); the client registers without an embedded config only |
-| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | not built; the server accepts `text/plain` parts only |
+| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | partly built, behind `a2a.files.enabled` (off by default): inbound `raw` parts in the server role (A2A-FILE1, A2A-FILE2, A2A-FILE4); `url` parts (A2A-FILE3), outbound files (A2A-FILE5), FAL export and adoption (A2A-FILE6, A2A-FILE7) and files in the client role are not built |
 
 Each stage is released only with its own gates (see "Verification") and the
 rollout order of A2A-OPS1.

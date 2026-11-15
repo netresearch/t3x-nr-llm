@@ -2410,6 +2410,10 @@
                 <source>Input modes</source>
                 <target>Eingabeformate</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.input_modes.description">
+                <source>The media types a client may send to this skill. A file type is accepted only while the extension setting &quot;Accept A2A files&quot; is on, and each file is checked against its type before it is stored (ADR-284).</source>
+                <target>Die Medientypen, die ein Client an diese Fähigkeit senden darf. Ein Dateityp wird nur angenommen, solange die Erweiterungseinstellung &quot;Accept A2A files&quot; eingeschaltet ist, und jede Datei wird vor dem Speichern gegen ihren Typ geprüft (ADR-284).</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.output_modes">
                 <source>Output modes</source>
                 <target>Ausgabeformate</target>

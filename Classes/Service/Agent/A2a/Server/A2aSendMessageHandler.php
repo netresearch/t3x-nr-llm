@@ -18,9 +18,11 @@ use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aInvalidAgentResponseException;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileStore;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aInboundFile;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aInboundFilePolicy;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aErrorCode;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
-use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPart;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPartKind;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRole;
@@ -91,8 +93,6 @@ final readonly class A2aSendMessageHandler
 
     private const MAX_MESSAGE_ID_LENGTH = 255;
 
-    private const ACCEPTED_TEXT_TYPES = ['', 'text/plain'];
-
     private LoggerInterface $logger;
 
     public function __construct(
@@ -115,6 +115,8 @@ final readonly class A2aSendMessageHandler
         private A2aPushConfigStore $pushConfigs,
         ?LoggerInterface $logger = null,
         private ?MessageBusInterface $messageBus = null,
+        private ?A2aInboundFilePolicy $filePolicy = null,
+        private ?A2aFileStore $fileStore = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
@@ -132,9 +134,9 @@ final readonly class A2aSendMessageHandler
     {
         $this->checkConnections($client);
 
-        $message       = $this->message($params);
-        $configuration = $this->object($params, 'configuration');
-        $push          = null;
+        [$message, $files] = $this->message($params);
+        $configuration     = $this->object($params, 'configuration');
+        $push              = null;
         if (array_key_exists('taskPushNotificationConfig', $configuration)) {
             if (!$this->settings->pushEnabled()) {
                 throw A2aRpcError::a2a(A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED, 'Push notifications are not supported.');
@@ -155,10 +157,12 @@ final readonly class A2aSendMessageHandler
         }
 
         if ($message->taskId !== '') {
-            return $this->continueTask($client, $message, $named, $allowed, $configuration, $blocking, $historyLength, $now, $push);
+            return $this->continueTask($client, $message, $files, $named, $allowed, $configuration, $blocking, $historyLength, $now, $push);
         }
 
         $profile = $this->selectProfile($allowed, $named);
+        // A2A-FILE1: a file's type must be one the skill takes.
+        $this->filePolicy?->checkInputModes($files, $profile);
         $this->checkOutputModes($configuration, $profile);
         $contextId = $this->contextId($client, $message, $profile);
 
@@ -217,7 +221,7 @@ final readonly class A2aSendMessageHandler
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {
-            $taskId = $this->accept($client, $profile, $message, $contextId, $digest, $decision, $push, $now);
+            $taskId = $this->accept($client, $profile, $message, $files, $contextId, $digest, $decision, $push, $now);
             if ($taskId === null) {
                 // A concurrent request with the same messageId won the
                 // acceptance; this one returns its task (A2A-SV6).
@@ -238,17 +242,18 @@ final readonly class A2aSendMessageHandler
     }
 
     /**
-     * The acceptance transaction (A2A-SV5): the run, the task bound to it and
-     * the dedup record, or none of them.
+     * The acceptance transaction (A2A-SV5): the run, the task bound to it,
+     * the dedup record and the message's files (A2A-FILE4), or none of them.
      *
+     * @param list<A2aInboundFile>                                                                    $files
      * @param array{id: string, url: string, token: string, scheme: string, credentials: string}|null $push
      *
      * @return string|null the new task's id; null when the dedup record of a concurrent request won
      */
-    private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, string $contextId, string $digest, A2aHandlerDecision $decision, ?array $push, int $now): ?string
+    private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, array $files, string $contextId, string $digest, A2aHandlerDecision $decision, ?array $push, int $now): ?string
     {
         $request = $decision->request;
-        if (!$request instanceof AgentRunRequest) {
+        if (!$request instanceof AgentRunRequest || $files !== [] && (!$this->fileStore instanceof A2aFileStore || !$this->filePolicy instanceof A2aInboundFilePolicy)) {
             throw A2aRpcError::internal();
         }
 
@@ -258,11 +263,12 @@ final readonly class A2aSendMessageHandler
         $entry              = $message->toArray();
         $entry['taskId']    = $taskId;
         $entry['contextId'] = $contextId;
-        $history            = [$entry];
+        // The history keeps a file's reference, not its bytes (A2A-FILE4).
+        $history = [$this->filePolicy instanceof A2aInboundFilePolicy ? $this->filePolicy->historyEntry($entry, $files) : $entry];
 
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
-                function (Connection $connection) use ($client, $profile, $message, $contextId, $digest, $decision, $request, $taskId, $history, $push, $now, &$runUuid, &$repeated): void {
+                function (Connection $connection) use ($client, $profile, $message, $files, $contextId, $digest, $decision, $request, $taskId, $history, $push, $now, &$runUuid, &$repeated): void {
                     // The limits checked before are checked again under the
                     // client's (and the quota profile's) row lock, so
                     // concurrent requests of one client are serialised here
@@ -291,6 +297,7 @@ final readonly class A2aSendMessageHandler
                     }
 
                     $taskUid = $this->store->bind($run->uid, $taskId, $contextId, $client->uid, $profile->uid, $history);
+                    $this->fileStore?->storeForTask($client->uid, $taskUid, $files, time());
                     $connection->insert(self::DEDUP_TABLE, [
                         'owner_client_uid'  => $client->uid,
                         'message_id'        => $message->messageId,
@@ -345,7 +352,7 @@ final readonly class A2aSendMessageHandler
     private function checkConnections(A2aInboundClient $client): void
     {
         $connection = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE);
-        foreach ([self::DEDUP_TABLE, self::RUN_TABLE, A2aInboundClientRepository::TABLE, A2aSkillProfileRepository::TABLE] as $table) {
+        foreach ([self::DEDUP_TABLE, self::RUN_TABLE, A2aInboundClientRepository::TABLE, A2aSkillProfileRepository::TABLE, A2aFileStore::TABLE] as $table) {
             if ($this->connectionPool->getConnectionForTable($table) !== $connection) {
                 $this->logger->error('An A2A task cannot be accepted: its tables are on different database connections', ['client' => $client->uid, 'table' => $table]);
 
@@ -404,6 +411,7 @@ final readonly class A2aSendMessageHandler
     /**
      * A client's later message to one of its tasks (A2A-MT1 to A2A-MT4).
      *
+     * @param list<A2aInboundFile>                                                                    $files
      * @param list<A2aSkillProfile>                                                                   $allowed
      * @param array<string, mixed>                                                                    $configuration
      * @param array{id: string, url: string, token: string, scheme: string, credentials: string}|null $push
@@ -412,11 +420,16 @@ final readonly class A2aSendMessageHandler
      *
      * @throws A2aRpcError
      */
-    private function continueTask(A2aInboundClient $client, A2aMessage $message, ?string $named, array $allowed, array $configuration, bool $blocking, ?int $historyLength, int $now, ?array $push = null): array
+    private function continueTask(A2aInboundClient $client, A2aMessage $message, array $files, ?string $named, array $allowed, array $configuration, bool $blocking, ?int $historyLength, int $now, ?array $push = null): array
     {
         $row = $this->view->find($client->uid, $message->taskId);
         if ($row === null) {
             throw A2aRpcError::a2a(A2aErrorCode::TASK_NOT_FOUND, 'Task not found.');
+        }
+
+        // An answer to a question is text; a file in it would have nowhere to go.
+        if ($files !== []) {
+            throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, 'A message that continues a task carries text/plain parts only.');
         }
 
         $contextId = is_string($row['context_id'] ?? null) ? $row['context_id'] : '';
@@ -684,9 +697,13 @@ final readonly class A2aSendMessageHandler
     }
 
     /**
+     * The message and its checked files (A2A-FILE1, A2A-FILE2).
+     *
      * @param array<string, mixed> $params
+     *
+     * @return array{A2aMessage, list<A2aInboundFile>}
      */
-    private function message(array $params): A2aMessage
+    private function message(array $params): array
     {
         if (!is_array($params['message'] ?? null) || array_is_list($params['message']) && $params['message'] !== []) {
             throw A2aRpcError::invalidParams('message', 'required');
@@ -694,6 +711,8 @@ final readonly class A2aSendMessageHandler
 
         /** @var array<string, mixed> $json */
         $json = $params['message'];
+        // The base64 text is measured before the parser decodes it.
+        $this->filePolicy?->checkEncoded($json);
         try {
             $message = (new A2aResponseParser())->parseMessage($json);
         } catch (A2aInvalidAgentResponseException $exception) {
@@ -717,18 +736,19 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::invalidParams('message.parts', sprintf('at most %d parts', self::MAX_PARTS));
         }
 
+        if ($this->filePolicy instanceof A2aInboundFilePolicy) {
+            return [$message, $this->filePolicy->files($message)];
+        }
+
+        // Without the file policy (a handler built by hand): text only, as
+        // with files switched off.
         foreach ($message->parts as $part) {
-            if (!$this->isPlainText($part)) {
+            if ($part->kind !== A2aPartKind::TEXT || !in_array(strtolower(trim(explode(';', $part->mediaType)[0])), ['', 'text/plain'], true)) {
                 throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, 'Only text/plain parts are accepted.');
             }
         }
 
-        return $message;
-    }
-
-    private function isPlainText(A2aPart $part): bool
-    {
-        return $part->kind === A2aPartKind::TEXT && in_array(strtolower(trim(explode(';', $part->mediaType)[0])), self::ACCEPTED_TEXT_TYPES, true);
+        return [$message, []];
     }
 
     /**

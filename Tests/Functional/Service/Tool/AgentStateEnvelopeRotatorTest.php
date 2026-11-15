@@ -59,9 +59,9 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     public function itDeclaresTheTablesItWrites(): void
     {
         // The A2A task view and event journal (ADR-282), the push configs
-        // and the push inbox (ADR-285) are sealed with the same codec, so a rotation must reach
-        // them too.
-        self::assertSame([self::TABLE, 'tx_nrllm_a2a_task', 'tx_nrllm_a2a_event', 'tx_nrllm_a2a_push_config', 'tx_nrllm_a2a_push_inbox'], $this->rotator->getTables());
+        // and the push inbox (ADR-285), and the A2A file store (ADR-284) are
+        // sealed with the same codec, so a rotation must reach them too.
+        self::assertSame([self::TABLE, 'tx_nrllm_a2a_task', 'tx_nrllm_a2a_event', 'tx_nrllm_a2a_push_config', 'tx_nrllm_a2a_push_inbox', 'tx_nrllm_a2a_file'], $this->rotator->getTables());
         self::assertStringContainsString('nr-llm', $this->rotator->getIdentifier());
     }
 
