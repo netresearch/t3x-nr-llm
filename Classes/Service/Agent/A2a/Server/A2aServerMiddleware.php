@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClientPushSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aPushReceiver;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -26,7 +27,10 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  *
  * It answers two paths below a site's configured A2A base URL: the
  * JSON-RPC endpoint (the base itself, POST) and the agent card
- * (`/.well-known/agent-card.json`, GET). A request is matched against the
+ * (`/.well-known/agent-card.json`, GET). While A2A files are on, it also
+ * answers the download of a file a task sends (`/files/<file id>`) and the
+ * issuing of its capability URL (`/files/<file id>/capability`, spec 051
+ * A2A-FILE5). A request is matched against the
  * configured bases by its scheme, host, port and path; a request that
  * matches none, every other path and every other method pass through
  * untouched. With the server role switched off, everything passes through.
@@ -51,6 +55,8 @@ final readonly class A2aServerMiddleware implements MiddlewareInterface
         private A2aRpcServer $rpc,
         private ?A2aPushReceiver $pushReceiver = null,
         private ?A2aClientPushSettings $pushSettings = null,
+        private ?A2aFileDownload $download = null,
+        private ?A2aFileSettings $fileSettings = null,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
@@ -77,7 +83,12 @@ final readonly class A2aServerMiddleware implements MiddlewareInterface
         }
 
         if ($path === '' && $method === 'POST') {
-            return $this->rpc->handle($request, time())->toResponse();
+            return $this->rpc->handle($request->withAttribute(A2aBaseUrl::class, $base), time())->toResponse();
+        }
+
+        if ($this->download instanceof A2aFileDownload && $this->fileSettings?->enabled() === true
+            && preg_match('#^/files/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/capability)?$#', $path, $match) === 1) {
+            return $this->download->handle($request, $base, $match[1], ($match[2] ?? '') !== '', time());
         }
 
         return $handler->handle($request);

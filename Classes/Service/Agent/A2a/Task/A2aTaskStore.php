@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aOutboundFileArtifacts;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -69,24 +70,27 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         private A2aTaskProjector $projector,
         private ?LoggerInterface $logger = null,
         private ?A2aArtifactShaperInterface $artifacts = null,
+        private ?A2aOutboundFileArtifacts $files = null,
     ) {}
 
     /**
      * Bind a new task to a run (stage 3 creates both in its acceptance
      * transaction, A2A-SV5). The history is kept at the run's answer level.
      *
-     * @param list<array<string, mixed>> $history the client's messages, A2A JSON
+     * @param list<array<string, mixed>> $history  the client's messages, A2A JSON
+     * @param string                     $endpoint the A2A endpoint the task was accepted at, the base of
+     *                                             its file downloads (A2A-FILE5)
      *
      * @return int the task row's uid
      */
-    public function bind(int $runUid, string $taskId, string $contextId, int $ownerClientUid = 0, int $profileUid = 0, array $history = []): int
+    public function bind(int $runUid, string $taskId, string $contextId, int $ownerClientUid = 0, int $profileUid = 0, array $history = [], string $endpoint = ''): int
     {
         // The history is content like the result: kept at the run's answer
         // level, read under the run-row lock (ADR-270, ADR-282). A later
         // tightening scrubs it, so it is never wider than the current level.
         return $this->privacy->withAnswerCeiling(
             $runUid,
-            fn (PrivacyLevel $ceiling): int => $this->insertTask($runUid, $taskId, $contextId, $ownerClientUid, $profileUid, $history === [] || !$ceiling->persistsContent() ? '' : $this->json($this->redact($history, $ceiling))),
+            fn (PrivacyLevel $ceiling): int => $this->insertTask($runUid, $taskId, $contextId, $ownerClientUid, $profileUid, $history === [] || !$ceiling->persistsContent() ? '' : $this->json($this->redact($history, $ceiling)), $endpoint),
         );
     }
 
@@ -129,7 +133,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         });
     }
 
-    private function insertTask(int $runUid, string $taskId, string $contextId, int $ownerClientUid, int $profileUid, string $history): int
+    private function insertTask(int $runUid, string $taskId, string $contextId, int $ownerClientUid, int $profileUid, string $history, string $endpoint): int
     {
         $connection = $this->connection();
         $now        = time();
@@ -142,6 +146,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             'state'              => A2aTaskState::SUBMITTED->value,
             'status_timestamp'   => $this->nowMillis(),
             'history'            => $this->seal($history),
+            'endpoint'           => mb_substr($endpoint, 0, 512),
             'revision'           => 1,
             'projected_revision' => 0,
             'crdate'             => $now,
@@ -366,6 +371,17 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $writes = $this->writesArtifact($runUid, $this->profileMayWrite($runUid));
         if ($writes !== null) {
             $artifact[] = $writes;
+        }
+
+        // The files the run sent (A2A-FILE5), at the same answer level.
+        $task = $this->connection()->select(['uid', 'owner_client_uid', 'endpoint'], self::TABLE, ['run_uid' => $runUid])->fetchAssociative();
+        if ($this->files instanceof A2aOutboundFileArtifacts && is_array($task)) {
+            array_push($artifact, ...$this->files->artifactsFor(
+                is_numeric($task['uid'] ?? null) ? (int) $task['uid'] : 0,
+                is_numeric($task['owner_client_uid'] ?? null) ? (int) $task['owner_client_uid'] : 0,
+                is_string($task['endpoint'] ?? null) ? $task['endpoint'] : '',
+                $ceiling,
+            ));
         }
 
         $this->update($runUid, [

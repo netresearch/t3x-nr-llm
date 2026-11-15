@@ -19,7 +19,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
  * The switch `a2a.files.enabled` is off by default (A2A-OPS2). An unreadable
  * value is a switch that is off and the smallest limit, never a wider one.
  * The size limit is `a2a.maxRawPartBytes` (A2A-FILE2), one value for a part
- * and for all files of one message together.
+ * and for all files of one message together; `a2a.maxInlineArtifactBytes`
+ * bounds what a task sends inline (A2A-FILE5).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -36,6 +37,14 @@ final readonly class A2aFileSettings
     public const RAW_PART_BYTES_MAX = 8388608;
 
     public const RETENTION_HOURS_DEFAULT = 168;
+
+    public const INLINE_ARTIFACT_BYTES_DEFAULT = 262144;
+
+    /**
+     * Base64 makes 4/3 of it, so the inline files of a task still fit into
+     * one event of a stream at the default `a2a.server.maxFrameBytes` (1 MiB).
+     */
+    public const INLINE_ARTIFACT_BYTES_MAX = 524288;
 
     public function __construct(
         private ExtensionConfiguration $extensionConfiguration,
@@ -62,6 +71,16 @@ final readonly class A2aFileSettings
     public function maxBase64Length(): int
     {
         return 4 * intdiv($this->maxRawPartBytes() + 2, 3);
+    }
+
+    /**
+     * The bytes the files a task sends may hold together inline, as `raw`
+     * parts of its artifacts (A2A-FILE5); a file that does not fit goes out
+     * as a download. 0 sends every file as a download.
+     */
+    public function maxInlineArtifactBytes(): int
+    {
+        return $this->bounded($this->a2a('maxInlineArtifactBytes'), self::INLINE_ARTIFACT_BYTES_DEFAULT, 0, self::INLINE_ARTIFACT_BYTES_MAX);
     }
 
     /**

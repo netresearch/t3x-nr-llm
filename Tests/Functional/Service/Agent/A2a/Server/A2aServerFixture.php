@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAgentCardBuilder;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aFileDownload;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcServer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerMiddleware;
@@ -128,7 +130,7 @@ trait A2aServerFixture
         $finder   = new A2aOneSiteFinder($site);
         $settings = new A2aServerSettings($this->getService(ExtensionConfiguration::class), $finder);
 
-        return new A2aServerMiddleware($settings, $finder, $this->getService(A2aAgentCardBuilder::class), $this->getService(A2aRpcServer::class));
+        return new A2aServerMiddleware($settings, $finder, $this->getService(A2aAgentCardBuilder::class), $this->getService(A2aRpcServer::class), $this->getService(A2aFileDownload::class), $this->getService(A2aFileSettings::class));
     }
 
     /**

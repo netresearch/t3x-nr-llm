@@ -125,12 +125,14 @@ final readonly class A2aSendMessageHandler
      * @param array<string, mixed> $params
      * @param bool                 $streaming for SendStreamingMessage: never wait, never take a
      *                                        waiting slot; the caller streams the task (A2A-SSE1)
+     * @param string               $endpoint  the configured A2A endpoint the request came to; a new
+     *                                        task keeps it as the base of its file downloads (A2A-FILE5)
      *
      * @return array<string, mixed> the `SendMessageResponse`
      *
      * @throws A2aRpcError
      */
-    public function handle(A2aInboundClient $client, array $params, int $now, bool $streaming = false): array
+    public function handle(A2aInboundClient $client, array $params, int $now, bool $streaming = false, string $endpoint = ''): array
     {
         $this->checkConnections($client);
 
@@ -221,7 +223,7 @@ final readonly class A2aSendMessageHandler
         $slot = $blocking ? $this->takeSlot($now) : null;
 
         try {
-            $taskId = $this->accept($client, $profile, $message, $files, $contextId, $digest, $decision, $push, $now);
+            $taskId = $this->accept($client, $profile, $message, $files, $contextId, $digest, $decision, $endpoint, $push, $now);
             if ($taskId === null) {
                 // A concurrent request with the same messageId won the
                 // acceptance; this one returns its task (A2A-SV6).
@@ -250,7 +252,7 @@ final readonly class A2aSendMessageHandler
      *
      * @return string|null the new task's id; null when the dedup record of a concurrent request won
      */
-    private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, array $files, string $contextId, string $digest, A2aHandlerDecision $decision, ?array $push, int $now): ?string
+    private function accept(A2aInboundClient $client, A2aSkillProfile $profile, A2aMessage $message, array $files, string $contextId, string $digest, A2aHandlerDecision $decision, string $endpoint, ?array $push, int $now): ?string
     {
         $request = $decision->request;
         if (!$request instanceof AgentRunRequest || $files !== [] && (!$this->fileStore instanceof A2aFileStore || !$this->filePolicy instanceof A2aInboundFilePolicy)) {
@@ -268,7 +270,7 @@ final readonly class A2aSendMessageHandler
 
         try {
             $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)->transactional(
-                function (Connection $connection) use ($client, $profile, $message, $files, $contextId, $digest, $decision, $request, $taskId, $history, $push, $now, &$runUuid, &$repeated): void {
+                function (Connection $connection) use ($client, $profile, $message, $files, $contextId, $digest, $decision, $request, $taskId, $history, $endpoint, $push, $now, &$runUuid, &$repeated): void {
                     // The limits checked before are checked again under the
                     // client's (and the quota profile's) row lock, so
                     // concurrent requests of one client are serialised here
@@ -296,7 +298,7 @@ final readonly class A2aSendMessageHandler
                         throw new A2aException('The queued run of an A2A task cannot be read back.', 1799300201);
                     }
 
-                    $taskUid = $this->store->bind($run->uid, $taskId, $contextId, $client->uid, $profile->uid, $history);
+                    $taskUid = $this->store->bind($run->uid, $taskId, $contextId, $client->uid, $profile->uid, $history, $endpoint);
                     $this->fileStore?->storeForTask($client->uid, $taskUid, $files, time());
                     $connection->insert(self::DEDUP_TABLE, [
                         'owner_client_uid'  => $client->uid,

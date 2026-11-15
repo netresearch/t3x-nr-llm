@@ -359,8 +359,9 @@ Sizes
    message together. Sealed, a file takes about 1.8 times its size in its
    database row, which must fit into one packet of the database
    (``max_allowed_packet``, 16 MiB by default on MariaDB). The base64 text
-   is measured before it is decoded. Larger is ``-32602``. While files are on, the largest request
-   (``a2a.server.maxRequestBytes``) grows by the base64 size of this limit.
+   is measured before it is decoded. Larger is ``-32602``. While files are
+   on, the largest request (``a2a.server.maxRequestBytes``) grows by the
+   base64 size of this limit.
 
 Where a file goes
    Into a private store (``tx_nrllm_a2a_file``), not into FAL and not under
@@ -383,6 +384,47 @@ What the run sees
    as an image for a model that declares vision, and a PDF as a line naming
    it, because a run cannot read a PDF. A large text file goes into the
    prompt whole; set the size limit with the model's context in mind.
+
+Files a task sends
+   A file a task sends is one of the five types and passed the same check,
+   and is stored in the same private store, with the direction ``out``.
+   When the run completes, each file becomes an artifact of its own. Files
+   go inline as ``raw`` while they fit together into
+   :guilabel:`Largest inline A2A artifact` (``a2a.maxInlineArtifactBytes``,
+   default 256 KiB, at most 512 KiB, so that they still fit into one event
+   of a stream at the default frame size); every further file goes out as a
+   ``url`` to ``<endpoint>/files/<file id>``, below the A2A endpoint the task
+   was accepted at, as the site configures it. No artifact names a URL of
+   the installation's own storage. The part's ``metadata`` names the file
+   id, SHA-256 and size as for an inbound file. A run kept at the
+   ``redacted`` level sends no file, because a file cannot be redacted; one
+   text artifact says how many files were withheld. No producer uses this
+   yet: the export of a FAL file into an artifact is not built.
+
+Downloading a file
+   ``GET <endpoint>/files/<file id>`` with the client's bearer token returns
+   the bytes with their type, ``Content-Disposition: attachment``,
+   ``X-Content-Type-Options: nosniff`` and ``Cache-Control: no-store``. A
+   file of another client, an unknown file, an expired one and one the
+   task's artifacts no longer name all answer the same ``404``; a file is
+   served only while the artifacts, read at the run's current answer level,
+   still carry it, so a tightened privacy level withdraws the download too.
+   ``POST <endpoint>/files/<file id>/capability`` with the bearer token
+   returns ``{"url": ..., "expiresAt": ...}``: a URL that reads this one
+   file of this one client without the bearer token for 15 minutes.
+
+   ..  warning::
+
+       A capability URL is a transferable bearer right: whoever holds it
+       reads the file until it expires, without any other credential. It
+       stops working when it expires, when the client gets a new token and
+       when the client is disabled. Hand it on only where the file may go.
+
+   Asking for a capability again issues a new URL and changes nothing of
+   the task: its status, the artifact ids, the digest and the content stay
+   as they are, and no event is written. With
+   :guilabel:`Accept A2A files (server role)` off, the download paths are
+   not answered.
 
 Cleanup
    A task's files go with the run purge, like its history.

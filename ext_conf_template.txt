@@ -285,6 +285,9 @@ a2a.files.enabled = 0
 # cat=tools; type=int+; label=Largest A2A file (bytes): How many bytes one file part, and all file parts of one message together, may hold once decoded (spec 051 A2A-FILE2). Larger is refused with -32602, the base64 text already before it is decoded. Default 5242880 (5 MiB), at most 8388608 (8 MiB): sealed, a file takes about 1.8 times its size in the database row, and the whole row must fit into one database packet (max_allowed_packet).
 a2a.maxRawPartBytes = 5242880
 
+# cat=tools; type=int+; label=Largest inline A2A artifact (bytes): How many bytes the files a task sends may hold together inline, as raw parts of its artifacts (spec 051 A2A-FILE5). A file that does not fit goes out as a URL to a protected download below the A2A endpoint, read with the client's bearer token or a 15-minute capability URL. Default 262144 (256 KiB), at most 524288 (512 KiB), so the inline files still fit into one stream event at the default frame size. 0 sends every file as a download.
+a2a.maxInlineArtifactBytes = 262144
+
 # cat=tools; type=string; label=Hosts A2A file URLs may come from: Comma-separated host names or IP addresses (same forms as for fetch_external_url) that a url file part may point to (spec 051 A2A-FILE3, ADR-284). Kept apart from the hosts of the A2A client. Empty (default) admits NO file URL: unlike the other host lists, a url part is fetched only from a host named here. The list can only narrow: a host that resolves to a private, loopback, link-local or metadata address is still refused. Only https URLs are fetched.
 a2a.files.allowedHosts =
 

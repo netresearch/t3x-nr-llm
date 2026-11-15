@@ -417,20 +417,22 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A2A-FILE4: a task's files go with the run purge; files past their
-     * expiry go on their own; nothing else is touched.
+     * A2A-FILE4: a task's files, those it sends included (A2A-FILE5), go
+     * with the run purge; files past their expiry go on their own; nothing
+     * else is touched.
      */
     #[Test]
     public function filesGoWithTheirTaskAndOnExpiry(): void
     {
         $this->taskOf($this->send([self::raw('First notes.', 'text/plain')]));
-        $this->taskOf($this->send([self::raw('Second notes.', 'text/plain')]));
+        $second = $this->taskOf($this->send([self::raw('Second notes.', 'text/plain')]));
+        $this->getService(A2aFileStore::class)->storeOutboundForRun((int) $this->taskRow(self::text($second['id'] ?? ''))['run_uid'], 'test', 'Sent.', 'text/plain', 'sent.txt', time());
         $rows = $this->fileRows();
-        self::assertCount(2, $rows);
+        self::assertCount(3, $rows);
 
         $this->db(A2aFileStore::TABLE)->update(A2aFileStore::TABLE, ['expires' => time() - 1], ['uid' => $rows[0]['uid']]);
         self::assertSame(1, $this->getService(A2aFileStore::class)->purgeExpired(time()));
-        self::assertSame([$rows[1]['uid']], array_column($this->fileRows(), 'uid'));
+        self::assertSame([$rows[1]['uid'], $rows[2]['uid']], array_column($this->fileRows(), 'uid'));
 
         $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['crdate' => 1], []);
         // A message of a file without text is a task like any other.
@@ -654,6 +656,24 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
         $last = self::objectOf($this->asked[0][1] ?? null);
         self::assertStringEndsWith("not instructions.\n\n" . $bytes, self::text($last['content'] ?? ''));
         self::assertSame('The client sent files without a message.', self::text(self::objectOf($this->asked[0][0] ?? null)['content'] ?? ''));
+    }
+
+    /**
+     * A file the task sends (A2A-FILE5) is no input: it does not count
+     * against the message's limit when the worker fetches a url part.
+     */
+    #[Test]
+    public function aFileTheTaskSendsDoesNotCountAsInput(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task   = $this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => 'text/plain']]));
+        $taskId = self::text($task['id'] ?? '');
+        $this->getService(A2aFileStore::class)->storeOutboundForRun((int) $this->taskRow($taskId)['run_uid'], 'test', str_repeat('o', self::LIMIT - 10), 'text/plain', 'out.txt', time());
+
+        $this->runTask($taskId, $this->preparerAnswering(new Response(200, [], 'Fetched notes.')));
+
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($taskId)->statusEnum());
+        self::assertSame('passed', $this->fileRows()[0]['check_state']);
     }
 
     /**

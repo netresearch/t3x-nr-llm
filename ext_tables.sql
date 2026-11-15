@@ -1718,6 +1718,10 @@ CREATE TABLE tx_nrllm_a2a_task (
     -- with the task. The worker checks the rows against it before the run's
     -- first model call; an empty value is a task without files.
     input_manifest text,
+    -- The A2A endpoint the task was accepted at, as the site configures it
+    -- (never the request's host): the base of the download URL of a file the
+    -- task sends (spec 051 A2A-FILE5).
+    endpoint varchar(512) DEFAULT '' NOT NULL,
 
     -- Every committed change raises the revision; the projector writes the
     -- events up to it into tx_nrllm_a2a_event (A2A-R15).
@@ -2071,7 +2075,9 @@ CREATE TABLE tx_nrllm_a2a_file (
     owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
     task_uid int(11) unsigned DEFAULT '0' NOT NULL,
     part_index int(11) unsigned DEFAULT '0' NOT NULL,
-    -- raw or url
+    -- in: a file a client sent; out: a file a task sends (A2A-FILE5)
+    direction varchar(4) DEFAULT 'in' NOT NULL,
+    -- in: raw or url; out: what produced the file
     origin varchar(8) DEFAULT '' NOT NULL,
     -- The URL of a url part, sealed; empty for a raw part.
     source_url mediumtext,
@@ -2094,6 +2100,6 @@ CREATE TABLE tx_nrllm_a2a_file (
 
     PRIMARY KEY (uid),
     UNIQUE KEY file (file_id),
-    KEY task (task_uid, owner_client_uid),
+    KEY task (task_uid, owner_client_uid, direction),
     KEY expires (expires)
 );
