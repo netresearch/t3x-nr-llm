@@ -43,7 +43,8 @@ Decision
 ``v1:`` followed by the hex HMAC-SHA256 of a canonical form, keyed with the
 installation's encryption key (``SYS/encryptionKey``) joined with a purpose
 string of nr-llm, the construction TYPO3's ``HashService`` uses. Each field
-has its own purpose string, so an ``arguments`` digest never equals a
+has its own purpose string (``nr_llm.history.arguments`` and
+``nr_llm.history.state``), so an ``arguments`` digest never equals a
 ``state`` digest of the same value. PHP's ``hash_hmac()`` computes it,
 because TYPO3 13.4's ``HashService`` offers SHA-1 only. An empty encryption
 key gives no digest.
@@ -51,20 +52,27 @@ key gives no digest.
 - ``arguments`` is the digest of the call's final arguments, after any input
   a human typed (:ref:`ADR-216 <adr-216>` item 5). The runtime fills it for
   every entry of a call it decided or executed.
-- ``state`` is the digest of a record state a tool observed. One class owns
-  both the read and the digest: given a table, a uid, a list of fields and
-  the run's execution context, it reads the record as the workspace of the
-  run shows it (:ref:`ADR-260 <adr-260>`, the workspace the writing tools
-  write into), takes exactly the listed fields, writes each value as a
-  string (``null`` stays ``null``), and returns an ``ObservedState`` object.
-  Only that class creates one. A tool reports it through
-  ``ToolResult::withObservedState(ObservedState)``; the runtime copies its
-  digest into the entry. A tool therefore cannot hand over a raw value or a
-  digest in a wrong format.
+- ``state`` is the digest of a record state a tool observed. It covers the
+  table, the uid and the listed fields with their values.
 
-A rule asks the same class for the state of the same record and fields now,
-and compares the digests, and it compares the call in front of it with the
-stored ``arguments``. Equal means the same final arguments and the same
+**One public class,** ``InvocationDigests``, **computes both.**
+``arguments(array)`` returns the digest of an arguments map, or ``null``
+when it cannot be encoded. ``observe(table, uid, fields, execution)`` reads
+the record as the workspace of the run shows it (:ref:`ADR-260 <adr-260>`,
+the workspace the writing tools write into), takes exactly the listed
+fields, writes each value as a string (``null`` stays ``null``), and returns
+an ``ObservedState``. It returns ``null``, and so no digest, when that
+workspace shows no such row (deleted, a version of another workspace, a
+table without versioning seen from a draft workspace) or a listed field is
+not a column of the table. ``ObservedState`` holds only a digest; its
+constructor refuses anything but the ``v1:`` format and is ``@internal``,
+so tools take one from ``observe()``. A tool reports it through
+``ToolResult::withObservedState(ObservedState)``, carried by every
+``ToolResult`` wither, and the runtime copies its digest into the entry.
+
+A rule computes ``arguments()`` of the call in front of it and
+``observe()`` of the same record and fields now, and compares both with the
+stored entry. Equal means the same final arguments and the same
 fields as the run's workspace shows them. Which fields count is the tool's
 and rule's shared declaration, in the sense of :ref:`ADR-184 <adr-184>`:
 the fields the check judged, not ``tstamp``.
@@ -90,7 +98,7 @@ should it ever leave that store, at the cost of one HMAC per entry.
 entry without a digest omits the key; it is never stored as ``null``. An
 entry stored before this change has neither; a rule that needs a digest
 treats a missing one as not matching and refuses. A present key must match
-``^v1:[0-9a-f]{64}$``; any other value, an unknown version included, makes
+``^v1:[0-9a-f]{64}\z``; any other value, an unknown version included, makes
 the whole history unreadable and incomplete, as a malformed entry does today.
 A runtime before this change drops both keys when it rebuilds the entries,
 which again fails closed.
@@ -98,9 +106,15 @@ which again fails closed.
 **The public surface grows additively.** ``ToolInvocationHistory::append()``
 gains two optional trailing ``?string`` parameters (``null`` omits the
 key), an entry's array shape gains the two optional keys, ``ToolResult``
-gains ``withObservedState(ObservedState)``, and the class that reads and
-digests a record state is public, so that a tool and a rule compute the
-same digest.
+gains ``withObservedState(ObservedState)`` and ``observedState()``, and
+``InvocationDigests`` and ``ObservedState`` are public, so that a tool and a
+rule, in nr-llm or outside it, compute the same digests.
+
+**A binding rule is asked when the call runs.** Its answer depends on the
+history, which before the approval card does not hold the calls of the same
+turn, so it does not implement ``PreApprovalInvocationRuleInterface``
+(:ref:`ADR-293 <adr-293>`). A check and a write in one turn are shown
+together; the write runs after the check and is compared then.
 
 **The first users** are a check tool and the contract rule of the A2A page
 metadata skill: a write of the skill must be preceded by a successful check
@@ -116,8 +130,11 @@ Consequences
 
 - ●● A rule can require that a check ran on the very proposal being written
   and that the record has not changed since; checking one variant and writing
-  another, and writing over a changed record, are refused before the
-  approval. No clock is compared.
+  another, and writing over a changed record, are refused before the write
+  runs. No clock is compared.
+- ◑ The refusal comes after the approval: an editor can approve a write
+  that is then refused, and nothing is written. After an ADR-184 re-ask the
+  second approval can be refused the same way.
 - ◑ Old suspended states keep resuming; their entries have no digest, so a
   binding rule refuses until the model checks again.
 - ◑ Rotating the encryption key, or changing the canonical form, invalidates
@@ -128,7 +145,7 @@ Consequences
   field outside the list can change without being noticed, as with
   :ref:`ADR-184 <adr-184>`.
 
-Net Score: +1
+Net Score: 0
 
 Alternatives considered
 =======================
