@@ -9,8 +9,10 @@
 ADR-278: A2A is an agent interface in both roles
 ====================================================
 
-:Status: Accepted
+:Status: Accepted (amended)
 :Date: 2026-11-10
+:Amended: 2026-11-15 (MCP has durable tasks; nr-llm offers none, and A2A
+   stays its agent-to-agent interface; see the amendment at the end)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -131,3 +133,56 @@ transport and the public types are nr-llm's own.
 **Follow the prose where it is explicit.** Rejected: the specification itself
 makes the proto normative, and a non-blocking ``SendMessage`` would break every
 1.0 client that relies on the default.
+
+Amendment (2026-11-15): MCP has tasks; nr-llm does not offer them
+=================================================================
+
+The context above says that MCP covers neither request because "an MCP server
+offers tools that the calling model drives step by step". That describes the
+MCP core of 2025-06-18, the version nr-llm's client speaks, and it was not the
+whole picture even on 2026-11-10: the 2025-11-25 core already carried
+experimental tasks, and SEP-2663,
+"Tasks Extension" (status Final, extensions track, identifier
+``io.modelcontextprotocol/tasks``), was accepted in May 2026 and moves the
+experimental tasks of the 2025-11-25 specification out of the core into an
+official extension; the changelog of the 2026-07-28 specification lists that
+move. With the extension, a server may answer a ``tools/call`` with a durable
+task handle instead of a result. The client polls the task with
+``tasks/get``, answers a task in the state ``input_required`` with
+``tasks/update``, and cancels it with ``tasks/cancel``. Tasks currently exist
+for ``tools/call`` only. A client declares the extension in the capabilities
+it sends with each request (there is no separate ``task`` flag on a call), and
+a server must not return a task handle to a client that did not. Sources:
+`SEP-2663 <https://github.com/modelcontextprotocol/modelcontextprotocol/blob/9b44c6b4dcd2451bc49abd39e47eda36b396e8dd/seps/2663-tasks-extension.md>`__
+and the extension repository
+`modelcontextprotocol/ext-tasks <https://github.com/modelcontextprotocol/ext-tasks>`__.
+
+**Decision.** The decision above stands.
+
+- nr-llm does not offer MCP tasks. It has no inbound MCP surface at all: its
+  MCP code is a client (:ref:`ADR-116 <adr-116>`, :ref:`ADR-259 <adr-259>`),
+  and none of it answers ``tools/list`` or ``tools/call`` as a server.
+- A2A stays the interface through which another agent gives nr-llm a task and
+  through which nr-llm gives one to another agent. A remote caller of a
+  published skill reaches it over A2A, as this record decided.
+- The reason is not that MCP cannot carry a long-running task; with the
+  extension it can, and a server may run its own agent behind a tool call.
+  The reasons are that nr-llm has no MCP server to offer tasks from, and that
+  A2A defines what this record needs beyond one task: an agent card that
+  publishes skills, a context across turns, ``ListTasks``, push notifications
+  to a webhook the client configures, and ``AUTH_REQUIRED``. The MCP
+  extension has no task list, no session and no separate state for missing
+  authorization.
+
+**What this does not decide.** Whether a later change offers a published
+skill to MCP clients as well, through tasks or through plain start, status,
+answer and cancel tools, is left to a decision of its own. Such a bridge would
+belong to an inbound MCP server, which nr-llm does not have; which MCP clients
+support the extension today was not checked.
+
+Consequences of the amendment:
+
+- ● The context sentence is now read as a statement about the MCP core; the
+  amendment names the extension it left out.
+- ◑ "MCP does not cover it" is no longer a reason against an MCP bridge; the
+  reason left is that nr-llm has no MCP server to put one in.
