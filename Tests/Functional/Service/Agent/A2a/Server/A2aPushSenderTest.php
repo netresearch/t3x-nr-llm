@@ -695,6 +695,13 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     #[Test]
     public function aSuccessGivesAnEventWrittenInFlightAFreshStart(): void
     {
+        // Another config's delivery waiting to be retried; a success of the
+        // configs below leaves it as it is.
+        $other = $this->newTask(4);
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($other, 'c-other'), 4));
+        $otherConfig = (int) $this->db(A2aPushConfigStore::TABLE)->select(['uid'], A2aPushConfigStore::TABLE, ['config_id' => 'c-other'])->fetchOne();
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $otherConfig, 'task_uid' => $this->taskUid($other), 'revision' => 1, 'state' => 'pending', 'attempts' => 3, 'next_attempt' => time() + 500, 'deadline' => time() + 10000]);
+
         foreach ([A2aPushDeliverer::MAX_ATTEMPTS - 1, 2] as $before) {
             $task = $this->newTask();
             $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-' . $before)));
@@ -720,6 +727,58 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
             self::assertSame(1, $this->deliverer()->deliverDue($now));
             self::assertCount($sent + 2, $this->transport->requests, 'the newest state reached the receiver');
         }
+
+        $untouched = $this->db(A2aPushConfigStore::OUTBOX_TABLE)->select(['attempts', 'next_attempt'], A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $otherConfig])->fetchAssociative();
+        self::assertIsArray($untouched);
+        self::assertSame(3, (int) $untouched['attempts'], 'another config keeps its attempts');
+        self::assertGreaterThan(time() + 400, (int) $untouched['next_attempt'], 'and its backoff');
+    }
+
+    /**
+     * When the eighth attempt fails, the changes written while it was on its
+     * way end with it; a change written afterwards starts a new count and
+     * goes out at once.
+     */
+    #[Test]
+    public function aChangeAfterAFailedLastAttemptStartsAFreshCount(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $taskUid   = $this->taskUid($task);
+        $configUid = $this->configUid();
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'task_uid' => $taskUid, 'revision' => 5, 'state' => 'pending', 'attempts' => A2aPushDeliverer::MAX_ATTEMPTS - 1, 'next_attempt' => 0, 'deadline' => time() + 100000]);
+        $now = time();
+
+        $this->transport->then(function () use ($taskUid, $now): A2aTransportResult {
+            A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 6, $now);
+
+            return A2aTransportResult::response(503, '', '', '', false);
+        });
+        $this->deliverer(null, static fn (): int => $now)->deliverDue($now);
+        self::assertSame(0, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'state' => 'pending']), 'the change written in flight ended with the attempt');
+
+        A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 7, $now + 10);
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(200, '', '', '', false));
+        self::assertSame(1, $this->deliverer(null, static fn (): int => $now + 10)->deliverDue($now + 10));
+        self::assertSame(['delivered', 1], [$this->job('state'), (int) $this->job('attempts')]);
+    }
+
+    /**
+     * A job whose eighth attempt was sent but whose outcome was never
+     * recorded (the worker failed after the request left) is not sent a
+     * ninth time when its lease runs out.
+     */
+    #[Test]
+    public function aJobWithUsedUpAttemptsIsNotSentAgain(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $this->configUid(), 'task_uid' => $this->taskUid($task), 'revision' => 5, 'state' => 'pending', 'attempts' => A2aPushDeliverer::MAX_ATTEMPTS, 'next_attempt' => 0, 'lease_until' => 0, 'deadline' => time() + 10000]);
+
+        $this->deliverer()->deliverDue(time());
+
+        self::assertSame([], $this->transport->requests);
+        self::assertSame(['abandoned', 'MAX_ATTEMPTS'], [$this->job('state'), $this->job('last_reason')]);
     }
 
     /**

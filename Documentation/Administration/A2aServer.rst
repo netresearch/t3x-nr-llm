@@ -275,11 +275,12 @@ client can register webhooks for its own tasks, with
   backoff and the attempts belong to the config, not to one change: a new
   change of the task while a delivery waits to be retried waits for the same
   backoff and continues the count. A change written while an attempt is on
-  its way is not sent before that attempt ends. When the attempt succeeds,
-  that change goes out at once with all eight attempts; when the eighth
-  attempt fails, it is abandoned with it, and the next change starts over. An attempt counts once it is started, also when the worker
-  fails before it records the answer. 401
-  and 403 pause the config (``auth_failed``); 404, 410 and a refused address
+  its way is normally not sent before that attempt ends. When the attempt
+  succeeds, that change goes out at once with all eight attempts; when the
+  eighth attempt fails, it is abandoned with it, and the next change starts
+  over. An attempt counts once it is started, also when the worker fails
+  before it records the answer. 401 and 403 pause the config
+  (``auth_failed``); 404, 410 and a refused address
   stop it (``stopped``). A paused or stopped config sends nothing more; the
   client registers a new one. Any other answer fails that one delivery.
 - **After a delete** no new attempt starts. A request already on its way may

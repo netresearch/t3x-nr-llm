@@ -145,7 +145,10 @@ final readonly class A2aPushDeliverer
      * tried again from the start with every event (A2A-PUSH5). While an
      * attempt holds its lease, the new job is not due before the lease ends:
      * the attempt's outcome sets when it goes (a retry's backoff, or at once
-     * after a success), and no second worker sends it in parallel.
+     * after a success). That keeps a second worker from sending it in
+     * parallel only when the job is written after the attempt's claim; a job
+     * written between another worker's selection of due jobs and its claim
+     * can still go out alongside the attempt.
      */
     public static function enqueue(Connection $connection, int $taskUid, int $revision, int $now): void
     {
@@ -432,6 +435,19 @@ final readonly class A2aPushDeliverer
         // is now; they end with this one, so the attempts stay bounded per
         // config rather than per stored change (A2A-PUSH5).
         $this->supersedeOlder($job, $now);
+        if ($attempts >= self::MAX_ATTEMPTS) {
+            // The attempts of the config are used up: the changes written
+            // while this attempt was on its way end with it, so the next
+            // change starts a new count and is due at once.
+            $connection = $this->connection();
+            $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
+                . ' SET state = ?, last_reason = ?, tstamp = ? WHERE config_uid = ? AND state = ? AND uid <> ?',
+                [self::JOB_ABANDONED, 'MAX_ATTEMPTS', $now, $this->int($job['config_uid'] ?? 0), self::JOB_PENDING, $jobUid],
+                [Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
+            );
+        }
+
         $this->logger?->warning('An A2A push was not delivered', ['job' => $jobUid, 'state' => $state, 'reason' => $reason, 'attempts' => $attempts]);
 
         return false;
