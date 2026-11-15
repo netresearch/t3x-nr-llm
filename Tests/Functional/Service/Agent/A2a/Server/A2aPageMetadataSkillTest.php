@@ -80,6 +80,12 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
 
     private const GROUP = 70;
 
+    /** A page the technical user may show but not edit. */
+    private const SHOW_ONLY = 46;
+
+    /** A translation of page 42 in a language the technical user may not edit. */
+    private const FOREIGN_LANGUAGE_TRANSLATION = 152;
+
     private const GERMAN = 1;
 
     private const WORKSPACE = 3;
@@ -99,11 +105,13 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
             [1, 0, 0, 0], [self::PAGE, 1, 0, 0], [self::NEIGHBOUR, 1, 0, 0], [self::UNTRANSLATED, 1, 0, 0],
             [self::TRANSLATION, 1, self::GERMAN, self::PAGE], [self::NEIGHBOUR_TRANSLATION, 1, self::GERMAN, self::NEIGHBOUR],
             [self::OUTSIDE_MOUNT, 0, 0, 0], [self::OUTSIDE_MOUNT + 100, 0, self::GERMAN, self::OUTSIDE_MOUNT], [self::DELETED, 1, 0, 0],
+            [self::SHOW_ONLY, 1, 0, 0], [self::FOREIGN_LANGUAGE_TRANSLATION, 1, 2, self::PAGE],
         ];
         foreach ($pages as [$uid, $pid, $language, $parent]) {
             $this->db('pages')->insert('pages', [
-                'uid'     => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'description' => 'Old ' . $uid, 'sys_language_uid' => $language, 'l10n_parent' => $parent, 'doktype' => 1,
-                'deleted' => $uid === self::DELETED ? 1 : 0, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+                'uid'             => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'description' => 'Old ' . $uid, 'sys_language_uid' => $language, 'l10n_parent' => $parent, 'doktype' => 1,
+                'deleted'         => $uid === self::DELETED ? 1 : 0,
+                'perms_everybody' => $uid === self::SHOW_ONLY ? Permission::PAGE_SHOW : Permission::PAGE_SHOW | Permission::PAGE_EDIT,
             ]);
         }
 
@@ -275,13 +283,50 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
     public function aPageTheUserMayNotReadIsRefusedLikeOneThatDoesNotExist(): void
     {
         $refusal = 'Invalid params: "page" and "language" do not name a page this skill may work on in the client\'s workspace';
-        foreach ([self::OUTSIDE_MOUNT, self::DELETED, 9999] as $i => $page) {
+        foreach ([self::OUTSIDE_MOUNT, self::DELETED, 9999, self::SHOW_ONLY] as $i => $page) {
             self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . $page . ', "language": 1, "fields": ["description"]}', 'p-' . $i), 'error.message'), 'page ' . $page);
         }
+
+        $this->db('pages')->update('pages', ['perms_everybody' => Permission::PAGE_SHOW], ['uid' => self::NEIGHBOUR_TRANSLATION]);
+        self::assertSame(
+            $refusal,
+            self::j($this->sendRaw('{"page": ' . self::NEIGHBOUR . ', "language": 1, "fields": ["description"]}', 't-1'), 'error.message'),
+            'a translation row the user may not edit',
+        );
+
+        self::assertSame(
+            $refusal,
+            self::j($this->sendRaw('{"page": ' . self::FOREIGN_LANGUAGE_TRANSLATION . ', "language": 0, "fields": ["description"]}', 'f-1'), 'error.message'),
+            'a translation in a language the user may not edit is not told apart',
+        );
 
         $this->db('be_groups')->update('be_groups', ['allowed_languages' => '0'], ['uid' => self::GROUP]);
         self::assertSame($refusal, self::j($this->sendRaw('{"page": ' . self::PAGE . ', "language": 1, "fields": ["description"]}', 'l-1'), 'error.message'));
         self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
+    }
+
+    /**
+     * A translation deleted in the client's workspace does not count; one
+     * created again in the workspace after that is the row the run writes.
+     */
+    #[Test]
+    public function aTranslationDeletedInTheWorkspaceDoesNotCountAndANewOneDoes(): void
+    {
+        $this->db('pages')->insert('pages', [
+            'uid'       => 900, 'pid' => 1, 'title' => 'Deleted in the draft', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE, 'doktype' => 1,
+            't3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE, 't3ver_state' => 2, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+        ]);
+        self::assertSame(
+            'Invalid params: the page has no translation in "language" in the client\'s workspace; this skill does not create one',
+            self::j($this->sendRaw('{"page": ' . self::PAGE . ', "language": 1, "fields": ["description"]}', 'w-1'), 'error.message'),
+        );
+
+        $this->db('pages')->insert('pages', [
+            'uid'       => 901, 'pid' => 1, 'title' => 'New in the draft', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE, 'doktype' => 1,
+            't3ver_oid' => 0, 't3ver_wsid' => self::WORKSPACE, 't3ver_state' => 1, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+        ]);
+        $task = $this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']], 'w-2');
+        self::assertStringContainsString('pages:901', self::text(self::j($this->queuedRequestOf(self::text($task['id'] ?? '')), 'messages.0.content')));
     }
 
     /**

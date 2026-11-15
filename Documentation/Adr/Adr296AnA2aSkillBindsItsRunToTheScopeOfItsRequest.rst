@@ -50,21 +50,24 @@ it.** The handler ``nr_llm.page_metadata.v1`` is the first. Its request,
 version 1, is one JSON object in the text part:
 ``{"page": 42, "language": 1, "fields": ["description"]}``. Exactly these
 keys; ``page`` and ``language`` are JSON integers, ``fields`` a non-empty list
-of distinct names from the twelve text fields ``update_page_metadata`` writes.
+of distinct names from the twelve fields ``update_page_metadata`` writes.
 The handler finds the row to write: the page for language 0, its translation
 otherwise, as the client's workspace shows them. It binds the run to the page
 (depth 0), the table ``pages`` and the language. The run's user message is
-built from the checked values only, so no text of the client reaches the
-model.
+built from the checked values only, so the client's text does not reach the
+model; after a question, the client's answer does, as one of the options the
+model offered.
 
 **A request that does not fit is refused before a task exists**, with JSON-RPC
 ``-32602`` InvalidParams on ``message.parts`` and a description that names the
 rule broken, never a value the client sent. This covers an unknown key, a
 missing key, a wrong type, a page that is a translation and a page with no
-translation in the language. A page that does not exist, is deleted or that
-the client's technical user may not show, and a language that user may not
-edit, get one common refusal, so the answer reveals nothing about pages the
-user may not read. Version 1 does not create a translation.
+translation in the language. A page that does not exist, is deleted (also in
+the client's workspace) or that the client's technical user may not edit, a
+translation row that user may not edit, and a language that user may not edit
+get one common refusal, so the answer does not reveal pages the user may not
+edit; a difference in response time remains. Version 1 does not create a
+translation.
 
 **The run may use** ``get_page_content`` **and** ``update_page_metadata``,
 **and** ``ask_choice`` **when the profile grants it.** Any other tool the
@@ -97,8 +100,8 @@ Consequences
   exists, and every later write, also after a question and the client's
   answer, is checked against it by the rule and the DataHandler hook of
   ADR-295. Which fields of that row are written is an instruction to the
-  model here; holding the call to the requested fields is the work of a
-  pre-write rule.
+  model in this decision; the handler does not hold the call to the
+  requested fields.
 - ◑ Reads are not scoped: ``get_page_content`` reads what the technical user
   may read, and the answer goes back to the client, as with ``nr_llm.text``.
 - ● A wrong request costs no task, no run and no capacity, and the client

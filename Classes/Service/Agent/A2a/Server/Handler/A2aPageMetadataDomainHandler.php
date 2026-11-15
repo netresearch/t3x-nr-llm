@@ -42,8 +42,8 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  *
  * The user message of the run is built from the checked values only. The
  * field list is an instruction to the model in this handler; the write tool
- * accepts any of its fields on the scoped row, and a pre-write rule holds the
- * call to the list. A client that is not pinned to a draft workspace never
+ * accepts any of its fields on the scoped row, and this handler does not hold
+ * the call to the list. A client that is not pinned to a draft workspace never
  * reaches this handler: the server refuses a writing profile for it first. The run
  * may use `get_page_content` and `update_page_metadata`, and `ask_choice` when
  * the profile grants it, and nothing else; it runs only when the profile grants
@@ -70,6 +70,9 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
      * not edit: a client learns nothing about pages its user may not read.
      */
     private const NOT_AVAILABLE = '"page" and "language" do not name a page this skill may work on in the client\'s workspace';
+
+    /** The t3ver_state of a row deleted in a workspace. */
+    private const DELETE_PLACEHOLDER = 2;
 
     private LoggerInterface $logger;
 
@@ -159,8 +162,9 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     /**
      * The uid of the row the run writes: the default-language page, or its
      * translation in the requested language, as the workspace shows them.
-     * Only a page the client's technical user may read, in a language it may
-     * edit, is told apart; everything else gets {@see self::NOT_AVAILABLE}.
+     * Only a page the client's technical user may edit, in its own language
+     * and the requested one, is told apart; everything else gets
+     * {@see self::NOT_AVAILABLE}.
      *
      * @throws A2aRpcError
      */
@@ -182,6 +186,10 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
         $translation = $this->visibleRow($this->rows(['l10n_parent' => $request->page, 'sys_language_uid' => $request->language], $workspace), $workspace);
         if ($translation === null) {
             throw A2aRpcError::invalidParams('message.parts', 'the page has no translation in "language" in the client\'s workspace; this skill does not create one');
+        }
+
+        if (!$this->mayRead($user, $translation, $request->language)) {
+            throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
         }
 
         return $this->int($translation['uid'] ?? 0);
@@ -220,8 +228,9 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     }
 
     /**
-     * The first of the rows the workspace still shows; a row deleted in the
-     * workspace is left out.
+     * The first of the rows the workspace still shows. A row deleted in the
+     * workspace is left out: `workspaceOL()` lays the delete placeholder
+     * (t3ver_state 2) over the live row instead of dropping it.
      *
      * @param list<array<string, mixed>> $rows
      *
@@ -232,7 +241,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
         foreach ($rows as $row) {
             $uid = $this->int($row['uid'] ?? 0);
             BackendUtility::workspaceOL('pages', $row, $workspace);
-            if (is_array($row)) {
+            if (is_array($row) && $this->int($row['t3ver_state'] ?? 0) !== self::DELETE_PLACEHOLDER) {
                 $row['uid'] = $uid;
 
                 return $row;
@@ -243,9 +252,10 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     }
 
     /**
-     * Whether the technical user may see the page and edit the language.
-     * `calcPerms()` answers no permission for a page outside the user's web
-     * mounts. The tool checks the edit permission again when it writes.
+     * Whether the technical user may edit the row, in its own language and in
+     * the requested one. `calcPerms()` answers no permission for a page outside
+     * the user's web mounts, and a translation inherits the permissions of
+     * its page. The tool checks the same again when it writes.
      *
      * @param array<array-key, mixed> $page
      */
@@ -260,7 +270,8 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             $row[(string) $field] = $value;
         }
 
-        return $user->doesUserHaveAccess($row, Permission::PAGE_SHOW)
+        return $user->doesUserHaveAccess($row, Permission::PAGE_EDIT)
+            && $user->checkLanguageAccess($this->int($row['sys_language_uid'] ?? 0))
             && $user->checkLanguageAccess($language);
     }
 

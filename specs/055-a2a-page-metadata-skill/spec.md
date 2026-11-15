@@ -27,10 +27,12 @@ to what the request names.
   is a translation, or a language the page has no translation in (workspace
   view; a translation deleted in the workspace does not count) is answered
   with JSON-RPC `-32602` on `message.parts`. The description names the rule,
-  never a value of the client. A page that does not exist, is deleted, or
-  that the client's technical user may not show (its web mounts and page
-  permissions), and a language that user may not edit, all get one and the
-  same refusal, so a client learns nothing about pages its user may not read.
+  never a value of the client. A page that does not exist, is deleted (also
+  as a delete placeholder in the workspace), or that the client's technical
+  user may not edit (its web mounts and page permissions), a translation row
+  that user may not edit, and a language that user may not edit (the row's
+  own or the requested one) all get one and the same refusal, so a client
+  cannot tell those pages apart from missing ones.
   No task, run, dedup row or capacity is used.
 - **PM3 Scope.** The accepted run's actor carries the scope
   `pages: [{page, depth 0}]`, `tables: [pages]`, `languages: [language]`,
@@ -49,7 +51,7 @@ to what the request names.
   before the handler, as for every writing profile (spec 051 A2A-MT5).
 - **PM4a Fields.** The requested fields are named in the run's message; this
   handler does not hold the write tool to them (the tool accepts any of its
-  fields on the scoped row). A pre-write rule does.
+  fields on the scoped row).
 - **PM6 Result.** The task's artifacts are those of a writing A2A task: the
   answer as text and the `writes` artifact of A2A-MT6.
 
