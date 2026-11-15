@@ -167,16 +167,17 @@ final readonly class A2aPushConfigStore
         }
 
         $connection->insert(self::TABLE, [
-            'config_id'        => $config['id'],
-            'task_uid'         => $taskUid,
-            'owner_client_uid' => $client->uid,
-            'url'              => $config['url'],
-            'token'            => $this->codec->encode($config['token'], AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL),
-            'auth_scheme'      => $config['scheme'],
-            'credentials'      => $this->codec->encode($config['credentials'], AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL),
-            'state'            => self::STATE_ACTIVE,
-            'crdate'           => $now,
-            'tstamp'           => $now,
+            'config_id'         => $config['id'],
+            'task_uid'          => $taskUid,
+            'owner_client_uid'  => $client->uid,
+            'client_token_hash' => $client->tokenHash,
+            'url'               => $config['url'],
+            'token'             => $this->codec->encode($config['token'], AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL),
+            'auth_scheme'       => $config['scheme'],
+            'credentials'       => $this->codec->encode($config['credentials'], AgentStateCodec::PURPOSE_A2A_PUSH_CREDENTIAL),
+            'state'             => self::STATE_ACTIVE,
+            'crdate'            => $now,
+            'tstamp'            => $now,
         ]);
     }
 

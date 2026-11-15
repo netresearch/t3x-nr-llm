@@ -1940,6 +1940,9 @@ CREATE TABLE tx_nrllm_a2a_push_config (
     config_id varchar(191) DEFAULT '' NOT NULL,
     task_uid int(11) unsigned DEFAULT '0' NOT NULL,
     owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    -- The hash of the client token the config was created with; a config
+    -- delivers only while the client still holds that token.
+    client_token_hash varchar(64) DEFAULT '' NOT NULL,
     url text,
     -- Sealed (AgentStateCodec, purpose nrllm:a2a:push-credential).
     token text,

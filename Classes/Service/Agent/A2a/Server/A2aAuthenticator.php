@@ -117,16 +117,19 @@ final readonly class A2aAuthenticator
     }
 
     /**
-     * Whether the client could act now if it called: the record exists, is
-     * active (enabled, not expired, a token issued), and its technical
-     * backend user is usable. The push sender asks this before every
+     * Whether the client could act now with the token whose hash is given:
+     * the record exists, still holds that token, is active (enabled, not
+     * expired), and its technical backend user is usable. A config created
+     * with a token that was rotated since delivers nothing. The push sender asks this before every
      * delivery, so a revoked or disabled client gets nothing more (A2A-PUSH3).
      */
-    public function mayStillAct(int $clientUid, int $now): bool
+    public function mayStillAct(int $clientUid, string $tokenHash, int $now): bool
     {
         $current = $this->clients->findByUid($clientUid);
 
         return $current instanceof A2aInboundClient
+            && $tokenHash !== ''
+            && hash_equals($current->tokenHash, $tokenHash)
             && $current->isActive($now)
             && $this->usableBackendUser($current->backendUserUid, $now);
     }

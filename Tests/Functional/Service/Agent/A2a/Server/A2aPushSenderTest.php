@@ -370,6 +370,33 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A config belongs to the token it was created with. Rotating the
+     * client's token stops it; a token changed any other way is caught
+     * before the attempt.
+     */
+    #[Test]
+    public function aRotatedTokenTakesItsConfigsAlong(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        $this->tokens[1] = $this->getService(A2aInboundClientRepository::class)->issueToken(1);
+
+        self::assertSame(0, $this->deliverer()->deliverDue(time()));
+        self::assertSame([], $this->transport->requests);
+        self::assertSame(['stopped', 'TOKEN_ROTATED'], array_values((array) $this->db(A2aPushConfigStore::TABLE)->select(['state', 'reason'], A2aPushConfigStore::TABLE)->fetchAssociative()));
+
+        $other = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($other, 'c-2')));
+        $this->cancel($other);
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['token_hash' => A2aInboundClientRepository::hash('nra2a_0000000000000000_' . str_repeat('x', 43))], ['uid' => 1]);
+
+        self::assertSame(0, $this->deliverer()->deliverDue(time()));
+        self::assertSame([], $this->transport->requests);
+        self::assertSame('CLIENT_INACTIVE', $this->db(A2aPushConfigStore::TABLE)->select(['reason'], A2aPushConfigStore::TABLE, ['config_id' => 'c-2'])->fetchOne());
+    }
+
+    /**
      * A2A-OPS2: switching push off is a kill switch. Nothing is sent and no
      * new job is written while it is off; pending jobs wait and go out once
      * it is on again, within their deadline.
@@ -387,7 +414,7 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'pending']));
 
         $later = $this->newTask();
-        $this->db(A2aPushConfigStore::TABLE)->insert(A2aPushConfigStore::TABLE, ['config_id' => 'raw', 'task_uid' => $this->taskUid($later), 'owner_client_uid' => 1, 'url' => self::HOOK, 'state' => 'active']);
+        $this->db(A2aPushConfigStore::TABLE)->insert(A2aPushConfigStore::TABLE, ['config_id' => 'raw', 'task_uid' => $this->taskUid($later), 'owner_client_uid' => 1, 'client_token_hash' => A2aInboundClientRepository::hash($this->tokens[1]), 'url' => self::HOOK, 'state' => 'active']);
         $this->getService(A2aTaskProjector::class)->projectPending();
         self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE), 'no job while off');
 

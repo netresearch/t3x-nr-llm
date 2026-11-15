@@ -271,9 +271,11 @@ client can register webhooks for its own tasks, with
   client registers a new one. Any other answer fails that one delivery.
 - **After a delete** no new attempt starts. A request already on its way may
   still arrive.
-- **Revoked clients.** Revoking a client stops its configs. Before every
-  attempt the sender checks again that the client is enabled, not expired,
-  and that its technical backend user is usable; otherwise the config stops.
+- **Revoked clients and new tokens.** Revoking a client, or issuing it a
+  new token, stops its configs: a config belongs to the token it was created
+  with. Before every attempt the sender checks again that the client still
+  holds that token, is enabled and not expired, and that its technical
+  backend user is usable; otherwise the config stops.
 - **Switching push off** stops every delivery at once and writes no new
   jobs; the methods answer ``-32003``. Jobs already written wait and go out
   if push is switched on again within a day.

@@ -249,7 +249,8 @@ final readonly class A2aInboundClientRepository
      */
     public function issueToken(int $uid): string
     {
-        if (!$this->findByUid($uid) instanceof A2aInboundClient) {
+        $previous = $this->findByUid($uid);
+        if (!$previous instanceof A2aInboundClient) {
             throw new A2aException(sprintf('There is no A2A client record %d.', $uid), 1799300101);
         }
 
@@ -261,6 +262,13 @@ final readonly class A2aInboundClientRepository
             ['token_prefix' => $prefix, 'token_hash' => self::hash($token), 'token_issued' => time(), 'tstamp' => time()],
             ['uid' => $uid],
         );
+
+        if ($previous->tokenHash !== '') {
+            // A rotated token takes the push configs created with the old
+            // one along; the sender also refuses a config whose token is not
+            // the client's current one (A2A-PUSH3).
+            A2aPushConfigStore::stopAllOf($this->connectionPool, $uid, 'TOKEN_ROTATED');
+        }
 
         return $token;
     }

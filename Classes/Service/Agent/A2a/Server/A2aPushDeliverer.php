@@ -215,9 +215,10 @@ final readonly class A2aPushDeliverer
         }
 
         // A client revoked, disabled or expired since the job was written,
-        // or whose technical user is no longer usable, gets nothing more; its
-        // config stops.
-        if (!$this->authenticator->mayStillAct($this->int($config['owner_client_uid'] ?? 0), $now)) {
+        // whose token was rotated since the config was created, or whose
+        // technical user is no longer usable, gets nothing more; its config
+        // stops.
+        if (!$this->authenticator->mayStillAct($this->int($config['owner_client_uid'] ?? 0), is_string($config['client_token_hash'] ?? null) ? $config['client_token_hash'] : '', $now)) {
             $this->stopConfig($config, A2aPushConfigStore::STATE_STOPPED, 'CLIENT_INACTIVE', $now);
             $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'CLIENT_INACTIVE', $attempts, $now);
 
