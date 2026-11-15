@@ -9,12 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
-use JsonException;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedState;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Tool\Builtin\ReadsTheRunsWorkspaceTrait;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use stdClass;
+use Throwable;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
@@ -35,8 +35,10 @@ use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
  * Unicode are not escaped, integers and numeric strings stay apart, floats are
  * written with `serialize_precision` -1, and a float without a fraction whose
  * magnitude is below 2^53 is written as an integer (`-0.0` as `0`), because a
- * suspended state does not keep the fraction. A value that cannot be encoded
- * gets no digest. A new canonical form is a new version prefix.
+ * suspended state does not keep the fraction; PHP writes larger integral
+ * floats up to about 1e17 without a fraction too, so they share the digest of
+ * the equal integer, as they do after a resume. A value that cannot be
+ * encoded, nested too deep for the running PHP included, gets no digest. A new canonical form is a new version prefix.
  *
  * A tool and a rule, in nr-llm or outside it, compute the same digests with
  * this one class, so the read behind a state digest is the same on both
@@ -174,7 +176,7 @@ final readonly class InvocationDigests
 
         try {
             $json = json_encode(self::canonical($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        } catch (JsonException|InvalidArgumentException) {
+        } catch (Throwable) {
             return null;
         } finally {
             ini_set('serialize_precision', $precision === false ? '-1' : $precision);
