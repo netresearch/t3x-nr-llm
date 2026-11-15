@@ -17,7 +17,9 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataContractRule;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataReadFirstRule;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataRows;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
@@ -35,6 +37,7 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  */
 #[CoversClass(A2aPageMetadataContractRule::class)]
 #[CoversClass(A2aPageMetadataRows::class)]
+#[CoversClass(A2aPageMetadataReadFirstRule::class)]
 final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 {
     use A2aPageMetadataSkillFixture;
@@ -134,17 +137,38 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * PC4: a write before the page was read is refused.
+     * PC4: a write before the page was read is refused when it runs, after
+     * its approval (the rule depends on the history, ADR-293), and nothing
+     * is written.
      */
     #[Test]
     public function aWriteBeforeThePageWasReadIsRefused(): void
     {
         $run = $this->ranWith([
             $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
-            $this->answer(),
+        ]);
+        $this->approved($run);
+
+        self::assertStringContainsString('rule: page_metadata_read_first, reason: page_not_read', $this->toolResultOf($run));
+        self::assertSame(0, $this->rows('pages', ['t3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE]), 'no draft');
+    }
+
+    /**
+     * PC4 is asked when the call runs, not before its card (ADR-293): a read
+     * and a write in the same turn reach the approval, because the read has
+     * run by the time the write does.
+     */
+    #[Test]
+    public function aReadAndAWriteInOneTurnReachTheApproval(): void
+    {
+        $run = $this->ranWith([
+            new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [
+                new ToolCall('c-read', 'get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+                new ToolCall('c-write', 'update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            ]),
         ]);
 
-        self::assertStringContainsString('rule: page_metadata_contract, reason: page_not_read', $this->toolResultOf($run));
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->stored($run)->statusEnum(), $this->toolResultOf($run));
     }
 
     /**
@@ -206,9 +230,9 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 
         $unread = $this->ranWith([
             $this->callOf('update_page_metadata', ['uid' => 960, 'description' => 'Gut.']),
-            $this->answer(),
         ], 'u-2');
-        self::assertStringContainsString('rule: page_metadata_contract, reason: page_not_read', $this->toolResultOf($unread));
+        $this->approved($unread);
+        self::assertStringContainsString('rule: page_metadata_read_first, reason: page_not_read', $this->toolResultOf($unread));
 
         $sibling = $this->ranWith([
             $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
@@ -216,6 +240,26 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
             $this->answer(),
         ], 'u-3');
         self::assertStringContainsString('rule: page_metadata_contract, reason: not_the_requested_row', $this->toolResultOf($sibling), 'a second translation in the language');
+    }
+
+    /**
+     * A row the scope admits by a different path than the rule resolves it,
+     * here a row whose l10n_parent is the translation instead of the page,
+     * is held to the contract and not left to the scope unchecked: the rule
+     * leaves a row to the scope only when the scope refuses it.
+     */
+    #[Test]
+    public function aRowTheScopeAdmitsThroughATranslationIsHeldToTheContract(): void
+    {
+        $this->db('pages')->insert('pages', ['uid' => 980, 'pid' => 1, 'title' => 'Child of 142', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::TRANSLATION, 'doktype' => 1, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT]);
+
+        $run = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => 980, 'description' => str_repeat('a', 400)]),
+            $this->answer(),
+        ]);
+
+        self::assertStringContainsString('rule: page_metadata_contract, reason: not_the_requested_row', $this->toolResultOf($run));
     }
 
     /**
@@ -336,6 +380,18 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         $this->runtime()->runQueued($run->uuid);
 
         return $run;
+    }
+
+    /**
+     * Approve the waiting run as an administrator and let it finish.
+     */
+    private function approved(AgentRun $run): void
+    {
+        $waiting = $this->stored($run);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $waiting->statusEnum());
+        $this->responses = [$this->answer()];
+        $state           = SuspendedRunState::fromArray(self::objectOf(json_decode($waiting->suspendedState ?? '', true)));
+        $this->runtime()->approve(AiActorContext::backendUser(1, isAdmin: true), $run->uuid, new ApprovalDecision(true, 1, (new PendingTurnDigest())->forState($state)));
     }
 
     private function answer(): CompletionResponse

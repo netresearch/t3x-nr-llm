@@ -10,11 +10,14 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server\Handler;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
+use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
 use Netresearch\NrLlm\Service\Tool\Scope\DatabaseRecordTopology;
 use Netresearch\NrLlm\Service\Tool\Scope\RecordFacts;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
@@ -35,8 +38,12 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   language is refused, and a row of another page or language is left to
  *   the scope of the run (ADR-295), which refuses it with its own reason;
  * - it sets only fields the request names, each as text within its length;
- * - the run read the page with `get_page_content` before;
  * - the row has not changed since the task was accepted.
+ *
+ * It answers from the call, the task and the database, never from the
+ * invocation history, so the loop asks it before the approval card
+ * (ADR-293). The read before the write depends on the history and is
+ * {@see A2aPageMetadataReadFirstRule}'s, asked when the call runs.
  *
  * The request is read from the task's first message, the one the handler
  * checked, with the same parser. A run of any other origin, and any other
@@ -56,8 +63,6 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
     public const REASON_FIELD = 'field_not_requested';
 
     public const REASON_VALUE = 'value_not_allowed';
-
-    public const REASON_NOT_READ = 'page_not_read';
 
     public const REASON_CHANGED = 'changed_since_accepted';
 
@@ -95,7 +100,43 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
 
     public function requiresCompleteHistory(): bool
     {
-        return true;
+        return false;
+    }
+
+    /**
+     * Whether a call is a write of a run of this skill: the write tool in a
+     * run whose A2A task belongs to a profile with this skill's handler, or
+     * whose profile row is gone (which this rule refuses).
+     */
+    public function holds(ToolInvocationContext $context): bool
+    {
+        $run = $context->execution->run;
+        if ($context->toolName !== A2aPageMetadataDomainHandler::WRITE_TOOL || !$run instanceof AgentRunReference) {
+            return false;
+        }
+
+        $task = $this->task($run->uid);
+        if ($task === null) {
+            return false;
+        }
+
+        $handler = $this->handlerOf(A2aPageMetadataRows::int($task['profile_uid'] ?? 0));
+
+        return $handler === null || $handler === A2aPageMetadataDomainHandler::IDENTIFIER;
+    }
+
+    /**
+     * Whether the scope of the run refuses the row the call names, so that
+     * the refusal and its reason are the scope's (ADR-295).
+     */
+    public function scopeRefuses(ToolInvocationContext $context): bool
+    {
+        $uid   = $context->arguments['uid'] ?? null;
+        $uid   = is_int($uid) ? $uid : (is_string($uid) ? filter_var($uid, FILTER_VALIDATE_INT) : false);
+        $scope = $context->execution->actor->assignmentScope;
+
+        return $uid !== false && $scope instanceof AssignmentScope
+            && (new AssignmentScopeChecker(new DatabaseRecordTopology($this->connectionPool)))->recordRefusal($scope, 'update', 'pages', $uid, $context->execution->actor->workspaceId ?? 0) instanceof ScopeRefusal;
     }
 
     public function decide(ToolInvocationContext $context): ToolInvocationDecision
@@ -142,10 +183,10 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
         }
 
         if ($uid === false || $uid !== $target && !$this->isTarget($uid, $target, $request, $workspace)) {
-            $facts = $uid === false ? null : (new DatabaseRecordTopology($this->connectionPool))->row('pages', $uid, $workspace);
-            if ($facts instanceof RecordFacts && (($facts->translationOf ?? $facts->liveUid) !== $request->page || $facts->language !== $request->language)) {
-                // Another page or language is the scope's to refuse
-                // (ADR-295), with its own reason.
+            // A row the scope refuses is the scope's (ADR-295), with its own
+            // reason. A row it admits that is not the requested row is
+            // refused here, whatever path the scope admitted it by.
+            if ($this->scopeRefuses($context)) {
                 return ToolInvocationDecision::allow();
             }
 
@@ -169,10 +210,6 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
             return ToolInvocationDecision::deny(self::REASON_FIELD, sprintf('This task sets %s; the call names none of them. Nothing was changed.', implode(', ', $request->fields)));
         }
 
-        if (!$this->hasRead($context)) {
-            return ToolInvocationDecision::deny(self::REASON_NOT_READ, 'Read the page with get_page_content before writing its metadata. Nothing was changed.');
-        }
-
         $row = $this->rows->page($target, $workspace);
         if ($row === null || A2aPageMetadataRows::int($row['tstamp'] ?? 0) > $acceptedAt) {
             return ToolInvocationDecision::deny(self::REASON_CHANGED, 'The record changed after this task was accepted. Nothing was changed; the client has to send the task again.');
@@ -193,17 +230,6 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
         // A version row belongs to one workspace; only the client's counts.
         return $facts instanceof RecordFacts && $facts->liveUid === $target && $facts->language === $request->language
             && in_array((int) ($topology->storedValue('pages', $uid, 't3ver_wsid') ?? -1), [0, $workspace], true);
-    }
-
-    private function hasRead(ToolInvocationContext $context): bool
-    {
-        foreach ($context->history->entries as $entry) {
-            if (($entry['tool'] ?? null) === A2aPageMetadataDomainHandler::READ_TOOL && ($entry['outcome'] ?? null) === 'ok') {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**
