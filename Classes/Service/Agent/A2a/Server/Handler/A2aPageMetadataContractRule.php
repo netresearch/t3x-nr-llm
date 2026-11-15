@@ -131,8 +131,9 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
      */
     public function scopeRefuses(ToolInvocationContext $context): bool
     {
-        $uid   = $context->arguments['uid'] ?? null;
-        $uid   = is_int($uid) ? $uid : (is_string($uid) ? filter_var($uid, FILTER_VALIDATE_INT) : false);
+        $uid = $context->arguments['uid'] ?? null;
+        $uid = is_int($uid) ? $uid : (is_string($uid) ? filter_var($uid, FILTER_VALIDATE_INT) : false);
+
         $scope = $context->execution->actor->assignmentScope;
 
         return $uid !== false && $scope instanceof AssignmentScope
