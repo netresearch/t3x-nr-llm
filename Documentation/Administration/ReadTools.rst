@@ -12,10 +12,10 @@ Read and interaction tool catalogue
 The built-in tools
 ==================
 
-nr-llm ships forty-six read-only tools and twenty-three writing tools. Each is a
+nr-llm ships forty-seven read-only tools and twenty-three writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Forty ship
+redacted or gated behind a separate ``_raw`` variant. Forty-one ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`) and all twenty-three writing tools
@@ -35,7 +35,8 @@ and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``search_records``, ``get_page_content``, ``read_records``,
 ``get_record_history``, ``resolve_url``, ``validate_tca``,
 ``list_fal_storages``, ``browse_fal_folder``, ``search_fal_files``,
-``get_fal_references``, ``find_missing_files``) are offered to non-admin
+``get_fal_references``, ``find_missing_files``, ``describe_fal_asset``)
+are offered to non-admin
 backend users — those self-enforce the acting user's TYPO3 permissions
 (page-show rights, ``tables_select``) inside the tool, so a non-admin only
 ever sees what the backend already grants them (see
@@ -50,8 +51,8 @@ record the run is about and the content elements on that page.
 
 In a run started in a draft workspace the tools that read records —
 ``get_page_content``, ``read_records``, ``search_records``, ``get_pagetree``,
-``read_fal_asset_meta``, ``search_fal_files``, ``get_fal_references``,
-``get_record_history``, ``highlight_record`` and ``get_tsconfig`` — read them
+``read_fal_asset_meta``, ``describe_fal_asset``, ``search_fal_files``,
+``get_fal_references``, ``get_record_history``, ``highlight_record`` and ``get_tsconfig`` — read them
 as that workspace shows them: changed, new, moved, hidden or deleted there as
 they are there, each record under its live uid, with filters, search terms,
 limits and offsets applied to what the workspace shows. In live, and in a run
@@ -94,6 +95,18 @@ The remaining tools follow the same pattern:
    Substring search over file name and metadata title/alternative within
    the accessible storages. ``%``/``_`` in the query match literally;
    missing files are excluded.
+
+``describe_fal_asset``
+   The descriptive metadata of one file by its ``uid``, for the acting user:
+   title, alternative text, description, width and height, plus copyright,
+   creator, source, publisher and language where EXT:filemetadata is
+   installed. The file must lie in the user's file mounts; a file outside
+   them and a uid no file carries return the same neutral denial. A field the
+   TCA marks ``exclude`` is shown to a non-admin only with the matching
+   ``non_exclude_fields`` grant and reads ``withheld (no field permission)``
+   otherwise; an empty field reads ``not set``. Default language only
+   (:ref:`ADR-303 <adr-303>`). Unlike ``read_fal_asset_meta`` it is offered to
+   non-admins.
 
 ``get_fal_references``
    Where a file is used: ``sys_file_reference`` rows as ``table:uid
