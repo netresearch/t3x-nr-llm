@@ -59,7 +59,8 @@ The scope is stored with the run, as the workspace is, so a queued, suspended
 or resumed run keeps the scope it started with. Nothing the assistant sends can
 widen it: a tool argument that names a page or a depth is only the thing to
 check against the scope. A starter that sets no scope behaves as before, which
-is what the backend chat and the A2A server do today.
+is what the backend chat and the A2A text skill do. The A2A page metadata
+skill (:ref:`a2a-page-metadata-skill`) sets one for every task it accepts.
 
 What a configuration can require
 ================================
@@ -72,8 +73,9 @@ edited.
    A run of this configuration that has no scope cannot change anything. Every
    write is refused with the reason ``scope_required``. Reads are not affected,
    so the run starts and can answer questions. Switch it on for starters that
-   pass a scope; a starter that passes none, the A2A server included, then has
-   a configuration that reads only.
+   pass a scope; a starter that passes none, the A2A text skill included, then
+   has a configuration that reads only. The A2A page metadata skill requires
+   this setting.
 
 :guilabel:`Deepest level below a scoped page`
    A cap, from 0 to 99 (default 99, no cap), on how far below a scoped page the
@@ -165,7 +167,8 @@ What it does not do
   check is the only one, and a tool that writes this way and states no targets is
   refused.
 - It does not carry over to an A2A client or a task record: neither has a scope
-  yet.
+  of its own. An A2A task has one only when its skill's handler sets it, as
+  the page metadata skill does.
 - The table list does not reach the content of other tables on a page that is
   deleted: it goes with the page.
 - It does not stop a tool from changing a cache, and it does not check reads.
