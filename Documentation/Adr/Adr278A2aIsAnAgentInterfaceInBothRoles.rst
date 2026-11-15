@@ -139,7 +139,9 @@ Amendment (2026-11-15): MCP has tasks; nr-llm does not offer them
 
 The context above says that MCP covers neither request because "an MCP server
 offers tools that the calling model drives step by step". That describes the
-MCP core, and it was not the whole picture even on 2026-11-10. SEP-2663,
+MCP core of 2025-06-18, the version nr-llm's client speaks, and it was not the
+whole picture even on 2026-11-10: the 2025-11-25 core already carried
+experimental tasks, and SEP-2663,
 "Tasks Extension" (status Final, extensions track, identifier
 ``io.modelcontextprotocol/tasks``), was accepted in May 2026 and moves the
 experimental tasks of the 2025-11-25 specification out of the core into an
@@ -168,7 +170,9 @@ and the extension repository
   The reasons are that nr-llm has no MCP server to offer tasks from, and that
   A2A defines what this record needs beyond one task: an agent card that
   publishes skills, a context across turns, ``ListTasks``, push notifications
-  and ``AUTH_REQUIRED``.
+  to a webhook the client configures, and ``AUTH_REQUIRED``. The MCP
+  extension has no task list, no session and no separate state for missing
+  authorization.
 
 **What this does not decide.** Whether a later change offers a published
 skill to MCP clients as well, through tasks or through plain start, status,

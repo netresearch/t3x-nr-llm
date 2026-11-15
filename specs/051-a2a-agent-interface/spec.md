@@ -75,7 +75,7 @@ depends on.
 
 | Stage | Adds | Depends on | Status |
 | --- | --- | --- | --- |
-| 0 | This specification and ADR-278 to ADR-285; the stage-0 spike (SDK and HTTP-adapter measurement, interop smoke, pinned proto fixture) | — | merged (#1340; proto fixture #1343, interop job #1348) |
+| 0 | This specification and ADR-278 to ADR-285; the stage-0 spike (SDK and HTTP-adapter measurement, interop smoke, pinned proto fixture) | — | merged (#1340; proto fixture #1343, interop jobs #1345 (client) and #1348 (server)) |
 | 1 | Client: remote-agent records, card import, `A2aClient` (SendMessage, GetTask, ListTasks, CancelTask), send-intent journal, client-side ownership, CLI example | 0 | merged (#1343, #1344, #1345) |
 | 2 | Runtime: the dependency status and checkpoint, the delegation tool, the polling coordinator, resume, cancel propagation, the result store and the A2A event journal | 1 | merged (#1347) |
 | 3 | Server: frontend endpoint, client records, publication profiles, agent card, JSON-RPC methods, transactional acceptance, worker execution, TCK fixture and CI job | 2 | merged (#1348) |
