@@ -142,7 +142,10 @@ final readonly class A2aPushDeliverer
      *
      * A config with a pending job is a delivery under way: the new job takes
      * over its attempts and its next attempt, so a failing receiver is not
-     * tried again from the start with every event (A2A-PUSH5).
+     * tried again from the start with every event (A2A-PUSH5). While an
+     * attempt holds its lease, the new job is not due before the lease ends:
+     * the attempt's outcome sets when it goes (a retry's backoff, or at once
+     * after a success), and no second worker sends it in parallel.
      */
     public static function enqueue(Connection $connection, int $taskUid, int $revision, int $now): void
     {
@@ -152,7 +155,7 @@ final readonly class A2aPushDeliverer
             . ' (config_uid, task_uid, revision, state, attempts, next_attempt, deadline, lease_holder, lease_until, last_status, last_reason, crdate, tstamp)'
             . ' SELECT p.uid, p.task_uid, ?, ?,'
             . ' COALESCE((SELECT MAX(q.attempts) FROM ' . $outbox . ' q WHERE q.config_uid = p.uid AND q.state = ?), 0),'
-            . ' COALESCE((SELECT MAX(q.next_attempt) FROM ' . $outbox . ' q WHERE q.config_uid = p.uid AND q.state = ?), ?),'
+            . ' COALESCE((SELECT MAX(CASE WHEN q.lease_until > q.next_attempt THEN q.lease_until ELSE q.next_attempt END) FROM ' . $outbox . ' q WHERE q.config_uid = p.uid AND q.state = ?), ?),'
             . ' ?, ?, 0, 0, ?, ?, ?'
             . ' FROM ' . $connection->quoteIdentifier(A2aPushConfigStore::TABLE) . ' p'
             . ' WHERE p.task_uid = ? AND p.state = ?'
@@ -392,6 +395,7 @@ final readonly class A2aPushDeliverer
         if ($result->isSuccess()) {
             $this->finish($jobUid, $holder, self::JOB_DELIVERED, $status, $reason, $attempts, $now);
             $this->supersedeOlder($job, $now);
+            $this->freshStart($jobUid, $this->int($job['config_uid'] ?? 0), $now);
 
             return true;
         }
@@ -513,6 +517,23 @@ final readonly class A2aPushDeliverer
         $configUid  = $this->int($config['uid'] ?? 0);
         $connection->update(A2aPushConfigStore::TABLE, ['state' => $state, 'reason' => $reason, 'tstamp' => $now], ['uid' => $configUid, 'state' => A2aPushConfigStore::STATE_ACTIVE]);
         $connection->update(A2aPushConfigStore::OUTBOX_TABLE, ['state' => self::JOB_DROPPED, 'last_reason' => 'CONFIG_' . strtoupper($state), 'tstamp' => $now], ['config_uid' => $configUid, 'state' => self::JOB_PENDING]);
+    }
+
+    /**
+     * A delivery that succeeded ends the failing streak of its config: a job
+     * written while it was on its way took over the attempts and the wait of
+     * that streak; it starts with all attempts and is due at once.
+     */
+    private function freshStart(int $jobUid, int $configUid, int $now): void
+    {
+        $connection = $this->connection();
+        $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
+            . ' SET attempts = 0, next_attempt = CASE WHEN next_attempt > ? THEN ? ELSE next_attempt END, tstamp = ?'
+            . ' WHERE config_uid = ? AND state = ? AND uid <> ?',
+            [$now, $now, $now, $configUid, self::JOB_PENDING, $jobUid],
+            [Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
+        );
     }
 
     private function retryLater(int $jobUid, int $configUid, string $holder, int $status, string $reason, int $attempts, int $next, int $now): void

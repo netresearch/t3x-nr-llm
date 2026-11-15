@@ -688,6 +688,69 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A delivery that succeeds ends the failing streak of its config: an
+     * event written while it was on its way starts with all attempts and is
+     * due at once, also when the attempt that succeeded was the last one.
+     */
+    #[Test]
+    public function aSuccessGivesAnEventWrittenInFlightAFreshStart(): void
+    {
+        foreach ([A2aPushDeliverer::MAX_ATTEMPTS - 1, 2] as $before) {
+            $task = $this->newTask();
+            $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-' . $before)));
+            $taskUid   = $this->taskUid($task);
+            $configUid = (int) $this->db(A2aPushConfigStore::TABLE)->select(['uid'], A2aPushConfigStore::TABLE, ['config_id' => 'c-' . $before])->fetchOne();
+            $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'task_uid' => $taskUid, 'revision' => 5, 'state' => 'pending', 'attempts' => $before, 'next_attempt' => 0, 'deadline' => time() + 10000]);
+            $now  = time();
+            $sent = count($this->transport->requests);
+
+            $this->transport->then(function () use ($taskUid, $now): A2aTransportResult {
+                A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 6, $now);
+
+                return A2aTransportResult::response(200, '', '', '', false);
+            });
+            $this->deliverer()->deliverDue($now);
+
+            $newest = $this->db(A2aPushConfigStore::OUTBOX_TABLE)->select(['attempts', 'next_attempt', 'state'], A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $configUid, 'revision' => 6])->fetchAssociative();
+            self::assertIsArray($newest);
+            self::assertSame([0, 'pending'], [(int) $newest['attempts'], $newest['state']], 'after ' . $before . ' attempts');
+            self::assertLessThanOrEqual($now, (int) $newest['next_attempt'], 'due at once');
+
+            $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(200, '', '', '', false));
+            self::assertSame(1, $this->deliverer()->deliverDue($now));
+            self::assertCount($sent + 2, $this->transport->requests, 'the newest state reached the receiver');
+        }
+    }
+
+    /**
+     * An event written while an attempt is on its way is not due before that
+     * attempt ends: a second worker does not send it to the same receiver in
+     * parallel.
+     */
+    #[Test]
+    public function anEventWrittenInFlightWaitsForTheAttempt(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        $taskUid = $this->taskUid($task);
+        $now     = time();
+
+        $this->transport->then(function () use ($taskUid, $now): A2aTransportResult {
+            A2aPushDeliverer::enqueue($this->db(A2aPushConfigStore::OUTBOX_TABLE), $taskUid, 50, $now);
+            // Another worker's tick while this attempt is on its way.
+            $this->deliverer()->deliverDue($now);
+
+            return A2aTransportResult::response(503, '', '', '', false);
+        });
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(503, '', '', '', false));
+
+        $this->deliverer()->deliverDue($now);
+
+        self::assertCount(1, $this->transport->requests);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function agentCard(): array
