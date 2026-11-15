@@ -51,8 +51,7 @@ key gives no digest.
 
 - ``arguments`` is the digest of the call's final arguments, after any input
   a human typed (:ref:`ADR-216 <adr-216>` item 5). The runtime fills it at
-  every ``append()`` of a call; a call refused before any rule saw it may
-  carry it or not, since only an ``ok`` entry is ever compared.
+  every ``append()`` whose arguments can be encoded.
 - ``state`` is the digest of a record state a tool observed: the canonical
   form of an object with the table, the uid, and the listed fields as a map
   from field name to value (so their order does not matter). Only an ``ok``
@@ -68,8 +67,9 @@ fields, writes each value as a string (``null`` stays ``null``), and returns
 an ``ObservedState``. It returns ``null``, and so no digest, when that
 workspace shows no such row (deleted, a version of another workspace, a
 table without versioning seen from a draft workspace), the table is unknown,
-the field list is empty, or a listed field is not a column of the table. ``ObservedState`` holds only a digest; its
-constructor refuses anything but the ``v1:`` format and is ``@internal``,
+the field list is empty, or a listed field is not a database column of the
+table. It reads with the deleted restriction only, so a hidden record has a
+state. ``ObservedState`` holds only a digest; its constructor refuses anything but the ``v1:`` format and is ``@internal``,
 so tools take one from ``observe()``; its digest is the public readonly
 property ``digest``. A tool reports it through
 ``ToolResult::withObservedState(ObservedState)``, kept as the public
@@ -78,9 +78,10 @@ wither, and the runtime copies its digest into the entry.
 
 A rule computes ``arguments()`` of the call in front of it and
 ``observe()`` of the same record and fields now, and compares both with the
-stored entry. Equal means the same final arguments and the same
-fields as the run's workspace shows them. When either returns ``null`` at
-that moment, the rule refuses. Which fields count is the tool's and rule's
+most recent ``ok`` entry of the check tool, so a later check of another
+variant replaces an earlier one. Equal means the same final arguments and
+the same fields as the run's workspace shows them. When either returns
+``null`` at that moment, the rule refuses. Which fields count is the tool's and rule's
 shared declaration: the fields the check judged, not ``tstamp``, which a
 hook moves without a relevant change (the same reason
 :ref:`ADR-184 <adr-184>` gives).
@@ -118,6 +119,12 @@ gains ``withObservedState(ObservedState)`` and the property
 ``observedState``, and
 ``InvocationDigests`` and ``ObservedState`` are public, so that a tool and a
 rule, in nr-llm or outside it, compute the same digests.
+
+A check tool calls ``observe()`` before the read its verdict rests on, so a
+change between the two reads leaves a digest the write cannot match. A
+binding rule does not require a complete history
+(``requiresCompleteHistory()`` is ``false``): an incomplete history after a
+retry still holds the check the model makes next.
 
 **A binding rule is asked when the call runs.** Its answer depends on the
 history, which before the approval card does not hold the calls of the same
