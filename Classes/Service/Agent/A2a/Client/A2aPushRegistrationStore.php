@@ -31,8 +31,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *   worker has not handled yet, and its bounds bound the rows stored. The
  *   bound per registration is checked under a lock on the registration row,
  *   the bound in total in the same transaction.
- * - Only a registration whose run is running or waits for its remote task
- *   accepts a callback. The registration and its inbox are removed when its
+ * - Only a registration whose run is running or waits for its remote task,
+ *   and whose remote agent record is enabled and not deleted, accepts a
+ *   callback. The registration and its inbox are removed when its
  *   dependency resolves (with the remote's result or at the deadline, also
  *   when the run goes on to wait for another delegation) or the run is
  *   cancelled, by the poller's sweep once the run has ended any other way,
@@ -66,6 +67,8 @@ final readonly class A2aPushRegistrationStore
     private const OPEN_STATES = [self::STATE_PENDING, self::STATE_ACTIVE, self::STATE_OUTCOME_UNKNOWN];
 
     private const RUN_TABLE = 'tx_nrllm_agentrun';
+
+    private const AGENT_TABLE = 'tx_nrllm_a2a_agent';
 
     /**
      * The run statuses in which a registration takes callbacks: running (the
@@ -132,13 +135,15 @@ final readonly class A2aPushRegistrationStore
 
     /**
      * The uid of the open registration the credential belongs to; null for
-     * a malformed, unknown or wrong credential and a closed registration.
+     * a malformed, unknown or wrong credential, a closed registration, a run
+     * that no longer runs or waits, and a remote agent record that is
+     * disabled, deleted or gone.
      */
     public function authenticate(string $credential): ?int
     {
         $prefix = self::prefixOf($credential);
         $row    = $prefix !== null
-            ? $this->connection()->select(['uid', 'credential_hash', 'state', 'run_uid'], self::TABLE, ['credential_prefix' => $prefix])->fetchAssociative()
+            ? $this->connection()->select(['uid', 'credential_hash', 'state', 'run_uid', 'agent_uid'], self::TABLE, ['credential_prefix' => $prefix])->fetchAssociative()
             : false;
         $hash  = is_array($row) && is_string($row['credential_hash'] ?? null) ? $row['credential_hash'] : self::NO_HASH;
         $valid = hash_equals($hash, hash('sha256', $credential));
@@ -153,7 +158,27 @@ final readonly class A2aPushRegistrationStore
             ->select(['status'], self::RUN_TABLE, ['uid' => is_numeric($row['run_uid'] ?? null) ? (int) $row['run_uid'] : 0])
             ->fetchOne();
 
-        return in_array($status, self::RUN_OPEN, true) ? (int) $row['uid'] : null;
+        if (!in_array($status, self::RUN_OPEN, true)) {
+            return null;
+        }
+
+        // Disabling or deleting the remote agent record stops its callbacks
+        // too. Read past the restrictions, so the deleted flag is checked
+        // here and not left to a default that a query might not apply.
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::AGENT_TABLE);
+        $builder->getRestrictions()->removeAll();
+        $agent = $builder
+            ->select('enabled', 'deleted')
+            ->from(self::AGENT_TABLE)
+            ->where($builder->expr()->eq('uid', $builder->createNamedParameter(is_numeric($row['agent_uid'] ?? null) ? (int) $row['agent_uid'] : 0, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAssociative();
+
+        $usable = is_array($agent)
+            && is_numeric($agent['enabled'] ?? null) && (int) $agent['enabled'] === 1
+            && is_numeric($agent['deleted'] ?? null) && (int) $agent['deleted'] === 0;
+
+        return $usable ? (int) $row['uid'] : null;
     }
 
     /**

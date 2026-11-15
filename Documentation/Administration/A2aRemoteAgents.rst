@@ -320,8 +320,10 @@ the next ``GetTask`` forward.
 -  **Callbacks.** A callback needs ``Authorization: Bearer`` with the
    credential of an open registration; anything else is 401 with
    ``WWW-Authenticate: Bearer realm="a2a-push"`` and stores nothing. The
-   answer is the same for a missing, unknown or wrong credential and for a
-   closed registration. An ``X-A2A-Notification-Token`` header is ignored:
+   answer is the same for a missing, unknown or wrong credential, for a
+   closed registration, and for a delegation to a remote agent record that
+   is disabled or deleted; enabling the record again accepts its callbacks
+   again. An ``X-A2A-Notification-Token`` header is ignored:
    it neither authenticates nor refuses. ``A2A-Version`` and a content type
    are not required. Failed attempts are logged with the source address,
    never with the credential, and limited per address by the rate limiter

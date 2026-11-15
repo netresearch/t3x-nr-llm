@@ -631,6 +631,37 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
     }
 
+    /**
+     * A2A-PUSH6: a callback for a delegation to a remote agent record that is
+     * disabled, deleted or gone is 401 and stores nothing; enabling the
+     * record again accepts the credential again.
+     */
+    #[Test]
+    public function aDisabledOrDeletedAgentTakesNoCallback(): void
+    {
+        $agent = $this->agent();
+        $this->suspendedRun();
+        $credential = 'Bearer ' . $this->credentialOf(1);
+        $records    = $this->db('tx_nrllm_a2a_agent');
+
+        self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
+
+        $records->update('tx_nrllm_a2a_agent', ['enabled' => 0], ['uid' => $agent->getUid()]);
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'disabled');
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+
+        $records->update('tx_nrllm_a2a_agent', ['enabled' => 1], ['uid' => $agent->getUid()]);
+        self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'enabled again');
+        self::assertSame(2, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+
+        $records->update('tx_nrllm_a2a_agent', ['deleted' => 1], ['uid' => $agent->getUid()]);
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'deleted');
+
+        $records->delete('tx_nrllm_a2a_agent', ['uid' => $agent->getUid()]);
+        self::assertSame(401, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'gone');
+        self::assertSame(2, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+    }
+
     // ------------------------------------------------------------------
 
     /**

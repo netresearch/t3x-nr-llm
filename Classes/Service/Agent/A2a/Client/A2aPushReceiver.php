@@ -25,8 +25,10 @@ use TYPO3\CMS\Core\Http\Response;
  * A2A-SEC6, ADR-285): `POST <base>/push` of the configured push site.
  *
  * 1. The credential is `Authorization: Bearer <callback credential>` of an
- *    open registration. Missing, malformed, unknown, wrong, or of a closed
- *    registration: 401 with `WWW-Authenticate: Bearer realm="a2a-push"`, one
+ *    open registration. Missing, malformed, unknown, wrong, of a closed
+ *    registration, of a run that no longer runs or waits, or of a remote
+ *    agent record that is disabled, deleted or gone: 401 with
+ *    `WWW-Authenticate: Bearer realm="a2a-push"`, one
  *    answer for all, nothing stored. `X-A2A-Notification-Token` is not read
  *    at all: it neither authenticates nor refuses (A2A-D8). Failures are
  *    logged with the source address, never the credential, and counted per
@@ -69,7 +71,7 @@ final readonly class A2aPushReceiver
         $credential   = preg_match('/^Bearer\s+(\S+)\s*$/i', $request->getHeaderLine('Authorization'), $match) === 1 ? $match[1] : '';
         $registration = $this->registrations->authenticate($credential);
         if ($registration === null) {
-            return $this->refuse($request, $credential === '' ? 'no bearer credential' : 'unknown or wrong credential, or a closed registration');
+            return $this->refuse($request, $credential === '' ? 'no bearer credential' : 'unknown or wrong credential, a closed registration, an ended run, or a disabled or deleted remote agent record');
         }
 
         $limit  = $this->settings->maxBodyBytes();
