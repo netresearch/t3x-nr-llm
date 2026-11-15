@@ -99,11 +99,11 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
 
     public function decide(A2aMessage $message, A2aSkillProfile $profile, A2aRunContext $context): A2aHandlerDecision
     {
-        $this->checkSetup($profile, $context);
+        $user = $this->checkSetup($profile, $context);
 
         $request   = A2aPageMetadataRequest::fromText($message->text());
         $workspace = $context->actor->workspaceId ?? 0;
-        $target    = $this->targetRow($request, $workspace, $this->users->resolve($context->actor));
+        $target    = $this->targetRow($request, $workspace, $user);
 
         $scope = new AssignmentScope([new ScopedPage($request->page, 0)], [], ['pages'], [$request->language]);
 
@@ -135,20 +135,24 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
     }
 
     /**
-     * A profile or configuration that cannot run this skill as decided is an
-     * error of the installation, not of the client: the skill is unavailable
-     * until an administrator fixes it.
+     * A profile, configuration or technical user that cannot run this skill
+     * as decided is an error of the installation, not of the client: the
+     * skill is unavailable until an administrator fixes it. A technical user
+     * that cannot act in the client's pinned workspace (no member, disabled)
+     * is such an error; it does not depend on the page requested.
      *
      * @throws A2aRpcError
      */
-    private function checkSetup(A2aSkillProfile $profile, A2aRunContext $context): void
+    private function checkSetup(A2aSkillProfile $profile, A2aRunContext $context): BackendUserAuthentication
     {
+        $user    = $this->users->resolve($context->actor);
         $problem = match (true) {
             !$profile->mayWrite                                    => 'the profile may not write',
             !in_array(self::WRITE_TOOL, $context->toolNames, true) => 'the profile does not grant update_page_metadata',
             !in_array(self::READ_TOOL, $context->toolNames, true)  => 'the profile does not grant get_page_content',
             !$context->configuration->getRequireDraftWorkspace()   => 'its LLM configuration does not require a draft workspace',
             !$context->configuration->getRequireAssignmentScope()  => 'its LLM configuration does not require the scope of an assignment',
+            !$user instanceof BackendUserAuthentication            => "the client's technical user cannot act in its pinned workspace",
             default                                                => null,
         };
 
@@ -157,6 +161,10 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
 
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
         }
+
+        assert($user instanceof BackendUserAuthentication);
+
+        return $user;
     }
 
     /**
@@ -169,7 +177,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
      *
      * @throws A2aRpcError
      */
-    private function targetRow(A2aPageMetadataRequest $request, int $workspace, ?BackendUserAuthentication $user): int
+    private function targetRow(A2aPageMetadataRequest $request, int $workspace, BackendUserAuthentication $user): int
     {
         $page = $this->visibleRow($this->rows(['uid' => $request->page], $workspace), $workspace);
         if ($page === null || !$this->may($user, $page, Permission::PAGE_SHOW, $request->language)) {

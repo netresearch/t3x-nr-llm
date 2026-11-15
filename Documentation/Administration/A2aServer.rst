@@ -63,6 +63,9 @@ Domain handler
    the result. ``nr_llm.text`` sends the message text to the LLM
    configuration and returns the answer as one text artifact: a text check or
    a summary, with the instructions of the configuration's system prompt.
+   ``nr_llm.page_metadata.v1`` writes the metadata of one page in one
+   language as a draft, held to that page and language
+   (:ref:`a2a-page-metadata-skill`).
 
 LLM configuration
    The configuration the runs use. If its answer level keeps no result

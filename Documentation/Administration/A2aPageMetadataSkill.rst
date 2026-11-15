@@ -109,6 +109,13 @@ request is answered with ``-32004`` "This skill is not available." and the
 reason is logged as a warning. A client that is not pinned to a draft
 workspace is refused earlier, as for every writing profile.
 
+Every write of this skill waits for an approval in the backend, and a
+waiting task is ``WORKING`` for the client. A streamed task
+(``SendStreamingMessage``) therefore holds its stream, a stream slot and a
+PHP worker until the stream's time limit. Clients of this skill should send
+``SendMessage`` with ``returnImmediately`` and follow the task with
+``GetTask``.
+
 ..  _a2a-page-metadata-skill-result:
 
 The result

@@ -391,6 +391,10 @@ final class A2aPageMetadataSkillTest extends AbstractFunctionalTestCase
 
         $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => 'get_page_content,update_page_metadata', 'may_write' => 0], ['uid' => 1]);
         self::assertSame(-32004, self::j($this->sendRaw('{"page": 42, "language": 1, "fields": ["description"]}', 'm-4'), 'error.code'), 'a profile that may not write');
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['may_write' => 1], ['uid' => 1]);
+        $this->db('sys_workspace')->update('sys_workspace', ['members' => ''], ['uid' => self::WORKSPACE]);
+        self::assertSame(-32004, self::j($this->sendRaw('{"page": 42, "language": 1, "fields": ["description"]}', 'm-5'), 'error.code'), 'a technical user who cannot act in the workspace');
         self::assertSame(0, $this->rows('tx_nrllm_a2a_task'));
     }
 

@@ -57,6 +57,8 @@ final readonly class A2aPageMetadataRequest
 
     private const KEYS = ['page', 'language', 'fields'];
 
+    private const SHAPE = 'the text must be one JSON object with "page", "language" and "fields"';
+
     /** The field of the request the refusals name. */
     private const FIELD = 'message.parts';
 
@@ -79,17 +81,17 @@ final readonly class A2aPageMetadataRequest
     {
         $text = trim($text);
         if ($text === '' || strlen($text) > self::MAX_TEXT_BYTES) {
-            throw self::refusal('the text must be one JSON object with "page", "language" and "fields"');
+            throw self::refusal(self::SHAPE);
         }
 
         try {
             $data = json_decode($text, true, 4, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
         } catch (JsonException) {
-            throw self::refusal('the text must be one JSON object with "page", "language" and "fields"');
+            throw self::refusal(self::SHAPE);
         }
 
         if (!is_array($data) || array_is_list($data)) {
-            throw self::refusal('the text must be one JSON object with "page", "language" and "fields"');
+            throw self::refusal(self::SHAPE);
         }
 
         foreach (array_keys($data) as $key) {
