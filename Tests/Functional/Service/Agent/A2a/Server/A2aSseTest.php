@@ -197,6 +197,7 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         self::assertSame('TASK_STATE_AUTH_REQUIRED', self::j($events['frames'][1], 'result.statusUpdate.status.state'));
         self::assertSame(80, $events['ticks'], '20 s at a quarter second per poll: ended by the time limit');
         self::assertGreaterThanOrEqual(1, substr_count($events['raw'], ": keep-alive\n"));
+        self::assertLessThan(15.0, $this->longestGap($events['times']), 'a write within every 15 s, a poll interval included');
         self::assertSame('TASK_STATE_AUTH_REQUIRED', self::j($this->taskOf($this->call('GetTask', ['id' => $task['id']])), 'status.state'), 'the task is untouched');
     }
 
@@ -257,6 +258,57 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         $this->streamSettings(['maxStreams' => '0']);
         $this->db(A2aStreamSlots::TABLE)->update(A2aStreamSlots::TABLE, ['holder' => '', 'expires' => 0], []);
         self::assertSame('STREAM_CAPACITY_EXHAUSTED', $this->errorOf($this->asArray($this->reply('SubscribeToTask', ['id' => $task['id']], 2)))['reason'], 'maxStreams 0 refuses every stream');
+    }
+
+    /**
+     * A2A-SSE3, A2A-MT2: an answer to a waiting task sent as a stream is
+     * counted against that task's streams before it is taken in; refused, it
+     * stored nothing and the task still waits.
+     */
+    #[Test]
+    public function aContinuationOverTheTasksStreamLimitIsRefusedBeforeItIsTakenIn(): void
+    {
+        $this->streamSettings(['maxStreamsPerTask' => '1']);
+        $task = $this->taskOf($this->call('SendMessage', ['message' => $this->message('hi', 'tck-input-required-c1')], 3));
+        self::assertTrue($this->reply('SubscribeToTask', ['id' => $task['id']], 3)->isStream(), 'the one stream the task may have');
+        $history = $this->db(A2aTaskStore::TABLE)->select(['history', 'revision'], A2aTaskStore::TABLE, ['task_id' => $task['id']])->fetchAssociative();
+
+        $answer = $this->reply('SendStreamingMessage', ['message' => $this->message('the answer', 'tck-complete-task-c2', ['taskId' => $task['id'], 'contextId' => $task['contextId']])], 3);
+
+        self::assertSame('STREAM_CAPACITY_EXHAUSTED', $this->errorOf($this->asArray($answer))['reason']);
+        self::assertSame($history, $this->db(A2aTaskStore::TABLE)->select(['history', 'revision'], A2aTaskStore::TABLE, ['task_id' => $task['id']])->fetchAssociative(), 'nothing was taken in');
+        self::assertSame(0, $this->rows('tx_nrllm_a2a_dedup', ['message_id' => 'tck-complete-task-c2']));
+        self::assertSame('TASK_STATE_INPUT_REQUIRED', self::j($this->taskOf($this->call('GetTask', ['id' => $task['id']], 3)), 'status.state'));
+    }
+
+    /**
+     * A2A-SSE2, A2A-SSE3: the first event names the task even when the
+     * snapshot is larger than a frame: it goes without its history.
+     */
+    #[Test]
+    public function aSnapshotLargerThanAFrameStillNamesTheTask(): void
+    {
+        $this->streamSettings(['maxFrameBytes' => '4096', 'maxRequestBytes' => '65536']);
+
+        $events = $this->stream('SendStreamingMessage', ['message' => $this->message(str_repeat('a long question ', 400))], 1);
+
+        self::assertSame('task', $this->kinds($events['frames'])[0] ?? null);
+        $task = self::objectOf(self::j($events['frames'][0], 'result.task'));
+        self::assertNotSame('', $task['id'] ?? '');
+        self::assertSame('TASK_STATE_SUBMITTED', self::j($task, 'status.state'));
+        self::assertArrayNotHasKey('history', $task);
+    }
+
+    /**
+     * SendStreamingMessage honours configuration.historyLength in its
+     * snapshot, as SendMessage does (A2A-SV6).
+     */
+    #[Test]
+    public function theSnapshotHonoursTheHistoryLength(): void
+    {
+        $events = $this->stream('SendStreamingMessage', ['message' => $this->message(), 'configuration' => ['historyLength' => 0]], 1);
+
+        self::assertArrayNotHasKey('history', self::objectOf(self::j($events['frames'][0], 'result.task')));
     }
 
     /**
@@ -360,11 +412,12 @@ final class A2aSseTest extends AbstractFunctionalTestCase
      * @param array<string, mixed>              $params
      * @param (Closure(int, string): void)|null $tick   called on every poll with its number and the task id
      *
-     * @return array{frames: list<array<string, mixed>>, raw: string, ticks: int}
+     * @return array{frames: list<array<string, mixed>>, raw: string, ticks: int, times: list<float>}
      */
     private function stream(string $method, array $params, int $client, ?Closure $tick = null): array
     {
         $raw    = '';
+        $times  = [$this->clock];
         $ticks  = 0;
         $taskId = '';
         $reply  = $this->reply($method, $params, $client, function () use (&$ticks, &$taskId, &$raw, $tick): void {
@@ -380,8 +433,9 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         });
         self::assertTrue($reply->isStream(), 'expected a stream: ' . json_encode($reply->body));
 
-        $writer = new A2aSseWriter($this->getService(A2aServerSettings::class)->maxFrameBytes(), static function (string $bytes) use (&$raw): void {
+        $writer = new A2aSseWriter($this->getService(A2aServerSettings::class)->maxFrameBytes(), function (string $bytes) use (&$raw, &$times): void {
             $raw .= $bytes;
+            $times[] = $this->clock;
         }, fn (): float => $this->clock);
         $reply->streamTo($writer);
 
@@ -394,7 +448,9 @@ final class A2aSseTest extends AbstractFunctionalTestCase
             }
         }
 
-        return ['frames' => $frames, 'raw' => $raw, 'ticks' => $ticks];
+        $times[] = $this->clock;
+
+        return ['frames' => $frames, 'raw' => $raw, 'ticks' => $ticks, 'times' => $times];
     }
 
     /**
@@ -430,6 +486,19 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         $body = json_encode(['jsonrpc' => '2.0', 'id' => 's-1', 'method' => $method, 'params' => $params === [] ? new stdClass() : $params], JSON_THROW_ON_ERROR);
 
         return $server->handle($this->request('POST', self::BASE, ['Content-Type' => 'application/json', 'A2A-Version' => '1.0', 'Authorization' => 'Bearer ' . $this->tokens[$client]], $body), time());
+    }
+
+    /**
+     * @param list<float> $times
+     */
+    private function longestGap(array $times): float
+    {
+        $gap = 0.0;
+        for ($i = 1, $n = count($times); $i < $n; ++$i) {
+            $gap = max($gap, $times[$i] - $times[$i - 1]);
+        }
+
+        return $gap;
     }
 
     /**

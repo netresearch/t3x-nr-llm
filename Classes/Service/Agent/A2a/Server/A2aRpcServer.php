@@ -221,14 +221,19 @@ final readonly class A2aRpcServer
      * A2A-SSE1, A2A-SSE3: `SendMessage` without the wait, then a stream of the
      * task it created or found. The stream slot is taken before anything is
      * accepted, so a refusal for stream capacity stores nothing; the blocking
-     * wait's slot is never taken. A message answer is a stream of that one
-     * message.
+     * wait's slot is never taken. A message to an existing task (a
+     * continuation, A2A-MT3) is counted against that task's streams before it
+     * is taken in, so the answer is never stored and then refused. A message
+     * answer is a stream of that one message.
      *
      * @param array<string, mixed> $params
      */
     private function sendStreamingMessage(A2aInboundClient $client, array $params, int $now, int|string|null $id): A2aRpcReply
     {
-        $holder = $this->takeStreamSlot($client, '', $now);
+        $message       = is_array($params['message'] ?? null) ? $params['message'] : [];
+        $configuration = is_array($params['configuration'] ?? null) ? $params['configuration'] : [];
+        $named         = is_string($message['taskId'] ?? null) ? $message['taskId'] : '';
+        $holder        = $this->takeStreamSlot($client, $named, $now);
         try {
             $result = $this->sendMessage->handle($client, $params, $now, true);
             if (is_array($result['message'] ?? null)) {
@@ -241,7 +246,7 @@ final readonly class A2aRpcServer
 
             $task   = is_array($result['task'] ?? null) ? $result['task'] : [];
             $taskId = is_string($task['id'] ?? null) ? $task['id'] : '';
-            if (!$this->streamSlots->bind($holder, $client->uid, $taskId, $this->settings->maxStreamsPerTask(), $now)) {
+            if ($named === '' && !$this->streamSlots->bind($holder, $client->uid, $taskId, $this->settings->maxStreamsPerTask(), $now)) {
                 // Only a repeated messageId finds a task that already has
                 // streams; nothing new was stored for it.
                 throw A2aRpcError::unavailable(A2aRpcError::REASON_STREAM_CAPACITY_EXHAUSTED, 5);
@@ -252,7 +257,9 @@ final readonly class A2aRpcServer
             throw $refused;
         }
 
-        return $this->streamOf($client, $taskId, $holder, $id);
+        $history = $configuration['historyLength'] ?? null;
+
+        return $this->streamOf($client, $taskId, $holder, $id, is_int($history) && $history >= 0 ? $history : null);
     }
 
     /**
@@ -289,13 +296,13 @@ final readonly class A2aRpcServer
      * The stream itself. The task row is read when the stream starts: its
      * revision is the cursor of the snapshot (A2A-SSE2).
      */
-    private function streamOf(A2aInboundClient $client, string $taskId, string $holder, int|string|null $id): A2aRpcReply
+    private function streamOf(A2aInboundClient $client, string $taskId, string $holder, int|string|null $id, ?int $historyLength = null): A2aRpcReply
     {
-        return A2aRpcReply::stream(function (A2aSseWriter $writer) use ($client, $taskId, $holder, $id): void {
+        return A2aRpcReply::stream(function (A2aSseWriter $writer) use ($client, $taskId, $holder, $id, $historyLength): void {
             try {
                 $row = $this->view->find($client->uid, $taskId);
                 if ($row !== null) {
-                    $this->taskStream->stream($client, $row, $holder, $id, $writer);
+                    $this->taskStream->stream($client, $row, $holder, $id, $writer, $historyLength);
                 }
             } catch (Throwable $exception) {
                 // The stream is open: a failure ends it, the task is untouched.

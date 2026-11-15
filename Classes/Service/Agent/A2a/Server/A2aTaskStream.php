@@ -42,8 +42,11 @@ use Psr\Log\NullLogger;
  *   valid (checked with every lease renewal, so a revoked client reads at
  *   most {@see self::RENEW_SECONDS} longer). Ending a stream never touches
  *   the task.
- * - **Keep-alive.** A comment line whenever {@see self::KEEPALIVE_SECONDS}
- *   passed without a write.
+ * - **Keep-alive.** A comment line before {@see self::KEEPALIVE_SECONDS}
+ *   pass without a write.
+ * - **The first event always names the task.** A snapshot larger than a frame
+ *   is sent without history and artifacts (and, if need be, without its
+ *   status message); the client reads the rest with `GetTask`.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -77,18 +80,31 @@ final readonly class A2aTaskStream
     /**
      * Stream a task the client owns, from its row as read by the caller.
      *
-     * @param array<string, mixed> $row the task row; its revision is the cursor
+     * @param array<string, mixed> $row           the task row; its revision is the cursor
+     * @param int|null             $historyLength of the snapshot, as GetTask reads it
      */
-    public function stream(A2aInboundClient $client, array $row, string $holder, int|string|null $requestId, A2aSseWriter $writer): void
+    public function stream(A2aInboundClient $client, array $row, string $holder, int|string|null $requestId, A2aSseWriter $writer, ?int $historyLength = null): void
     {
         $taskUid   = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
         $cursor    = is_numeric($row['revision'] ?? null) ? (int) $row['revision'] : 0;
         $taskId    = is_string($row['task_id'] ?? null) ? $row['task_id'] : '';
         $contextId = is_string($row['context_id'] ?? null) ? $row['context_id'] : '';
 
-        $snapshot = $this->view->render($row, null);
-        if (!$this->send($writer, $requestId, ['task' => $snapshot], $taskId)) {
-            return;
+        $snapshot = $this->view->render($row, $historyLength);
+        if (!$writer->event(['jsonrpc' => '2.0', 'id' => $requestId, 'result' => ['task' => $snapshot]])) {
+            // The client must learn the task even when its snapshot is larger
+            // than a frame: then the task goes without its history and
+            // artifacts, and without its status message if need be, and the
+            // client reads the rest with GetTask.
+            $status   = is_array($snapshot['status'] ?? null) ? $snapshot['status'] : [];
+            $snapshot = ['id' => $taskId, 'contextId' => $contextId, 'status' => $status];
+            if (!$writer->event(['jsonrpc' => '2.0', 'id' => $requestId, 'result' => ['task' => $snapshot]])) {
+                unset($status['message']);
+                $snapshot['status'] = $status;
+                if (!$this->send($writer, $requestId, ['task' => $snapshot], $taskId)) {
+                    return;
+                }
+            }
         }
 
         $sent = [];
@@ -142,7 +158,8 @@ final readonly class A2aTaskStream
                 }
             }
 
-            if ($writer->idleSeconds() >= self::KEEPALIVE_SECONDS) {
+            // One poll interval early, so the gap never exceeds the interval.
+            if ($writer->idleSeconds() >= self::KEEPALIVE_SECONDS - 1) {
                 $writer->comment('keep-alive');
             }
 

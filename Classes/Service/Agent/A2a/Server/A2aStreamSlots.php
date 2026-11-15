@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -72,7 +73,12 @@ final readonly class A2aStreamSlots
 
             $holder = bin2hex(random_bytes(16));
             for ($slot = 1; $slot <= $total; ++$slot) {
-                if ($connection->count('slot', self::TABLE, ['slot' => $slot]) === 0) {
+                $exists = $connection->executeQuery(
+                    'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE slot = ?' . $this->lockingRead($connection),
+                    [$slot],
+                    [Connection::PARAM_INT],
+                )->fetchOne();
+                if (is_numeric($exists) && (int) $exists === 0) {
                     try {
                         $connection->insert(self::TABLE, ['slot' => $slot, 'holder' => '', 'client_uid' => 0, 'task_id' => '', 'expires' => 0]);
                     } catch (UniqueConstraintViolationException) {
@@ -104,7 +110,7 @@ final readonly class A2aStreamSlots
         return $this->connection()->transactional(function (Connection $connection) use ($holder, $clientUid, $taskId, $perTask, $now): bool {
             $this->lockClient($connection, $clientUid);
             $others = $connection->executeQuery(
-                'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_id = ? AND holder <> ? AND holder <> ? AND expires >= ?',
+                'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_id = ? AND holder <> ? AND holder <> ? AND expires >= ?' . $this->lockingRead($connection),
                 [$taskId, '', $holder, $now],
                 [Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT],
             )->fetchOne();
@@ -145,12 +151,24 @@ final readonly class A2aStreamSlots
     private function live(Connection $connection, string $column, int|string $value, int $now): int
     {
         $count = $connection->executeQuery(
-            'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE ' . $connection->quoteIdentifier($column) . ' = ? AND holder <> ? AND expires >= ?',
+            'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE ' . $connection->quoteIdentifier($column) . ' = ? AND holder <> ? AND expires >= ?' . $this->lockingRead($connection),
             [$value, '', $now],
             [is_int($value) ? Connection::PARAM_INT : Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT],
         )->fetchOne();
 
         return is_numeric($count) ? (int) $count : 0;
+    }
+
+    /**
+     * Every read inside the transaction is a locking read. Under REPEATABLE
+     * READ (MariaDB, MySQL) a plain read would fix a snapshot, and the guarded
+     * UPDATE of a slot another stream renewed meanwhile would then fail with
+     * MariaDB's snapshot-isolation error instead of moving to the next slot.
+     * A locking read creates no snapshot. SQLite serialises writers.
+     */
+    private function lockingRead(Connection $connection): string
+    {
+        return $connection->getDatabasePlatform() instanceof SQLitePlatform ? '' : ' FOR UPDATE';
     }
 
     private function connection(): Connection

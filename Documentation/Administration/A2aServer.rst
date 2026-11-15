@@ -247,7 +247,11 @@ Limits and protection
   ``Retry-After``, before anything is stored. A stream that dies without
   closing frees its slot within 30 seconds. An event larger than
   ``a2a.server.maxFrameBytes`` (default 1 MiB) is not sent; the stream ends
-  and the client reads the task with ``GetTask``.
+  and the client reads the task with ``GetTask``. The first event always
+  names the task: a task too large for one frame is sent without its history
+  and artifacts. An answer to a waiting task sent as a stream counts against
+  that task's streams before it is taken in, so a refused answer is not
+  stored either.
 - **Proxies in front of a stream.** The response carries
   ``X-Accel-Buffering: no`` and ``Cache-Control: no-cache``, and pads each
   write to 4 KiB with a comment line, so a proxy that holds small chunks

@@ -27,10 +27,10 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
  * (a comment is ignored by every event-stream parser), so an event reaches the
  * client when it is written. `X-Accel-Buffering: no` asks nginx not to buffer.
  *
- * Unlike the backend's NDJSON stream, opening it leaves `ignore_user_abort`
- * as it is (false): a stream only reads, the worker executes the task, and a
- * client that goes away ends the script at the next write without touching
- * the task.
+ * Unlike the backend's NDJSON stream, opening it sets `ignore_user_abort`
+ * to false: a stream only reads, the worker executes the task, and a client
+ * that goes away ends the script at the next write without touching the
+ * task.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -69,6 +69,10 @@ final class A2aSseWriter
         if ($this->sink instanceof Closure) {
             return;
         }
+
+        // A2A-SSE1: whatever php.ini says, a client that went away ends the
+        // script at the next write, and with it the stream and its slot.
+        ignore_user_abort(false);
 
         ini_set('zlib.output_compression', '0');
         ini_set('output_buffering', '0');
