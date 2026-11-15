@@ -25,9 +25,8 @@ edited outside nr-llm can only be checked by generating it again.
   (30 words for the judge and for required terms) stay as they are.
 - **X3 JSON.** A text is searched as sent. A text that is one JSON document
   (fence allowed) is decoded by `json_decode()` and every key and string value
-  is searched too; a document with a duplicate key, and a text shaped like a
-  document (`{`…`}` or `[`…`]` after fence, white space and BOM) that
-  `json_decode()` refuses, fail the term check. Any other text is plain text. The judge reads
+  is searched too; a document with a duplicate key, and a text
+  `json_decode()` refuses that holds a JSON escape, fail the term check. Any other text is plain text. The judge reads
   the text as sent; a passage it quotes counts when found in the text or a
   decoded string.
 - **X4 Status.** `passed`, `violation`, `not_checked` or `failed`. A broken term

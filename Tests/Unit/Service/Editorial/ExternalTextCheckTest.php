@@ -487,6 +487,9 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         yield 'nested duplicate member' => ['{"a":{"post":"clean","post":"clean"}}'];
         yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"clean"}'];
         yield 'lone surrogate other decoders accept' => ['{"t":"\\u0052abatt","z":"\\ud800"}'];
+        yield 'malformed JSON with a surrogate pair escape' => ['{"t":"\\ud83d\\ude00 \\u0052abatt",}'];
+        yield 'string root with a lone surrogate' => ['"\\u0052abatt \\ud800"'];
+        yield 'escape in prose JSON a decoder refuses' => ['Hier: {"t":"\\u0052abatt"'];
         yield 'raw control character in a document' => ["{\"t\":\"\\u0052abatt\x01\"}"];
         yield 'trailing comma in a document' => ['{"t":"\\u0052abatt",}'];
         yield 'nesting deeper than PHP decodes' => [str_repeat('[', 600) . '"\\u0052abatt"' . str_repeat(']', 600)];
@@ -517,6 +520,33 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
     }
 
     /**
+     * White space of any kind around a document does not turn it into plain
+     * text, and a top-level string is a document too.
+     */
+    #[Test]
+    public function aDocumentInUnicodeWhiteSpaceOrAStringRootIsDecoded(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt', 'A0'], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check("\u{00A0}{\"t\":\"\\u0052abatt\"}\u{2028}", $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('"Modell \\u0041\\u0030"', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * Prose without a backslash is checked as it is.
+     */
+    #[Test]
+    public function proseWithoutABackslashIsPlainText(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('{Platzhalter} bleibt [offen]', $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('{Vorname}, Ihre Bestellung ist unterwegs. Viele Grüße, {Signatur}', $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('[1] Laut Studie stieg der Umsatz. [2]', $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('Jetzt mit Rabatt {heute}', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
      * A document with a byte order mark is decoded, not read as plain text.
      */
     #[Test]
@@ -535,9 +565,9 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
     {
         $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
 
-        $report = $this->check()->check('[Anzeige] Unser Sommer ohne Aktion.', $this->configuration(RuleJudgeMode::OFF));
-
-        self::assertSame(ExternalTextStatus::PASSED, $report->status);
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('[Anzeige] Unser Sommer ohne Aktion.', $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('[Anzeige] Unser Sommer ohne Aktion. [mehr]', $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::PASSED, $this->check()->check('{Platzhalter} bleibt {offen}', $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
     /**

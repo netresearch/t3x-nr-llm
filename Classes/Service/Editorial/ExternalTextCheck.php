@@ -357,17 +357,17 @@ final readonly class ExternalTextCheck
     private function decodedJson(string $text): mixed
     {
         $body = preg_replace('/(?:^\s*```[a-z0-9]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
-        $body = trim(preg_replace('/^\x{FEFF}/u', '', trim($body)) ?? $body);
+        $body = preg_replace('/\A[\s\p{Z}\x{FEFF}]++|[\s\p{Z}\x{FEFF}]++\z/u', '', $body) ?? $body;
         try {
             // Object mode: a node that was an object stays one, whatever
             // its keys look like, so every key is searched (strings()).
             $decoded = json_decode($body, false, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $refused) {
-            // A text shaped like a document that json_decode() refuses (a
-            // control character, a lone surrogate, deep nesting, a key
-            // object mode refuses) is not vouched for: its escapes would
-            // stay hidden in a plain-text search. Other text is plain text.
-            if ($this->looksLikeJson($body)) {
+            // The only risk of a text json_decode() refuses is an escape
+            // that hides a term from the plain-text search: a text with one
+            // is not vouched for, whatever its shape or the error. Other
+            // text is plain text.
+            if (preg_match('/\\\\(?:u[0-9a-fA-F]{4}|["\\\\\/bfnrt])/', $text) !== 0) {
                 throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102, $refused);
             }
 
@@ -379,16 +379,6 @@ final readonly class ExternalTextCheck
         }
 
         return $decoded;
-    }
-
-    /**
-     * An object or a list from end to end. A post that only starts with a
-     * bracket ("[Anzeige] ...") is prose.
-     */
-    private function looksLikeJson(string $body): bool
-    {
-        return (str_starts_with($body, '{') && str_ends_with($body, '}'))
-            || (str_starts_with($body, '[') && str_ends_with($body, ']'));
     }
 
     /**

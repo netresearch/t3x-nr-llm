@@ -52,12 +52,14 @@ no word limit:
   allowed), ``json_decode()`` decodes it once and every key and every string
   value is searched too; nothing here lexes JSON. A document that names a key
   twice cannot be vouched for, because decoders keep different members; nor
-  can a text shaped like a document (an object or a list from end to end,
-  after a fence, white space and a byte order mark) that ``json_decode()``
-  refuses, because other decoders may still read its escapes. In both cases
-  the term check fails and the text blocks. Every key of an object is
+  can a text ``json_decode()`` refuses that holds a JSON escape (``\u`` and
+  the short escapes), because another decoder may read a term the escape
+  hides from the plain-text search. In both cases the term check fails and
+  the text blocks. A fence, white space of any kind and a byte order mark
+  around a document are removed before it is decoded; a top-level string is a
+  document too. Every key of an object is
   searched, whatever it looks like; the index of a list is no text. Any
-  other text is plain text: an escape in it is not decoded. A list is found by the configuration it names, as in the pipeline, so
+  other text is plain text. A list is found by the configuration it names, as in the pipeline, so
   a further configuration that is hidden still brings its lists. Its judge
   applies exactly when the pipeline's would: both look the configuration up by
   uid in the same way. The report names all of them; the pipeline stops at the
