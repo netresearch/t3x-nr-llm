@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPart;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aPartKind;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcError;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
+use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aUrlGuardFactory;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -31,8 +32,13 @@ use Symfony\Component\Uid\Uuid;
  *    it is decoded ({@see self::checkEncoded()}, on the request's JSON);
  * 2. the decoded bytes of each part and of all parts together.
  *
- * Both limits derive from `a2a.maxRawPartBytes`; larger is `-32602`. A `data`
- * part and a `url` part are refused with `-32005`.
+ * Both limits derive from `a2a.maxRawPartBytes`; larger is `-32602`.
+ *
+ * A `url` part needs the same declared type and input mode, and an https URL
+ * that passes the address guard here, at creation, with the file hosts of
+ * `a2a.files` (A2A-FILE3, A2A-SEC5): otherwise `-32602`. While no file host
+ * is listed, every `url` part is `-32005`. The worker fetches it later and
+ * checks it again. A `data` part is refused with `-32005`.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -45,9 +51,12 @@ final readonly class A2aInboundFilePolicy
 
     private const MAX_FILENAME_LENGTH = 255;
 
+    private const MAX_URL_LENGTH = 2048;
+
     public function __construct(
         private A2aFileSettings $settings,
         private A2aFileValidator $validator,
+        private A2aUrlGuardFactory $guardFactory,
     ) {}
 
     public function enabled(): bool
@@ -112,8 +121,15 @@ final readonly class A2aInboundFilePolicy
                 continue;
             }
 
+            if ($part->kind === A2aPartKind::URL) {
+                $mediaType = $this->checkedType($part, $index);
+                $files[]   = A2aInboundFile::url(Uuid::v4()->toRfc4122(), $index, $mediaType, $this->filename($part, $index), $this->checkedUrl($part->url, $index));
+
+                continue;
+            }
+
             if ($part->kind !== A2aPartKind::RAW) {
-                throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, 'Only text/plain text and raw file parts are accepted.');
+                throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, 'Only text/plain text and raw or url file parts are accepted.');
             }
 
             if (strlen($part->raw) > $limit) {
@@ -200,12 +216,41 @@ final readonly class A2aInboundFilePolicy
             throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, sprintf('Files of type %s are not accepted.', $mediaType));
         }
 
-        $refusal = $this->validator->refusal($mediaType, $part->raw);
+        // A url part's content is checked by the worker once it is fetched.
+        $refusal = $part->kind === A2aPartKind::RAW ? $this->validator->refusal($mediaType, $part->raw) : null;
         if ($refusal !== null) {
             throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, sprintf('The file part %d is not %s: %s.', $index, $mediaType, $refusal));
         }
 
         return $mediaType;
+    }
+
+    /**
+     * The guard at creation (A2A-SEC5); the worker asks it again at use.
+     *
+     * @throws A2aRpcError
+     */
+    private function checkedUrl(string $url, int $index): string
+    {
+        if (!$this->guardFactory->fileHostsConfigured()) {
+            throw A2aRpcError::a2a(A2aErrorCode::CONTENT_TYPE_NOT_SUPPORTED, 'This installation fetches no file URLs.');
+        }
+
+        $field = sprintf('message.parts[%d].url', $index);
+        if (strlen($url) > self::MAX_URL_LENGTH) {
+            throw A2aRpcError::invalidParams($field, sprintf('at most %d characters', self::MAX_URL_LENGTH));
+        }
+
+        if (strtolower((string) parse_url($url, PHP_URL_SCHEME)) !== 'https') {
+            throw A2aRpcError::invalidParams($field, 'a file URL must be https');
+        }
+
+        $target = $this->guardFactory->createForFiles()->check(A2aUrlGuardFactory::GROUP_EXTERNAL, $url);
+        if (!$target->allowed) {
+            throw A2aRpcError::invalidParams($field, 'the URL is not one this server fetches: ' . $target->reason);
+        }
+
+        return $url;
     }
 
     /**

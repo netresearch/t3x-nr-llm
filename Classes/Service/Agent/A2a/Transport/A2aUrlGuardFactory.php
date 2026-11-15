@@ -36,8 +36,11 @@ final readonly class A2aUrlGuardFactory
     /** Egress group of every call to a registered remote agent, card import included. */
     public const GROUP_AGENT = 'a2a_agent';
 
-    /** Egress group of URLs that come from outside: push webhooks, `url` parts (ADR-279, ADR-285). */
+    /** Egress group of URLs that come from outside: push webhooks, `url` parts (spec 051 A2A-FILE3, ADR-279, ADR-285). */
     public const GROUP_EXTERNAL = 'a2a_external';
+
+    /** The host lists of file URLs, kept apart from the agent endpoints (ADR-284). */
+    private const FILE_HOSTS = ['a2a', 'files'];
 
     public function __construct(
         private EgressPolicyService $egressPolicy,
@@ -85,6 +88,27 @@ final readonly class A2aUrlGuardFactory
             new ExternalFetchSettings($this->extensionConfiguration, $settingsPath),
             $this->proxyDetector,
         );
+    }
+
+    /**
+     * The guard of a file URL (spec 051 A2A-FILE3): the same checks, with the
+     * host lists of `a2a.files`. Check with {@see self::GROUP_EXTERNAL}.
+     */
+    public function createForFiles(): ExternalUrlGuard
+    {
+        return $this->guard(self::FILE_HOSTS);
+    }
+
+    /**
+     * Whether the operator named the file hosts. Unlike the agent hosts, an
+     * empty list admits no file URL at all: a `url` part is fetched only from
+     * a host the operator listed (ADR-284).
+     */
+    public function fileHostsConfigured(): bool
+    {
+        $allowed = (new ExternalFetchSettings($this->extensionConfiguration, self::FILE_HOSTS))->allowedHosts();
+
+        return $allowed !== null && $allowed !== [];
     }
 
     /**

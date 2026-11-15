@@ -329,8 +329,29 @@ What is accepted
    or XFA forms; an image must carry its type's signature, be at most 4096 x
    4096 pixels and decode with GD (without the GD extension no image is
    accepted). Archives, HTML, SVG and any other type, a part without a
-   ``mediaType``, a ``data`` part and a ``url`` part are refused with
-   ``-32005``. A message that answers a waiting task carries text only.
+   ``mediaType`` and a ``data`` part are refused with ``-32005``. A message
+   that answers a waiting task carries text only.
+
+File URLs
+   A ``url`` part with the same ``mediaType`` rules is accepted only from a
+   host listed in :guilabel:`Hosts A2A file URLs may come from`
+   (``a2a.files.allowedHosts``). Unlike the host list of the A2A client, an
+   empty list admits no file URL at all (``-32005``). The URL must be https
+   and passes the address guard of :ref:`ADR-202 <adr-202>` when the task is
+   accepted (``-32602`` otherwise): no private, loopback, link-local or
+   metadata address, no credentials in the URL, no host of this
+   installation, and :guilabel:`Hosts A2A file URLs never come from`
+   (``a2a.files.deniedHosts``) is checked first. Nothing is fetched in the
+   request. The worker fetches the file before the run starts, through the
+   same guard again, pinned to the checked addresses, with a plain ``GET``
+   that carries no credential of the client or of a remote agent and no
+   cookie, following no redirect and reading at most the size limit. The
+   fetched bytes pass the same type check and count against the message's
+   limit together with its raw files. A refusal (a redirect, a status that
+   is not 2xx, the size, the content, the guard) is stored with the file
+   and fails the task; a timeout, 408, 429 or 5xx leaves the file pending
+   and the run is retried like any transient failure. Once stored, the copy
+   is the input: the URL is never fetched again.
 
 Sizes
    :guilabel:`Largest A2A file` (``a2a.maxRawPartBytes``, default 5 MiB)
@@ -347,7 +368,8 @@ Where a file goes
    The task's history keeps a reference in place of the bytes (the part's
    ``raw`` is empty, its ``metadata`` under
    ``https://nr-llm.netresearch.de/a2a/ext/file/v1`` names the file id,
-   SHA-256 and size).
+   SHA-256 and size). A ``url`` part keeps its URL in the history; in the
+   store the URL is sealed like the bytes.
 
 What the run sees
    Before the worker asks the model for the first time it checks the task's

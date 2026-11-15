@@ -10,24 +10,38 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
 use Doctrine\DBAL\Platforms\SQLitePlatform;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Middleware;
+use GuzzleHttp\Psr7\Response;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileFetcher;
 use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileInputPreparer;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileStore;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileValidator;
 use Netresearch\NrLlm\Service\Agent\A2a\File\A2aInboundFilePolicy;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aResumeGuard;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcServer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aUrlGuardFactory;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
+use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -35,14 +49,17 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchClientFactoryInterface;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Agent\A2a\File\A2aFileValidatorTest;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\Http\Message\RequestInterface;
 use Psr\Log\NullLogger;
 use ReflectionProperty;
 use TYPO3\CMS\Core\Cache\CacheManager;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * File parts of the server role (spec 051 A2A-FILE1, A2A-FILE2, A2A-FILE4):
@@ -67,8 +84,16 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
 
     private const ALL_TYPES = 'text/plain,application/json,application/pdf,image/png,image/jpeg';
 
+    /** A public address that needs no DNS lookup; the file host of these tests. */
+    private const FILE_HOST = '93.184.216.34';
+
+    private const FILE_URL = 'https://93.184.216.34/files/notes.txt';
+
     /** @var list<list<mixed>> what the model was asked with, per call */
     private array $asked = [];
+
+    /** @var list<array{request: RequestInterface, options: array<string, mixed>}> what the file host received */
+    private array $fetched = [];
 
     protected function setUp(): void
     {
@@ -149,8 +174,8 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
         yield 'json that does not parse' => [[self::raw('{"a":', 'application/json')], -32005, 'does not parse'];
         yield 'pdf with JavaScript' => [[self::raw(A2aFileValidatorTest::pdf('/S /JavaScript'), 'application/pdf')], -32005, 'active content'];
         yield 'no media type' => [[['raw' => base64_encode('text')]], -32005, 'names no media type'];
-        yield 'data part' => [[['data' => ['a' => 1]]], -32005, 'raw file parts'];
-        yield 'url part' => [[['url' => 'https://files.example.org/a.pdf', 'mediaType' => 'application/pdf']], -32005, 'raw file parts'];
+        yield 'data part' => [[['data' => ['a' => 1]]], -32005, 'raw or url file parts'];
+        yield 'url part without file hosts' => [[['url' => 'https://93.184.216.34/a.pdf', 'mediaType' => 'application/pdf']], -32005, 'fetches no file URLs'];
         yield 'filename with a control character' => [[self::raw('text', 'text/plain', "a\nb")], -32602, 'filename'];
     }
 
@@ -408,7 +433,232 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->fileRows());
     }
 
+    /**
+     * A2A-FILE3, A2A-SEC5: a url part passes the guard at creation and is
+     * stored pending, its URL sealed and nothing fetched; the history keeps
+     * the URL the client sent.
+     */
+    #[Test]
+    public function aUrlPartIsStoredPendingWithoutAFetch(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+
+        $task = $this->taskOf($this->send([['text' => 'Read the file.'], ['url' => self::FILE_URL, 'mediaType' => 'text/plain', 'filename' => 'notes.txt']]));
+
+        $row = $this->fileRows()[0];
+        self::assertSame(['url', 'pending', 'pending', '', 0, ''], [$row['origin'], $row['check_state'], $row['approval_state'], $row['sha256'], (int) $row['size'], $row['media_type']]);
+        self::assertStringNotContainsString(self::FILE_HOST, self::text($row['source_url']), 'the URL is sealed');
+        self::assertSame('', self::text($row['content']));
+        $history = $this->taskOf($this->call('GetTask', ['id' => $task['id']]));
+        self::assertSame(self::FILE_URL, self::j($history, 'history.0.parts.1.url'));
+        self::assertSame([], $this->fetched);
+    }
+
+    /**
+     * @return iterable<string, array{string, string, int, string}>
+     */
+    public static function refusedUrls(): iterable
+    {
+        yield 'http' => [self::FILE_HOST, 'http://93.184.216.34/notes.txt', -32602, 'must be https'];
+        yield 'host not listed' => ['files.example.org', self::FILE_URL, -32602, 'not one this server fetches'];
+        yield 'private address listed' => ['10.0.0.5', 'https://10.0.0.5/notes.txt', -32602, 'not one this server fetches'];
+        yield 'loopback' => ['127.0.0.1', 'https://127.0.0.1/notes.txt', -32602, 'not one this server fetches'];
+        yield 'credentials in the URL' => [self::FILE_HOST, 'https://user:secret@93.184.216.34/notes.txt', -32602, 'not one this server fetches'];
+        yield 'too long' => [self::FILE_HOST, self::FILE_URL . '?' . str_repeat('a', 2048), -32602, 'at most 2048 characters'];
+    }
+
+    /**
+     * A2A-SEC5: the guard at creation refuses before anything is stored.
+     */
+    #[Test]
+    #[DataProvider('refusedUrls')]
+    public function aUrlTheGuardRefusesIsRefusedAtCreation(string $hosts, string $url, int $code, string $message): void
+    {
+        $this->fileHosts($hosts);
+
+        $this->assertRefused([['url' => $url, 'mediaType' => 'text/plain']], $code, $message);
+        $this->assertNothingStored();
+    }
+
+    /**
+     * A2A-FILE3: the worker fetches the URL with a plain GET that carries no
+     * credential and follows no redirect, checks the bytes, stores them, and
+     * hands them to the run; a second preparation uses the stored copy and
+     * fetches nothing.
+     */
+    #[Test]
+    public function theWorkerFetchesWithoutCredentialsAndOnlyOnce(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task = $this->taskOf($this->send([['text' => 'Read the file.'], ['url' => self::FILE_URL, 'mediaType' => 'text/plain', 'filename' => 'notes.txt']]));
+
+        $preparer = $this->preparerAnswering(new Response(200, ['Content-Type' => 'text/plain', 'Set-Cookie' => 'a=b'], 'Fetched notes.'));
+        $this->runTask(self::text($task['id'] ?? ''), $preparer);
+
+        self::assertCount(1, $this->fetched);
+        $request = $this->fetched[0]['request'];
+        self::assertSame(['GET', self::FILE_URL], [$request->getMethod(), (string) $request->getUri()]);
+        $headers = array_map(strtolower(...), array_keys($request->getHeaders()));
+        sort($headers);
+        self::assertSame(['accept', 'host', 'user-agent'], $headers, 'no credential, no cookie');
+        self::assertSame([false, false], [$this->fetched[0]['options']['allow_redirects'] ?? null, $this->fetched[0]['options']['cookies'] ?? null]);
+
+        $row = $this->fileRows()[0];
+        self::assertSame(['passed', 'approved', 'text/plain', hash('sha256', 'Fetched notes.'), 14], [$row['check_state'], $row['approval_state'], $row['media_type'], $row['sha256'], (int) $row['size']]);
+        self::assertStringContainsString('Fetched notes.', (string) json_encode($this->asked));
+
+        // The stored copy is the input from now on: no second request.
+        $run = $this->runOf(self::text($task['id'] ?? ''));
+        $out = $preparer->prepare(new AgentRunHandle($run->uid, $run->uuid), $this->bareRequest());
+        self::assertStringContainsString('Fetched notes.', (string) json_encode($out->messages));
+        self::assertCount(1, $this->fetched);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function hostListsAtUse(): iterable
+    {
+        yield 'another host listed' => ['files.example.org'];
+        yield 'no host listed' => [''];
+    }
+
+    /**
+     * A2A-SEC5: the guard is asked again at use; a host taken off the list
+     * since the task was accepted, or a list emptied, fetches nothing, and
+     * the task fails.
+     */
+    #[Test]
+    #[DataProvider('hostListsAtUse')]
+    public function theGuardIsAskedAgainAtUse(string $hostsAtUse): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task = $this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => 'text/plain']]));
+        $this->fileHosts($hostsAtUse);
+
+        $this->runTask(self::text($task['id'] ?? ''), $this->preparerAnswering(new Response(200, [], 'Fetched notes.')));
+
+        self::assertSame([], $this->fetched, 'nothing was requested');
+        self::assertSame([], $this->asked);
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
+        self::assertSame(['failed', 'refused'], [$this->fileRows()[0]['check_state'], $this->fileRows()[0]['approval_state']]);
+    }
+
+    /**
+     * @return iterable<string, array{Response, string, string}>
+     */
+    public static function refusedFetches(): iterable
+    {
+        yield 'redirect' => [new Response(302, ['Location' => 'https://10.0.0.5/x']), 'text/plain', 'redirect'];
+        yield 'not found' => [new Response(404), 'text/plain', 'answered 404'];
+        yield 'larger than the limit' => [new Response(200, [], str_repeat('a', self::LIMIT + 1)), 'text/plain', 'more than 2048 bytes'];
+        yield 'not its type' => [new Response(200, [], 'plain words'), 'application/pdf', 'not application/pdf'];
+    }
+
+    /**
+     * A2A-FILE1, A2A-FILE2, A2A-FILE3: a fetched file is refused for a
+     * redirect, a status, its size and its content like a raw one; the
+     * refusal is stored and the task fails before the model is asked.
+     */
+    #[Test]
+    #[DataProvider('refusedFetches')]
+    public function aRefusedFetchFailsTheTask(Response $response, string $mediaType, string $reason): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task = $this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => $mediaType]]));
+
+        $this->runTask(self::text($task['id'] ?? ''), $this->preparerAnswering($response));
+
+        self::assertSame([], $this->asked);
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
+        $row = $this->fileRows()[0];
+        self::assertSame(['failed', 'refused'], [$row['check_state'], $row['approval_state']]);
+        self::assertStringContainsString($reason, self::text($row['refusal']));
+        self::assertSame('', self::text($row['content']));
+    }
+
+    /**
+     * A2A-FILE2: a fetched file counts against the message's limit together
+     * with the raw files of the same message.
+     */
+    #[Test]
+    public function aFetchedFileCountsAgainstTheMessageLimit(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task = $this->taskOf($this->send([self::raw(str_repeat('a', 1500), 'text/plain'), ['url' => self::FILE_URL, 'mediaType' => 'text/plain']]));
+
+        $this->runTask(self::text($task['id'] ?? ''), $this->preparerAnswering(new Response(200, [], str_repeat('b', 1000))));
+
+        self::assertSame([], $this->asked);
+        self::assertStringContainsString('more than 548 bytes', self::text($this->fileRows()[1]['refusal']));
+    }
+
+    /**
+     * A file host that answers 503 is a transient failure: nothing is
+     * stored, the file stays pending, and the model is not asked.
+     */
+    #[Test]
+    public function aTransientFetchFailureLeavesTheFilePending(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task = $this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => 'text/plain']]));
+
+        $this->runTask(self::text($task['id'] ?? ''), $this->preparerAnswering(new Response(503)));
+
+        self::assertSame([], $this->asked);
+        self::assertSame(['pending', 'pending'], [$this->fileRows()[0]['check_state'], $this->fileRows()[0]['approval_state']]);
+        self::assertNotSame(AgentRunStatus::COMPLETED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
+    }
+
     // ------------------------------------------------------------------
+
+    private function fileHosts(string $allowed): void
+    {
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a']['files']['allowedHosts'] = $allowed;
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a']['files']['deniedHosts'] = '';
+    }
+
+    /**
+     * The worker's preparer, with a file host that gives $response and
+     * records each request it gets.
+     */
+    private function preparerAnswering(Response $response): A2aFileInputPreparer
+    {
+        $stack = HandlerStack::create(new MockHandler([$response]));
+        $stack->push(Middleware::history($this->fetched));
+
+        $factory = new class (new Client(['handler' => $stack])) implements ExternalFetchClientFactoryInterface {
+            public function __construct(private readonly ClientInterface $client) {}
+
+            public function create(int $timeoutSeconds): ClientInterface
+            {
+                return $this->client;
+            }
+
+            public function supportsPinning(): bool
+            {
+                return true;
+            }
+        };
+
+        return new A2aFileInputPreparer(
+            $this->getService(ConnectionPool::class),
+            $this->getService(A2aFileStore::class),
+            new A2aFileFetcher($this->getService(A2aUrlGuardFactory::class), $factory),
+            new A2aFileValidator(),
+            $this->getService(A2aFileSettings::class),
+        );
+    }
+
+    private function bareRequest(): AgentRunRequest
+    {
+        $configuration = $this->getService(LlmConfigurationRepository::class)->findByUid(1);
+        self::assertInstanceOf(LlmConfiguration::class, $configuration);
+
+        return new AgentRunRequest($configuration, [ChatMessage::user('Read the file.')], AiActorContext::backendUser(7, false, [], [], 0));
+    }
 
     /**
      * @param list<array<string, mixed>> $parts
@@ -505,7 +755,7 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
      * Run a task's queued run on a scripted model that answers at once, with
      * the A2A guard and the file preparer as the worker has them.
      */
-    private function runTask(string $taskId): void
+    private function runTask(string $taskId, ?A2aFileInputPreparer $preparer = null): void
     {
         $registry = $this->getService(ToolRegistry::class);
         $policy   = $this->getService(ToolCallPolicyInterface::class);
@@ -535,7 +785,7 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
                 new ToolEffectResolver($registry),
                 resumeGuards: [$this->getService(A2aResumeGuard::class)],
                 startGuards: [$this->getService(A2aResumeGuard::class)],
-                startPreparers: [$this->getService(A2aFileInputPreparer::class)],
+                startPreparers: [$preparer ?? $this->getService(A2aFileInputPreparer::class)],
             ),
             toolPolicy: $policy,
         );

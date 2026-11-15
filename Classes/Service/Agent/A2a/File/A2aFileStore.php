@@ -166,6 +166,47 @@ final readonly class A2aFileStore
     }
 
     /**
+     * The URL of one stored url part of one client.
+     */
+    public function sourceUrl(int $uid, int $ownerClientUid): string
+    {
+        $sealed = $this->connection()->select(['source_url'], self::TABLE, ['uid' => $uid, 'owner_client_uid' => $ownerClientUid])->fetchOne();
+
+        return is_string($sealed) ? $this->codec->decode($sealed, AgentStateCodec::PURPOSE_A2A_FILE) : '';
+    }
+
+    /**
+     * Record the checked bytes of a fetched url part, which are its input
+     * from now on: the URL is never fetched again (A2A-FILE4). Only a file
+     * still pending moves; false when none did.
+     */
+    public function recordFetched(int $uid, int $ownerClientUid, string $bytes, string $mediaType, int $now): bool
+    {
+        return $this->connection()->update(self::TABLE, [
+            'media_type'     => $mediaType,
+            'size'           => strlen($bytes),
+            'sha256'         => hash('sha256', $bytes),
+            'check_state'    => self::CHECK_PASSED,
+            'approval_state' => self::APPROVAL_APPROVED,
+            'content'        => $this->codec->encode($bytes, AgentStateCodec::PURPOSE_A2A_FILE),
+            'tstamp'         => $now,
+        ], ['uid' => $uid, 'owner_client_uid' => $ownerClientUid, 'check_state' => self::CHECK_PENDING]) === 1;
+    }
+
+    /**
+     * Record why a url part was refused; it is not fetched again.
+     */
+    public function recordRefused(int $uid, int $ownerClientUid, string $reason, int $now): void
+    {
+        $this->connection()->update(self::TABLE, [
+            'check_state'    => self::CHECK_FAILED,
+            'approval_state' => self::APPROVAL_REFUSED,
+            'refusal'        => mb_substr($reason, 0, 255),
+            'tstamp'         => $now,
+        ], ['uid' => $uid, 'owner_client_uid' => $ownerClientUid, 'check_state' => self::CHECK_PENDING]);
+    }
+
+    /**
      * Delete the files past their expiry. Only rows of this table are
      * deleted: a file adopted into FAL is a FAL file and stays.
      */

@@ -25,7 +25,12 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * handed to the run.
  *
  * Runs after the start guards, so the client and the profile were checked
- * again before any file is read. For a run bound to a task whose message
+ * again before any file is read or fetched. A `url` part still pending is
+ * fetched here, by the worker and nowhere else ({@see A2aFileFetcher}),
+ * checked like a raw part (its type's validator, the size limit for the part
+ * and for the message) and stored; from then on the stored copy is the input
+ * and the URL is never fetched again (A2A-FILE3). A refused fetch is stored
+ * as refused and fails the run. For a run bound to a task whose message
  * carried files, every file the task's manifest names must be in the store,
  * of the client that owns the task, checked, approved, unexpired, and its
  * bytes must still have the digest and size recorded; a raw file must also
@@ -50,6 +55,9 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
     public function __construct(
         private ConnectionPool $connectionPool,
         private A2aFileStore $store,
+        private A2aFileFetcher $fetcher,
+        private A2aFileValidator $validator,
+        private A2aFileSettings $settings,
     ) {}
 
     public function prepare(AgentRunHandle $handle, AgentRunRequest $request): AgentRunRequest
@@ -75,6 +83,7 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
         $rows    = $this->store->rowsOfTask($taskUid, $owner);
         $vision  = $this->seesImages($request);
         $count   = count($manifest);
+        $rows    = $this->fetchPending($manifest, $rows, $taskUid, $owner);
         foreach ($manifest as $index => $entry) {
             $row   = $rows[$entry['fileId']] ?? throw new RunStartRefusedException('an input file of the A2A task is gone', 9693795336);
             $bytes = $this->approvedBytes($row, $entry, $owner);
@@ -84,6 +93,56 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
         }
 
         return $request;
+    }
+
+    /**
+     * Fetch, check and store every url part of the manifest that is still
+     * pending; the rows as they are afterwards.
+     *
+     * @param list<array{fileId: string, origin: string, sha256: string, size: int}> $manifest
+     * @param array<string, array<string, mixed>>                                    $rows
+     *
+     * @return array<string, array<string, mixed>>
+     *
+     * @throws RunStartRefusedException
+     * @throws A2aFileFetchFailedException
+     */
+    private function fetchPending(array $manifest, array $rows, int $taskUid, int $owner): array
+    {
+        $limit = $this->settings->maxRawPartBytes();
+        $total = 0;
+        foreach ($rows as $row) {
+            $total += ($row['check_state'] ?? null) === A2aFileStore::CHECK_PASSED && is_numeric($row['size'] ?? null) ? (int) $row['size'] : 0;
+        }
+
+        foreach ($manifest as $entry) {
+            $row = $rows[$entry['fileId']] ?? null;
+            if (!is_array($row) || $entry['origin'] !== A2aInboundFile::ORIGIN_URL || ($row['origin'] ?? null) !== A2aInboundFile::ORIGIN_URL || ($row['check_state'] ?? null) !== A2aFileStore::CHECK_PENDING) {
+                continue;
+            }
+
+            $uid       = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
+            $mediaType = is_string($row['declared_media_type'] ?? null) ? $row['declared_media_type'] : '';
+            try {
+                $bytes   = $this->fetcher->fetch($this->store->sourceUrl($uid, $owner), $mediaType, $limit - $total);
+                $refusal = $this->validator->refusal($mediaType, $bytes);
+                if ($refusal !== null) {
+                    throw new RunStartRefusedException(sprintf('the fetched file is not %s: %s', $mediaType, $refusal), 4972092544);
+                }
+            } catch (RunStartRefusedException $refused) {
+                $this->store->recordRefused($uid, $owner, $refused->getMessage(), time());
+
+                throw $refused;
+            }
+
+            if (!$this->store->recordFetched($uid, $owner, $bytes, $mediaType, time())) {
+                throw new RunStartRefusedException('a fetched input file of the A2A task could not be stored', 5824710996);
+            }
+
+            $total += strlen($bytes);
+        }
+
+        return $this->store->rowsOfTask($taskUid, $owner);
     }
 
     /**
