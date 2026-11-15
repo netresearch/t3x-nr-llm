@@ -248,8 +248,9 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 
     /**
      * A uid the scope admits besides the requested row, the workspace version
-     * of that row or a second translation in the same language, is held to
-     * the same contract: never let through unchecked.
+     * of that row or a second translation in the same language, is refused
+     * before its approval: update_page_metadata takes the live uid only, so a
+     * version uid could be approved and then never written.
      */
     #[Test]
     public function aUidTheScopeAlsoAdmitsIsHeldToTheContract(): void
@@ -260,18 +261,13 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         ]);
         $this->db('pages')->insert('pages', ['uid' => 961, 'pid' => 1, 'title' => 'Second German row', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE, 'doktype' => 1, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT]);
 
-        $long = $this->ranWith([
+        $version = $this->ranWith([
             $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
-            $this->callOf('update_page_metadata', ['uid' => 960, 'description' => str_repeat('a', 400)]),
+            $this->callOf('update_page_metadata', ['uid' => 960, 'description' => 'Gut.']),
             $this->answer(),
         ]);
-        self::assertStringContainsString('rule: page_metadata_contract, reason: value_not_allowed', $this->toolResultOf($long), 'the version uid of the requested row');
-
-        $unread = $this->ranWith([
-            $this->callOf('update_page_metadata', ['uid' => 960, 'description' => 'Gut.']),
-        ], 'u-2');
-        $this->approved($unread);
-        self::assertStringContainsString('rule: page_metadata_read_first, reason: page_not_read', $this->toolResultOf($unread));
+        self::assertStringContainsString('rule: page_metadata_contract, reason: not_the_requested_row', $this->toolResultOf($version), 'the version uid of the requested row');
+        self::assertSame(AgentRunStatus::COMPLETED, $this->stored($version)->statusEnum(), 'no approval was asked');
 
         $sibling = $this->ranWith([
             $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),

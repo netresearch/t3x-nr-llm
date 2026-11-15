@@ -19,7 +19,6 @@ use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\PreApprovalInvocationRuleInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
 use Netresearch\NrLlm\Service\Tool\Scope\DatabaseRecordTopology;
-use Netresearch\NrLlm\Service\Tool\Scope\RecordFacts;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationRuleInterface;
 use Throwable;
@@ -33,10 +32,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * with the handler `nr_llm.page_metadata.v1` to the request the client sent:
  *
  * - the row the request names (the page, or its translation in the
- *   requested language) still exists, and the call names it, directly or
- *   through its workspace version; any other row of that page in that
- *   language is refused, and a row of another page or language is left to
- *   the scope of the run (ADR-295), which refuses it with its own reason;
+ *   requested language) still exists, and the call names its live uid; a
+ *   row the scope refuses is left to the scope of the run (ADR-295), which
+ *   refuses it with its own reason, and every other row is refused;
  * - it sets only fields the request names, each as text within its length;
  * - the row has not changed since the task was accepted.
  *
@@ -183,7 +181,9 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
             ));
         }
 
-        if ($uid === false || $uid !== $target && !$this->isTarget($uid, $target, $request, $workspace)) {
+        // update_page_metadata takes the live uid only: a version uid would
+        // be approved and then refused by the tool.
+        if ($uid === false || $uid !== $target) {
             // A row the scope refuses is the scope's (ADR-295), with its own
             // reason. A row it admits that is not the requested row is
             // refused here, whatever path the scope admitted it by.
@@ -217,20 +217,6 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
         }
 
         return ToolInvocationDecision::allow();
-    }
-
-    /**
-     * Whether the uid names the target row as the scope resolves it: the row
-     * itself or its version in the workspace.
-     */
-    private function isTarget(int $uid, int $target, A2aPageMetadataRequest $request, int $workspace): bool
-    {
-        $topology = new DatabaseRecordTopology($this->connectionPool);
-        $facts    = $topology->row('pages', $uid, $workspace);
-
-        // A version row belongs to one workspace; only the client's counts.
-        return $facts instanceof RecordFacts && $facts->liveUid === $target && $facts->language === $request->language
-            && in_array((int) ($topology->storedValue('pages', $uid, 't3ver_wsid') ?? -1), [0, $workspace], true);
     }
 
     /**

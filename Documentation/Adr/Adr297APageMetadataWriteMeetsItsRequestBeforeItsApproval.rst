@@ -73,11 +73,9 @@ state suspended without one) may have lost an earlier read: unless it reads
 again, its writes of this skill are refused (``history_incomplete``), and
 every other call is left alone.
 
-A version row counts as the requested row only when it belongs to the live
-workspace or to the client's workspace.
-
-The requested row and its version in the client's workspace are checked as
-above; the scope admits both. A row the scope refuses (another page, another
+The call must name the live uid of the requested row; ``update_page_metadata``
+takes nothing else, so a workspace version uid would be approved and then
+refused by the tool. A row the scope refuses (another page, another
 language, a uid without a row) is left to the scope, which refuses it with
 its own reason (``outside_scope``, ``language_not_allowed``,
 ``unresolvable``); otherwise the first refusing rule would hide that

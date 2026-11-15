@@ -127,7 +127,8 @@ identifier and one of these reasons:
 
 ``not_the_requested_row``
    The call aims at another row of the requested page and language, at a
-   version of another workspace, at a row the scope admits by another path,
+   workspace version uid (the tool takes the live uid only), at a row the
+   scope admits by another path,
    or the requested row no longer exists in the workspace.
 
 ``request_unreadable``

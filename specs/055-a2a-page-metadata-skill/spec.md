@@ -70,10 +70,10 @@ parser. A refusal goes back
 to the model and into the governance log as `invocation_denied` with the
 rule's identifier.
 
-- **PC1 Row.** A call aimed at the requested row (the page, or its
-  translation in the requested language, as the client's workspace shows
-  them) or at its version in the live or the client's workspace is checked
-  by PC2 to PC5. A row the scope's own check refuses is left to the scope
+- **PC1 Row.** A call aimed at the live uid of the requested row (the
+  page, or its translation in the requested language, as the client's
+  workspace shows them) is checked by PC2 to PC5; the write tool takes no
+  other uid. A row the scope's own check refuses is left to the scope
   (PM3), whose reason the model reads. Every other row, including a row the
   scope admits by another path and a requested row that no longer exists, is
   `not_the_requested_row`; an unreadable request is `request_unreadable`.
@@ -125,7 +125,7 @@ rule's identifier.
 | PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |
 | PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler); `A2aPageMetadataContractRuleTest::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` end to end |
-| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aRowTheScopeAdmitsThroughATranslationIsHeldToTheContract`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
+| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aRowTheScopeAdmitsThroughATranslationIsHeldToTheContract`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation, refused before the approval), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
 | PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
 | PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (only whitespace and format characters) |
 | PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` (refused after the approval, no draft), `::aReadAndAWriteInOneTurnReachTheApproval`, `::anIncompleteHistoryRefusesOnlyAWriteOfThisSkill` |
