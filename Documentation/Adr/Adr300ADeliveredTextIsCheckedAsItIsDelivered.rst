@@ -47,11 +47,16 @@ an editorial result. The service applies the same rules as the pipeline, with
 no word limit:
 
 - **Terms.** Every forbidden term found and every required term missing, across
-  every term list that applies to the site and language given, the strings of a
-  JSON text included. A list is found by the configuration it names, as in the
-  pipeline, so a further configuration that is hidden still brings its lists.
-  Its judge applies exactly when the pipeline's would: both look the
-  configuration up by uid in the same way. The report names all of them; the pipeline stops at the
+  every term list that applies to the site and language given. The text is
+  searched as it is and once more with every JSON escape decoded, read left to
+  right without pairing quotes, so an escaped term is found wherever it stands:
+  in a duplicate key, after a stray quote in prose, in a fence, with a lone
+  surrogate (decoded as U+FFFD) next to it. No JSON parser is asked; a parser
+  keeps one of two duplicate members and refuses what a lenient consumer still
+  reads. A list is found by the configuration it names, as in the pipeline, so
+  a further configuration that is hidden still brings its lists. Its judge
+  applies exactly when the pipeline's would: both look the configuration up by
+  uid in the same way. The report names all of them; the pipeline stops at the
   first.
 - **Judge.** Every configuration whose judge is on is judged with its own rule
   set by its own judging configuration. The strictest mode decides. The judge
@@ -63,8 +68,8 @@ no word limit:
   This rule moves from the guardrail into ``JudgeEgressGate``, which both use,
   so they cannot drift apart. An unknown writer counts as the most trusted zone,
   as before, and so does a writer that is named and no longer exists. A
-  passage the judge quotes counts when it is found in the text or in a decoded
-  string of a JSON text.
+  passage the judge quotes counts when it is found in the text or in the text
+  with its JSON escapes decoded.
 
 The report has one of four states:
 

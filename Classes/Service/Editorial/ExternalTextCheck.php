@@ -29,10 +29,7 @@ use Throwable;
 use function array_unique;
 use function array_values;
 use function in_array;
-use function is_string;
-use function json_decode;
 use function preg_last_error_msg;
-use function preg_match_all;
 use function trim;
 
 /**
@@ -325,27 +322,62 @@ final readonly class ExternalTextCheck
      */
     private function forms(string $text): array
     {
-        $forms = $this->matcher->searchForms($text);
-        // Every string literal of the text, decoded on its own, also where
-        // the text is no valid JSON as a whole: JSON after a sentence or in a
-        // fence, a decoder that keeps only the last of two members with one
-        // key, a key that a PHP object refuses, a string root. A quote, then
-        // possessive runs of characters other than quote and backslash or of
-        // escapes, then a quote: no backtracking. A literal that does not
-        // decode adds nothing; the text itself is searched as it is anyway.
-        if (preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"/s', $text, $literals) === false) {
-            // An engine that gives up must not read as "no term" (X4).
-            throw new TermCheckFailedException('JSON string pattern failed: ' . preg_last_error_msg(), 1799430101);
+        $forms     = $this->matcher->searchForms($text);
+        $unescaped = $this->unescaped($text);
+
+        return $unescaped === $text ? $forms : [...$forms, ...$this->matcher->searchForms($unescaped)];
+    }
+
+    /**
+     * The text with every JSON escape decoded, read left to right without
+     * pairing quotes: an escape counts wherever it stands, inside a JSON
+     * literal, after a stray quote in prose, in a single-quoted literal or
+     * in a key. An escaped backslash is consumed first, so `\\u0052` stays a
+     * backslash and `u0052`. A lone surrogate becomes U+FFFD, as a lenient
+     * decoder shows it. This adds a form; the text itself is searched as it
+     * is anyway.
+     *
+     * @throws TermCheckFailedException when the pattern engine gives up, which
+     *                                  must not read as "no term" (X4)
+     */
+    private function unescaped(string $text): string
+    {
+        if (!str_contains($text, '\\')) {
+            return $text;
         }
 
-        foreach ($literals[0] as $literal) {
-            $value = json_decode($literal);
-            if (is_string($value)) {
-                $forms = [...$forms, ...$this->matcher->searchForms($value)];
-            }
+        $decoded = preg_replace_callback(
+            '/\\\\(?:u([dD][89abAB][0-9a-fA-F]{2})\\\\u([dD][c-fC-F][0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|(["\\\\\/bfnrt]))/',
+            static function (array $match): string {
+                if ($match[1] !== '') {
+                    $high = (int) hexdec($match[1]);
+                    $low  = (int) hexdec($match[2]);
+
+                    return mb_chr(0x10000 + (($high - 0xD800) << 10) + ($low - 0xDC00), 'UTF-8') ?: "\u{FFFD}";
+                }
+
+                if ($match[3] !== '') {
+                    $code = (int) hexdec($match[3]);
+
+                    return $code >= 0xD800 && $code <= 0xDFFF ? "\u{FFFD}" : (mb_chr($code, 'UTF-8') ?: "\u{FFFD}");
+                }
+
+                return match ($match[4]) {
+                    'b'     => "\x08",
+                    'f'     => "\f",
+                    'n'     => "\n",
+                    'r'     => "\r",
+                    't'     => "\t",
+                    default => $match[4],
+                };
+            },
+            $text,
+        );
+        if ($decoded === null) {
+            throw new TermCheckFailedException('JSON escape pattern failed: ' . preg_last_error_msg(), 1799430101);
         }
 
-        return $forms;
+        return $decoded;
     }
 
     /**

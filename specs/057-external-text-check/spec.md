@@ -23,9 +23,10 @@ edited outside nr-llm can only be checked by generating it again.
 - **X2 No word limit.** A text of any length is checked: forbidden terms,
   required terms and the judge. The global limits of the guardrail pipeline
   (30 words for the judge and for required terms) stay as they are.
-- **X3 JSON.** A JSON text is searched as sent and by each decoded string; a
-  required term found in the text as sent or in a string counts. The judge
-  reads the text as sent; a passage it quotes counts when found in either.
+- **X3 JSON.** A text is searched as sent and with every JSON escape decoded
+  in one left-to-right pass (no quote pairing, lone surrogates as U+FFFD); a
+  term found in either form counts. The judge reads the text as sent; a
+  passage it quotes counts when found in either form.
 - **X4 Status.** `passed`, `violation`, `not_checked` or `failed`. A broken term
   or rule is `violation`. A judge that gives no usable answer, has no judging
   configuration, an empty rule set, or may not receive the text is

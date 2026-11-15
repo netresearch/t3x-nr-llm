@@ -415,6 +415,10 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         yield 'string root' => ['"\\u0052abatt"'];
         yield 'escaped key' => ['{"\\u0052abatt":"clean"}'];
         yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"\\u0052abatt"}'];
+        yield 'lone surrogate before the term' => ['{"post":"\\ud800\\u0052abatt"}'];
+        yield 'inch mark before the JSON' => ["Der 24\" Monitor:\n```json\n{\"post\":\"\\u0052abatt\"}\n```"];
+        yield 'single-quoted literal' => ["{post:'\\u0052abatt'}"];
+        yield 'surrogate pair around the term' => ['{"post":"\\ud83d\\ude00 \\u0052abatt"}'];
         yield 'fenced after a sentence' => ["Hier der Post:\n```json\n{\"post\":\"\\u0052abatt\"}\n```"];
     }
 
@@ -450,6 +454,18 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
 
         self::assertNotSame(ExternalTextStatus::PASSED, $report->status);
         self::assertTrue($report->blocks());
+    }
+
+    /**
+     * An escaped backslash before a `u` is a backslash, not an escape: the
+     * text says `\\u0052abatt` literally and holds no forbidden word.
+     */
+    #[Test]
+    public function anEscapedBackslashIsNotDecodedAsAnEscape(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        self::assertNotSame(ExternalTextStatus::VIOLATION, $this->check()->check('{"code":"\\\\u0052abatt"}', $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
     #[Test]
