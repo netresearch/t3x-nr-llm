@@ -78,11 +78,67 @@ What the run may do
   names the record to update and the requested fields. The client's text
   does not reach the model; after an ``ask_choice`` question, the client's
   answer does, as one of the options the model offered.
-- The requested fields are an instruction to the model. The write tool
-  accepts any of its fields on the scoped row; the approval card shows which
-  fields a call sets.
+- A write must meet the request before it reaches an approval, and follow
+  a read of the page when it runs (see below).
 - A write waits for an approval in the backend like every A2A write. A
   configuration that requires a second approver applies as to every run.
+
+..  _a2a-page-metadata-skill-contract:
+
+What a write must meet
+======================
+
+The invocation rule ``page_metadata_contract`` (:ref:`ADR-297 <adr-297>`)
+checks every call of ``update_page_metadata`` in a run of this skill before
+it reaches an approval. A call that fails is refused, the model reads why,
+and the governance log records ``invocation_denied`` with the rule's
+identifier and one of these reasons:
+
+``field_not_requested``
+   The call sets a field the request did not name, or none.
+
+``value_not_allowed``
+   A value is not text, has no visible character (control characters such
+   as U+0001 and fill characters such as U+3164 count as visible), or is
+   longer than its limit: 255 characters for
+   title, subtitle, navigation title, keywords and X card; 1000 for the
+   abstract; 300 for the description and the Open Graph and X
+   descriptions; 100 for the SEO, Open Graph and X titles.
+
+``page_not_read`` (rule ``page_metadata_read_first``)
+   The run has no ``get_page_content`` call with the outcome ``ok`` yet.
+   Such a call counts for any page, also when it answered that a page was
+   not found; the rule does not know which
+   page was read. This rule is asked
+   when the call runs, after its approval, so an editor can approve a write
+   that is then refused.
+
+``history_incomplete`` (rule ``page_metadata_read_first``)
+   The run's history is incomplete, for example after a requeue, and holds
+   no read since. Writes of this skill are refused, after their approval,
+   until the run reads the page again; other calls are not affected.
+
+``changed_since_accepted``
+   The row's ``tstamp`` as the client's workspace shows it (its draft
+   version when one exists, else the live row) is later than the task's
+   acceptance. The client sends the task again. ``tstamp`` is the
+   start of the request that wrote the row, so a save that started before
+   the task was accepted is not seen.
+
+``not_the_requested_row``
+   The call aims at another row of the requested page and language, at a
+   workspace version uid (the tool takes the live uid only), at a row the
+   scope admits by another path,
+   or the requested row no longer exists in the workspace.
+
+``request_unreadable``
+   The task's request cannot be read: its profile is gone, its history is
+   full (100 messages), or the configuration's privacy level stores no
+   message content. Such a configuration cannot run this skill.
+
+A call aimed at a row the scope refuses (another page, table or language, a
+uid without a row) is refused by the scope with its own reason
+(``outside_scope``, ``language_not_allowed``, ``unresolvable``).
 
 ..  _a2a-page-metadata-skill-setup:
 

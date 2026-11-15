@@ -13,6 +13,8 @@ ADR-296: An A2A skill binds its run to the scope of its request
 :Date: 2026-11-15
 :Amends: :ref:`ADR-295 <adr-295>` (the A2A server is the first starter that
    sets a scope)
+:Amended: 2026-11-15 by :ref:`ADR-297 <adr-297>` (a rule holds the call to
+   the requested fields, their lengths, a prior read and an unchanged row)
 :Authors: Netresearch DTT GmbH
 
 Context
