@@ -59,6 +59,8 @@ use function array_map;
 #[CoversClass(JudgeEgressGate::class)]
 final class ExternalTextCheckTest extends AbstractUnitTestCase
 {
+    private RecordingLogger $logger;
+
     /** Twelve words: under every word limit of the pipeline. */
     private const SHORT = 'Danke für den Hinweis, wir prüfen den Rabatt gern noch heute.';
 
@@ -156,6 +158,22 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         self::assertSame(ExternalTextStatus::NOT_CHECKED, $report->status);
         self::assertTrue($report->hasReason(ExternalTextReport::REASON_JUDGE_UNAVAILABLE));
         self::assertFalse($report->blocks());
+    }
+
+    /**
+     * A provider failure keeps the raw request message as its cause, and a
+     * request URL can carry a key: the log gets the class and the sanitized
+     * message, never the exception chain.
+     */
+    #[Test]
+    public function aFailedJudgeIsLoggedWithoutTheRawMessageOfItsCause(): void
+    {
+        $this->verdict = new JudgeUnavailableException('The provider did not answer.', 0, new RuntimeException('GET https://llm.example/v1/models?key=SECRET-KEY-123 failed'));
+
+        $this->check()->check(self::SHORT_CLEAN, $this->configuration(RuleJudgeMode::REPORT));
+
+        self::assertNotSame([], $this->logger->records);
+        self::assertStringNotContainsString('SECRET-KEY-123', print_r($this->logger->records, true));
     }
 
     #[Test]
@@ -755,7 +773,7 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
             new JudgeReentry(),
             $configurations,
             new RuleStateDigest($configurations, new ConfigurationSnippetResolver($snippetRepository, new PromptSnippetComposer()), $ruleSets, $termLists),
-            new RecordingLogger(),
+            $this->logger = new RecordingLogger(),
         );
     }
 

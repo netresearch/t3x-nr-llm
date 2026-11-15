@@ -26,6 +26,7 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\StreamAnnotatingGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListResolverInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Throwable;
@@ -74,6 +75,8 @@ use function trim;
 #[AsTaggedItem(priority: -1000)]
 final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailInterface
 {
+    use ErrorMessageSanitizerTrait;
+
     public const IDENTIFIER = 'rule-set-judge';
 
     /** Below this an answer is a label, a score or a code, not prose a rule speaks about. */
@@ -154,7 +157,11 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
             $this->logger->warning('The rule-set judge gave no usable answer.', [
                 'configuration' => $current?->getIdentifier() ?? '',
                 'mode'          => $mode->value,
-                'exception'     => $failure,
+                // The cause of a provider failure keeps the raw request
+                // message, whose URL can carry a key: class and sanitized
+                // message only.
+                'exception' => $failure::class,
+                'message'   => $this->sanitizeErrorMessage($failure->getMessage()),
             ]);
 
             return $mode === RuleJudgeMode::BLOCK

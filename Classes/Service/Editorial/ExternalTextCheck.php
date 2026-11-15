@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Guardrail\Term\TermCheckFailedException;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListResolverInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListRule;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
@@ -53,6 +54,8 @@ use function trim;
  */
 final readonly class ExternalTextCheck
 {
+    use ErrorMessageSanitizerTrait;
+
     public function __construct(
         private TermListResolverInterface $termLists,
         private TermMatcher $matcher,
@@ -543,7 +546,11 @@ final readonly class ExternalTextCheck
         } catch (Throwable $failure) {
             $this->logger->warning('The rule-set judge gave no usable answer for a delivered text.', [
                 'configuration' => $judged->getIdentifier(),
-                'exception'     => $failure,
+                // The cause of a provider failure keeps the raw request
+                // message, whose URL can carry a key: class and sanitized
+                // message only.
+                'exception' => $failure::class,
+                'message'   => $this->sanitizeErrorMessage($failure->getMessage()),
             ]);
 
             return [[], ExternalTextReport::REASON_JUDGE_UNAVAILABLE, $judging->getIdentifier()];
