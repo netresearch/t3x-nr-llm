@@ -63,29 +63,35 @@ to what the request names.
 
 The rule `page_metadata_contract` (a pre-approval invocation rule) holds
 every call of `update_page_metadata` in a run whose A2A task belongs to a
-profile with the handler `nr_llm.page_metadata.v1`. It reads the request
-from the task's first message with the handler's parser. A refusal goes back
+profile with the handler `nr_llm.page_metadata.v1` (read from the profile
+row even when it is hidden or deleted; a missing row refuses). It reads the
+request from the first entry of the task's history with the handler's
+parser. A refusal goes back
 to the model and into the governance log as `invocation_denied` with the
 rule's identifier.
 
 - **PC1 Row.** The call's uid is resolved as the scope resolves it. A call
   aimed at the requested row (the page, or its translation in the requested
-  language, as the client's workspace shows them) or at its workspace
-  version is checked by PC2 to PC5. Any other row of that page in that
+  language, as the client's workspace shows them) or at its version in the
+  live or the client's workspace is checked by PC2 to PC5. Any other row of that page in that
   language, and a requested row that no longer exists, is
   `not_the_requested_row`. A row of another page or language is left to the
   scope (PM3), whose reason the model reads; an unreadable request is
   `request_unreadable`.
 - **PC2 Fields.** Only fields the request names, at least one:
   `field_not_requested`.
-- **PC3 Values.** Each value non-empty text within its limit (title,
+- **PC3 Values.** Each value text with at least one visible character
+  (whitespace, separators and format characters do not count), within its
+  limit (title,
   subtitle, nav_title, keywords, twitter_card 255; abstract 1000;
   description, og_description, twitter_description 300; seo_title, og_title,
   twitter_title 100 characters): `value_not_allowed`.
-- **PC4 Read first.** A successful `get_page_content` earlier in the run:
-  `page_not_read`.
-- **PC5 Unchanged.** The row's `tstamp` in the workspace is not later than
-  the task's creation: `changed_since_accepted`.
+- **PC4 Read first.** A successful `get_page_content` of any page earlier
+  in the run: `page_not_read`.
+- **PC5 Unchanged.** The row's `tstamp` in the live or the client's workspace
+  is not later than the task's creation: `changed_since_accepted`. `tstamp`
+  is the writer's `EXEC_TIME`, the start of its request, so a writer that
+  started before the task was accepted and saved after it is not seen.
 - **PC6 Only this skill.** A run without an A2A task, or whose task belongs to
   another handler, is not held.
 
@@ -97,7 +103,12 @@ rule's identifier.
 - A second approver specific to this skill; a configuration that requires one
   applies as to every A2A run.
 - A check bound to the exact proposal and the data state it read: the
-  invocation history records no arguments and no results.
+  invocation history records no arguments and no results. PC4 is therefore
+  satisfied by a read of any page, and PC5 by the writer's start time.
+- A task with a full history (100 entries, after which the oldest is
+  dropped), or a configuration whose privacy level stores no message
+  content: the request is not read, and every write of the skill is refused
+  (`request_unreadable`).
 
 ## Proof
 
@@ -109,9 +120,9 @@ rule's identifier.
 | PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |
 | PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler); `A2aPageMetadataContractRuleTest::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` end to end |
-| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation) |
+| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
 | PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
-| PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`) |
+| PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (only whitespace and format characters) |
 | PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` |
 | PC5 | `A2aPageMetadataContractRuleTest::aRowChangedAfterTheTaskWasAcceptedIsRefused` |
-| PC6 | `A2aPageMetadataContractRuleTest::aTaskOfAnotherSkillIsNotHeldToTheContract` |
+| PC6 | `A2aPageMetadataContractRuleTest::aTaskOfAnotherSkillIsNotHeldToTheContract`, `::aHiddenProfileDoesNotSwitchTheContractOff` (a hidden profile is still held; a missing one refuses), `::aHistoryPastItsCapIsNotReadAsTheRequest` |

@@ -45,17 +45,23 @@ Decision
 **A rule** ``page_metadata_contract`` **holds every call of**
 ``update_page_metadata`` **in a run of the skill to the request.** A run is
 the skill's when the A2A task bound to it belongs to a profile with the
-handler ``nr_llm.page_metadata.v1``. The rule reads the request from the
-task's first message with the parser the handler used; a request it cannot
-read refuses the call. For a call aimed at the requested row it requires:
+handler ``nr_llm.page_metadata.v1``, read from the profile row whether or
+not the profile is hidden or deleted since; a task whose profile row is gone
+refuses the call. The rule reads the request from the first entry of the
+task's history with the parser the handler used; a request it cannot read
+refuses the call. For a call aimed at the requested row it requires:
 
 - only fields the request names, at least one;
-- each value non-empty text within a fixed length per field (title, subtitle,
-  navigation title, keywords 255; abstract 1000; description, Open Graph and
-  X descriptions 300; SEO, Open Graph and X titles 100 characters);
+- each value text with at least one visible character, within a fixed length
+  per field (title, subtitle, navigation title, keywords, X card type 255;
+  abstract 1000; description, Open Graph and X descriptions 300; SEO, Open
+  Graph and X titles 100 characters);
 - a successful ``get_page_content`` earlier in the run;
 - the row unchanged since the task was accepted: its ``tstamp`` in the
   client's workspace is not later than the task's creation.
+
+A version row counts as the requested row only when it belongs to the live
+workspace or to the client's workspace.
 
 The call's uid is resolved as the scope resolves it. The requested row and
 its version in the client's workspace are checked as above; the scope admits
@@ -79,19 +85,28 @@ Consequences
 - ● A row changed by an editor after the task was accepted is not written
   over by a proposal built on the older state; the client sends the task
   again.
-- ◑ "Read before write" means a successful read earlier in the run, not a
-  read of this row with this state: the invocation history records neither
-  arguments nor results. Binding a check to the exact proposal and data state
-  needs the history to carry them, which is a separate decision.
+- ◑ "Read before write" means a successful ``get_page_content`` of any page
+  earlier in the run, not a read of this row with this state: the invocation
+  history records neither arguments nor results. Binding a check to the exact
+  proposal and data state needs the history to carry them, which is a
+  separate decision.
 - ◑ "Unchanged" is second-granular and compares with the acceptance time,
   not with the time of the read; a second write of the same run to the same
-  row is refused as changed.
+  row is refused as changed. A record's ``tstamp`` is the ``EXEC_TIME`` of
+  the request that wrote it, its start: a writer that started before the task
+  was accepted and saved after it is not seen. Only changes in the live
+  workspace and the client's workspace are compared.
+- ◑ The request is read from the first history entry. A task keeps at most
+  100 history entries and then drops the oldest, so a full history is not
+  read as the request and every further write of that task is refused. A
+  configuration whose privacy level stores no message content refuses every
+  write of the skill for the same reason.
 - ◑ The limits are fixed per contract version; an installation that wants
   others needs a new version.
 - ✕ One more database read per ``update_page_metadata`` call of every run
   (the task lookup); a run without an A2A task stops there.
 
-Net Score: +4
+Net Score: +1
 
 Alternatives considered
 =======================

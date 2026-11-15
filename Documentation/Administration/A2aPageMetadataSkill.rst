@@ -97,21 +97,31 @@ identifier and one of these reasons:
    The call sets a field the request did not name, or none.
 
 ``value_not_allowed``
-   A value is empty, not text, or longer than its limit: 255 characters for
+   A value is not text, has no visible character, or is longer than its
+   limit: 255 characters for
    title, subtitle, navigation title, keywords and X card; 1000 for the
    abstract; 300 for the description and the Open Graph and X
    descriptions; 100 for the SEO, Open Graph and X titles.
 
 ``page_not_read``
-   The run has not read the page with ``get_page_content`` yet.
+   The run has not called ``get_page_content`` successfully yet. Any page
+   counts; the rule does not know which page was read.
 
 ``changed_since_accepted``
-   The row changed after the task was accepted. The client sends the task
-   again.
+   The row's ``tstamp`` in the live or the client's workspace is later than
+   the task's acceptance. The client sends the task again. ``tstamp`` is the
+   start of the request that wrote the row, so a save that started before
+   the task was accepted is not seen.
 
-``not_the_requested_row``, ``request_unreadable``
-   The requested row no longer exists in the workspace, or the task's
-   request cannot be read.
+``not_the_requested_row``
+   The call aims at another row of the requested page and language, at a
+   version of another workspace, or the requested row no longer exists in
+   the workspace.
+
+``request_unreadable``
+   The task's request cannot be read: its profile is gone, its history is
+   full (100 messages), or the configuration's privacy level stores no
+   message content. Such a configuration cannot run this skill.
 
 A call aimed at another page, table or language is refused by the scope
 with its own reason (``outside_scope``, ``language_not_allowed``).
