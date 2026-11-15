@@ -294,6 +294,21 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         $state      = $digests->observe('pages', self::TRANSLATION, ['description'], new ToolExecutionContext(AiActorContext::anonymous(), run: $reference));
         $checkSince = ToolInvocationHistory::fromStored(null)->append('check_page_metadata', 'ok', null, $digests->arguments($arguments), $state?->digest);
         self::assertTrue($decide('update_page_metadata', $reference, $checkSince)->allowed, 'a check made since the history became incomplete counts');
+
+        // A check stored without digests (before this change, or with an
+        // empty encryption key) never matches a write whose arguments have
+        // no digest either: no digest is not a match.
+        $undigested                                         = (new ToolInvocationHistory())->append('check_page_metadata', 'ok', null);
+        $key                                                = self::text($GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] ?? '');
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] = '';
+        try {
+            $noKey = $decide('update_page_metadata', $reference, $undigested);
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] = $key;
+        }
+
+        self::assertFalse($noKey->allowed);
+        self::assertSame(A2aPageMetadataBindingRule::REASON_NOT_CHECKED, $noKey->reason);
     }
 
     /**

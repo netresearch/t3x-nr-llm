@@ -197,6 +197,19 @@ final class BuiltinToolGroupsTest extends TestCase
     }
 
     /**
+     * The check tool of the A2A page metadata skill ships disabled: it is
+     * offered only where an administrator enables it for that skill (spec 056
+     * PB6), not in every editing run.
+     */
+    #[Test]
+    public function theCheckToolOfThePageMetadataSkillShipsDisabled(): void
+    {
+        $tool = (new ReflectionClass(CheckPageMetadataTool::class))->newInstanceWithoutConstructor();
+
+        self::assertFalse($tool->isEnabledByDefault());
+    }
+
+    /**
      * The provider above is hand-written, so "every builtin declares a curated
      * group" is only true while the list is complete. A builtin absent from it
      * is asserted against nothing — its group never reaches
