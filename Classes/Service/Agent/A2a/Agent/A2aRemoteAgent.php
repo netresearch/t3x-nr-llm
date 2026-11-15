@@ -160,6 +160,15 @@ class A2aRemoteAgent extends AbstractEntity
         return preg_match('/(?:^|;)streaming=1(?:;|$)/', $this->cardCapabilities) === 1;
     }
 
+    /**
+     * Whether the imported card declares push notifications (spec 051
+     * A2A-PUSH7): only then is the remote asked for a push config.
+     */
+    public function declaresPushNotifications(): bool
+    {
+        return preg_match('/(?:^|;)pushNotifications=1(?:;|$)/', $this->cardCapabilities) === 1;
+    }
+
     public function isCardChanged(): bool
     {
         return $this->cardChanged;

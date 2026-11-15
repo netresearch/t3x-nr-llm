@@ -216,6 +216,21 @@ a2a.client.deniedHosts =
 # cat=tools; type=boolean; label=Let the A2A client send through an HTTP proxy: Behind a proxy the address checks cannot reach past it, so A2A requests are refused. Switching this on permits them ONLY while "Hosts the A2A client may reach" is non-empty.
 a2a.client.allowViaProxy = 0
 
+# cat=tools; type=boolean; label=Receive A2A push notifications (client role): Off (default): a delegation waits by polling only, no remote agent is asked for a push config, and the push endpoint does not exist. On: when the remote's card declares push notifications, a delegation registers a callback URL with its own credential, and a callback brings the next GetTask forward (spec 051 stage 5b, ADR-285). Needs "Site of the A2A push endpoint".
+a2a.client.push = 0
+
+# cat=tools; type=string; label=Site of the A2A push endpoint: The identifier of the site whose A2A base URL (site setting nrllm.a2a.baseUrl) carries the push endpoint <base>/push. Remote agents post their callbacks there, so it must be reachable from them. Empty (default): nothing registers.
+a2a.client.pushSite =
+
+# cat=tools; type=int+; label=A2A push callbacks per task: How many callbacks of one delegation the inbox holds before the worker has looked at the task. One more is answered 429. Default 8.
+a2a.client.maxPushInboxPerTask = 8
+
+# cat=tools; type=int+; label=A2A push callbacks in total: How many callbacks the inbox holds for all delegations before the worker has looked at them. One more is answered 429. Default 1000.
+a2a.client.maxPushInbox = 1000
+
+# cat=tools; type=int+; label=Largest A2A push callback (bytes): A callback body above this is answered 413 and not stored. 1024 to 1048576, default 65536.
+a2a.client.maxPushBytes = 65536
+
 # cat=tools; type=boolean; label=Answer A2A requests (server role): Off (default): no site answers the A2A endpoint or the agent card, whatever its settings say (spec 051 A2A-OPS2). On: a site that names an A2A base URL in its settings publishes the card and answers registered clients.
 a2a.server.enabled = 0
 

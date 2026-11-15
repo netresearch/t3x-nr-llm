@@ -46,6 +46,7 @@ final readonly class A2aDelegationToolProvider implements ToolProviderInterface
         private A2aResponseParser $parser,
         private A2aDelegationGate $gate,
         private ?LoggerInterface $logger = null,
+        private ?A2aPushRegistrar $push = null,
     ) {}
 
     /**
@@ -84,7 +85,7 @@ final readonly class A2aDelegationToolProvider implements ToolProviderInterface
             }
 
             foreach ($skills as $skill) {
-                $tool = new A2aDelegationTool($agent, $skill, $this->client, $this->journal, $this->agents);
+                $tool = new A2aDelegationTool($agent, $skill, $this->client, $this->journal, $this->agents, $this->push);
                 $name = $tool->getSpec()->name;
                 if (isset($offered[$name])) {
                     // A card that lists one skill id twice; a name never

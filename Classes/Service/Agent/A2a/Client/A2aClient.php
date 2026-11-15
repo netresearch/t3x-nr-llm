@@ -431,6 +431,71 @@ final readonly class A2aClient
     }
 
     /**
+     * `CreateTaskPushNotificationConfig` for a handle the owner holds (spec
+     * 051 A2A-PUSH7, ADR-285): the remote is asked to post the task's changes
+     * to $url with `Authorization: Bearer $credential`. No `token` is sent:
+     * the receiver reads none (A2A-D8).
+     *
+     * A create makes state on the remote, so it settles like `SendMessage`
+     * and is never resent (A2A-SEC7): nothing left or a JSON-RPC error is
+     * refused; a timeout after the send, an oversized or unreadable 2xx or a
+     * 5xx without a JSON-RPC body is an unknown outcome.
+     *
+     * @throws A2aAgentUnavailableException   before anything is sent
+     * @throws A2aTaskHandleNotFoundException before anything is sent
+     */
+    public function createTaskPushNotificationConfig(A2aRemoteAgent $agent, int $ownerUid, string $remoteTaskId, string $configId, string $url, string $credential): A2aPushCreateResult
+    {
+        $handle  = $this->handle($agent, $ownerUid, $remoteTaskId);
+        $id      = Uuid::v7()->toRfc4122();
+        $request = $this->request($agent, A2aProtocol::METHOD_CREATE_PUSH_CONFIG, $this->encode($this->withTenant($agent, [
+            'id'             => $configId,
+            'taskId'         => $remoteTaskId,
+            'url'            => $url,
+            'authentication' => ['scheme' => 'Bearer', 'credentials' => $credential],
+        ])), $id);
+        $result = $this->transport->send($request);
+
+        try {
+            return $this->settlePushCreate($result, $id, $configId);
+        } finally {
+            $this->journal->addTransferredBytes($handle, strlen($request->body) + strlen($result->body));
+        }
+    }
+
+    private function settlePushCreate(A2aTransportResult $result, string $id, string $configId): A2aPushCreateResult
+    {
+        if ($result->outcome === A2aTransportOutcome::NOT_SENT) {
+            return A2aPushCreateResult::refused($result->reason);
+        }
+
+        if ($result->outcome === A2aTransportOutcome::MAYBE_SENT) {
+            return A2aPushCreateResult::outcomeUnknown($result->reason);
+        }
+
+        $refusal = $this->responseRefusal($result);
+        if ($refusal !== null) {
+            return $result->isSuccess() || $result->oversized ? A2aPushCreateResult::outcomeUnknown($refusal[0]) : A2aPushCreateResult::refused($refusal[0]);
+        }
+
+        try {
+            $response = A2aJsonRpcCodec::decodeResponse($result->body, $id);
+        } catch (A2aInvalidAgentResponseException) {
+            return $result->status >= 500 || $result->isSuccess()
+                ? A2aPushCreateResult::outcomeUnknown($result->status >= 500 ? 'SERVER_ERROR_WITHOUT_RESPONSE' : 'INVALID_AGENT_RESPONSE')
+                : A2aPushCreateResult::refused('INVALID_AGENT_RESPONSE');
+        }
+
+        if ($response->isError()) {
+            return A2aPushCreateResult::refused(sprintf('%d %s', $response->error->code, $response->error->effectiveReason()));
+        }
+
+        $remoteId = $response->result['id'] ?? null;
+
+        return A2aPushCreateResult::created(is_string($remoteId) && $remoteId !== '' ? $remoteId : $configId);
+    }
+
+    /**
      * A remote that answers about another task than the one asked for would
      * hand this owner that task's content and file its state on this handle.
      * The ids are compared byte for byte.

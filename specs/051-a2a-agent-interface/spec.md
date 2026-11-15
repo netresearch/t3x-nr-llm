@@ -68,7 +68,7 @@ item of the cross-check against a second plan they come from in brackets
 ## Stages
 
 Every stage below is in scope. Stages 0 to 4 and 5a are implemented on
-`main`; of 5b the sender (server role) is implemented and the receiver (client role) is not built yet; 5c is not built yet. The Status column says where each
+`main`; 5b is implemented in both roles, the sender (server role) and the receiver (client role); 5c is not built yet. The Status column says where each
 stage stands, and the change that completes a stage updates its row. The stages
 are an implementation order, nothing more: a stage builds on the ones it
 depends on.
@@ -81,7 +81,7 @@ depends on.
 | 3 | Server: frontend endpoint, client records, publication profiles, agent card, JSON-RPC methods, transactional acceptance, worker execution, TCK fixture and CI job | 2 | merged (#1348) |
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
 | 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | merged (#1378), released in 0.48.0; a delegating run polls rather than streams (the client stream is the PHP API and `nrllm:a2a:send --stream`) |
-| 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | sender (server role, A2A-PUSH1 to A2A-PUSH5) implemented, off by default (`a2a.server.push`); receiver (client role, A2A-PUSH6 to A2A-PUSH8) not built yet |
+| 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | sender (server role, A2A-PUSH1 to A2A-PUSH5) implemented, off by default (`a2a.server.push`); receiver (client role, A2A-PUSH6 to A2A-PUSH8) implemented, off by default (`a2a.client.push`, endpoint on the site named by `a2a.client.pushSite`); the client registers without an embedded config only |
 | 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | not built; the server accepts `text/plain` parts only |
 
 Each stage is released only with its own gates (see "Verification") and the

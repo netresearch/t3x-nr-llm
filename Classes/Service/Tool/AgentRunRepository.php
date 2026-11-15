@@ -53,6 +53,10 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_A2A_PUSH_OUTBOX = 'tx_nrllm_a2a_push_outbox';
 
+    private const TABLE_A2A_PUSH_REGISTRATION = 'tx_nrllm_a2a_push_registration';
+
+    private const TABLE_A2A_PUSH_INBOX = 'tx_nrllm_a2a_push_inbox';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -1348,6 +1352,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
             // The A2A task view and its event journal go with their run
             // (ADR-282): afterwards GetTask answers TaskNotFound.
             $this->purgeA2aTasks($chunk);
+            $this->purgePushRegistrations($chunk);
 
             $deleteBuilder = $runConnection->createQueryBuilder();
             $deleted += $deleteBuilder
@@ -1357,6 +1362,38 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         } while (count($chunk) === self::PURGE_CHUNK_SIZE);
 
         return $deleted;
+    }
+
+    /**
+     * The push registrations of the client role and the callbacks they
+     * received go with the run that delegated (spec 051 A2A-PUSH8).
+     *
+     * @param list<int> $runUids
+     */
+    private function purgePushRegistrations(array $runUids): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_PUSH_REGISTRATION);
+        $select     = $connection->createQueryBuilder();
+        $uids       = array_map(
+            self::toInt(...),
+            $select
+                ->select('uid')
+                ->from(self::TABLE_A2A_PUSH_REGISTRATION)
+                ->where($select->expr()->in('run_uid', $select->createNamedParameter($runUids, Connection::PARAM_INT_ARRAY)))
+                ->executeQuery()
+                ->fetchFirstColumn(),
+        );
+        if ($uids === []) {
+            return;
+        }
+
+        foreach ([self::TABLE_A2A_PUSH_INBOX => 'registration_uid', self::TABLE_A2A_PUSH_REGISTRATION => 'uid'] as $table => $column) {
+            $delete = $this->connectionPool->getConnectionForTable($table)->createQueryBuilder();
+            $delete
+                ->delete($table)
+                ->where($delete->expr()->in($column, $delete->createNamedParameter($uids, Connection::PARAM_INT_ARRAY)))
+                ->executeStatement();
+        }
     }
 
     /**

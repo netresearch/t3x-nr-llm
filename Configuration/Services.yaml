@@ -50,6 +50,7 @@ services:
       - '../Classes/Service/Agent/A2a/Transport/A2aTransportOutcome.php'
       - '../Classes/Service/Agent/A2a/Transport/A2aTestNetworkAddressClassifier.php'
       - '../Classes/Service/Agent/A2a/Client/A2aSendOutcome.php'
+      - '../Classes/Service/Agent/A2a/Client/A2aPushCreateResult.php'
       - '../Classes/Service/Agent/A2a/Agent/A2aCardImportResult.php'
       # Stage 2 (ADR-281): a delegation tool is built per record and card skill
       # by A2aDelegationToolProvider; without this the `nr_llm.tool` tag would
@@ -227,6 +228,12 @@ services:
     public: true
 
   Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator:
+    arguments:
+      $limiterStorage: '@TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage'
+
+  # The push endpoint of the client role counts failed callbacks in the same
+  # rate-limiter cache (spec 051 A2A-PUSH6).
+  Netresearch\NrLlm\Service\Agent\A2a\Client\A2aPushReceiver:
     arguments:
       $limiterStorage: '@TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage'
 

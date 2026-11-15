@@ -12,9 +12,10 @@ A2A remote agents
 nr-llm can hand a message to a remote agent that speaks the `Agent2Agent
 protocol <https://a2a-protocol.org/v1.0.1/specification/>`__ (A2A) 1.0 over
 JSON-RPC, and follow the task the remote agent creates. This page covers the
-client: a record per remote agent, a PHP API, the commands, and agent runs
+client: a record per remote agent, a PHP API, the commands, agent runs
 that delegate a step to a remote agent and wait for it
-(:ref:`ADR-281 <adr-281>`, see :ref:`administration-a2a-delegation`).
+(:ref:`ADR-281 <adr-281>`, see :ref:`administration-a2a-delegation`), and
+push notifications that shorten the wait.
 
 Register a remote agent
 =======================
@@ -283,6 +284,69 @@ nr-llm's control.
     understand a run that waits for a remote agent; no nr_mcp_agent release
     does so far.
 
+..  _administration-a2a-remote-agents-push:
+
+Push notifications
+==================
+
+Push is off by default. With :guilabel:`Receive A2A push notifications`
+(``a2a.client.push``) on, a delegation asks the remote agent to post the
+changes of its task to this installation, so the run does not wait for the
+next poll (:ref:`ADR-285 <adr-285>`). Polling stays: a callback only brings
+the next ``GetTask`` forward.
+
+-  **Endpoint.** :guilabel:`Site of the A2A push endpoint`
+   (``a2a.client.pushSite``) names the site whose A2A base URL (site setting
+   ``nrllm.a2a.baseUrl``, see :ref:`administration-a2a-server`) carries
+   ``POST <base>/push``. The worker that registers a callback has no site of
+   its own, so the site is named here. The endpoint answers whether or not
+   the server role is on. With push off, or without such a site, it does not
+   exist: the request passes through to TYPO3 like any other URL, as the A2A
+   paths do while the server role is off.
+-  **Registration.** Only a remote whose card declares
+   ``pushNotifications`` is asked. After the remote accepted the task, nr-llm
+   writes a local registration with a new random callback credential, sends
+   ``CreateTaskPushNotificationConfig`` with the callback URL and the
+   credential as ``authentication`` (scheme ``Bearer``, no ``token``), stores
+   the config id the remote answers, and then reads the task once with
+   ``GetTask``, so a change between the send and the registration is not
+   missed. A task settled by then is the tool's result at once. The
+   credential is shown to the remote only; nr-llm stores its public prefix
+   and its SHA-256 hash, as for the tokens of A2A clients
+   (:ref:`ADR-280 <adr-280>`). A refused create leaves the run to polling. A
+   create whose outcome is unknown (a timeout after it was sent) is never
+   sent again; the credential stays valid, because the remote may hold the
+   config.
+-  **Callbacks.** A callback needs ``Authorization: Bearer`` with the
+   credential of an open registration; anything else is 401 with
+   ``WWW-Authenticate: Bearer realm="a2a-push"`` and stores nothing. The
+   answer is the same for a missing, unknown or wrong credential and for a
+   closed registration. An ``X-A2A-Notification-Token`` header is ignored:
+   it neither authenticates nor refuses. ``A2A-Version`` and a content type
+   are not required. Failed attempts are logged with the source address,
+   never with the credential, and limited per address by the rate limiter
+   ``nrllm-a2a-push-auth`` (10 per 15 minutes; override it in
+   ``$GLOBALS['TYPO3_CONF_VARS']['SYS']['rateLimiter']['nrllm-a2a-push-auth']``).
+-  **Inbox.** A body above ``a2a.client.maxPushBytes`` (default 64 KiB) is
+   413, and a declared ``Content-Length`` above it is refused before the body
+   is read. A body that is not a JSON object is 400. A valid callback is
+   stored sealed, like the run state, and only then answered 202, which means
+   received and nothing more. The inbox holds at most
+   ``a2a.client.maxPushInboxPerTask`` (default 8) callbacks per delegation
+   and ``a2a.client.maxPushInbox`` (default 1000) in total that the worker
+   has not looked at yet; one more is 429 with ``Retry-After``.
+-  **What a callback does.** ``nrllm:a2a:poll`` looks at a delegation with a
+   stored callback at the record's minimum poll interval after its last look
+   instead of at the scheduled time, never earlier. The look is ``GetTask`` as
+   the run's owner; the state the run continues with is what that answers,
+   never the callback body. A look marks every callback received until then
+   as reconciled. When the run continues, its registration and its callbacks
+   are deleted; a later callback is 401, and a duplicate never continues a
+   run twice.
+-  **Cleanup.** Registrations and callbacks are deleted when the run
+   continues, and with their run by ``nrllm:privacy:purge``. The remote's
+   config is not deleted; a sender that keeps posting gets 401.
+
 ..  _administration-a2a-remote-agents-limits:
 
 Known limits
@@ -305,7 +369,14 @@ Known limits
    leaves it to ``GetTask`` (``nrllm:a2a:get``). A stream lasts at most the
    record's maximum wait, at least its request timeout; one event may be at
    most the record's maximum response size.
--  **No push** yet; a task is followed by asking for it.
+-  **Push without an embedded config.** nr-llm registers a callback with
+   ``CreateTaskPushNotificationConfig`` after the remote accepted the task,
+   never inside ``SendMessage``. A callback the remote sends before that
+   request is impossible, because the remote does not know the URL yet.
+-  **The total inbox bound** is checked in the transaction that stores the
+   callback, under a lock on the registration only. Callbacks of different
+   delegations arriving at the same moment can exceed it by their number;
+   the bound per delegation is exact.
 -  **An interrupted remote task** (``TASK_STATE_INPUT_REQUIRED``,
    ``TASK_STATE_AUTH_REQUIRED``) is handed to the model as such; nothing
    answers the remote agent yet.

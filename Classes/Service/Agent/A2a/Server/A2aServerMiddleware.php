@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClientPushSettings;
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aPushReceiver;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -29,6 +31,12 @@ use TYPO3\CMS\Core\Site\SiteFinder;
  * matches none, every other path and every other method pass through
  * untouched. With the server role switched off, everything passes through.
  *
+ * The push endpoint of the client role (spec 051 A2A-PUSH6, ADR-285),
+ * `POST <base>/push`, is answered below the base URL of the site that
+ * `a2a.client.pushSite` names, whether the server role is on or off. With
+ * `a2a.client.push` off it does not exist: the request passes through to the
+ * next handler, as every A2A path does with the server role off.
+ *
  * It runs before the site is resolved, so an A2A request never reaches page
  * resolution, TypoScript or the frontend user.
  *
@@ -41,10 +49,17 @@ final readonly class A2aServerMiddleware implements MiddlewareInterface
         private SiteFinder $siteFinder,
         private A2aAgentCardBuilder $cards,
         private A2aRpcServer $rpc,
+        private ?A2aPushReceiver $pushReceiver = null,
+        private ?A2aClientPushSettings $pushSettings = null,
     ) {}
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
+        $push = $this->push($request);
+        if ($push instanceof ResponseInterface) {
+            return $push;
+        }
+
         if (!$this->settings->enabled()) {
             return $handler->handle($request);
         }
@@ -66,6 +81,33 @@ final readonly class A2aServerMiddleware implements MiddlewareInterface
         }
 
         return $handler->handle($request);
+    }
+
+    /**
+     * The answer of the push endpoint; null for every request it does not
+     * take, and for all of them while client push is off.
+     */
+    private function push(ServerRequestInterface $request): ?ResponseInterface
+    {
+        if (!$this->pushReceiver instanceof A2aPushReceiver || !$this->pushSettings instanceof A2aClientPushSettings || strtoupper($request->getMethod()) !== 'POST') {
+            return null;
+        }
+
+        $base = $this->pushSettings->callbackBase();
+        if (!$base instanceof A2aBaseUrl) {
+            return null;
+        }
+
+        $params = $request->getAttribute('normalizedParams');
+        $params = $params instanceof NormalizedParams ? $params : NormalizedParams::createFromRequest($request);
+
+        $port = $params->getRequestPort();
+        if (!$base->matchesOrigin($params->isHttps() ? 'https' : 'http', $params->getRequestHostOnly(), $port > 0 ? $port : null)
+            || $base->relativePath($request->getUri()->getPath()) !== A2aClientPushSettings::PUSH_PATH) {
+            return null;
+        }
+
+        return $this->pushReceiver->handle($request, time());
     }
 
     /**

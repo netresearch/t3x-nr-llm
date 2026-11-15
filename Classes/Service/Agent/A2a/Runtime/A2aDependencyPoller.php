@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aPushRegistrationStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aCallFailedException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
@@ -47,6 +48,12 @@ use Psr\Log\LoggerInterface;
  * - At the deadline the run resumes with a "timed out" result, and the
  *   process that won the run sends `CancelTask` once (A2A-R12).
  *
+ * - A push callback the receiver stored (A2A-PUSH8) brings the next look
+ *   forward, to the record's minimum interval after the last look, never
+ *   closer. The look is GetTask as the owner; the callback body decides
+ *   nothing. Each look reconciles the callbacks received until then; the
+ *   push registration closes when the run resumes.
+ *
  * Every remote call runs as the intent's owner inside the worker's vault scope,
  * and so does the continued run. Polling stays the repair path when push
  * (stage 5b) is in use.
@@ -74,6 +81,7 @@ final readonly class A2aDependencyPoller
         private ?A2aTaskProjector $projector = null,
         private ?LoggerInterface $logger = null,
         private ?A2aPushDeliverer $pushes = null,
+        private ?A2aPushRegistrationStore $pushInbox = null,
         ?Closure $jitter = null,
     ) {
         $this->jitter = $jitter ?? static fn (int $interval): int => random_int(0, max(0, intdiv($interval, 4)));
@@ -147,11 +155,18 @@ final readonly class A2aDependencyPoller
                 $this->canceller->cancelRemote($intent);
             });
             $report->timedOut += $result instanceof AgentRunResult ? 1 : 0;
+            $this->pushInbox?->close($intent->uid);
 
             return;
         }
 
         $due = $intent->nextPollAt ?? ($checkpoint->suspendedAt + $this->minimum($agent));
+        if ($this->pushInbox?->hasUnreconciled($intent->uid) === true) {
+            // A callback only brings the look forward, never closer than the
+            // minimum interval after the last one (A2A-PUSH8).
+            $due = min($due, ($this->pushInbox->lastLookAt($intent->uid) ?? $checkpoint->suspendedAt) + $this->minimum($agent));
+        }
+
         if ($now < $due) {
             ++$report->notDue;
 
@@ -159,8 +174,10 @@ final readonly class A2aDependencyPoller
         }
 
         $task = $this->look($agent, $intent);
+        $this->pushInbox?->looked($intent->uid, $now);
         if ($task instanceof ToolResult) {
             $report->resumed += $this->resume($run, $checkpoint, $task) instanceof AgentRunResult ? 1 : 0;
+            $this->pushInbox?->close($intent->uid);
 
             return;
         }
@@ -168,6 +185,7 @@ final readonly class A2aDependencyPoller
         $state = $task?->status->state;
         if ($task instanceof A2aTask && $state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted())) {
             $report->resumed += $this->resume($run, $checkpoint, A2aToolResults::task($title, $task)) instanceof AgentRunResult ? 1 : 0;
+            $this->pushInbox?->close($intent->uid);
 
             return;
         }

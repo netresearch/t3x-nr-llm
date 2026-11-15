@@ -63,6 +63,9 @@ final readonly class AgentStateCodec
     /** The token and credential of an A2A push config (ADR-285). */
     public const PURPOSE_A2A_PUSH_CREDENTIAL = 'nrllm:a2a:push-credential';
 
+    /** The body of a push callback the A2A client received (ADR-285). */
+    public const PURPOSE_A2A_PUSH_INBOX = 'nrllm:a2a:push-inbox';
+
     public function __construct(
         private EnvelopeCodecInterface $envelopeCodec,
     ) {}
