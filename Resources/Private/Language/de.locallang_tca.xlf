@@ -2347,8 +2347,8 @@
                 <target>Domain-Handler</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.handler.description">
-                <source>What turns the client's message into the run and the run's answer into the result. nr_llm.text: the message text is the request, the answer one text artifact.</source>
-                <target>Was die Nachricht des Clients in den Lauf und dessen Antwort in das Ergebnis übersetzt. nr_llm.text: Der Nachrichtentext ist die Anfrage, die Antwort ein Text-Artefakt.</target>
+                <source>What turns the client's message into the run and the run's answer into the result. nr_llm.text: the message text is the request, the answer one text artifact. nr_llm.page_metadata.v1: a JSON request for the metadata of one page in one language, written as a draft and held to that page and language; it needs a writing profile and a configuration that requires a draft workspace and a scope.</source>
+                <target>Was die Nachricht des Clients in den Lauf und dessen Antwort in das Ergebnis übersetzt. nr_llm.text: Der Nachrichtentext ist die Anfrage, die Antwort ein Text-Artefakt. nr_llm.page_metadata.v1: eine JSON-Anfrage für die Metadaten einer Seite in einer Sprache, als Entwurf geschrieben und auf diese Seite und Sprache beschränkt; sie braucht ein schreibendes Profil und eine Konfiguration, die einen Entwurfs-Workspace verlangt und Änderungen nur im Rahmen eines Auftrags zulässt.</target>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.configuration_uid">
                 <source>LLM configuration</source>

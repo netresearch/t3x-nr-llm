@@ -1769,7 +1769,7 @@
                 <source>Domain handler</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.handler.description">
-                <source>What turns the client's message into the run and the run's answer into the result. nr_llm.text: the message text is the request, the answer one text artifact.</source>
+                <source>What turns the client's message into the run and the run's answer into the result. nr_llm.text: the message text is the request, the answer one text artifact. nr_llm.page_metadata.v1: a JSON request for the metadata of one page in one language, written as a draft and held to that page and language; it needs a writing profile and a configuration that requires a draft workspace and a scope.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.configuration_uid">
                 <source>LLM configuration</source>
