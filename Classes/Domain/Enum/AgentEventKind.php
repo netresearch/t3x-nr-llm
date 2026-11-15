@@ -74,6 +74,14 @@ enum AgentEventKind: string
     // step it belongs to. Read it back with
     // {@see \Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet::tryFromEventPayload()}.
     case TOOL_CHANGES = 'tool_changes';
+    // The end-of-run check of a delivered answer (ADR-302): status, digests,
+    // reasons and the rules and terms it found broken, never a passage of the
+    // text, so it is stored as it is at every privacy level. Emitted by the
+    // run executor's output check. NOT a RunStep kind.
+    case OUTPUT_CHECK = 'output_check';
+    // The digest of the rules a run's answer will be checked against, at the
+    // start of the run (ADR-302). A digest, never text. NOT a RunStep kind.
+    case RULE_STATE = 'rule_state';
 
     /**
      * @return list<string>
@@ -101,6 +109,16 @@ enum AgentEventKind: string
     {
         $case = self::tryFrom($kind);
 
-        return in_array($case, [self::APPROVAL, self::INPUT, self::LINEAGE], true) ? null : $case;
+        return in_array($case, self::runtimeEvents(), true) ? null : $case;
+    }
+
+    /**
+     * The kinds the runtime emits that are no RunStep kind.
+     *
+     * @return list<self>
+     */
+    public static function runtimeEvents(): array
+    {
+        return [self::APPROVAL, self::INPUT, self::LINEAGE, self::OUTPUT_CHECK, self::RULE_STATE];
     }
 }

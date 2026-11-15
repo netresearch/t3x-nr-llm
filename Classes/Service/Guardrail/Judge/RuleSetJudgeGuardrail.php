@@ -95,6 +95,7 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
         private TermListResolverInterface $users,
         private JudgeReentry $reentry,
         private LoggerInterface $logger,
+        private DeferredAnswerJudging $deferred = new DeferredAnswerJudging(),
     ) {
         $this->egress = new JudgeEgressGate($this->trustZones, $this->providers, $this->configurations);
     }
@@ -132,7 +133,7 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
         }
 
         $readTools = $this->readToolsOfRun($context);
-        if ($readTools === null && !$this->judges($response, $context)) {
+        if ($readTools === null && (!$this->judges($response, $context) || $this->deferred($context))) {
             return GuardrailResult::allow();
         }
 
@@ -369,7 +370,18 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
 
     private function judgesStream(ProviderCallContext $context): bool
     {
-        return !$this->reentry->isActive() && !$this->offersTools($context);
+        return !$this->reentry->isActive() && !$this->offersTools($context) && !$this->deferred($context);
+    }
+
+    /**
+     * The answer of a run with an end-of-run check is judged once, after the
+     * loop (ADR-302). Only the answer: written arguments are judged here.
+     */
+    private function deferred(ProviderCallContext $context): bool
+    {
+        $runUid = $context->metadata[GuardrailMiddleware::METADATA_AGENT_RUN_UID] ?? 0;
+
+        return is_int($runUid) && $this->deferred->covers($runUid);
     }
 
     /**

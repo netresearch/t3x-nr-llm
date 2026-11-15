@@ -69,6 +69,23 @@ Domain handler
    language as a draft, held to that page and language
    (:ref:`a2a-page-metadata-skill`).
 
+   Two handlers are for editorial texts used outside TYPO3
+   (:ref:`ADR-302 <adr-302>`). Their final answer is checked against the term
+   lists and the rule-set judge of the configuration before it is delivered,
+   whatever its length and also when the run only read. A broken term, a rule
+   broken under a judge in block mode, a judge in block mode that cannot
+   answer, or term lists that cannot be read stop the task as failed. A judge
+   in report mode that cannot answer, and a configuration with no term list
+   and no judge, deliver the text as not checked.
+
+   - ``nr_llm.editorial_text`` writes the text from the client's message, with
+     the read-only tools the profile allows. Writing tools and tools that ask
+     the client a question, such as ``ask_choice``, are not offered: a
+     question would reach the client before the check.
+   - ``nr_llm.editorial_check`` checks the text the client sends, for example
+     a draft the editor changed, without generating one: no model writes and
+     no tool is called; only the judge of the configuration is asked.
+
 LLM configuration
    The configuration the runs use. If its answer level keeps no result
    (``metadata`` or ``none``, set on its provider), the profile cannot be

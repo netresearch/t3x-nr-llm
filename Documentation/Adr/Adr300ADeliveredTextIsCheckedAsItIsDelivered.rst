@@ -115,7 +115,7 @@ Consequences
 
 - A short text, a JSON text and the answer of a run that only read can be
   checked, as soon as a caller asks for it. The end-of-run check
-  (ADR-302) is that caller; the report artifact
+  (:ref:`ADR-302 <adr-302>`) is that caller; the report artifact
   (ADR-301) carries the result.
 - A report states what it checked against: the digest is a fingerprint of the
   rule state read just before the check, not a copy, and the check reads the
@@ -124,7 +124,7 @@ Consequences
   something changed.
 - A judge call costs a model call. A caller that checks a text the pipeline
   already judged pays twice unless it switches the pipeline's judge off for that
-  call; ADR-302 does so.
+  call; :ref:`ADR-302 <adr-302>` does so.
 - A channel limit in characters is not part of the check: no profile field holds
   one yet.
 

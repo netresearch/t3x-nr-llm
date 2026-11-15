@@ -1128,6 +1128,51 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Persist a record the runtime writes that holds no text of the run, such
+     * as the result of the end-of-run check or the rule state at the start
+     * (ADR-302), as the next event in its stream. Stored as it is at every
+     * privacy level, so the caller passes identifiers, digests and statuses
+     * only. Returns whether it was stored.
+     *
+     * @param array<string, mixed> $payload
+     */
+    public function recordRuntimeRecord(AgentRunHandle $handle, AgentEventKind $kind, array $payload): bool
+    {
+        try {
+            $this->repository->recordEvent(
+                $handle->runUid,
+                $handle->sequence,
+                $kind->value,
+                0,
+                0.0,
+                json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            );
+            ++$handle->sequence;
+
+            return true;
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception, $kind): void {
+                    $this->logger?->warning('AgentRun runtime record could not be persisted', ['kind' => $kind->value, 'exception' => $exception]);
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * The payload of the latest runtime record of a kind (ADR-302), null when
+     * the run has none.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findLatestRuntimeRecord(AgentRunHandle $handle, AgentEventKind $kind): ?array
+    {
+        return $this->repository->findLatestEvent($handle->runUid, $kind->value)?->payload;
+    }
+
+    /**
      * Persist what a continuation of the run derives from it (ADR-228) as the
      * next event in its stream: kind {@see AgentEventKind::LINEAGE}, payload
      * {@see RunLineage::toArray()} — uids and a digest, never text, so it is
