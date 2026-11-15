@@ -76,7 +76,7 @@ no word limit:
   so they cannot drift apart. An unknown writer counts as the most trusted zone,
   as before, and so does a writer that is named and no longer exists. A
   passage the judge quotes counts when it is found in the text or in a
-  decoded string of a JSON document.
+  decoded string of a JSON document the term check accepts.
 
 The report has one of four states:
 
@@ -84,8 +84,11 @@ The report has one of four states:
 - ``violation``: a term or a rule is broken;
 - ``not_checked``: a part of the check did not run, in report mode, or no rule
   applies to the text at all;
-- ``failed``: a part did not run and a judge is in block mode, or the term
-  lists could not be read.
+- ``failed``: a part did not run and a judge is in block mode, the term
+  lists could not be read, or the term check refused the text (a duplicate
+  key, an undecodable text with a JSON escape). A failed part is carried as
+  ``checkFailed`` apart from the status: a report can read ``violation`` and
+  still block for it.
 
 A text no rule applies to is ``not_checked``, never ``passed``: a pass says
 that rules were applied. A broken term blocks delivery, as it does in the

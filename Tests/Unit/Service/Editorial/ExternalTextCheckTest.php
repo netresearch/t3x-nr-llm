@@ -546,6 +546,14 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aDuplicateKeyNamesItsReason(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        self::assertSame([ExternalTextReport::REASON_JSON_AMBIGUOUS], $this->check()->check('{"a":1,"a":2}', $this->configuration(RuleJudgeMode::OFF))->reasons);
+    }
+
+    #[Test]
     public function anUndecodableTextWithAnEscapeNamesItsReason(): void
     {
         $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
