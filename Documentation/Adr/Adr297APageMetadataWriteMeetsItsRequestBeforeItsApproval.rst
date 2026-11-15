@@ -57,11 +57,14 @@ read refuses the call. For a call aimed at the requested row it requires:
 - the row unchanged since the task was accepted: its ``tstamp`` in the
   client's workspace is not later than the task's creation.
 
-A requested row that no longer exists refuses the call. A call aimed at
-another row is not this rule's business: the scope of the run admits no
-other row, and its rule names the reason (``outside_scope``,
-``language_not_allowed``). Otherwise the first refusing rule would hide the
-scope's reason.
+The call's uid is resolved as the scope resolves it. The requested row and
+its version in the client's workspace are checked as above; the scope admits
+both. Any other row of the requested page in the requested language, such as
+a second translation, is refused (``not_the_requested_row``), as is a
+requested row that no longer exists. A row of another page or language is
+left to the scope, which refuses it with its own reason (``outside_scope``,
+``language_not_allowed``); otherwise the first refusing rule would hide that
+reason.
 
 **The values live in code, not in the prompt and not in a configuration.**
 They are part of the contract version (``…v1``): a change of a limit is a

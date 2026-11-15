@@ -68,11 +68,13 @@ from the task's first message with the handler's parser. A refusal goes back
 to the model and into the governance log as `invocation_denied` with the
 rule's identifier.
 
-- **PC1 Row.** A call aimed at the requested row (the page, or its
-  translation in the requested language, as the client's workspace shows
-  them) is checked by PC2 to PC5. The requested row no longer existing is
-  `not_the_requested_row`. A call aimed at another row is left to the scope
-  (PM3), whose reason the model reads; an unreadable request is
+- **PC1 Row.** The call's uid is resolved as the scope resolves it. A call
+  aimed at the requested row (the page, or its translation in the requested
+  language, as the client's workspace shows them) or at its workspace
+  version is checked by PC2 to PC5. Any other row of that page in that
+  language, and a requested row that no longer exists, is
+  `not_the_requested_row`. A row of another page or language is left to the
+  scope (PM3), whose reason the model reads; an unreadable request is
   `request_unreadable`.
 - **PC2 Fields.** Only fields the request names, at least one:
   `field_not_requested`.
@@ -107,7 +109,7 @@ rule's identifier.
 | PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |
 | PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler); `A2aPageMetadataContractRuleTest::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` end to end |
-| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse` (functional) |
+| PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation) |
 | PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
 | PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`) |
 | PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` |
