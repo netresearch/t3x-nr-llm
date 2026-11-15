@@ -35,6 +35,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
 use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedState;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -65,6 +66,7 @@ use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
+use Netresearch\NrLlm\Service\Tool\InvocationDigests;
 use Netresearch\NrLlm\Service\Tool\RemoteCallBudget;
 use Netresearch\NrLlm\Service\Tool\RemoteToolInterface;
 use Netresearch\NrLlm\Service\Tool\RequiresApprovalInterface;
@@ -102,6 +104,7 @@ use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 
 #[CoversClass(ToolLoopService::class)]
 #[CoversClass(ToolResultBounder::class)]
@@ -2116,6 +2119,93 @@ final class ToolLoopServiceTest extends TestCase
         // gates it (the uid is not part of the persisted options).
         self::assertInstanceOf(ToolOptions::class, $capturedOptions);
         self::assertSame(42, $capturedOptions->getBeUserUid());
+    }
+
+    /**
+     * Every history entry the loop appends carries the digest of the call's
+     * arguments, a denied one included, and an ok result that observed a
+     * record state carries the digest of that state, also the result a
+     * dependency hands back on resume (ADR-298).
+     */
+    #[Test]
+    public function historyEntriesCarryTheArgumentsDigestAndTheObservedStateDigest(): void
+    {
+        $configuration              = $GLOBALS['TYPO3_CONF_VARS'] ?? null;
+        $conf                       = is_array($configuration) ? $configuration : [];
+        $system                     = is_array($conf['SYS'] ?? null) ? $conf['SYS'] : [];
+        $system['encryptionKey']    = 'loop-test-key';
+        $conf['SYS']                = $system;
+        $GLOBALS['TYPO3_CONF_VARS'] = $conf;
+
+        try {
+            $local     = new ObservedState('v1:' . str_repeat('a', 64), ['f' => 'local']);
+            $remote    = new ObservedState('v1:' . str_repeat('b', 64), ['f' => 'remote']);
+            $observing = new class ($local) implements ToolInterface {
+                public function __construct(private readonly ObservedState $state) {}
+
+                public function getSpec(): ToolSpec
+                {
+                    return ToolSpec::function('observe', 'observes', ['type' => 'object', 'properties' => ['a' => ['type' => 'integer']]]);
+                }
+
+                public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+                {
+                    return ToolResult::text('seen')->withObservedState($this->state);
+                }
+
+                public function isEnabledByDefault(): bool
+                {
+                    return true;
+                }
+
+                public function requiresAdmin(): bool
+                {
+                    return false;
+                }
+
+                public function getGroup(): string
+                {
+                    return 'test';
+                }
+            };
+            $queue = [
+                $this->response('', [new ToolCall('c1', 'observe', ['a' => 1])]),
+                $this->response('', [new ToolCall('c2', 'observe', ['a' => 2]), new ToolCall('c3', 'not_offered', ['b' => 2])]),
+                $this->response('', [new ToolCall('c4', 'delegate', [])]),
+                $this->response('', [new ToolCall('c5', 'delete_thing', [])]),
+            ];
+            $mgr = self::createStub(LlmServiceManagerInterface::class);
+            $mgr->method('chatWithToolsForConfiguration')->willReturnCallback($this->queueCallback($queue));
+            $registry = new ToolRegistry([$observing, new FakeDependencyTool('delegate'), $this->approvalTool()]);
+            $digests  = new InvocationDigests(self::createStub(ConnectionPool::class));
+            $service  = new ToolLoopService($mgr, $registry, $this->realPolicy($registry, new FakeToolAvailability($registry->names())), invocationDigests: $digests);
+            $context  = new ToolExecutionContext(AiActorContext::backendUser(42));
+
+            $entries = [];
+            try {
+                $service->runLoop([$this->userTurn('go')], $this->localConfiguration(), $context, null);
+                self::fail('The delegation did not suspend the run.');
+            } catch (ToolDependencyRequiredException $suspended) {
+                try {
+                    $service->resumeWithDependency($suspended->state, $suspended->checkpoint, ToolResult::text('done remotely')->withObservedState($remote), $this->localConfiguration(), $context);
+                    self::fail('The write did not suspend the run.');
+                } catch (ToolApprovalRequiredException $waiting) {
+                    $entries = $waiting->state->invocationHistory->entries ?? [];
+                }
+            }
+
+            $byTool = [];
+            foreach ($entries as $entry) {
+                $byTool[] = [$entry['tool'], $entry['outcome'], $entry['arguments'] ?? null, $entry['state'] ?? null];
+            }
+
+            self::assertContains(['observe', 'ok', $digests->arguments(['a' => 1]), $local->digest], $byTool);
+            self::assertContains(['observe', 'ok', $digests->arguments(['a' => 2]), $local->digest], $byTool);
+            self::assertContains(['not_offered', 'denied', $digests->arguments(['b' => 2]), null], $byTool);
+            self::assertContains(['delegate', 'ok', $digests->arguments([]), $remote->digest], $byTool);
+        } finally {
+            $GLOBALS['TYPO3_CONF_VARS'] = $configuration;
+        }
     }
 
     private function suspend(ToolLoopService $service, ?RunAugmentation $augmentation = null, ?ToolExecutionContext $context = null, ?int $maxIterations = null): SuspendedRunState

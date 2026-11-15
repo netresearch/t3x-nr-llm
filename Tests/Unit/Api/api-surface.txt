@@ -1276,6 +1276,12 @@ Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet (class)
   property readonly omitted: int
   property readonly refused: array
 
+Netresearch\NrLlm\Domain\ValueObject\ObservedState (class)
+  const DIGEST_PATTERN = "\/^v1:[0-9a-f]{64}\\z\/"
+  constructor(string $digest, array $values)
+  property readonly digest: string
+  property readonly values: array
+
 Netresearch\NrLlm\Domain\ValueObject\OperationUsage (class)
   constructor(string $operation, int $calls, int $failedCalls, int $lastCallAt)
   property readonly calls: int
@@ -1457,7 +1463,7 @@ Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision (class)
 
 Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory (class)
   constructor(array $entries = …, bool $complete = …)
-  method append(string $tool, string $outcome, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget $target): self
+  method append(string $tool, string $outcome, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget $target, ?string $arguments = …, ?string $state = …): self
   method static fromStored(mixed $raw): self
   method toStored(): array
   property readonly complete: bool
@@ -1495,12 +1501,14 @@ Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   method withBoundedChannels(string $content, array $artifacts): self
   method withHighlightTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target): self
   method withHookFailedAfterWrite(): self
+  method withObservedState(Netresearch\NrLlm\Domain\ValueObject\ObservedState $state): self
   method withWriteTarget(Netresearch\NrLlm\Domain\ValueObject\RecordReference $target, Netresearch\NrLlm\Domain\Enum\WriteKind $kind, ?Netresearch\NrLlm\Domain\Enum\WriteCompleteness $completeness = …): self
   property readonly artifacts: array
   property readonly content: string
   property readonly highlightTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
   property readonly hookFailedAfterWrite: bool
   property readonly isError: bool
+  property readonly observedState: ?Netresearch\NrLlm\Domain\ValueObject\ObservedState
   property readonly outcome: Netresearch\NrLlm\Domain\Enum\ToolOutcome
   property readonly writeCompleteness: ?Netresearch\NrLlm\Domain\Enum\WriteCompleteness
   property readonly writeKind: ?Netresearch\NrLlm\Domain\Enum\WriteKind
@@ -2443,6 +2451,13 @@ Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings (class)
 
 Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface (interface)
   method inputSchemaFor(array $arguments): array
+
+Netresearch\NrLlm\Service\Tool\InvocationDigests (class)
+  const PURPOSE_ARGUMENTS = "nr_llm.history.arguments"
+  const PURPOSE_STATE = "nr_llm.history.state"
+  constructor(TYPO3\CMS\Core\Database\ConnectionPool $connectionPool)
+  method arguments(array $arguments): ?string
+  method observe(string $table, int $uid, array $fields, Netresearch\NrLlm\Service\Tool\ToolExecutionContext $execution): ?Netresearch\NrLlm\Domain\ValueObject\ObservedState
 
 Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpCredentialSessionInterface (interface)
   method close(): void
