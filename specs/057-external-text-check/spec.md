@@ -29,12 +29,14 @@ edited outside nr-llm can only be checked by generating it again.
 - **X4 Status.** `passed`, `violation`, `not_checked` or `failed`. A broken term
   or rule is `violation`. A judge that gives no usable answer, has no judging
   configuration, an empty rule set, or may not receive the text is
-  `not_checked` in report mode and `failed` in block mode. A term check that
+  `not_checked` in report mode and `failed` in block mode, where the mode is
+  the strictest of every judged configuration (ADR-290). A term check that
   cannot run is `failed`. A text checked against no rule at all is
   `not_checked`, never `passed`. An empty text is not judged.
 - **X5 Blocking.** A broken term, a broken rule under a block-mode judge and
-  a failed check block delivery; a broken rule under a report-mode judge does
-  not. A failed check is carried apart from the status, so a non-blocking
+  a failed check block delivery; a broken rule does not when the strictest
+  mode of every judged configuration is report. That combined mode applies to
+  every rule finding and every judge failure, whichever judge produced it. A failed check is carried apart from the status, so a non-blocking
   finding cannot hide it, and the service never throws.
 - **X6 Findings.** Each names its kind, its source (list or snippet), the term
   or the rule line and, for a rule, the passage.

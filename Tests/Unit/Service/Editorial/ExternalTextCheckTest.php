@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Prompt\PromptSnippetComposer;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
 use Netresearch\NrLlm\Tests\Unit\Fixture\RecordingLogger;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 use Throwable;
@@ -400,6 +401,28 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
 
         self::assertSame(0, $this->judgeCalls);
         self::assertSame([ExternalTextReport::REASON_JUDGE_EGRESS], $report->reasons);
+    }
+
+    /**
+     * A decoder keeps the last of two members with one key, and a JSON text
+     * may be a string alone; every string literal of the text is searched.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function jsonHidingATerm(): iterable
+    {
+        yield 'duplicate member' => ['{"post":"\\u0052abatt","post":"clean"}'];
+        yield 'string root' => ['"\\u0052abatt"'];
+        yield 'escaped key' => ['{"\\u0052abatt":"clean"}'];
+    }
+
+    #[Test]
+    #[DataProvider('jsonHidingATerm')]
+    public function aForbiddenTermInAnyJsonStringLiteralIsFound(string $text): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check($text, $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
     #[Test]

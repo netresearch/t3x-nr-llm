@@ -27,11 +27,11 @@ use Throwable;
 
 use function array_unique;
 use function array_values;
-use function array_walk_recursive;
 use function in_array;
-use function is_array;
 use function is_string;
 use function json_decode;
+use function json_last_error;
+use function preg_match_all;
 use function preg_replace;
 use function trim;
 
@@ -325,15 +325,22 @@ final readonly class ExternalTextCheck
      */
     private function forms(string $text): array
     {
-        $forms   = $this->matcher->searchForms($text);
-        $body    = preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
-        $decoded = json_decode($body, true);
-        if (is_array($decoded)) {
-            array_walk_recursive($decoded, function (mixed $value) use (&$forms): void {
-                if (is_string($value)) {
-                    $forms = [...$forms, ...$this->matcher->searchForms($value)];
-                }
-            });
+        $forms = $this->matcher->searchForms($text);
+        $body  = preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
+        json_decode($body);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return $forms;
+        }
+
+        // Every string literal, decoded on its own: a decoder keeps only the
+        // last of two members with one key, and keys and a string root are
+        // strings a consumer may read too.
+        preg_match_all('/"(?:[^"\\\\]|\\\\.)*"/s', $body, $literals);
+        foreach ($literals[0] as $literal) {
+            $value = json_decode($literal);
+            if (is_string($value)) {
+                $forms = [...$forms, ...$this->matcher->searchForms($value)];
+            }
         }
 
         return $forms;

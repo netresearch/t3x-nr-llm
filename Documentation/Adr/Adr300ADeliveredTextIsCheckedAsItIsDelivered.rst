@@ -49,8 +49,9 @@ no word limit:
 - **Terms.** Every forbidden term found and every required term missing, across
   every term list that applies to the site and language given, the strings of a
   JSON text included. A list is found by the configuration it names, as in the
-  pipeline, so a further configuration that is hidden still brings its lists;
-  its judge, as in the pipeline, does not apply. The report names all of them; the pipeline stops at the
+  pipeline, so a further configuration that is hidden still brings its lists.
+  Its judge applies exactly when the pipeline's would: both look the
+  configuration up by uid in the same way. The report names all of them; the pipeline stops at the
   first.
 - **Judge.** Every configuration whose judge is on is judged with its own rule
   set by its own judging configuration. The strictest mode decides. The judge
@@ -101,10 +102,11 @@ Consequences
   checked, as soon as a caller asks for it. The end-of-run check
   (ADR-302) is that caller; the report artifact
   (ADR-301) carries the result.
-- A report states what it checked against. Two reports with the same rule-state
-  digest applied the same rules; a different digest means something changed.
-  The digest is a fingerprint, not a copy: the texts it was built from are read
-  live.
+- A report states what it checked against: the digest is a fingerprint of the
+  rule state read just before the check, not a copy, and the check reads the
+  rules live again. An edit between those two reads can make the check apply
+  a newer rule than the digest names; a different digest always means
+  something changed.
 - A judge call costs a model call. A caller that checks a text the pipeline
   already judged pays twice unless it switches the pipeline's judge off for that
   call; ADR-302 does so.
