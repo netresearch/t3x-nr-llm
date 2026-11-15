@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushConfigStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushDeliverer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcServer;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskView;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aHttpRequest;
@@ -339,6 +342,125 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-PUSH3: a client revoked after its job was written gets nothing: the
+     * revocation stops its configs. A client disabled some other way (the
+     * record edited, its technical user disabled) is checked before every
+     * attempt.
+     */
+    #[Test]
+    public function aRevokedOrDisabledClientGetsNoMoreDeliveries(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        self::assertTrue($this->getService(A2aInboundClientRepository::class)->revoke(1));
+
+        self::assertSame(0, $this->deliverer()->deliverDue(time()));
+        self::assertSame([], $this->transport->requests);
+        self::assertSame(['stopped', 'CLIENT_REVOKED'], array_values((array) $this->db(A2aPushConfigStore::TABLE)->select(['state', 'reason'], A2aPushConfigStore::TABLE)->fetchAssociative()));
+
+        $other = $this->newTask(4);
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($other, 'c-2'), 4));
+        $this->cancel($other, 4);
+        $this->db('be_users')->update('be_users', ['disable' => 1], ['uid' => 7]);
+
+        self::assertSame(0, $this->deliverer()->deliverDue(time()));
+        self::assertSame([], $this->transport->requests);
+        self::assertSame('CLIENT_INACTIVE', $this->db(A2aPushConfigStore::TABLE)->select(['reason'], A2aPushConfigStore::TABLE, ['config_id' => 'c-2'])->fetchOne());
+    }
+
+    /**
+     * A2A-OPS2: switching push off is a kill switch. Nothing is sent and no
+     * new job is written while it is off; pending jobs wait and go out once
+     * it is on again, within their deadline.
+     */
+    #[Test]
+    public function switchingPushOffStopsEveryDelivery(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        $this->serverSettings(self::SERVER_SETTINGS);
+
+        self::assertSame(0, $this->deliverer()->deliverDue(time()));
+        self::assertSame([], $this->transport->requests);
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'pending']));
+
+        $later = $this->newTask();
+        $this->db(A2aPushConfigStore::TABLE)->insert(A2aPushConfigStore::TABLE, ['config_id' => 'raw', 'task_uid' => $this->taskUid($later), 'owner_client_uid' => 1, 'url' => self::HOOK, 'state' => 'active']);
+        $this->getService(A2aTaskProjector::class)->projectPending();
+        self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE), 'no job while off');
+
+        $this->serverSettings(['push' => '1'] + self::SERVER_SETTINGS);
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(200, '', '', '', false));
+        self::assertSame(1, $this->deliverer()->deliverDue(time()));
+    }
+
+    /**
+     * A2A-PUSH5: the attempts are bounded per config. When the newest job
+     * fails for good, the older pending jobs of the config, which would send
+     * the same task, end with it.
+     */
+    #[Test]
+    public function aFinalFailureEndsTheOlderJobsOfTheConfig(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        foreach ([1, 2, 3] as $revision) {
+            $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $this->configUid(), 'task_uid' => $this->taskUid($task), 'revision' => $revision, 'state' => 'pending', 'deadline' => time() + 100]);
+        }
+
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(400, '', '', '', false));
+        $this->deliverer()->deliverDue(time());
+        $this->deliverer()->deliverDue(time() + 1);
+
+        self::assertCount(1, $this->transport->requests);
+        self::assertSame(2, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'superseded']));
+    }
+
+    /**
+     * The lease is taken from the clock at the attempt, not from the start
+     * of the pass: a second worker running while a slow send is under way
+     * does not claim the same job.
+     */
+    #[Test]
+    public function aSecondWorkerDoesNotClaimAJobInFlight(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->db(A2aPushConfigStore::OUTBOX_TABLE)->insert(A2aPushConfigStore::OUTBOX_TABLE, ['config_uid' => $this->configUid(), 'task_uid' => $this->taskUid($task), 'revision' => 5, 'state' => 'pending', 'next_attempt' => 0, 'deadline' => time() + 100]);
+
+        $this->transport->then(function (): A2aTransportResult {
+            // Another worker's tick while this send is still on its way.
+            $this->deliverer()->deliverDue(time());
+
+            return A2aTransportResult::response(200, '', '', '', false);
+        });
+
+        // A pass that started an hour ago, its slow sends still running.
+        self::assertSame(1, $this->deliverer()->deliverDue(time() - 3600));
+        self::assertCount(1, $this->transport->requests);
+    }
+
+    /**
+     * A credential that cannot be opened stops its config instead of being
+     * retried on every tick.
+     */
+    #[Test]
+    public function anUnreadableCredentialStopsTheConfig(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $this->cancel($task);
+        $this->db(A2aPushConfigStore::TABLE)->update(A2aPushConfigStore::TABLE, ['credentials' => substr_replace(self::text($this->db(A2aPushConfigStore::TABLE)->select(['credentials'], A2aPushConfigStore::TABLE)->fetchOne()), 'AAAA', -8, 4)], ['config_id' => 'c-1']);
+
+        $this->deliverer()->deliverDue(time());
+
+        self::assertSame([], $this->transport->requests);
+        self::assertSame(['stopped', 'CREDENTIAL_UNREADABLE'], array_values((array) $this->db(A2aPushConfigStore::TABLE)->select(['state', 'reason'], A2aPushConfigStore::TABLE)->fetchAssociative()));
+    }
+
+    /**
      * A2A-PUSH3: a job past its deadline is abandoned unsent.
      */
     #[Test]
@@ -372,6 +494,8 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
             $this->getService(A2aTaskView::class),
             $this->getService(AgentStateCodec::class),
             $this->getService(A2aUrlGuardFactory::class),
+            $this->getService(A2aServerSettings::class),
+            $this->getService(A2aAuthenticator::class),
             null,
             static fn (int $delay): int => 0,
         );
@@ -393,9 +517,9 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
     /**
      * A new revision of the task, so the projector writes an event and its jobs.
      */
-    private function cancel(string $taskId): void
+    private function cancel(string $taskId, int $client = 1): void
     {
-        self::assertSame('TASK_STATE_CANCELED', self::j($this->taskOf($this->call('CancelTask', ['id' => $taskId])), 'status.state'));
+        self::assertSame('TASK_STATE_CANCELED', self::j($this->taskOf($this->call('CancelTask', ['id' => $taskId], $client)), 'status.state'));
     }
 
     /**

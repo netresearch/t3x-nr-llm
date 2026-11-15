@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportOutcome;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aUrlGuardFactory;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
+use Netresearch\NrLlm\Service\Tool\Exception\AgentStateDecryptionException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -95,6 +96,8 @@ final readonly class A2aPushDeliverer
         private A2aTaskView $view,
         private AgentStateCodec $codec,
         private A2aUrlGuardFactory $guards,
+        private A2aServerSettings $settings,
+        private A2aAuthenticator $authenticator,
         private ?LoggerInterface $logger = null,
         ?Closure $jitter = null,
     ) {
@@ -111,9 +114,10 @@ final readonly class A2aPushDeliverer
         $connection->executeStatement(
             'INSERT INTO ' . $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE)
             . ' (config_uid, task_uid, revision, state, attempts, next_attempt, deadline, lease_holder, lease_until, last_status, last_reason, crdate, tstamp)'
-            . ' SELECT uid, task_uid, ?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?'
-            . ' FROM ' . $connection->quoteIdentifier(A2aPushConfigStore::TABLE)
-            . ' WHERE task_uid = ? AND state = ?',
+            . ' SELECT p.uid, p.task_uid, ?, ?, 0, ?, ?, ?, 0, 0, ?, ?, ?'
+            . ' FROM ' . $connection->quoteIdentifier(A2aPushConfigStore::TABLE) . ' p'
+            . ' WHERE p.task_uid = ? AND p.state = ?'
+            . ' AND EXISTS (SELECT 1 FROM ' . $connection->quoteIdentifier(A2aInboundClientRepository::TABLE) . ' c WHERE c.uid = p.owner_client_uid AND c.enabled = 1 AND c.deleted = 0)',
             [$revision, self::JOB_PENDING, $now, $now + self::DEADLINE_SECONDS, '', '', $now, $now, $taskUid, A2aPushConfigStore::STATE_ACTIVE],
             [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR],
         );
@@ -126,6 +130,13 @@ final readonly class A2aPushDeliverer
      */
     public function deliverDue(int $now, int $limit = 50): int
     {
+        if (!$this->settings->pushEnabled()) {
+            // The switch is a kill switch: while push is off nothing is sent.
+            // Pending jobs are kept and go out if push is switched on again
+            // before their deadline; after it they are abandoned unsent.
+            return 0;
+        }
+
         $connection = $this->connection();
         $table      = $connection->quoteIdentifier(A2aPushConfigStore::OUTBOX_TABLE);
         // A finished job is kept for a week as the record of what happened,
@@ -153,7 +164,10 @@ final readonly class A2aPushDeliverer
             }
 
             try {
-                $delivered += $this->attempt((int) $uid, $now) ? 1 : 0;
+                // The clock is read per attempt: a pass that sends many jobs to
+                // slow receivers outlasts a lease taken from the tick's start,
+                // and another worker could claim the same job again.
+                $delivered += $this->attempt((int) $uid, max($now, time())) ? 1 : 0;
             } catch (Throwable $e) {
                 // One job must not stop the others; its lease runs out and it
                 // is tried again.
@@ -200,7 +214,28 @@ final readonly class A2aPushDeliverer
             return false;
         }
 
-        $request = $this->request($config);
+        // A client revoked, disabled or expired since the job was written,
+        // or whose technical user is no longer usable, gets nothing more; its
+        // config stops.
+        if (!$this->authenticator->mayStillAct($this->int($config['owner_client_uid'] ?? 0), $now)) {
+            $this->stopConfig($config, A2aPushConfigStore::STATE_STOPPED, 'CLIENT_INACTIVE', $now);
+            $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'CLIENT_INACTIVE', $attempts, $now);
+
+            return false;
+        }
+
+        try {
+            $request = $this->request($config);
+        } catch (AgentStateDecryptionException) {
+            // A credential that cannot be opened (a key that is gone) never
+            // will be: the config stops instead of being retried every tick.
+            $this->stopConfig($config, A2aPushConfigStore::STATE_STOPPED, 'CREDENTIAL_UNREADABLE', $now);
+            $this->finish($jobUid, $holder, self::JOB_FAILED, 0, 'CREDENTIAL_UNREADABLE', $attempts, $now);
+            $this->logger?->error('The credential of an A2A push config cannot be read; the config is stopped', ['config' => $config['uid'] ?? 0]);
+
+            return false;
+        }
+
         if ($request === null) {
             $this->finish($jobUid, $holder, self::JOB_DROPPED, 0, 'TASK_GONE', $attempts, $now);
 
@@ -265,6 +300,10 @@ final readonly class A2aPushDeliverer
 
         $state = $this->retryable($result) ? self::JOB_ABANDONED : self::JOB_FAILED;
         $this->finish($jobUid, $holder, $state, $status, $reason, $attempts, $now);
+        // The older pending jobs of the config would send the same task as it
+        // is now; they end with this one, so the attempts stay bounded per
+        // config rather than per stored change (A2A-PUSH5).
+        $this->supersedeOlder($job, $now);
         $this->logger?->warning('An A2A push was not delivered', ['job' => $jobUid, 'state' => $state, 'reason' => $reason, 'attempts' => $attempts]);
 
         return false;

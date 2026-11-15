@@ -249,7 +249,9 @@ client can register webhooks for its own tasks, with
 - **Credentials.** The one supported scheme is a Bearer credential in
   ``authentication``; it is sent as ``Authorization: Bearer``. The optional
   ``token`` is stored and returned but never sent. Both are stored sealed,
-  like the run state; ``Get`` and ``List`` answer the credential masked.
+  like the run state; ``Get`` and ``List`` answer the credential masked. A
+  secret a client puts into the URL itself, in its query string, is not a
+  credential: it is stored and shown like the rest of the URL.
 - **No update.** A ``Create`` with the id of an existing config of the same
   task replaces it. ``Delete`` is idempotent. A task has at most
   ``a2a.server.maxPushConfigsPerTask`` (default 4) configs, a client
@@ -269,6 +271,12 @@ client can register webhooks for its own tasks, with
   client registers a new one. Any other answer fails that one delivery.
 - **After a delete** no new attempt starts. A request already on its way may
   still arrive.
+- **Revoked clients.** Revoking a client stops its configs. Before every
+  attempt the sender checks again that the client is enabled, not expired,
+  and that its technical backend user is usable; otherwise the config stops.
+- **Switching push off** stops every delivery at once and writes no new
+  jobs; the methods answer ``-32003``. Jobs already written wait and go out
+  if push is switched on again within a day.
 - **In the backend** the configs are records of the type
   :guilabel:`A2A Push Config` on the root page, read-only, with their state
   and the reason of the last refusal; the credential is not shown.

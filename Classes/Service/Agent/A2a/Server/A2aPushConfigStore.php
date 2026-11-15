@@ -144,6 +144,15 @@ final readonly class A2aPushConfigStore
      */
     public function insert(Connection $connection, A2aInboundClient $client, int $taskUid, array $config, int $now): void
     {
+        // The client's row lock serialises the configs of one client, so two
+        // concurrent creates cannot both pass a count the other changes. The
+        // acceptance of SendMessage holds the same lock already.
+        $connection->executeStatement(
+            'UPDATE ' . $connection->quoteIdentifier(A2aInboundClientRepository::TABLE) . ' SET uid = uid WHERE uid = ?',
+            [$client->uid],
+            [Connection::PARAM_INT],
+        );
+
         $existing = $connection->select(['uid'], self::TABLE, ['task_uid' => $taskUid, 'config_id' => $config['id'], 'owner_client_uid' => $client->uid])->fetchOne();
         if (is_numeric($existing)) {
             $this->remove($connection, (int) $existing);
@@ -266,6 +275,21 @@ final readonly class A2aPushConfigStore
                 $this->remove($connection, (int) $uid);
             }
         });
+    }
+
+    /**
+     * Stop every active config of a client and end their pending deliveries.
+     */
+    public static function stopAllOf(ConnectionPool $connectionPool, int $clientUid, string $reason): void
+    {
+        $connection = $connectionPool->getConnectionForTable(self::TABLE);
+        $uids       = $connection->select(['uid'], self::TABLE, ['owner_client_uid' => $clientUid])->fetchFirstColumn();
+        $connection->update(self::TABLE, ['state' => self::STATE_STOPPED, 'reason' => $reason, 'tstamp' => time()], ['owner_client_uid' => $clientUid, 'state' => self::STATE_ACTIVE]);
+        foreach ($uids as $uid) {
+            if (is_numeric($uid)) {
+                $connection->update(self::OUTBOX_TABLE, ['state' => 'dropped', 'last_reason' => $reason, 'tstamp' => time()], ['config_uid' => (int) $uid, 'state' => 'pending']);
+            }
+        }
     }
 
     /**
