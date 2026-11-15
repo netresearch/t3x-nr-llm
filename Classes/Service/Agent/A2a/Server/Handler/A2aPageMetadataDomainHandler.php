@@ -152,17 +152,15 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             !in_array(self::READ_TOOL, $context->toolNames, true)  => 'the profile does not grant get_page_content',
             !$context->configuration->getRequireDraftWorkspace()   => 'its LLM configuration does not require a draft workspace',
             !$context->configuration->getRequireAssignmentScope()  => 'its LLM configuration does not require the scope of an assignment',
-            !$user instanceof BackendUserAuthentication            => "the client's technical user cannot act in its pinned workspace",
+            $user === null                                         => "the client's technical user cannot act in its pinned workspace",
             default                                                => null,
         };
 
-        if ($problem !== null) {
+        if ($problem !== null || $user === null) {
             $this->logger->warning('A2A page metadata skill cannot run: ' . $problem, ['profile' => $profile->uid]);
 
             throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This skill is not available.', A2aRpcError::REASON_PROFILE_UNAVAILABLE);
         }
-
-        assert($user instanceof BackendUserAuthentication);
 
         return $user;
     }
