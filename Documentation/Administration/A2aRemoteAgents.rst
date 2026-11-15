@@ -339,10 +339,11 @@ the next ``GetTask`` forward.
    stored callback at the record's minimum poll interval after its last look
    instead of at the scheduled time, never earlier. The look is ``GetTask`` as
    the run's owner; the state the run continues with is what that answers,
-   never the callback body. A look marks every callback received until then
-   as reconciled. When the run continues, its registration and its callbacks
-   are deleted; a later callback is 401, and a duplicate never continues a
-   run twice.
+   never the callback body. A look deletes every callback received until it
+   began, so the inbox bounds also bound what is stored; a callback received
+   during the look stays and brings the next look forward. When the run
+   continues, its registration and its callbacks are deleted; a later
+   callback is 401, and a duplicate never continues a run twice.
 -  **Cleanup.** A registration takes callbacks only while its run is running
    or waiting for the remote task. Registrations and their callbacks are
    deleted when the run continues (with the remote's result or at its

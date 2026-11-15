@@ -313,8 +313,8 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
 
     /**
      * A2A-PUSH8: the inbox is bounded per registration and in total; over a
-     * bound the callback is 429 and nothing is stored. Callbacks the worker
-     * has reconciled do not count.
+     * bound the callback is 429 and nothing is stored. A look deletes the
+     * callbacks it handled, so they no longer count.
      */
     #[Test]
     public function theInboxIsBoundedPerRegistrationAndInTotal(): void
@@ -330,15 +330,16 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         self::assertNotSame('', $full->getHeaderLine('Retry-After'));
         self::assertSame(2, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
 
-        // Reconciled callbacks free the bound.
+        // Handled callbacks are deleted and free the bound.
         $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
         self::assertSame(1, $this->poller()->tick($this->lastLookAt() + 10)->waiting);
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
         self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
 
-        // The bound in total: 3 unreconciled callbacks across the installation.
+        // The bound in total: 1 callback across the installation.
         $this->settings(['server' => ['enabled' => '0'], 'client' => ['maxPushInbox' => '1'] + self::CLIENT_SETTINGS]);
         self::assertSame(429, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode());
-        self::assertSame(3, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
         self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($run->uuid)->statusEnum());
         self::assertSame('task-1', $checkpoint->remoteTaskId);
     }
@@ -375,7 +376,7 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
         self::assertSame(1, $poller->tick($start + 30)->waiting, 'brought forward from start + 40');
         self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($run->uuid)->statusEnum(), 'GetTask said WORKING');
-        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE, true));
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE), 'the look deleted the callback');
 
         // GetTask says COMPLETED: the run resumes once, as its owner.
         self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_COMPLETED'), $credential)->getStatusCode());
@@ -539,6 +540,62 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         $this->poller()->tick(time());
 
         self::assertSame(0, $this->rows(A2aPushRegistrationStore::TABLE));
+        self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
+    }
+
+    /**
+     * A2A-PUSH8: a look deletes the callbacks it handled, so the bound per
+     * delegation also bounds what is stored. A remote that keeps its task
+     * working and fills the bound after every look never holds more rows
+     * than the bound.
+     */
+    #[Test]
+    public function handledCallbacksAreDeletedSoTheBoundAlsoBoundsStorage(): void
+    {
+        $this->agent();
+        $this->suspendedRun();
+        $poller     = $this->poller();
+        $credential = 'Bearer ' . $this->credentialOf(1);
+
+        foreach ([1, 2, 3] as $round) {
+            self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'round ' . $round);
+            self::assertSame(202, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'round ' . $round);
+            self::assertSame(429, $this->notify($this->statusBody('TASK_STATE_WORKING'), $credential)->getStatusCode(), 'round ' . $round);
+            self::assertSame(2, $this->rows(A2aPushRegistrationStore::INBOX_TABLE), 'never more than the bound, round ' . $round);
+
+            $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+            self::assertSame(1, $poller->tick($this->lastLookAt() + 10)->waiting, 'round ' . $round);
+            self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE), 'the look deletes what it handled, round ' . $round);
+        }
+    }
+
+    /**
+     * A2A-PUSH8: a look handles only the callbacks received until it
+     * started. One received later stays and brings the next look forward.
+     */
+    #[Test]
+    public function aCallbackReceivedAfterTheLookStaysForTheNextOne(): void
+    {
+        $this->agent();
+        $this->suspendedRun();
+        $poller = $this->poller();
+        $start  = $this->lastLookAt();
+        $uid    = $this->registration()['uid'] ?? null;
+        self::assertIsNumeric($uid);
+
+        // Two looks without news: the next one is due at start + 40.
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+        self::assertSame(1, $poller->tick($start + 10)->waiting);
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+
+        // Received at start + 25, while the look at start + 20 was under way.
+        self::assertSame(A2aPushRegistrationStore::STORED, $this->store()->store((int) $uid, $this->statusBody('TASK_STATE_WORKING'), $start + 25, 2, 100));
+        self::assertSame(1, $poller->tick($start + 20)->waiting);
+        self::assertSame(1, $this->rows(A2aPushRegistrationStore::INBOX_TABLE), 'received after the look began');
+
+        self::assertSame(1, $poller->tick($start + 25)->notDue);
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+        self::assertSame(1, $poller->tick($start + 30)->waiting, 'brought forward from start + 40');
         self::assertSame(0, $this->rows(A2aPushRegistrationStore::INBOX_TABLE));
     }
 
@@ -908,15 +965,9 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
         return (int) $value;
     }
 
-    private function rows(string $table, bool $unreconciledOnly = false): int
+    private function rows(string $table): int
     {
-        if (!$unreconciledOnly) {
-            return $this->db($table)->count('*', $table, []);
-        }
-
-        $builder = $this->db($table)->createQueryBuilder();
-
-        return (int) $builder->count('*')->from($table)->where($builder->expr()->isNull('reconciled_at'))->executeQuery()->fetchOne();
+        return $this->db($table)->count('*', $table, []);
     }
 
     /**

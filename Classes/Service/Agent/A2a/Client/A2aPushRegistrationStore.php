@@ -26,10 +26,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * - A registration accepts callbacks while it is `pending` (the remote has
  *   not answered the create yet), `active`, or `outcome_unknown` (the remote
  *   may hold the config). A `refused` registration accepts none.
- * - A callback body is stored sealed. The inbox counts only callbacks the
- *   worker has not reconciled yet; the bound per registration is checked
- *   under a lock on the registration row, the bound in total in the same
- *   transaction.
+ * - A callback body is stored sealed. A look at the remote task deletes the
+ *   callbacks received until it began, so the inbox holds only callbacks the
+ *   worker has not handled yet, and its bounds bound the rows stored. The
+ *   bound per registration is checked under a lock on the registration row,
+ *   the bound in total in the same transaction.
  * - Only a registration whose run is running or waits for its remote task
  *   accepts a callback. The registration and its inbox are removed when the dependency
  *   resolves or the run is cancelled, by the poller's sweep once the run has
@@ -217,7 +218,7 @@ final readonly class A2aPushRegistrationStore
 
     /**
      * Whether the registration of a send intent holds a callback the worker
-     * has not reconciled yet.
+     * has not handled yet.
      */
     public function hasUnreconciled(int $sendUid): bool
     {
@@ -239,7 +240,8 @@ final readonly class A2aPushRegistrationStore
 
     /**
      * The worker read the remote task now: every callback received until
-     * now is reconciled.
+     * now is handled and deleted. One received later stays, and brings the
+     * next look forward.
      */
     public function looked(int $sendUid, int $now): void
     {
@@ -253,11 +255,9 @@ final readonly class A2aPushRegistrationStore
 
         $builder = $connection->createQueryBuilder();
         $builder
-            ->update(self::INBOX_TABLE)
-            ->set('reconciled_at', $now)
+            ->delete(self::INBOX_TABLE)
             ->where(
                 $builder->expr()->eq('registration_uid', $builder->createNamedParameter($uid, Connection::PARAM_INT)),
-                $builder->expr()->isNull('reconciled_at'),
                 $builder->expr()->lte('received', $builder->createNamedParameter($now, Connection::PARAM_INT)),
             )
             ->executeStatement();
@@ -290,9 +290,9 @@ final readonly class A2aPushRegistrationStore
     private function unreconciled(Connection $connection, ?int $registrationUid): int
     {
         $builder = $connection->createQueryBuilder();
-        $builder->count('uid')->from(self::INBOX_TABLE)->where($builder->expr()->isNull('reconciled_at'));
+        $builder->count('uid')->from(self::INBOX_TABLE);
         if ($registrationUid !== null) {
-            $builder->andWhere($builder->expr()->eq('registration_uid', $builder->createNamedParameter($registrationUid, Connection::PARAM_INT)));
+            $builder->where($builder->expr()->eq('registration_uid', $builder->createNamedParameter($registrationUid, Connection::PARAM_INT)));
         }
 
         $count = $builder->executeQuery()->fetchOne();

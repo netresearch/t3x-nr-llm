@@ -769,7 +769,7 @@ because `Task`, `Skill` and `ToolArtifact` are taken.
 | `tx_nrllm_a2a_push_config` | push config, sender (5b) | config id, task uid, owner, URL, token and credential references, state |
 | `tx_nrllm_a2a_push_outbox` | delivery jobs, sender (5b) | config uid, event revision, attempts, next attempt, deadline, state |
 | `tx_nrllm_a2a_push_registration` | push registration, receiver (5b) | send-intent uid, remote task id, callback credential prefix and hash, remote config id, state |
-| `tx_nrllm_a2a_push_inbox` | received callbacks (5b) | registration uid, received at, body (sealed, bounded), reconciled at |
+| `tx_nrllm_a2a_push_inbox` | received callbacks (5b) | registration uid, received at, body (sealed, bounded); a look deletes the callbacks it handled |
 
 The run checkpoint of A2A-R3 lives in the existing sealed suspension state of
 the run, not in a table of its own.

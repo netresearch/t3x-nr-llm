@@ -82,7 +82,7 @@ final readonly class A2aClientPushSettings
     }
 
     /**
-     * Unreconciled callbacks one registration may hold, 1 to 100.
+     * Callbacks not handled yet that one registration may hold, 1 to 100.
      */
     public function maxInboxPerTask(): int
     {
@@ -90,7 +90,8 @@ final readonly class A2aClientPushSettings
     }
 
     /**
-     * Unreconciled callbacks the installation holds at most, 1 to 100000.
+     * Callbacks not handled yet that the installation holds at most, 1 to
+     * 100000.
      */
     public function maxInbox(): int
     {

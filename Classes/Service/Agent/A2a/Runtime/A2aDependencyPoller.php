@@ -51,7 +51,7 @@ use Psr\Log\LoggerInterface;
  * - A push callback the receiver stored (A2A-PUSH8) brings the next look
  *   forward, to the record's minimum interval after the last look, never
  *   closer. The look is GetTask as the owner; the callback body decides
- *   nothing. Each look reconciles the callbacks received until then; at the
+ *   nothing. Each look deletes the callbacks received until it began; at the
  *   end of each tick the registrations of runs that ended, those resumed
  *   in the tick included, are closed.
  *

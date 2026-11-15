@@ -2033,7 +2033,8 @@ CREATE TABLE tx_nrllm_a2a_push_registration (
 # A2A-PUSH8): stored before the endpoint answers 2xx, bounded per
 # registration and in total. A body is a signal only; the worker reads the
 # remote task with GetTask. The body is sealed (AgentStateCodec, purpose
-# nrllm:a2a:push-inbox). NULL reconciled_at = not looked at yet.
+# nrllm:a2a:push-inbox). A look deletes the callbacks received until it
+# began; a row is a callback the worker has not handled yet.
 #
 CREATE TABLE tx_nrllm_a2a_push_inbox (
     uid int(11) NOT NULL auto_increment,
@@ -2042,9 +2043,7 @@ CREATE TABLE tx_nrllm_a2a_push_inbox (
     received int(11) unsigned DEFAULT '0' NOT NULL,
     body mediumtext,
     body_bytes int(11) unsigned DEFAULT '0' NOT NULL,
-    reconciled_at int(11) unsigned DEFAULT NULL,
 
     PRIMARY KEY (uid),
-    KEY registration (registration_uid, reconciled_at),
-    KEY open (reconciled_at)
+    KEY registration (registration_uid, received)
 );
