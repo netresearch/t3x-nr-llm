@@ -41,6 +41,13 @@ final readonly class ExternalTextReport
     /** The term lists could not be read or searched. */
     public const REASON_TERM_CHECK_FAILED = 'term_check_failed';
 
+    /**
+     * A JSON text names a key twice, or a key only some decoders accept:
+     * which value a consumer reads is not known, so the text is not vouched
+     * for, and the term check fails.
+     */
+    public const REASON_JSON_AMBIGUOUS = 'json_ambiguous_keys';
+
     /** The configurations or rules could not be read at all. */
     public const REASON_CHECK_FAILED = 'check_failed';
 

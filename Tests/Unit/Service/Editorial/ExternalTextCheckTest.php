@@ -349,8 +349,8 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
     }
 
     /**
-     * The judge reads the delivered bytes: prose in a JSON key, or a value a
-     * duplicate key would hide from a decoder, is in front of it.
+     * The judge reads the delivered bytes: prose in a JSON key is in front
+     * of it.
      */
     #[Test]
     public function theJudgeReadsTheDeliveredTextNotOnlyTheStringsOfAJsonText(): void
@@ -362,7 +362,7 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
 
             return [];
         });
-        $text = '{"post":"Heilt garantiert jede Krankheit","post":"Hallo"}';
+        $text = '{"Heilt garantiert jede Krankheit":"Mehr dazu morgen"}';
 
         $this->check(judge: $judge)->check($text, $this->configuration(RuleJudgeMode::BLOCK));
 
@@ -411,15 +411,10 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
      */
     public static function jsonHidingATerm(): iterable
     {
-        yield 'duplicate member' => ['{"post":"\\u0052abatt","post":"clean"}'];
         yield 'string root' => ['"\\u0052abatt"'];
         yield 'escaped key' => ['{"\\u0052abatt":"clean"}'];
-        yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"\\u0052abatt"}'];
-        yield 'lone surrogate before the term' => ['{"post":"\\ud800\\u0052abatt"}'];
-        yield 'inch mark before the JSON' => ["Der 24\" Monitor:\n```json\n{\"post\":\"\\u0052abatt\"}\n```"];
-        yield 'single-quoted literal' => ["{post:'\\u0052abatt'}"];
-        yield 'surrogate pair around the term' => ['{"post":"\\ud83d\\ude00 \\u0052abatt"}'];
-        yield 'fenced after a sentence' => ["Hier der Post:\n```json\n{\"post\":\"\\u0052abatt\"}\n```"];
+        yield 'escaped value in a fence' => ["```json\n{\"post\":\"\\u0052abatt\"}\n```"];
+        yield 'surrogate pair before the term' => ['{"post":"\\ud83d\\ude00 \\u0052abatt"}'];
     }
 
     #[Test]
@@ -457,10 +452,6 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
     }
 
     /**
-     * An escaped backslash before a `u` is a backslash, not an escape: the
-     * text says `\\u0052abatt` literally and holds no forbidden word.
-     */
-    /**
      * A digit written as an escape is the digit: `\u0030` is "0", which PHP
      * reads as false, never U+FFFD.
      */
@@ -472,6 +463,62 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('{"post":"Modell \\u0041\\u0030 jetzt"}', $this->configuration(RuleJudgeMode::OFF))->status);
     }
 
+    /**
+     * A term written with a surrogate pair is the character the pair stands
+     * for.
+     */
+    #[Test]
+    public function aTermWrittenWithASurrogatePairIsFound(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ["\u{1F600}Rabatt"], [], '')];
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('{"post":"Neu: \\ud83d\\ude00Rabatt"}', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * A decoder keeps one of two members with one key, and which one differs
+     * between consumers: such a text cannot be vouched for, and blocks.
+     *
+     * @return iterable<string, array{string}>
+     */
+    public static function jsonWithAmbiguousKeys(): iterable
+    {
+        yield 'duplicate member' => ['{"post":"\\u0052abatt","post":"clean"}'];
+        yield 'nested duplicate member' => ['{"a":{"post":"clean","post":"clean"}}'];
+        yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"clean"}'];
+    }
+
+    #[Test]
+    #[DataProvider('jsonWithAmbiguousKeys')]
+    public function aJsonTextWithAmbiguousKeysFailsTheCheck(string $text): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        $report = $this->check()->check($text, $this->configuration(RuleJudgeMode::OFF));
+
+        self::assertTrue($report->blocks());
+        self::assertTrue($report->hasReason(ExternalTextReport::REASON_JSON_AMBIGUOUS));
+    }
+
+    /**
+     * A text that is no JSON is plain text: a deeply nested or broken
+     * document is searched as it is.
+     */
+    #[Test]
+    public function aTextThatIsNoJsonIsSearchedAsPlainText(): void
+    {
+        $this->lists = [new TermListRule('Marke', '', '', ['Rabatt'], [], '')];
+
+        $deep = str_repeat('[', 600) . '"Rabatt"' . str_repeat(']', 600);
+
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check($deep, $this->configuration(RuleJudgeMode::OFF))->status);
+        self::assertSame(ExternalTextStatus::VIOLATION, $this->check()->check('Der 24" Monitor mit Rabatt', $this->configuration(RuleJudgeMode::OFF))->status);
+    }
+
+    /**
+     * An escaped backslash before a `u` is a backslash, not an escape: the
+     * text says `\\u0052abatt` literally and holds no forbidden word.
+     */
     #[Test]
     public function anEscapedBackslashIsNotDecodedAsAnEscape(): void
     {

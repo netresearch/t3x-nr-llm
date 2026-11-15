@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Editorial;
 
+use JsonException;
 use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -24,6 +25,7 @@ use Netresearch\NrLlm\Service\Guardrail\Term\TermListResolverInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListRule;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
 use Psr\Log\LoggerInterface;
+use stdClass;
 use Throwable;
 
 use function array_unique;
@@ -101,8 +103,10 @@ final readonly class ExternalTextCheck
             $applied                       = $termsApplied;
         } catch (Throwable $failure) {
             $this->logger->error('The term check of a delivered text could not run.', ['exception' => $failure]);
-            $reasons[] = ExternalTextReport::REASON_TERM_CHECK_FAILED;
-            $failed    = true;
+            $reasons[] = $failure instanceof TermCheckFailedException && $failure->getMessage() === ExternalTextReport::REASON_JSON_AMBIGUOUS
+                ? ExternalTextReport::REASON_JSON_AMBIGUOUS
+                : ExternalTextReport::REASON_TERM_CHECK_FAILED;
+            $failed = true;
         }
 
         $judged = $this->judgedConfigurations($all);
@@ -323,57 +327,108 @@ final readonly class ExternalTextCheck
     private function forms(string $text): array
     {
         $forms     = $this->matcher->searchForms($text);
-        $unescaped = $this->unescaped($text);
+        $structure = $this->decodedJson($text);
+        if ($structure === null) {
+            // No JSON: plain text, searched as it is.
+            return $forms;
+        }
 
-        return $unescaped === $text ? $forms : [...$forms, ...$this->matcher->searchForms($unescaped)];
+        foreach ($this->strings($structure) as $string) {
+            $forms = [...$forms, ...$this->matcher->searchForms($string)];
+        }
+
+        return $forms;
     }
 
     /**
-     * The text with every JSON escape decoded, read left to right without
-     * pairing quotes: an escape counts wherever it stands, inside a JSON
-     * literal, after a stray quote in prose, in a single-quoted literal or in
-     * a key. The text is usually prose, so it is not decoded as a whole; only
-     * runs of escapes are, each by json_decode(). An escaped backslash is
-     * consumed first, so `\\u0052` stays a backslash and `u0052`. A run
-     * json_decode() refuses (a lone surrogate) is decoded escape by escape,
-     * and an escape it still refuses becomes U+FFFD, as a lenient decoder
-     * shows it. This adds a form; the text itself is searched as it is anyway.
+     * The text decoded as one JSON document, or null when it is no JSON.
+     * json_decode() alone decides what JSON is; nothing here lexes it.
      *
-     * @throws TermCheckFailedException when the pattern engine gives up, which
-     *                                  must not read as "no term" (X4)
+     * A decoder keeps one member of two with one key, and consumers differ in
+     * which one, so a document whose keys are ambiguous cannot be vouched
+     * for: the term check fails (X4). The keys a decoder kept are counted
+     * against the keys the document names; the second count is taken only
+     * from a document json_decode() accepted, where every string token is
+     * well-formed and a quote outside a string cannot occur.
+     *
+     * @throws TermCheckFailedException for ambiguous keys, or when the pattern engine gives up
      */
-    private function unescaped(string $text): string
+    private function decodedJson(string $text): mixed
     {
-        if (!str_contains($text, '\\')) {
-            return $text;
+        $body = preg_replace('/(?:^\s*```[a-z0-9]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
+        try {
+            $decoded = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return null;
         }
 
-        $decoded = preg_replace_callback(
-            '/(?:\\\\(?:u[0-9a-fA-F]{4}|["\\\\\/bfnrt]))++/',
-            fn (array $match): string => $this->decodedRun($match[0]),
-            $text,
-        );
-        if ($decoded === null) {
-            throw new TermCheckFailedException('JSON escape pattern failed: ' . preg_last_error_msg(), 1799430101);
+        try {
+            $objects = json_decode($body, false, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            // Array mode took a key object mode refuses (a NUL key).
+            throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102);
+        }
+
+        $named = preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"\s*+:/', $body);
+        if ($named === false) {
+            throw new TermCheckFailedException('JSON key count failed: ' . preg_last_error_msg(), 1799430101);
+        }
+
+        if ($named !== $this->keyCount($objects)) {
+            throw new TermCheckFailedException(ExternalTextReport::REASON_JSON_AMBIGUOUS, 1799430102);
         }
 
         return $decoded;
     }
 
-    private function decodedRun(string $run): string
+    private function keyCount(mixed $value): int
     {
-        $whole = json_decode('"' . $run . '"');
-        if (is_string($whole)) {
-            return $whole;
+        if ($value instanceof stdClass) {
+            $count = 0;
+            foreach (get_object_vars($value) as $member) {
+                $count += 1 + $this->keyCount($member);
+            }
+
+            return $count;
         }
 
-        $decoded = '';
-        foreach (preg_split('/(?=\\\\)/', $run, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $escape) {
-            $one = json_decode('"' . $escape . '"');
-            $decoded .= is_string($one) ? $one : "\u{FFFD}";
+        if (is_array($value)) {
+            $count = 0;
+            foreach ($value as $item) {
+                $count += $this->keyCount($item);
+            }
+
+            return $count;
         }
 
-        return $decoded;
+        return 0;
+    }
+
+    /**
+     * Every key and every string value of a decoded document.
+     *
+     * @return list<string>
+     */
+    private function strings(mixed $value): array
+    {
+        if (is_string($value)) {
+            return [$value];
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $strings = [];
+        foreach ($value as $key => $item) {
+            if (is_string($key)) {
+                $strings[] = $key;
+            }
+
+            $strings = [...$strings, ...$this->strings($item)];
+        }
+
+        return $strings;
     }
 
     /**
