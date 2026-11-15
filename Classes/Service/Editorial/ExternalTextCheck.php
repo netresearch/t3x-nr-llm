@@ -31,10 +31,8 @@ use function array_values;
 use function in_array;
 use function is_string;
 use function json_decode;
-use function json_last_error;
 use function preg_last_error_msg;
 use function preg_match_all;
-use function preg_replace;
 use function trim;
 
 /**
@@ -328,20 +326,14 @@ final readonly class ExternalTextCheck
     private function forms(string $text): array
     {
         $forms = $this->matcher->searchForms($text);
-        $body  = preg_replace('/(?:^\s*```[a-z]*\s*)|(?:\s*```\s*$)/i', '', $text) ?? $text;
-        json_decode($body);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return $forms;
-        }
-
-        // Every string literal, decoded on its own: a decoder keeps only the
-        // last of two members with one key, and keys and a string root are
-        // strings a consumer may read too. json_decode() cannot keep both
-        // members; on a text json_decode() accepted, a string literal is a
-        // quote, possessive runs of non-quote non-backslash characters or
-        // escapes, and a quote, which this pattern matches without
-        // backtracking.
-        if (preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"/s', $body, $literals) === false) {
+        // Every string literal of the text, decoded on its own, also where
+        // the text is no valid JSON as a whole: JSON after a sentence or in a
+        // fence, a decoder that keeps only the last of two members with one
+        // key, a key that a PHP object refuses, a string root. A quote, then
+        // possessive runs of characters other than quote and backslash or of
+        // escapes, then a quote: no backtracking. A literal that does not
+        // decode adds nothing; the text itself is searched as it is anyway.
+        if (preg_match_all('/"(?:[^"\\\\]++|\\\\.)*+"/s', $text, $literals) === false) {
             // An engine that gives up must not read as "no term" (X4).
             throw new TermCheckFailedException('JSON string pattern failed: ' . preg_last_error_msg(), 1799430101);
         }

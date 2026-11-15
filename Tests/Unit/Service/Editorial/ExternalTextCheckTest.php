@@ -414,6 +414,8 @@ final class ExternalTextCheckTest extends AbstractUnitTestCase
         yield 'duplicate member' => ['{"post":"\\u0052abatt","post":"clean"}'];
         yield 'string root' => ['"\\u0052abatt"'];
         yield 'escaped key' => ['{"\\u0052abatt":"clean"}'];
+        yield 'key a PHP object refuses' => ['{"\\u0000":"x","post":"\\u0052abatt"}'];
+        yield 'fenced after a sentence' => ["Hier der Post:\n```json\n{\"post\":\"\\u0052abatt\"}\n```"];
     }
 
     #[Test]
