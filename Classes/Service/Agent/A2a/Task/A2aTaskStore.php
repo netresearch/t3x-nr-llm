@@ -428,6 +428,9 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * only the worker reads them, before the run's first model call, and a
      * task that ended never runs again. The files the task sends stay until
      * they expire; they are its result.
+     *
+     * A url part still pending is refused as well, so a fetch in flight when
+     * the task ends finds no pending file and records nothing.
      */
     private function releaseInputFiles(int $runUid): void
     {
@@ -436,9 +439,16 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             return;
         }
 
-        $this->connectionPool->getConnectionForTable(A2aFileStore::TABLE)->update(
+        $files = $this->connectionPool->getConnectionForTable(A2aFileStore::TABLE);
+        $now   = time();
+        $files->update(
             A2aFileStore::TABLE,
-            ['content' => '', 'source_url' => '', 'tstamp' => time()],
+            ['check_state' => A2aFileStore::CHECK_FAILED, 'approval_state' => A2aFileStore::APPROVAL_REFUSED, 'refusal' => 'task ended', 'tstamp' => $now],
+            ['task_uid' => (int) $taskUid, 'direction' => A2aFileStore::DIRECTION_IN, 'check_state' => A2aFileStore::CHECK_PENDING],
+        );
+        $files->update(
+            A2aFileStore::TABLE,
+            ['content' => '', 'source_url' => '', 'tstamp' => $now],
             ['task_uid' => (int) $taskUid, 'direction' => A2aFileStore::DIRECTION_IN],
         );
     }

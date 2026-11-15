@@ -443,7 +443,9 @@ Cleanup
    When a task ends (completed, failed, canceled or refused), its input
    files keep their record (id, size, SHA-256, check and approval state)
    but lose their bytes and URL in the same transaction, whatever the
-   answer level: nothing reads them after a final state. The files a task
+   answer level: nothing reads them after a final state. A ``url`` part
+   not fetched yet is refused (``task ended``), so a fetch still running
+   stores nothing. The files a task
    sends stay until they expire, because they are its result. A task's
    files go with the run purge, like its history.
    ``nrllm:privacy:purge`` also deletes every file older than

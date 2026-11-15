@@ -744,6 +744,26 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-FILE4: a fetch still in flight when the task ends (the client
+     * cancels during a slow fetch) records nothing: the url part left
+     * pending once the task ended, so its bytes do not come back.
+     */
+    #[Test]
+    public function aFetchThatEndsAfterTheTaskRecordsNothing(): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $taskId = self::text($this->taskOf($this->send([['url' => self::FILE_URL, 'mediaType' => 'text/plain']]))['id'] ?? '');
+        self::assertSame('TASK_STATE_CANCELED', self::j($this->taskOf($this->call('CancelTask', ['id' => $taskId])), 'status.state'));
+
+        $row     = $this->fileRows()[0];
+        $fetched = $this->getService(A2aFileStore::class)->recordFetched((int) $row['uid'], (int) $row['owner_client_uid'], 'Late notes.', 'text/plain', time());
+
+        $row = $this->fileRows()[0];
+        self::assertFalse($fetched);
+        self::assertSame(['', '', 'failed', 'refused', 'task ended'], [self::text($row['content']), self::text($row['source_url']), $row['check_state'], $row['approval_state'], $row['refusal']]);
+    }
+
+    /**
      * A file the task sends (A2A-FILE5) is no input: it does not count
      * against the message's limit when the worker fetches a url part.
      */
