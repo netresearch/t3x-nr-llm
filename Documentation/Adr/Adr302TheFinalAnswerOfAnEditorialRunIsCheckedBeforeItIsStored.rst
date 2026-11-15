@@ -100,8 +100,8 @@ Consequences
   only model call.
 - The judge call happens before the completing transaction. The completion
   itself makes no provider call.
-- The client of a blocked task sees ``The task failed.``; the reason reaches it
-  with the report artifact of ADR-301.
+- The client of a blocked task sees ``The editorial check stopped the text.``
+  and the report artifact of :ref:`ADR-301 <adr-301>`.
 - A judge in block mode that cannot answer stops every text of that profile.
   That is the point of block mode.
 - Under the answer level ``redacted`` the check-only handler judges the

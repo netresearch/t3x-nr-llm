@@ -38,6 +38,25 @@ final class A2aContentRedaction
 {
     public const FILE_REMOVED = '[A file was removed under the privacy policy of this installation.]';
 
+    /** The kind of an editorial report (A2aEditorialReporter::KIND). */
+    private const EDITORIAL_REPORT = 'nr_llm.editorial_report';
+
+    /**
+     * What a redacted editorial report may keep: these values, written out
+     * like the enums below (ExternalTextStatus, the reasons of
+     * ExternalTextReport and A2aRunOutputCheck, the states of
+     * A2aEditorialReporter).
+     */
+    private const REPORT_STATUSES = ['passed', 'violation', 'not_checked', 'failed'];
+
+    private const REPORT_STATES = ['draft', 'needs_revision', 'needs_human_review'];
+
+    private const REPORT_REASONS = [
+        'no_rules', 'rule_set_empty', 'judge_not_configured', 'judge_egress', 'judge_unavailable',
+        'term_check_failed', 'json_ambiguous_keys', 'json_undecodable_escape', 'check_failed',
+        'empty_text', 'not_retained',
+    ];
+
     /** The members whose string values carry no content. */
     private const STRUCTURAL = [
         'id', 'messageId', 'taskId', 'contextId', 'artifactId', 'referenceTaskIds',
@@ -193,6 +212,14 @@ final class A2aContentRedaction
         }
 
         if (array_key_exists('data', $part)) {
+            // An editorial report (ADR-301) stays a data part. Any part can
+            // claim the kind (a client or a model writes data parts too), so
+            // it is rebuilt from the values a report consists of; findings
+            // and digests name what the text held and are withheld.
+            if (is_array($part['data']) && ($part['data']['kind'] ?? null) === self::EDITORIAL_REPORT) {
+                return ['data' => self::redactedReport($part['data']), 'mediaType' => 'application/json'];
+            }
+
             $json = json_encode($part['data'], JSON_INVALID_UTF8_SUBSTITUTE | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
             return ['text' => $redactText(is_string($json) ? $json : '')];
@@ -200,5 +227,31 @@ final class A2aContentRedaction
 
         // raw, url, or a part of a kind this version does not know.
         return ['text' => self::FILE_REMOVED];
+    }
+
+    /**
+     * @param array<array-key, mixed> $report
+     *
+     * @return array{kind: string, version: int, editorialState: string, check: array{status: string, blocks: bool, reasons: list<string>, findings: array{}, findingsWithheld: true}}
+     */
+    private static function redactedReport(array $report): array
+    {
+        $check   = is_array($report['check'] ?? null) ? $report['check'] : [];
+        $reasons = is_array($check['reasons'] ?? null) ? $check['reasons'] : [];
+
+        return [
+            'kind'           => self::EDITORIAL_REPORT,
+            'version'        => 1,
+            'editorialState' => in_array($report['editorialState'] ?? null, self::REPORT_STATES, true) && is_string($report['editorialState'])
+                ? $report['editorialState'] : 'needs_human_review',
+            'check' => [
+                'status' => in_array($check['status'] ?? null, self::REPORT_STATUSES, true) && is_string($check['status'])
+                    ? $check['status'] : 'not_checked',
+                'blocks'           => is_bool($check['blocks'] ?? null) ? $check['blocks'] : true,
+                'reasons'          => array_values(array_filter($reasons, static fn (mixed $reason): bool => is_string($reason) && in_array($reason, self::REPORT_REASONS, true))),
+                'findings'         => [],
+                'findingsWithheld' => true,
+            ],
+        ];
     }
 }

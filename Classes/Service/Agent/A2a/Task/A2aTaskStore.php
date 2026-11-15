@@ -78,6 +78,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         private ?LoggerInterface $logger = null,
         private ?A2aArtifactShaperInterface $artifacts = null,
         private ?A2aOutboundFileArtifacts $files = null,
+        private ?A2aResultReporterInterface $reporter = null,
     ) {}
 
     /**
@@ -262,8 +263,16 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             return;
         }
 
+        // A stop by the end-of-run check names itself and carries the report
+        // (ADR-301); the reason stays out of the text, it is in the report.
+        // The current state is never terminal here, so a FAILED target is
+        // always written and the report is built once.
+        $report = $target === A2aTaskState::FAILED
+            ? $this->reporter?->stopped($runUid, $this->profileOf($runUid), $ceiling, is_string($run['termination_reason'] ?? null) ? $run['termination_reason'] : '')
+            : null;
+
         $statusText = match ($target) {
-            A2aTaskState::FAILED         => 'The task failed.',
+            A2aTaskState::FAILED         => $report !== null ? 'The editorial check stopped the text.' : 'The task failed.',
             A2aTaskState::REJECTED       => 'The task was refused before it started.',
             A2aTaskState::INPUT_REQUIRED => $this->question($suspended, $ceiling),
             default                      => $this->waitText($status),
@@ -278,6 +287,10 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         if ($target->isTerminal()) {
             $fields['history'] = $ceiling->persistsContent() ? $this->historyAt($runUid, $ceiling) : '';
             $this->releaseInputFiles($runUid);
+        }
+
+        if ($report !== null) {
+            $fields['artifacts'] = $this->seal($this->json([$report]));
         }
 
         $fields['status_message'] = $statusText === '' ? '' : $this->seal($this->json([
@@ -424,7 +437,18 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $kept     = $this->privacy->keptAt($answer, $ceiling);
         $artifact = $this->artifacts?->artifactsFor($this->profileOf($runUid), $kept)
             ?? [['artifactId' => Uuid::v7()->toRfc4122(), 'parts' => [['text' => $kept]]]];
-        $writes = $this->writesArtifact($runUid, $this->profileMayWrite($runUid));
+        // The report goes after the content: the content artifact stays the
+        // first and holds only the text (ADR-301).
+        $report = $this->reporter?->completed($runUid, $this->profileOf($runUid), $artifact, $ceiling);
+        // Beside a report only real writes are listed: a "No write was
+        // executed." text part would be joined into the copied text, and an
+        // editorial task offers no writing tool (ADR-302); writes that ran
+        // anyway are still the client's to read.
+        $writes = $this->writesArtifact($runUid, $report === null && $this->profileMayWrite($runUid));
+        if ($report !== null) {
+            $artifact[] = $report;
+        }
+
         if ($writes !== null) {
             $artifact[] = $writes;
         }

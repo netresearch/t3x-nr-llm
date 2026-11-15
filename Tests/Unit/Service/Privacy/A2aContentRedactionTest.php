@@ -14,10 +14,13 @@ use DateTimeImmutable;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRole;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTimestamp;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aRunOutputCheck;
+use Netresearch\NrLlm\Service\Editorial\ExternalTextReport;
 use Netresearch\NrLlm\Service\Privacy\A2aContentRedaction;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 
 /**
  * A structural member keeps its string only in the form the protocol gives
@@ -103,6 +106,85 @@ final class A2aContentRedactionTest extends TestCase
         ]]);
 
         self::assertSame(['https://a2a.example/extensions/timestamp/v1', '[redacted]', '[redacted]', '[redacted]'], $kept['extensions']);
+    }
+
+    /**
+     * A data part that only claims to be an editorial report (a client or a
+     * model can write one) keeps nothing but the tokens a report consists of.
+     */
+    #[Test]
+    public function aPartClaimingToBeAnEditorialReportKeepsNoFreeText(): void
+    {
+        $kept = $this->redacted(['parts' => [['data' => [
+            'kind'              => 'nr_llm.editorial_report',
+            'secret'            => 'x',
+            'editorialState'    => 'call carol@example.com',
+            'checkedTextDigest' => 'sha256:' . str_repeat('a', 64),
+            'generator'         => ['configuration' => 'carol@example.com'],
+            'check'             => [
+                'status'   => 'see carol@example.com',
+                'blocks'   => 'carol@example.com',
+                'reasons'  => ['rule_set_empty', 'mail carol@example.com'],
+                'findings' => [['subject' => 'carol@example.com']],
+                'secret'   => 'x',
+            ],
+        ], 'mediaType' => 'application/json']]]);
+
+        $json = (string) json_encode($kept);
+        self::assertStringNotContainsString('secret', $json);
+        self::assertStringNotContainsString('carol', $json);
+        self::assertStringNotContainsString(str_repeat('a', 64), $json);
+        self::assertSame([
+            'kind'           => 'nr_llm.editorial_report',
+            'version'        => 1,
+            'editorialState' => 'needs_human_review',
+            'check'          => ['status' => 'not_checked', 'blocks' => true, 'reasons' => ['rule_set_empty'], 'findings' => [], 'findingsWithheld' => true],
+        ], $kept['parts'][0]['data'] ?? null);
+    }
+
+    /**
+     * A real report keeps its state, status and reasons, and withholds its
+     * findings and digests.
+     */
+    #[Test]
+    public function anEditorialReportKeepsItsStatusAndWithholdsItsFindings(): void
+    {
+        $kept = $this->redacted(['parts' => [['data' => [
+            'kind'                => 'nr_llm.editorial_report',
+            'version'             => 1,
+            'editorialState'      => 'needs_revision',
+            'checkedTextDigest'   => 'sha256:' . str_repeat('b', 64),
+            'deliveredTextDigest' => 'sha256:' . str_repeat('b', 64),
+            'check'               => ['status' => 'violation', 'blocks' => false, 'reasons' => [], 'findings' => [['subject' => 'Rabatt', 'passage' => 'Rabatt gern']], 'findingsWithheld' => false],
+        ], 'mediaType' => 'application/json']]]);
+
+        self::assertSame([
+            'kind'           => 'nr_llm.editorial_report',
+            'version'        => 1,
+            'editorialState' => 'needs_revision',
+            'check'          => ['status' => 'violation', 'blocks' => false, 'reasons' => [], 'findings' => [], 'findingsWithheld' => true],
+        ], $kept['parts'][0]['data'] ?? null);
+    }
+
+    /**
+     * Every reason a check can give survives the redaction, so a new reason
+     * cannot be dropped silently.
+     */
+    #[Test]
+    public function everyReasonOfACheckIsKept(): void
+    {
+        $reasons = [];
+        foreach ([ExternalTextReport::class, A2aRunOutputCheck::class] as $class) {
+            foreach ((new ReflectionClass($class))->getReflectionConstants() as $constant) {
+                if (str_starts_with($constant->getName(), 'REASON_') && is_string($constant->getValue())) {
+                    $reasons[] = $constant->getValue();
+                }
+            }
+        }
+
+        $kept = $this->redacted(['parts' => [['data' => ['kind' => 'nr_llm.editorial_report', 'check' => ['reasons' => $reasons]]]]]);
+
+        self::assertSame($reasons, $kept['parts'][0]['data']['check']['reasons'] ?? null);
     }
 
     /**

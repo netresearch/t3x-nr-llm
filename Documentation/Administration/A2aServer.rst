@@ -87,6 +87,18 @@ Domain handler
      a draft the editor changed, without generating one: no model writes and
      no tool is called; only the judge of the configuration is asked.
 
+   Their result has two artifacts (:ref:`ADR-301 <adr-301>`): the first holds
+   only the text, as one text part, to be pasted as it is; the second,
+   ``report``, holds one data part with the check, the digests of the checked
+   and of the delivered text, the rule state, and an editorial state
+   (``draft``, ``needs_revision``, ``needs_human_review``). A completed task is
+   no approval to publish; the editorial state says what the text still needs.
+   A text checked by ``nr_llm.editorial_check`` is a ``draft`` only at the
+   answer level ``full``, because below it the check reads the redacted text.
+   A stopped task carries only the report, and only where its answer level is
+   ``full`` or ``redacted``; below that it carries none. A level tightened
+   after the result was stored withholds the report's findings.
+
 LLM configuration
    The configuration the runs use. If its answer level keeps no result
    (``metadata`` or ``none``, set on its provider), the profile cannot be

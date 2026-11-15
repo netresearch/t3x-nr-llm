@@ -69,6 +69,7 @@ final readonly class A2aRunOutputCheck implements RunOutputCheckInterface
         private ExternalTextCheck $check,
         private RuleStateDigest $ruleState,
         private LoggerInterface $logger,
+        private A2aOutputReports $handOver = new A2aOutputReports(),
     ) {}
 
     public function planFor(AgentRunHandle $handle, bool $start): RunOutputCheckPlan
@@ -95,12 +96,18 @@ final readonly class A2aRunOutputCheck implements RunOutputCheckInterface
 
     public function check(AgentRunHandle $handle, string $answer): RunOutputVerdict
     {
+        // A report handed over by an earlier check of this run (a lease lost
+        // before completion) belongs to another text: it never reaches the
+        // report of this one.
+        $this->handOver->take($handle->runUid);
+
         try {
             $report = $this->report($handle, $answer);
         } catch (Throwable $failure) {
             $this->logger->error('The end-of-run check could not run; the answer is not delivered.', ['run' => $handle->uuid, 'exception' => $failure]);
             $this->persister->recordRuntimeRecord($handle, AgentEventKind::OUTPUT_CHECK, [
                 'status'  => 'failed',
+                'blocks'  => true,
                 'reasons' => [ExternalTextReport::REASON_CHECK_FAILED],
             ]);
 
@@ -156,6 +163,9 @@ final readonly class A2aRunOutputCheck implements RunOutputCheckInterface
             // Without the record the result cannot say what was checked.
             throw new A2aResultNotRetainableException(sprintf('The check of run %s could not be stored.', $handle->uuid), 1799430304);
         }
+
+        // The passages go to the completion of this process only (ADR-301).
+        $this->handOver->put($handle->runUid, $report);
 
         return $report;
     }
