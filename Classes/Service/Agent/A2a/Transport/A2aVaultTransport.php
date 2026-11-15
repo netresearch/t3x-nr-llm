@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Transport;
 
+use Closure;
 use GuzzleHttp\Exception\ConnectException;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
@@ -22,6 +23,7 @@ use Netresearch\NrVault\Http\StreamingHttpClientInterface;
 use Netresearch\NrVault\Http\VaultHttpClientInterface;
 use Netresearch\NrVault\Service\VaultServiceInterface;
 use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Throwable;
@@ -79,6 +81,113 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
 
     public function send(A2aHttpRequest $request): A2aTransportResult
     {
+        $prepared = $this->prepare($request);
+        if ($prepared instanceof A2aTransportResult) {
+            return $prepared;
+        }
+
+        return $this->transfer($prepared[0], $request, $prepared[1]);
+    }
+
+    /**
+     * A2A-SSE6: the same checks and pin as {@see self::send()}; an answer of
+     * type `text/event-stream` is handed to $onBytes piece by piece as it
+     * arrives, never held whole. Any other answer is read like a unary one.
+     * Without nr-vault's streaming interface nothing is sent
+     * (`STREAMING_UNSUPPORTED`): a buffered stream would arrive at its end.
+     *
+     * The request's timeout is the longest the stream may last; past it the
+     * stream ends as `TIMEOUT_AFTER_SEND`. $onBytes returns false to stop
+     * reading, which ends the stream as a response. An exception the callback
+     * throws is not a lost connection: it reaches the caller.
+     *
+     * @param Closure(string): bool $onBytes
+     */
+    public function stream(A2aHttpRequest $request, Closure $onBytes): A2aTransportResult
+    {
+        $prepared = $this->prepare($request);
+        if ($prepared instanceof A2aTransportResult) {
+            return $prepared;
+        }
+
+        [$client, $target] = $prepared;
+        if (!$client instanceof StreamingHttpClientInterface || !$client->supportsStreaming()) {
+            return A2aTransportResult::notSent('STREAMING_UNSUPPORTED', 'this nr-vault cannot deliver a response while it arrives; nothing was sent');
+        }
+
+        $psr      = $this->psrRequest($request, $target);
+        $deadline = microtime(true) + max(1, $request->timeoutSeconds);
+        try {
+            $response = $client->sendStreaming($psr);
+        } catch (AuditWriteException $e) {
+            return A2aTransportResult::maybeSent('AUDIT_WRITE_FAILED', $this->sanitizeErrorMessage($e->getMessage()));
+        } catch (VaultException $e) {
+            return A2aTransportResult::maybeSent('TRANSFER_ABORTED', $this->sanitizeErrorMessage($e->getMessage()));
+        } catch (Throwable $e) {
+            return $this->classify($e);
+        }
+
+        $type = strtolower(trim(explode(';', $response->getHeaderLine('Content-Type'), 2)[0]));
+        if ($type !== 'text/event-stream' || $response->getStatusCode() < 200 || $response->getStatusCode() >= 300) {
+            return $this->read($response, $request->maxResponseBytes, true, $deadline);
+        }
+
+        return $this->pump($response, $onBytes, $deadline);
+    }
+
+    /**
+     * Hands the body of an event stream to $onBytes until it ends, the
+     * callback stops it, or the deadline passes.
+     *
+     * Public for the unit test of the loop; not part of the transport contract.
+     *
+     * @param Closure(string): bool $onBytes
+     */
+    public function pump(ResponseInterface $response, Closure $onBytes, float $deadline): A2aTransportResult
+    {
+        $body = $response->getBody();
+        while (true) {
+            // Only a failure of the connection is a lost connection; what the
+            // callback throws is the caller's and reaches it unchanged.
+            try {
+                if ($body->eof()) {
+                    break;
+                }
+
+                if (microtime(true) >= $deadline) {
+                    $body->close();
+
+                    return A2aTransportResult::maybeSent('TIMEOUT_AFTER_SEND', 'the stream did not end within the request timeout');
+                }
+
+                $chunk = $body->read(65536);
+            } catch (Throwable $e) {
+                return A2aTransportResult::maybeSent('CONNECTION_LOST', $this->sanitizeErrorMessage($e->getMessage()));
+            }
+
+            if ($chunk === '') {
+                usleep(2000);
+
+                continue;
+            }
+
+            if ($onBytes($chunk) === false) {
+                $body->close();
+
+                break;
+            }
+        }
+
+        return A2aTransportResult::response($response->getStatusCode(), $response->getHeaderLine('Content-Type'), $response->getHeaderLine('ETag'), '', false);
+    }
+
+    /**
+     * The checks before anything is sent, and the prepared client.
+     *
+     * @return A2aTransportResult|array{VaultHttpClientInterface, ExternalFetchTarget} a refusal, or the client and the checked target
+     */
+    private function prepare(A2aHttpRequest $request): A2aTransportResult|array
+    {
         $target = $this->guardFactory->create()->check(A2aUrlGuardFactory::GROUP_AGENT, $request->url);
         if (!$target->allowed) {
             return A2aTransportResult::notSent('ADDRESS_REFUSED', $target->reason);
@@ -106,14 +215,10 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
             );
         }
 
-        return $this->transfer($client, $request, $target);
+        return [$client, $target];
     }
 
-    /**
-     * Sends the request through the prepared client and reads the response;
-     * every failure from here on is classified, never thrown.
-     */
-    private function transfer(VaultHttpClientInterface $client, A2aHttpRequest $request, ExternalFetchTarget $target): A2aTransportResult
+    private function psrRequest(A2aHttpRequest $request, ExternalFetchTarget $target): RequestInterface
     {
         $psr = $this->requestFactory->createRequest($request->method, $target->url);
         foreach ($request->headers as $name => $value) {
@@ -123,6 +228,17 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
         if ($request->body !== '') {
             $psr = $psr->withBody($this->streamFactory->createStream($request->body));
         }
+
+        return $psr;
+    }
+
+    /**
+     * Sends the request through the prepared client and reads the response;
+     * every failure from here on is classified, never thrown.
+     */
+    private function transfer(VaultHttpClientInterface $client, A2aHttpRequest $request, ExternalFetchTarget $target): A2aTransportResult
+    {
+        $psr = $this->psrRequest($request, $target);
 
         // Streamed when nr-vault can (>= 1.1, curl-multi), so the size limit
         // stops the transfer instead of judging a body that was already read

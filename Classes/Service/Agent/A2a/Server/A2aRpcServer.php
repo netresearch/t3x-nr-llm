@@ -43,8 +43,6 @@ final readonly class A2aRpcServer
 {
     /** Methods of later stages and their refusal while undeclared (A2A-P7). */
     private const UNDECLARED = [
-        'SendStreamingMessage'             => A2aErrorCode::UNSUPPORTED_OPERATION,
-        'SubscribeToTask'                  => A2aErrorCode::UNSUPPORTED_OPERATION,
         'GetExtendedAgentCard'             => A2aErrorCode::UNSUPPORTED_OPERATION,
         'CreateTaskPushNotificationConfig' => A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED,
         'GetTaskPushNotificationConfig'    => A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED,
@@ -53,6 +51,9 @@ final readonly class A2aRpcServer
     ];
 
     private const PAGE_SIZE_DEFAULT = 50;
+
+    /** The longest JSON-RPC id accepted (A2A-SSE3: it is in every frame). */
+    private const MAX_ID_BYTES = 255;
 
     private const PAGE_SIZE_MAX = 100;
 
@@ -66,6 +67,8 @@ final readonly class A2aRpcServer
         private A2aListCursor $cursor,
         private AgentRuntimeInterface $runtime,
         private ConnectionPool $connectionPool,
+        private A2aStreamSlots $streamSlots,
+        private A2aTaskStream $taskStream,
         ?LoggerInterface $logger = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
@@ -79,9 +82,9 @@ final readonly class A2aRpcServer
             $client = $this->authenticator->authenticate($request, $now);
             $call   = $this->envelope($body, $id);
             $this->checkVersion($request);
-            $result = $this->dispatch($client, $call['method'], $call['params'], $now);
+            $result = $this->dispatch($client, $call['method'], $call['params'], $now, $id);
 
-            return A2aRpcReply::result($id, $result);
+            return $result instanceof A2aRpcReply ? $result : A2aRpcReply::result($id, $result);
         } catch (A2aRpcError $error) {
             return A2aRpcReply::error($id, $error);
         } catch (Throwable $exception) {
@@ -146,6 +149,12 @@ final readonly class A2aRpcServer
             throw A2aRpcError::invalidRequest('the id is neither a string nor a number');
         }
 
+        if (is_string($requestId) && strlen($requestId) > self::MAX_ID_BYTES) {
+            // Every event of a stream repeats the id; a longer one could keep
+            // even the smallest first event from fitting into a frame.
+            throw A2aRpcError::invalidRequest(sprintf('the id is longer than %d bytes', self::MAX_ID_BYTES));
+        }
+
         $id = $requestId;
         if (($decoded['jsonrpc'] ?? null) !== '2.0' || !is_string($decoded['method'] ?? null)) {
             throw A2aRpcError::invalidRequest('"jsonrpc" must be "2.0" and "method" a string');
@@ -183,15 +192,21 @@ final readonly class A2aRpcServer
     /**
      * @param array<string, mixed> $params
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed>|A2aRpcReply a result, or a stream
      */
-    private function dispatch(A2aInboundClient $client, string $method, array $params, int $now): array
+    private function dispatch(A2aInboundClient $client, string $method, array $params, int $now, int|string|null $id): array|A2aRpcReply
     {
         if (array_key_exists($method, self::UNDECLARED)) {
             throw A2aRpcError::a2a(self::UNDECLARED[$method], 'This agent does not offer ' . $method . '.');
         }
 
-        if (!in_array($method, [A2aProtocol::METHOD_SEND_MESSAGE, A2aProtocol::METHOD_GET_TASK, A2aProtocol::METHOD_LIST_TASKS, A2aProtocol::METHOD_CANCEL_TASK], true)) {
+        $streaming = in_array($method, [A2aProtocol::METHOD_SEND_STREAMING_MESSAGE, A2aProtocol::METHOD_SUBSCRIBE_TO_TASK], true);
+        if ($streaming && !$this->settings->streamingEnabled()) {
+            // A2A-P7, A2A-OPS2: the card declares no streaming.
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'This agent does not offer ' . $method . '.');
+        }
+
+        if (!$streaming && !in_array($method, [A2aProtocol::METHOD_SEND_MESSAGE, A2aProtocol::METHOD_GET_TASK, A2aProtocol::METHOD_LIST_TASKS, A2aProtocol::METHOD_CANCEL_TASK], true)) {
             throw A2aRpcError::methodNotFound();
         }
 
@@ -202,11 +217,118 @@ final readonly class A2aRpcServer
         }
 
         return match ($method) {
-            A2aProtocol::METHOD_SEND_MESSAGE => $this->sendMessage->handle($client, $params, $now),
-            A2aProtocol::METHOD_GET_TASK     => $this->getTask($client, $params),
-            A2aProtocol::METHOD_LIST_TASKS   => $this->listTasks($client, $params),
-            default                          => $this->cancelTask($client, $params),
+            A2aProtocol::METHOD_SEND_MESSAGE           => $this->sendMessage->handle($client, $params, $now),
+            A2aProtocol::METHOD_SEND_STREAMING_MESSAGE => $this->sendStreamingMessage($client, $params, $now, $id),
+            A2aProtocol::METHOD_SUBSCRIBE_TO_TASK      => $this->subscribeToTask($client, $params, $now, $id),
+            A2aProtocol::METHOD_GET_TASK               => $this->getTask($client, $params),
+            A2aProtocol::METHOD_LIST_TASKS             => $this->listTasks($client, $params),
+            default                                    => $this->cancelTask($client, $params),
         };
+    }
+
+    /**
+     * A2A-SSE1, A2A-SSE3: `SendMessage` without the wait, then a stream of the
+     * task it created or found. The stream slot is taken before anything is
+     * accepted, so a refusal for stream capacity stores nothing; the blocking
+     * wait's slot is never taken. A message to an existing task (a
+     * continuation, A2A-MT3) is counted against that task's streams before it
+     * is taken in, so the answer is never stored and then refused. A message
+     * answer is a stream of that one message.
+     *
+     * @param array<string, mixed> $params
+     */
+    private function sendStreamingMessage(A2aInboundClient $client, array $params, int $now, int|string|null $id): A2aRpcReply
+    {
+        $message       = is_array($params['message'] ?? null) ? $params['message'] : [];
+        $configuration = is_array($params['configuration'] ?? null) ? $params['configuration'] : [];
+        $named         = is_string($message['taskId'] ?? null) ? $message['taskId'] : '';
+        if ($named !== '' && $this->view->find($client->uid, $named) === null) {
+            // Another client's task and an unknown one answer alike, before
+            // any stream of theirs is counted (A2A-SEC2).
+            throw A2aRpcError::a2a(A2aErrorCode::TASK_NOT_FOUND, 'Task not found.');
+        }
+
+        $holder = $this->takeStreamSlot($client, $named, $now);
+        try {
+            $result = $this->sendMessage->handle($client, $params, $now, true);
+            if (is_array($result['message'] ?? null)) {
+                $this->streamSlots->release($holder);
+
+                return A2aRpcReply::stream(static function (A2aSseWriter $writer) use ($id, $result): void {
+                    $writer->event(['jsonrpc' => '2.0', 'id' => $id, 'result' => ['message' => $result['message']]]);
+                }, $this->settings->maxFrameBytes());
+            }
+
+            $task   = is_array($result['task'] ?? null) ? $result['task'] : [];
+            $taskId = is_string($task['id'] ?? null) ? $task['id'] : '';
+            if ($named === '' && !$this->streamSlots->bind($holder, $taskId, $this->settings->maxStreamsPerTask(), time())) {
+                // The slot was lost while the task was accepted (its lease ran
+                // out): the accepted task gets a slot of its own if one is
+                // free. Otherwise only a repeated messageId finds a task that
+                // already has streams, and nothing new was stored for it.
+                $this->streamSlots->release($holder);
+                $holder = $this->takeStreamSlot($client, $taskId, time());
+            }
+        } catch (Throwable $refused) {
+            $this->streamSlots->release($holder);
+
+            throw $refused;
+        }
+
+        $history = $configuration['historyLength'] ?? null;
+
+        return $this->streamOf($client, $taskId, $holder, $id, is_int($history) && $history >= 0 ? $history : null);
+    }
+
+    /**
+     * A2A-SSE4: a stream of a task the client owns; a terminal task is
+     * `-32004` (proto comment, section 9.4.6).
+     *
+     * @param array<string, mixed> $params
+     */
+    private function subscribeToTask(A2aInboundClient $client, array $params, int $now, int|string|null $id): A2aRpcReply
+    {
+        $row = $this->ownTask($client, $params);
+        if ($this->isTerminal($row)) {
+            throw A2aRpcError::a2a(A2aErrorCode::UNSUPPORTED_OPERATION, 'The task is in a terminal state; read it with GetTask.');
+        }
+
+        $taskId = is_string($row['task_id'] ?? null) ? $row['task_id'] : '';
+
+        return $this->streamOf($client, $taskId, $this->takeStreamSlot($client, $taskId, $now), $id);
+    }
+
+    private function takeStreamSlot(A2aInboundClient $client, string $taskId, int $now): string
+    {
+        return $this->streamSlots->take(
+            $client->uid,
+            $taskId,
+            $this->settings->maxStreamsPerTask(),
+            $this->settings->maxStreamsPerClient(),
+            $this->settings->maxStreams(),
+            $now,
+        ) ?? throw A2aRpcError::unavailable(A2aRpcError::REASON_STREAM_CAPACITY_EXHAUSTED, 5);
+    }
+
+    /**
+     * The stream itself. The task row is read when the stream starts: its
+     * revision is the cursor of the snapshot (A2A-SSE2).
+     */
+    private function streamOf(A2aInboundClient $client, string $taskId, string $holder, int|string|null $id, ?int $historyLength = null): A2aRpcReply
+    {
+        return A2aRpcReply::stream(function (A2aSseWriter $writer) use ($client, $taskId, $holder, $id, $historyLength): void {
+            try {
+                $row = $this->view->find($client->uid, $taskId);
+                if ($row !== null) {
+                    $this->taskStream->stream($client, $row, $holder, $id, $writer, $historyLength);
+                }
+            } catch (Throwable $exception) {
+                // The stream is open: a failure ends it, the task is untouched.
+                $this->logger->error('An A2A stream failed', ['task' => $taskId, 'exception' => $exception]);
+            } finally {
+                $this->streamSlots->release($holder);
+            }
+        }, $this->settings->maxFrameBytes());
     }
 
     /**

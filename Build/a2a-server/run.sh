@@ -6,6 +6,12 @@
 #
 #   Build/a2a-server/run.sh tck       # the A2A TCK, JSON-RPC (A2A-SV11)
 #   Build/a2a-server/run.sh interop   # a2a-python 1.3.0 as client
+#   Build/a2a-server/run.sh stream    # a held stream through nginx + PHP-FPM
+#
+# In the stream mode the installation runs under PHP-FPM behind nginx, with
+# nginx's FastCGI buffering at its default (on), instead of `php -S` behind
+# the Python proxy; stream_check.py then reads a stream held open and asserts
+# that its events arrive while it is open (spec 051 A2A-SSE3).
 #
 # One Docker network holds MariaDB (<P>-db), a TYPO3 installation of this
 # checkout served by `php -S` in the Testing context (<P>-sut, port 8080), a
@@ -40,6 +46,7 @@ PREFIX="${A2A_CONTAINER_PREFIX:-a2a-s3}"
 P="${PREFIX}-$$"
 IMAGE_PHP="ghcr.io/typo3/core-testing-php${PHP_VERSION//./}:latest"
 IMAGE_DB="ghcr.io/netresearch/ci-mirror/mariadb:12.3"
+IMAGE_NGINX="nginx:1.30.6-alpine"
 NETWORK="${P}-net"
 BASE="http://${P}-proxy:8080/a2a"
 UIDGID="$(id -u):$(id -g)"
@@ -57,7 +64,7 @@ clean_up() {
     docker network rm "${NETWORK}" >/dev/null 2>&1 || true
     if [[ "${WROTE_CONFIG}" == 1 ]]; then
         rm -f "${ROOT}/config/system/settings.php" "${ROOT}/config/system/additional.php"
-        rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/${P}-router.php"
+        rm -rf "${ROOT}/config/sites/a2a" "${ROOT}/var/${P}-router.php" "${ROOT}/var/${P}-fpm.conf" "${ROOT}/var/${P}-nginx.conf"
     fi
 }
 trap clean_up EXIT
@@ -95,6 +102,7 @@ cat > config/system/additional.php <<'PHP'
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a']['server'] = [
     'enabled' => '1', 'blockingWaitSeconds' => '20', 'maxWaitingRequests' => '8', 'maxRequestBytes' => '1048576',
+    'streaming' => '1', 'streamMaxSeconds' => '15', 'maxStreamsPerTask' => '4', 'maxStreamsPerClient' => '16', 'maxStreams' => '16',
 ];
 PHP
 cat > config/sites/a2a/config.yaml <<'YAML'
@@ -135,15 +143,50 @@ if ($uri !== '/' && is_file($path)) {
 $_SERVER['SCRIPT_NAME'] = '/index.php';
 require $_SERVER['DOCUMENT_ROOT'] . '/index.php';
 PHP
-docker run -d --name "${P}-sut" --network "${NETWORK}" -v "${ROOT}:${ROOT}" -w "${ROOT}" -u "${UIDGID}" \
-    -e TYPO3_CONTEXT=Testing -e PHP_CLI_SERVER_WORKERS=8 "${IMAGE_PHP}" \
-    sh -c 'while true; do .Build/bin/typo3 nrllm:agent:work --limit=5 --time-limit=20 >/dev/null 2>&1; sleep 20; done & exec php -d opcache.jit=disable -S 0.0.0.0:8080 -t .Build/Web var/'"${P}"'-router.php' >/dev/null
-
-PROXY_TOKEN=""
-[[ "${MODE}" == "tck" ]] && PROXY_TOKEN="${TOKEN}"
+SWEEP='while true; do .Build/bin/typo3 nrllm:agent:work --limit=5 --time-limit=20 >/dev/null 2>&1; sleep 20; done'
 docker build -q -t "${PREFIX}-tck-image" -f "${ROOT}/Build/a2a-server/Dockerfile.tck" "${ROOT}/Build/a2a-server" >/dev/null
-docker run -d --name "${P}-proxy" --network "${NETWORK}" -e A2A_UPSTREAM="${P}-sut:8080" -e A2A_TOKEN="${PROXY_TOKEN}" \
-    --entrypoint python "${PREFIX}-tck-image" -I /app/auth_proxy.py 8080 >/dev/null
+if [[ "${MODE}" == "stream" ]]; then
+    cat > "var/${P}-fpm.conf" <<'FPM'
+[global]
+error_log = /proc/self/fd/2
+daemonize = no
+[www]
+listen = 0.0.0.0:9000
+pm = static
+pm.max_children = 8
+clear_env = no
+catch_workers_output = yes
+FPM
+    cat > "var/${P}-nginx.conf" <<NGINX
+server {
+    listen 8080;
+    root ${ROOT}/.Build/Web;
+    location / {
+        try_files \$uri /index.php\$is_args\$args;
+    }
+    location ~ \.php\$ {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME \$document_root\$fastcgi_script_name;
+        fastcgi_pass ${P}-sut:9000;
+        fastcgi_read_timeout 120s;
+    }
+}
+NGINX
+    docker run -d --name "${P}-sut" --network "${NETWORK}" -v "${ROOT}:${ROOT}" -w "${ROOT}" -u "${UIDGID}" \
+        -e TYPO3_CONTEXT=Testing "${IMAGE_PHP}" \
+        sh -c "${SWEEP} & exec php-fpm -F -y var/${P}-fpm.conf" >/dev/null
+    docker run -d --name "${P}-proxy" --network "${NETWORK}" -v "${ROOT}:${ROOT}:ro" \
+        -v "${ROOT}/var/${P}-nginx.conf:/etc/nginx/conf.d/default.conf:ro" "${IMAGE_NGINX}" >/dev/null
+else
+    docker run -d --name "${P}-sut" --network "${NETWORK}" -v "${ROOT}:${ROOT}" -w "${ROOT}" -u "${UIDGID}" \
+        -e TYPO3_CONTEXT=Testing -e PHP_CLI_SERVER_WORKERS=8 "${IMAGE_PHP}" \
+        sh -c "${SWEEP}"' & exec php -d opcache.jit=disable -S 0.0.0.0:8080 -t .Build/Web var/'"${P}"'-router.php' >/dev/null
+
+    PROXY_TOKEN=""
+    [[ "${MODE}" == "tck" ]] && PROXY_TOKEN="${TOKEN}"
+    docker run -d --name "${P}-proxy" --network "${NETWORK}" -e A2A_UPSTREAM="${P}-sut:8080" -e A2A_TOKEN="${PROXY_TOKEN}" \
+        --entrypoint python "${PREFIX}-tck-image" -I /app/auth_proxy.py 8080 >/dev/null
+fi
 
 ready=0
 for _ in $(seq 1 60); do
@@ -176,12 +219,19 @@ PY
     fi
     # The score is reported, not gated: the manual items (TLS, card
     # signing, AUTH-SERVER-001, CARD-CLIENT-001, BIND-CUSTOM-002) stay open,
-    # and stages 4 and 5 are not built (A2A-SV11).
+    # and push notifications and files (stages 5b, 5c) are not built yet
+    # (A2A-SV11).
     echo "TCK exit status: ${status} (reported, not a gate)"
     if [[ ! -f "${ROOT}/.Build/a2a-tck-reports/compatibility.json" ]]; then
         echo "The TCK produced no report: it did not run to the end." >&2
         exit 1
     fi
+    exit 0
+fi
+
+if [[ "${MODE}" == "stream" ]]; then
+    docker run --rm --network "${NETWORK}" -v "${ROOT}/Build/a2a-server:/client:ro" --entrypoint python \
+        "${PREFIX}-tck-image" -I /client/stream_check.py "${BASE}" "${TOKEN}"
     exit 0
 fi
 

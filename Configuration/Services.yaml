@@ -69,6 +69,7 @@ services:
       - '../Classes/Service/Agent/A2a/Server/A2aListFilter.php'
       - '../Classes/Service/Agent/A2a/Server/A2aRpcError.php'
       - '../Classes/Service/Agent/A2a/Server/A2aRpcReply.php'
+      - '../Classes/Service/Agent/A2a/Server/A2aSseWriter.php'
       - '../Classes/Service/Agent/A2a/Server/A2aSkillProfile.php'
       - '../Classes/Service/Agent/A2a/Server/Handler/A2aHandlerDecision.php'
       - '../Classes/Service/Agent/A2a/Server/Handler/A2aRunContext.php'

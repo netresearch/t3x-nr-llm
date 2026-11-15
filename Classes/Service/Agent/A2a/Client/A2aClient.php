@@ -27,10 +27,13 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aJsonRpcResponse;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aListTasksQuery;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRemoteError;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aSendMessageConfiguration;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aStreamEvent;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskList;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskStatus;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aHttpRequest;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportOutcome;
@@ -132,6 +135,244 @@ final readonly class A2aClient
         $this->journal->addTransferredBytes($intent, strlen($request->body) + strlen($result->body));
 
         return $outcome;
+    }
+
+    /**
+     * `SendStreamingMessage` (spec 051 A2A-SSE6): the send of
+     * {@see self::sendMessage()}, with the same journal and the same rule of
+     * no automatic resend, answered as an event stream.
+     *
+     * - The record's card must declare `streaming`; otherwise nothing is sent
+     *   (`STREAMING_NOT_DECLARED`) and the caller uses `SendMessage`.
+     * - The stream is read as it arrives and parsed by the WHATWG rules; every
+     *   event must answer this request's JSON-RPC id.
+     * - The first event that names a task settles the intent `accepted` with
+     *   the remote task and context id at once; a message settles it
+     *   `answered`. A stream that ends or breaks before either is an unknown
+     *   outcome (A2A-C6), never refused and never resent. An `application/json`
+     *   answer, an error before the stream, settles as for `SendMessage`.
+     * - After the acknowledgement an event about another task ends the stream
+     *   (`INVALID_AGENT_RESPONSE`); the intent keeps the task it named first.
+     * - A disconnect after the acknowledgement leaves a task to poll:
+     *   {@see A2aStreamOutcome::fallsBackToPolling()}.
+     *
+     * The stream lasts at most the record's maximum wait (at least its read
+     * timeout); an event may be at most the record's maximum response bytes.
+     *
+     * @param Closure(A2aStreamEvent): void $onEvent
+     *
+     * @throws A2aAgentUnavailableException when the record may not be used
+     * @throws A2aIntentConflictException   when the message id was used for another request
+     * @throws A2aJournalException          when the intent cannot be committed
+     * @throws A2aCallFailedException       when the card declares no streaming
+     */
+    public function sendStreamingMessage(
+        A2aRemoteAgent $agent,
+        int $ownerUid,
+        A2aMessage $message,
+        Closure $onEvent,
+        A2aSendMessageConfiguration $configuration = new A2aSendMessageConfiguration(),
+        int $runUid = 0,
+    ): A2aStreamOutcome {
+        $this->assertUsable($agent);
+        $this->assertStreaming($agent, A2aProtocol::METHOD_SEND_STREAMING_MESSAGE);
+        $message->assertSendable();
+
+        $params = $this->withTenant($agent, ['message' => $message->toArray()]);
+        if ($configuration->toArray() !== []) {
+            $params['configuration'] = $configuration->toArray();
+        }
+
+        $encoded = $this->encode($params);
+        $begin   = $this->journal->begin($ownerUid, (int) $agent->getUid(), $runUid, $message->messageId, A2aJsonRpcCodec::digest($encoded));
+        if (!$begin->created) {
+            return new A2aStreamOutcome($begin->intent, false);
+        }
+
+        $id      = Uuid::v7()->toRfc4122();
+        $request = $this->request($agent, A2aProtocol::METHOD_SEND_STREAMING_MESSAGE, $encoded, $id, true);
+        $read    = $this->readStream($agent, $request, $id, $begin->intent, $onEvent, true);
+        $intent  = $read['intent'];
+        $result  = $read['result'];
+
+        if ($result->outcome === A2aTransportOutcome::RESPONSE && $result->mediaType() !== A2aProtocol::EVENT_STREAM_CONTENT_TYPE) {
+            // Not a stream: an error (or an answer) as SendMessage gets it.
+            $settled = $this->settle($intent, $result, $id);
+            $this->journal->addTransferredBytes($intent, strlen($request->body) + strlen($result->body));
+
+            return new A2aStreamOutcome($settled->intent, true, 0, '', $settled->intent->lastRemoteState, $settled->remoteError);
+        }
+
+        if (!$read['acknowledged']) {
+            $intent = match (true) {
+                $result->outcome === A2aTransportOutcome::NOT_SENT => $this->journal->refuse($intent, null, $result->reason, $result->detail),
+                $read['error'] instanceof A2aRemoteError           => $this->journal->refuse($intent, $read['error']->code, $read['error']->effectiveReason(), $read['error']->message),
+                default                                            => $this->journal->markOutcomeUnknown(
+                    $intent,
+                    $read['failure'][0] ?? ($result->reason !== '' ? $result->reason : 'STREAM_ENDED_UNACKNOWLEDGED'),
+                    $read['failure'][1] ?? ($result->detail !== '' ? $result->detail : 'the stream ended before it named a task or a message'),
+                ),
+            };
+        }
+
+        $this->journal->addTransferredBytes($intent, strlen($request->body) + $read['bytes']);
+
+        return new A2aStreamOutcome($intent, true, $read['events'], $read['end'], $read['state'], $read['error']);
+    }
+
+    /**
+     * `SubscribeToTask` (A2A-SSE6) for a handle the owner holds: the remote's
+     * snapshot of the task, then its updates, until the remote closes the
+     * stream or it breaks. Only events about that task are accepted; the last
+     * state is recorded on the handle.
+     *
+     * @param Closure(A2aStreamEvent): void $onEvent
+     *
+     * @throws A2aAgentUnavailableException
+     * @throws A2aTaskHandleNotFoundException
+     * @throws A2aCallFailedException         when the card declares no streaming, or the remote refused
+     */
+    public function subscribeToTask(A2aRemoteAgent $agent, int $ownerUid, string $remoteTaskId, Closure $onEvent): A2aStreamOutcome
+    {
+        $handle = $this->handle($agent, $ownerUid, $remoteTaskId);
+        $this->assertStreaming($agent, A2aProtocol::METHOD_SUBSCRIBE_TO_TASK);
+
+        $id      = Uuid::v7()->toRfc4122();
+        $request = $this->request($agent, A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, $this->encode($this->withTenant($agent, ['id' => $remoteTaskId])), $id, true);
+        $read    = $this->readStream($agent, $request, $id, $handle, $onEvent, false);
+        $result  = $read['result'];
+        $this->journal->addTransferredBytes($handle, strlen($request->body) + $read['bytes'] + strlen($result->body));
+
+        if ($result->outcome === A2aTransportOutcome::RESPONSE && $result->mediaType() !== A2aProtocol::EVENT_STREAM_CONTENT_TYPE) {
+            $refusal = $this->responseRefusal($result);
+            if ($refusal !== null) {
+                throw A2aCallFailedException::local(A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, $refusal[0], $refusal[1]);
+            }
+
+            try {
+                $response = A2aJsonRpcCodec::decodeResponse($result->body, $id);
+            } catch (A2aInvalidAgentResponseException $e) {
+                throw A2aCallFailedException::local(A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, 'INVALID_AGENT_RESPONSE', $e->getMessage());
+            }
+
+            $this->resultOf(A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, $response);
+
+            throw A2aCallFailedException::local(A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, 'INVALID_AGENT_RESPONSE', 'the agent answered SubscribeToTask without a stream');
+        }
+
+        if ($result->outcome === A2aTransportOutcome::NOT_SENT) {
+            throw A2aCallFailedException::local(A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, $result->reason, $result->detail);
+        }
+
+        if ($read['error'] instanceof A2aRemoteError && $read['events'] === 0) {
+            throw A2aCallFailedException::remote(A2aProtocol::METHOD_SUBSCRIBE_TO_TASK, $read['error']);
+        }
+
+        return new A2aStreamOutcome($read['intent'], true, $read['events'], $read['end'], $read['state'], $read['error']);
+    }
+
+    /**
+     * Reads one stream through the transport and hands each event to the
+     * caller. For a send, the first event naming a task or a message settles
+     * the intent at once; for a subscription every event must name the
+     * handle's task.
+     *
+     * @param Closure(A2aStreamEvent): void $onEvent
+     *
+     * @return array{intent: A2aSendIntent, result: A2aTransportResult, acknowledged: bool, events: int, bytes: int, state: string, end: string, error: ?A2aRemoteError, failure: array{0: string, 1: string}|null}
+     */
+    private function readStream(A2aRemoteAgent $agent, A2aHttpRequest $request, string $id, A2aSendIntent $intent, Closure $onEvent, bool $isSend): array
+    {
+        $sse   = new A2aSseParser(max(1024, $agent->getMaxResponseBytes()));
+        $state = [
+            'intent'       => $intent,
+            'acknowledged' => !$isSend,
+            'events'       => 0,
+            'bytes'        => 0,
+            'state'        => '',
+            'error'        => null,
+            'failure'      => null,
+        ];
+
+        $result = $this->transport->stream($request, function (string $bytes) use ($sse, $id, $onEvent, $isSend, &$state): bool {
+            $state['bytes'] += strlen($bytes);
+            // The events completed before an invalid line are handled first:
+            // a task they name is stored before the stream ends (A2A-SSE6).
+            $frames = $sse->feed($bytes);
+
+            foreach ($frames as $frame) {
+                try {
+                    $response = A2aJsonRpcCodec::decodeResponse($frame['data'], $id);
+                    if ($response->isError()) {
+                        $state['error'] = $response->error;
+
+                        return false;
+                    }
+
+                    $event = $this->parser->parseStreamResponse($response->result);
+                } catch (A2aUnknownPayloadException) {
+                    // A2A-P4: a later protocol's event kind is skipped.
+                    continue;
+                } catch (A2aInvalidAgentResponseException $e) {
+                    $state['failure'] = ['INVALID_AGENT_RESPONSE', $e->getMessage()];
+
+                    return false;
+                }
+
+                if (!$state['acknowledged']) {
+                    if ($event->kind === A2aStreamEvent::KIND_MESSAGE && !$event->namesTask()) {
+                        $state['intent'] = $this->journal->answer($state['intent'], $event->contextId);
+                    } elseif ($event->namesTask()) {
+                        // Persisted the moment it is read (A2A-SSE6).
+                        $state['intent'] = $this->journal->accept($state['intent'], $event->taskId, $event->contextId, $event->status instanceof A2aTaskStatus ? $event->status->rawState : '');
+                    }
+
+                    $state['acknowledged'] = true;
+                } elseif ($event->namesTask() && $event->taskId !== $state['intent']->remoteTaskId && ($isSend || $state['intent']->remoteTaskId !== '')) {
+                    $state['failure'] = ['INVALID_AGENT_RESPONSE', 'the stream carries an event of another task'];
+
+                    return false;
+                }
+
+                if ($event->status instanceof A2aTaskStatus) {
+                    $state['state'] = $event->status->rawState;
+                    if ($state['intent']->remoteTaskId !== '') {
+                        $this->journal->recordRemoteState($state['intent'], $event->status->rawState);
+                    }
+                }
+
+                ++$state['events'];
+                $onEvent($event);
+            }
+
+            if ($sse->failure() !== null) {
+                $state['failure'] = ['INVALID_AGENT_RESPONSE', $sse->failure()];
+
+                return false;
+            }
+
+            return true;
+        });
+
+        $end = match (true) {
+            $state['failure'] !== null                         => $state['failure'][0],
+            $state['error'] instanceof A2aRemoteError          => 'REMOTE_ERROR',
+            $result->outcome !== A2aTransportOutcome::RESPONSE => $result->reason,
+            $sse->hasPartialEvent()                            => 'STREAM_ENDED_MID_EVENT',
+            default                                            => '',
+        };
+
+        return ['result' => $result, 'end' => $end] + $state;
+    }
+
+    /**
+     * @throws A2aCallFailedException
+     */
+    private function assertStreaming(A2aRemoteAgent $agent, string $method): void
+    {
+        if (!$agent->declaresStreaming()) {
+            throw A2aCallFailedException::local($method, 'STREAMING_NOT_DECLARED', "the agent's card does not declare streaming");
+        }
     }
 
     /**
@@ -445,7 +686,7 @@ final readonly class A2aClient
         }
     }
 
-    private function request(A2aRemoteAgent $agent, string $method, string $encodedParams, string $id): A2aHttpRequest
+    private function request(A2aRemoteAgent $agent, string $method, string $encodedParams, string $id, bool $stream = false): A2aHttpRequest
     {
         try {
             $body = A2aJsonRpcCodec::encodeRequest($method, $encodedParams, $id);
@@ -458,13 +699,13 @@ final readonly class A2aClient
             $agent->getInterfaceUrl(),
             [
                 'Content-Type'              => A2aProtocol::CONTENT_TYPE,
-                'Accept'                    => A2aProtocol::CONTENT_TYPE,
+                'Accept'                    => $stream ? A2aProtocol::EVENT_STREAM_CONTENT_TYPE . ', ' . A2aProtocol::CONTENT_TYPE : A2aProtocol::CONTENT_TYPE,
                 A2aProtocol::VERSION_HEADER => A2aProtocol::VERSION,
             ],
             $body,
             $agent->getCredential(),
             $agent->getConnectTimeoutSeconds(),
-            $agent->getReadTimeoutSeconds(),
+            $stream ? max($agent->getReadTimeoutSeconds(), $agent->getMaxWaitSeconds()) : $agent->getReadTimeoutSeconds(),
             $agent->getMaxResponseBytes(),
             sprintf('nr-llm A2A %s to "%s"', $method, $agent->getIdentifier()),
         );

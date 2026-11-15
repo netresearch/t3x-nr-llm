@@ -1902,3 +1902,24 @@ CREATE TABLE tx_nrllm_a2a_wait_slot (
 
     PRIMARY KEY (slot)
 );
+
+#
+# Table structure for table 'tx_nrllm_a2a_stream_slot'
+# The installation's open A2A streams (spec 051 A2A-SSE3): one row per slot,
+# held by one stream with the client and the task it reads. A hold is a short
+# lease the stream renews while it is open; a stream that dies without
+# releasing (a client that went away ends the PHP script at its next write)
+# frees its slot when the lease runs out. Not a TCA table.
+#
+CREATE TABLE tx_nrllm_a2a_stream_slot (
+    slot int(11) unsigned DEFAULT '0' NOT NULL,
+    holder varchar(64) DEFAULT '' NOT NULL,
+    client_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    task_id varchar(64) DEFAULT '' NOT NULL,
+    expires int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (slot),
+    KEY holder (holder),
+    KEY client (client_uid),
+    KEY task (task_id)
+);

@@ -29,6 +29,9 @@ final class ScriptedA2aTransport implements A2aTransportInterface
     /** @var list<Closure(A2aHttpRequest): A2aTransportResult> */
     private array $steps = [];
 
+    /** @var list<Closure(A2aHttpRequest, Closure(string): bool): A2aTransportResult> */
+    private array $streams = [];
+
     /**
      * @param Closure(A2aHttpRequest): A2aTransportResult $step
      */
@@ -53,6 +56,62 @@ final class ScriptedA2aTransport implements A2aTransportInterface
             json_encode(['jsonrpc' => '2.0', 'id' => self::idOf($request)] + $member, JSON_THROW_ON_ERROR),
             false,
         ));
+    }
+
+    /**
+     * A stream step: it receives the request and the byte sink and returns how
+     * the stream ended.
+     *
+     * @param Closure(A2aHttpRequest, Closure(string): bool): A2aTransportResult $step
+     */
+    public function thenStream(Closure $step): self
+    {
+        $this->streams[] = $step;
+
+        return $this;
+    }
+
+    /**
+     * An event stream of these pieces (each written as it is, so a piece may
+     * end in the middle of a line or of a UTF-8 sequence), then the end the
+     * stream had: a normal close (null) or a broken connection.
+     *
+     * @param list<string|Closure(A2aHttpRequest): string> $pieces a closure gets the request, e.g. for its id
+     */
+    public function thenEvents(array $pieces, ?A2aTransportResult $end = null): self
+    {
+        return $this->thenStream(static function (A2aHttpRequest $request, Closure $onBytes) use ($pieces, $end): A2aTransportResult {
+            foreach ($pieces as $piece) {
+                if ($onBytes($piece instanceof Closure ? $piece($request) : $piece) === false) {
+                    break;
+                }
+            }
+
+            return $end ?? A2aTransportResult::response(200, 'text/event-stream', '', '', false);
+        });
+    }
+
+    /**
+     * One `data:` event holding a JSON-RPC result with the request's id.
+     *
+     * @param array<string, mixed> $result
+     *
+     * @return Closure(A2aHttpRequest): string
+     */
+    public static function event(array $result): Closure
+    {
+        return static fn (A2aHttpRequest $request): string => 'data: ' . json_encode(['jsonrpc' => '2.0', 'id' => self::idOf($request), 'result' => $result], JSON_THROW_ON_ERROR) . "\n\n";
+    }
+
+    public function stream(A2aHttpRequest $request, Closure $onBytes): A2aTransportResult
+    {
+        $this->requests[] = $request;
+        $step             = array_shift($this->streams);
+        if (!$step instanceof Closure) {
+            throw new RuntimeException('The script has no stream step for request ' . count($this->requests), 4267806157);
+        }
+
+        return $step($request, $onBytes);
     }
 
     public function send(A2aHttpRequest $request): A2aTransportResult

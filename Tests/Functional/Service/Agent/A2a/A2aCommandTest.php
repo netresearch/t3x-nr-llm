@@ -106,6 +106,30 @@ final class A2aCommandTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('<info>a</info>', $display);
     }
 
+    /**
+     * A2A-SSE6: --stream prints each event as plain text and, for a stream
+     * that ended before the task finished, points to nrllm:a2a:get.
+     */
+    #[Test]
+    public function sendStreamPrintsEachEventAndPointsToGetForAnUnfinishedTask(): void
+    {
+        $this->insertAgent('streaming=1;pushNotifications=-;extendedAgentCard=-');
+        $transport = (new ScriptedA2aTransport())->thenEvents([
+            ScriptedA2aTransport::event(['task' => ['id' => 'task-s', 'status' => ['state' => 'TASK_STATE_SUBMITTED']]]),
+            ScriptedA2aTransport::event(['artifactUpdate' => ['taskId' => 'task-s', 'contextId' => 'c', 'artifact' => ['artifactId' => 'a-1', 'parts' => [['text' => "\e[31m<error>partial</error>"]]]]]),
+        ], A2aTransportResult::maybeSent('CONNECTION_LOST', 'x'));
+
+        $send = new CommandTester(new A2aSendCommand($this->context(), $this->client($transport)));
+
+        self::assertSame(Command::SUCCESS, $send->execute(['agent' => 'remote', 'text' => 'hello', '--stream' => true], ['decorated' => true]));
+        $display = $send->getDisplay();
+        self::assertStringContainsString('task task-s: TASK_STATE_SUBMITTED', $display);
+        self::assertStringContainsString('<error>partial</error>', $display, 'remote markup is text');
+        self::assertStringNotContainsString("\e[31m", $display);
+        self::assertStringContainsString('nrllm:a2a:get task-s', $display);
+        self::assertSame('SendStreamingMessage', ScriptedA2aTransport::envelopeOf($transport->requests[0])['method']);
+    }
+
     #[Test]
     public function anUnknownOutcomeIsReportedWithItsMessageIdAndAFailingExit(): void
     {
@@ -201,15 +225,16 @@ final class A2aCommandTest extends AbstractFunctionalTestCase
         return new A2aClient(new A2aSendJournal($this->getService(ConnectionPool::class)), $transport, new A2aResponseParser());
     }
 
-    private function insertAgent(): void
+    private function insertAgent(string $capabilities = ''): void
     {
         $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent')->insert('tx_nrllm_a2a_agent', [
-            'identifier'    => 'remote',
-            'title'         => 'Remote',
-            'card_url'      => 'https://agent.example/.well-known/agent-card.json',
-            'interface_url' => 'https://agent.example/a2a/jsonrpc',
-            'data_class'    => ToolDataClass::PUBLIC_CONTENT->value,
-            'enabled'       => 1,
+            'card_capabilities' => $capabilities,
+            'identifier'        => 'remote',
+            'title'             => 'Remote',
+            'card_url'          => 'https://agent.example/.well-known/agent-card.json',
+            'interface_url'     => 'https://agent.example/a2a/jsonrpc',
+            'data_class'        => ToolDataClass::PUBLIC_CONTENT->value,
+            'enabled'           => 1,
         ]);
     }
 }

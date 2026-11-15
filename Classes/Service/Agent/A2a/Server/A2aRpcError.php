@@ -58,6 +58,9 @@ final class A2aRpcError extends A2aException
     /** The profile's configuration is switched off, or not one its client's technical user may use. */
     public const REASON_PROFILE_UNAVAILABLE = 'PROFILE_UNAVAILABLE';
 
+    /** A stream limit of the task, the client or the installation is reached (A2A-SSE3). */
+    public const REASON_STREAM_CAPACITY_EXHAUSTED = 'STREAM_CAPACITY_EXHAUSTED';
+
     private const BAD_REQUEST_TYPE = 'type.googleapis.com/google.rpc.BadRequest';
 
     private const RETRY_INFO_TYPE = 'type.googleapis.com/google.rpc.RetryInfo';

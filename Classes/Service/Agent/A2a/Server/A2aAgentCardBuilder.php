@@ -23,8 +23,8 @@ use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
  * The public agent card of a site (spec 051 A2A-SV3, A2A-P7, ADR-280).
  *
  * Every URL in it is built from the site's configured base URL. It declares
- * only what stage 3 offers: no streaming, no push notifications, no extended
- * card; one bearer scheme; the profile selector extension, not required; and
+ * only what the installation offers: streaming when `a2a.server.streaming` is
+ * on (A2A-OPS2), no push notifications, no extended card; one bearer scheme; the profile selector extension, not required; and
  * one skill per public publication profile that can be served now: its
  * handler is available here, and its configuration is switched on and keeps
  * a result under the current privacy policy (ADR-282). A profile that cannot is left out rather
@@ -41,6 +41,7 @@ final readonly class A2aAgentCardBuilder
         private A2aDomainHandlerRegistry $handlers,
         private RunPrivacyLevelResolver $privacy,
         private LlmConfigurationRepository $configurations,
+        private A2aServerSettings $settings,
     ) {}
 
     /**
@@ -60,7 +61,7 @@ final readonly class A2aAgentCardBuilder
             ]],
             'version'      => $this->version(),
             'capabilities' => [
-                'streaming'         => false,
+                'streaming'         => $this->settings->streamingEnabled(),
                 'pushNotifications' => false,
                 'extensions'        => [[
                     'uri'         => A2aSendMessageHandler::PROFILE_EXTENSION,

@@ -294,7 +294,18 @@ Known limits
 -  **Protocol.** A2A 1.0 over JSON-RPC only. A card that offers only gRPC,
    HTTP+JSON or protocol 0.3 cannot be imported. Fields of later protocol
    versions are ignored; an unknown task state never counts as completed.
--  **No streaming and no push** yet; a task is followed by asking for it.
+-  **Streaming is for the PHP API and the command line, not for runs.** A
+   run that delegates sends ``SendMessage`` and is resumed by polling, so it
+   never holds a worker for the remote's work (:ref:`ADR-281 <adr-281>`).
+   ``A2aClient::sendStreamingMessage()``, ``A2aClient::subscribeToTask()``
+   and ``nrllm:a2a:send --stream`` read an agent's stream when its card
+   declares ``streaming``: the remote task is stored with the first event
+   that names it, a stream that breaks before that is an unknown outcome and
+   is never sent again, and a stream that ends before the task finished
+   leaves it to ``GetTask`` (``nrllm:a2a:get``). A stream lasts at most the
+   record's maximum wait, at least its request timeout; one event may be at
+   most the record's maximum response size.
+-  **No push** yet; a task is followed by asking for it.
 -  **An interrupted remote task** (``TASK_STATE_INPUT_REQUIRED``,
    ``TASK_STATE_AUTH_REQUIRED``) is handed to the model as such; nothing
    answers the remote agent yet.

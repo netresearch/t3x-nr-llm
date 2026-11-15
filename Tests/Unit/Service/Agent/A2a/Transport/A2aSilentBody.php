@@ -13,13 +13,21 @@ use Psr\Http\Message\StreamInterface;
 use RuntimeException;
 
 /**
- * A response body that is never at its end and never has a byte to give.
+ * A response body that is never at its end and, once the pieces it was given
+ * are read, never has a byte to give.
  */
 final class A2aSilentBody implements StreamInterface
 {
     public int $reads = 0;
 
     public bool $closed = false;
+
+    /**
+     * @param list<string> $pieces what the first reads return, one each
+     */
+    public function __construct(
+        private array $pieces = [],
+    ) {}
 
     public function __toString(): string
     {
@@ -87,7 +95,7 @@ final class A2aSilentBody implements StreamInterface
     {
         ++$this->reads;
 
-        return '';
+        return array_shift($this->pieces) ?? '';
     }
 
     public function getContents(): string

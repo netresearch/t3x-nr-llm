@@ -72,7 +72,8 @@ final class A2aRequestFieldNames
             'status_timestamp_after' => null,
             'include_artifacts'      => null,
         ],
-        'CancelTaskRequest' => [],
+        'CancelTaskRequest'      => [],
+        'SubscribeToTaskRequest' => [],
     ];
 
     private const REQUEST_OF_METHOD = [
@@ -80,6 +81,9 @@ final class A2aRequestFieldNames
         A2aProtocol::METHOD_GET_TASK     => 'GetTaskRequest',
         A2aProtocol::METHOD_LIST_TASKS   => 'ListTasksRequest',
         A2aProtocol::METHOD_CANCEL_TASK  => 'CancelTaskRequest',
+        // SendStreamingMessage takes a SendMessageRequest (proto rpc).
+        A2aProtocol::METHOD_SEND_STREAMING_MESSAGE => 'SendMessageRequest',
+        A2aProtocol::METHOD_SUBSCRIBE_TO_TASK      => 'SubscribeToTaskRequest',
     ];
 
     /**

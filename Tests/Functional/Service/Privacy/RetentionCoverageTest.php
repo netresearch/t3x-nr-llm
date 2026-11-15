@@ -91,6 +91,7 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         'tx_nrllm_a2a_dedup'                 => 'ids and a sha256 of an accepted message, no message text; removed with its task when the run purge removes the task (spec 051 A2A-SV6)',
         'tx_nrllm_a2a_write'                 => 'the identity of a record an A2A task wrote (table, uid, workspace, kind), never a field value; removed with its task when the run purge removes the task (spec 051 A2A-MT6)',
         'tx_nrllm_a2a_wait_slot'             => 'one row per waiting slot of the installation, a random holder and an expiry; no request or user data',
+        'tx_nrllm_a2a_stream_slot'           => 'one row per stream slot of the installation: a random holder, the client uid and task id of the stream that holds it, and a lease of seconds; no content, and a slot is free again when the lease runs out (spec 051 A2A-SSE3)',
         'tx_nrllm_mcp_oauth_grant'           => "the OAuth connection of an MCP server (ADR-259): Vault references and endpoint metadata, one row per server, removed by Disconnect; the connecting administrator's uid is the only user datum",
         'tx_nrllm_service_usage'             => 'billing ledger the budget module reports on; retention is tracked as a follow-up',
         'tx_nrllm_worker_heartbeat'          => 'anonymous process liveness only; independently pruned after 24 hours by worker heartbeats (ADR-219)',

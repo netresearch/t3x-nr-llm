@@ -41,6 +41,9 @@ use TYPO3\CMS\Core\Core\Environment;
  * - `tck-input-required`: the run waits for input, the task is INPUT_REQUIRED.
  * - `tck-reject-task`: refused before the run starts, REJECTED.
  * - `tck-message-response`: a message, no task.
+ * - `test-resubscribe-message-id` (the TCK's long-running task): the run is
+ *   claimed, so the task is WORKING, and then left as it is; no worker takes
+ *   it over within the claim's lease. A stream of it stays open.
  *
  * A later message to a task waiting for input goes through the real intake
  * (A2A-MT2); once it committed, the fixture plays the worker again: a
@@ -84,14 +87,15 @@ final readonly class A2aTckFixtureHandler implements A2aDomainHandlerInterface, 
         $request = new AgentRunRequest($context->configuration, [ChatMessage::user($message->text())], $context->actor, allowedToolNames: [], origin: $context->origin);
 
         return match (true) {
-            str_starts_with($id, 'tck-message-response')  => A2aHandlerDecision::reply(new A2aMessage(Uuid::v7()->toRfc4122(), A2aRole::AGENT, [A2aPart::text('Direct message response')], $message->contextId)),
-            str_starts_with($id, 'tck-reject-task')       => A2aHandlerDecision::reject($request),
-            str_starts_with($id, 'tck-input-required')    => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, null)),
-            str_starts_with($id, 'tck-artifact-file-url') => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, self::MARKER . 'file-url')),
-            str_starts_with($id, 'tck-artifact-file')     => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, self::MARKER . 'file')),
-            str_starts_with($id, 'tck-artifact-data')     => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, self::MARKER . 'data')),
-            str_starts_with($id, 'tck-artifact-text')     => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, 'Generated text content')),
-            default                                       => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, 'Hello from TCK')),
+            str_starts_with($id, 'test-resubscribe-message-id') => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->claim($runUuid)),
+            str_starts_with($id, 'tck-message-response')        => A2aHandlerDecision::reply(new A2aMessage(Uuid::v7()->toRfc4122(), A2aRole::AGENT, [A2aPart::text('Direct message response')], $message->contextId)),
+            str_starts_with($id, 'tck-reject-task')             => A2aHandlerDecision::reject($request),
+            str_starts_with($id, 'tck-input-required')          => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, null)),
+            str_starts_with($id, 'tck-artifact-file-url')       => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, self::MARKER . 'file-url')),
+            str_starts_with($id, 'tck-artifact-file')           => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, self::MARKER . 'file')),
+            str_starts_with($id, 'tck-artifact-data')           => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, self::MARKER . 'data')),
+            str_starts_with($id, 'tck-artifact-text')           => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, 'Generated text content')),
+            default                                             => A2aHandlerDecision::run($request, fn (string $runUuid) => $this->settle($runUuid, 'Hello from TCK')),
         };
     }
 
@@ -110,6 +114,17 @@ final readonly class A2aTckFixtureHandler implements A2aDomainHandlerInterface, 
     public function continued(string $runUuid, A2aMessage $message): void
     {
         $this->settle($runUuid, str_starts_with($message->messageId, 'tck-input-required') ? null : 'Hello from TCK');
+    }
+
+    /**
+     * Claim the run, as a worker would, and leave it working.
+     */
+    private function claim(string $runUuid): void
+    {
+        $run = $this->persister->findRun($runUuid);
+        if ($run instanceof AgentRun) {
+            $this->persister->claimQueued($run, self::WORKER, time() + 300);
+        }
     }
 
     /**

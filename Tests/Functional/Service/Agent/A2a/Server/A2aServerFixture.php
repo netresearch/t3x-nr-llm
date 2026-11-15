@@ -48,7 +48,13 @@ trait A2aServerFixture
 {
     private const BASE = 'https://agent.example.org/a2a';
 
-    private const SERVER_SETTINGS = ['enabled' => '1', 'blockingWaitSeconds' => '1', 'maxWaitingRequests' => '2', 'maxRequestBytes' => '4096'];
+    /**
+     * Streaming is named, not left to the template's default: TYPO3 merges
+     * the defaults of ext_conf_template.txt in whenever some code reads a
+     * path that is missing, so an absent key would be on in one test and
+     * off in the next. A2aSseTest switches it on.
+     */
+    private const SERVER_SETTINGS = ['enabled' => '1', 'blockingWaitSeconds' => '1', 'maxWaitingRequests' => '2', 'maxRequestBytes' => '4096', 'streaming' => '0'];
 
     /** @var array<int, string> client uid => token */
     private array $tokens = [];

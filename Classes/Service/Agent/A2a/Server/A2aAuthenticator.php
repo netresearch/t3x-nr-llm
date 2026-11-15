@@ -100,6 +100,22 @@ final readonly class A2aAuthenticator
         throw A2aRpcError::unauthenticated();
     }
 
+    /**
+     * Whether a client authenticated earlier in this request would still be
+     * authenticated now with the same token: the record exists, still holds
+     * that token's hash, is active, and its technical backend user is usable.
+     * A stream asks this while it is open (A2A-SSE3).
+     */
+    public function stillValid(A2aInboundClient $client, int $now): bool
+    {
+        $current = $this->clients->findByUid($client->uid);
+
+        return $current instanceof A2aInboundClient
+            && hash_equals($current->tokenHash, $client->tokenHash)
+            && $current->isActive($now)
+            && $this->usableBackendUser($current->backendUserUid, $now);
+    }
+
     private function bearer(string $header): string
     {
         return preg_match('/^Bearer\s+(\S+)\s*$/i', $header, $match) === 1 ? $match[1] : '';

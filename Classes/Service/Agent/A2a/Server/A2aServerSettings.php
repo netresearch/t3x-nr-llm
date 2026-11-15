@@ -37,6 +37,16 @@ final readonly class A2aServerSettings
 
     public const REQUEST_BYTES_DEFAULT = 1048576;
 
+    public const STREAM_SECONDS_DEFAULT = 300;
+
+    public const STREAMS_PER_TASK_DEFAULT = 2;
+
+    public const STREAMS_PER_CLIENT_DEFAULT = 4;
+
+    public const STREAMS_DEFAULT = 8;
+
+    public const FRAME_BYTES_DEFAULT = 1048576;
+
     public function __construct(
         private ExtensionConfiguration $extensionConfiguration,
         private SiteFinder $siteFinder,
@@ -63,6 +73,51 @@ final readonly class A2aServerSettings
     public function maxRequestBytes(): int
     {
         return $this->bounded('maxRequestBytes', self::REQUEST_BYTES_DEFAULT, 1024, 67108864);
+    }
+
+    /**
+     * Whether the card declares `streaming` and the two streaming methods
+     * answer (spec 051 A2A-OPS2). On by default, as ext_conf_template.txt
+     * says: a key TYPO3 has not written yet is on, so the behaviour does not
+     * depend on whether the template's defaults were synchronised. Any value
+     * other than on switches it off.
+     */
+    public function streamingEnabled(): bool
+    {
+        $value = $this->value('streaming');
+
+        return $this->enabled() && ($value === null || in_array($value, [true, 1, '1'], true));
+    }
+
+    /**
+     * Seconds one stream stays open at most, 1 to 3600 (A2A-SSE3).
+     */
+    public function streamMaxSeconds(): int
+    {
+        return $this->bounded('streamMaxSeconds', self::STREAM_SECONDS_DEFAULT, 1, 3600);
+    }
+
+    public function maxStreamsPerTask(): int
+    {
+        return $this->bounded('maxStreamsPerTask', self::STREAMS_PER_TASK_DEFAULT, 0, 100);
+    }
+
+    public function maxStreamsPerClient(): int
+    {
+        return $this->bounded('maxStreamsPerClient', self::STREAMS_PER_CLIENT_DEFAULT, 0, 1000);
+    }
+
+    public function maxStreams(): int
+    {
+        return $this->bounded('maxStreams', self::STREAMS_DEFAULT, 0, 1000);
+    }
+
+    /**
+     * The largest frame a stream writes, in bytes (A2A-SSE3).
+     */
+    public function maxFrameBytes(): int
+    {
+        return $this->bounded('maxFrameBytes', self::FRAME_BYTES_DEFAULT, 4096, 16777216);
     }
 
     /**

@@ -12,13 +12,16 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Command;
 use Netresearch\NrLlm\Exception\NrLlmExceptionInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aSendOutcome;
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aStreamOutcome;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendState;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aSendMessageConfiguration;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aStreamEvent;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -30,6 +33,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * wait for the remote's work; `nrllm:a2a:get` reads the task later, from the
  * handle the journal keeps. An unknown outcome is printed with its message id
  * and is never sent again by this command.
+ *
+ * With `--stream` it sends `SendStreamingMessage` instead, to an agent whose
+ * card declares streaming, and prints each event as it arrives until the
+ * remote closes the stream (spec 051 A2A-SSE6). A stream that ended before
+ * the task finished leaves it to `nrllm:a2a:get`.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -50,6 +58,7 @@ final class A2aSendCommand extends Command
     {
         $this->addArgument('agent', InputArgument::REQUIRED, 'The identifier or uid of the remote agent record.');
         $this->addArgument('text', InputArgument::REQUIRED, 'The text of the message.');
+        $this->addOption('stream', null, InputOption::VALUE_NONE, 'Send SendStreamingMessage and print the events as they arrive.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -67,6 +76,16 @@ final class A2aSendCommand extends Command
             $agent   = $this->context->agent($reference);
             $owner   = $this->context->owner();
             $message = A2aMessage::userText(A2aClient::newMessageId(), $text);
+            if ($input->getOption('stream') === true) {
+                $streamed = $this->context->asWorker(
+                    fn (): A2aStreamOutcome => $this->client->sendStreamingMessage($agent, $owner, $message, static function (A2aStreamEvent $event) use ($io): void {
+                        $io->writeln(self::eventLine($event));
+                    }),
+                );
+
+                return $this->reportStream($io, $streamed);
+            }
+
             $outcome = $this->context->asWorker(
                 fn (): A2aSendOutcome => $this->client->sendMessage($agent, $owner, $message, A2aSendMessageConfiguration::returningImmediately()),
             );
@@ -78,6 +97,31 @@ final class A2aSendCommand extends Command
         }
 
         return $this->report($io, $outcome);
+    }
+
+    /**
+     * One line per event; text the remote chose is printed as plain text.
+     */
+    private static function eventLine(A2aStreamEvent $event): string
+    {
+        return match ($event->kind) {
+            A2aStreamEvent::KIND_MESSAGE         => 'message: ' . A2aTaskPrinter::plain($event->message?->text() ?? ''),
+            A2aStreamEvent::KIND_ARTIFACT_UPDATE => 'artifact ' . A2aTaskPrinter::line($event->artifact->artifactId ?? '') . ': ' . A2aTaskPrinter::plain($event->artifact?->text() ?? ''),
+            default                              => $event->kind . ' ' . A2aTaskPrinter::line($event->taskId) . ': ' . A2aTaskPrinter::line($event->status->rawState ?? ''),
+        };
+    }
+
+    private function reportStream(SymfonyStyle $io, A2aStreamOutcome $outcome): int
+    {
+        if ($outcome->intent->state !== A2aSendState::ACCEPTED) {
+            return $outcome->intent->state === A2aSendState::ANSWERED ? Command::SUCCESS : $this->report($io, new A2aSendOutcome($outcome->intent, $outcome->sent));
+        }
+
+        if ($outcome->fallsBackToPolling()) {
+            $io->writeln(sprintf('<comment>The stream ended (%s) before the task finished. Read it later with nrllm:a2a:get %s.</comment>', A2aTaskPrinter::line($outcome->endReason !== '' ? $outcome->endReason : 'closed by the agent'), A2aTaskPrinter::line($outcome->intent->remoteTaskId)));
+        }
+
+        return Command::SUCCESS;
     }
 
     private function report(SymfonyStyle $io, A2aSendOutcome $outcome): int

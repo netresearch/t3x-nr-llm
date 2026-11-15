@@ -151,6 +151,15 @@ class A2aRemoteAgent extends AbstractEntity
         return $this->cardCapabilities;
     }
 
+    /**
+     * Whether the imported card declares `streaming` (A2A-SSE6, A2A-P7);
+     * absent or false is no.
+     */
+    public function declaresStreaming(): bool
+    {
+        return preg_match('/(?:^|;)streaming=1(?:;|$)/', $this->cardCapabilities) === 1;
+    }
+
     public function isCardChanged(): bool
     {
         return $this->cardChanged;
