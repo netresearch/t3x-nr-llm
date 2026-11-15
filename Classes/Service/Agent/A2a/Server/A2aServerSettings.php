@@ -77,11 +77,16 @@ final readonly class A2aServerSettings
 
     /**
      * Whether the card declares `streaming` and the two streaming methods
-     * answer (spec 051 A2A-OPS2). A missing or unreadable value is off.
+     * answer (spec 051 A2A-OPS2). On by default, as ext_conf_template.txt
+     * says: a key TYPO3 has not written yet is on, so the behaviour does not
+     * depend on whether the template's defaults were synchronised. Any value
+     * other than on switches it off.
      */
     public function streamingEnabled(): bool
     {
-        return $this->enabled() && in_array($this->value('streaming'), [true, 1, '1'], true);
+        $value = $this->value('streaming');
+
+        return $this->enabled() && ($value === null || in_array($value, [true, 1, '1'], true));
     }
 
     /**

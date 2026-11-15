@@ -1919,6 +1919,7 @@ CREATE TABLE tx_nrllm_a2a_stream_slot (
     expires int(11) unsigned DEFAULT '0' NOT NULL,
 
     PRIMARY KEY (slot),
+    KEY holder (holder),
     KEY client (client_uid),
     KEY task (task_id)
 );

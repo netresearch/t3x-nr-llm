@@ -255,7 +255,9 @@ Limits and protection
 - **Proxies in front of a stream.** The response carries
   ``X-Accel-Buffering: no`` and ``Cache-Control: no-cache``, and pads each
   write to 4 KiB with a comment line, so a proxy that holds small chunks
-  passes every event on when it is written. A proxy whose read timeout is
+  passes every event on when it is written; nginx in front of PHP-FPM with
+  its FastCGI buffering on is tested this way in CI. Apache is not. A proxy
+  whose read timeout is
   below 15 seconds cuts a quiet stream; one that buffers whole responses
   regardless of these headers delivers the events only when the stream
   closes. Check the proxy chain of the installation with a

@@ -233,7 +233,13 @@ final readonly class A2aRpcServer
         $message       = is_array($params['message'] ?? null) ? $params['message'] : [];
         $configuration = is_array($params['configuration'] ?? null) ? $params['configuration'] : [];
         $named         = is_string($message['taskId'] ?? null) ? $message['taskId'] : '';
-        $holder        = $this->takeStreamSlot($client, $named, $now);
+        if ($named !== '' && $this->view->find($client->uid, $named) === null) {
+            // Another client's task and an unknown one answer alike, before
+            // any stream of theirs is counted (A2A-SEC2).
+            throw A2aRpcError::a2a(A2aErrorCode::TASK_NOT_FOUND, 'Task not found.');
+        }
+
+        $holder = $this->takeStreamSlot($client, $named, $now);
         try {
             $result = $this->sendMessage->handle($client, $params, $now, true);
             if (is_array($result['message'] ?? null)) {
@@ -246,7 +252,7 @@ final readonly class A2aRpcServer
 
             $task   = is_array($result['task'] ?? null) ? $result['task'] : [];
             $taskId = is_string($task['id'] ?? null) ? $task['id'] : '';
-            if ($named === '' && !$this->streamSlots->bind($holder, $client->uid, $taskId, $this->settings->maxStreamsPerTask(), $now)) {
+            if ($named === '' && !$this->streamSlots->bind($holder, $taskId, $this->settings->maxStreamsPerTask(), $now)) {
                 // Only a repeated messageId finds a task that already has
                 // streams; nothing new was stored for it.
                 throw A2aRpcError::unavailable(A2aRpcError::REASON_STREAM_CAPACITY_EXHAUSTED, 5);

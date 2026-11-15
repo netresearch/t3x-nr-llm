@@ -243,7 +243,7 @@ a2a.server.maxStreamsPerClient = 4
 # cat=tools; type=int+; label=A2A streams: How many streams may be open on this installation at the same time, all clients together. Each holds a PHP-FPM worker. Default 8. 0 refuses every stream.
 a2a.server.maxStreams = 8
 
-# cat=tools; type=int+; label=Largest A2A stream frame (bytes): An event larger than this is not sent. The stream ends instead, and the client reads the task with GetTask (A2A-SSE3). Default 1048576 (1 MiB).
+# cat=tools; type=int+; label=Largest A2A stream frame (bytes): An event larger than this is not sent. The first event, the task, is then sent without its history and artifacts. Any later event that does not fit ends the stream, and the client reads the task with GetTask (A2A-SSE3). Default 1048576 (1 MiB).
 a2a.server.maxFrameBytes = 1048576
 
 # =============================================================================

@@ -386,6 +386,73 @@ final class A2aSseTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-SSE3: a repeated messageId finds the task it created; a stream of
+     * it counts against that task's limit, and a refusal creates nothing.
+     */
+    #[Test]
+    public function aRepeatedStreamedMessageCountsAgainstItsTasksLimit(): void
+    {
+        $this->streamSettings(['maxStreamsPerTask' => '1']);
+        $message = $this->message('again', 'm-repeat-1');
+        self::assertTrue($this->reply('SendStreamingMessage', ['message' => $message], 1)->isStream());
+        $tasks = $this->rows(A2aTaskStore::TABLE);
+
+        $again = $this->reply('SendStreamingMessage', ['message' => $message], 1);
+
+        self::assertSame('STREAM_CAPACITY_EXHAUSTED', $this->errorOf($this->asArray($again))['reason']);
+        self::assertSame($tasks, $this->rows(A2aTaskStore::TABLE));
+        self::assertSame(1, $this->heldStreamSlots(), 'the refused stream gave its slot back');
+    }
+
+    /**
+     * A2A-OPS2: streaming is on by default; a setting TYPO3 has not written
+     * yet does not switch it off.
+     */
+    #[Test]
+    public function streamingIsOnWhenTheSettingIsMissing(): void
+    {
+        $settings = self::SERVER_SETTINGS;
+        unset($settings['streaming']);
+        $this->serverSettings($settings);
+
+        self::assertTrue(self::j($this->card(), 'capabilities.streaming'));
+    }
+
+    /**
+     * A2A-OPS2: switching streaming off ends open streams at the next lease
+     * renewal.
+     */
+    #[Test]
+    public function switchingStreamingOffEndsOpenStreams(): void
+    {
+        $events = $this->stream('SendStreamingMessage', ['message' => $this->message()], 1, function (int $tick): void {
+            if ($tick === 1) {
+                $this->streamSettings(['streaming' => '0']);
+            }
+        });
+
+        self::assertSame(A2aTaskStream::RENEW_SECONDS * 4, $events['ticks']);
+    }
+
+    /**
+     * A2A-SEC2: a streamed message naming another client's task is the same
+     * -32001 as an unknown task, before any stream of that task is counted.
+     */
+    #[Test]
+    public function aStreamedMessageToAnotherClientsTaskIsNotFound(): void
+    {
+        $this->streamSettings(['maxStreamsPerTask' => '1']);
+        $theirs = $this->taskOf($this->call('SendMessage', ['message' => $this->message('hi', 'tck-input-required-o1')], 3));
+        self::assertTrue($this->reply('SubscribeToTask', ['id' => $theirs['id']], 3)->isStream(), 'their task is at its stream limit');
+
+        $foreign = $this->asArray($this->reply('SendStreamingMessage', ['message' => $this->message('x', '', ['taskId' => $theirs['id']])], 1));
+        $unknown = $this->asArray($this->reply('SendStreamingMessage', ['message' => $this->message('x', '', ['taskId' => '00000000-0000-4000-8000-000000000000'])], 1));
+
+        self::assertSame(-32001, $this->errorOf($foreign)['code']);
+        self::assertSame(json_encode($foreign), json_encode($unknown));
+    }
+
+    /**
      * Through the middleware, a refusal of a streaming method is an ordinary
      * application/json response.
      */

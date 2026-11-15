@@ -98,7 +98,8 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
      *
      * The request's timeout is the longest the stream may last; past it the
      * stream ends as `TIMEOUT_AFTER_SEND`. $onBytes returns false to stop
-     * reading, which ends the stream as a response.
+     * reading, which ends the stream as a response. An exception the callback
+     * throws is not a lost connection: it reaches the caller.
      *
      * @param Closure(string): bool $onBytes
      */
@@ -145,8 +146,14 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
     public function pump(ResponseInterface $response, Closure $onBytes, float $deadline): A2aTransportResult
     {
         $body = $response->getBody();
-        try {
-            while (!$body->eof()) {
+        while (true) {
+            // Only a failure of the connection is a lost connection; what the
+            // callback throws is the caller's and reaches it unchanged.
+            try {
+                if ($body->eof()) {
+                    break;
+                }
+
                 if (microtime(true) >= $deadline) {
                     $body->close();
 
@@ -154,20 +161,21 @@ final readonly class A2aVaultTransport implements A2aTransportInterface
                 }
 
                 $chunk = $body->read(65536);
-                if ($chunk === '') {
-                    usleep(2000);
-
-                    continue;
-                }
-
-                if ($onBytes($chunk) === false) {
-                    $body->close();
-
-                    break;
-                }
+            } catch (Throwable $e) {
+                return A2aTransportResult::maybeSent('CONNECTION_LOST', $this->sanitizeErrorMessage($e->getMessage()));
             }
-        } catch (Throwable $e) {
-            return A2aTransportResult::maybeSent('CONNECTION_LOST', $this->sanitizeErrorMessage($e->getMessage()));
+
+            if ($chunk === '') {
+                usleep(2000);
+
+                continue;
+            }
+
+            if ($onBytes($chunk) === false) {
+                $body->close();
+
+                break;
+            }
         }
 
         return A2aTransportResult::response($response->getStatusCode(), $response->getHeaderLine('Content-Type'), $response->getHeaderLine('ETag'), '', false);

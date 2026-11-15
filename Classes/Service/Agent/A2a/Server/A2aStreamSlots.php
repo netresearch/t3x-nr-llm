@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
-use Doctrine\DBAL\Platforms\SQLitePlatform;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 
@@ -21,10 +20,14 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * The installation's capacity is `maxStreams` numbered slots, taken like the
  * waiting slots ({@see A2aWaitingSlots}): one guarded UPDATE per slot, so of
  * two streams that see the same free slot exactly one gets it. The per-client
- * and per-task counts are taken under the client record's row lock, the lock
- * the acceptance of a task takes too, so two streams of one client cannot both
- * pass a count the other one changes. A task belongs to one client, so that
- * lock serialises the per-task count as well.
+ * and per-task limits are checked after the slot is held: the stream counts
+ * the live slots of its client and its task, its own included, and gives the
+ * slot back when a count is over the limit. Every statement runs on its own,
+ * outside a transaction, so nothing waits for a lock and MariaDB's snapshot
+ * isolation has no snapshot to refuse; no limit is ever exceeded, because
+ * each stream that keeps its slot counted every slot held at that moment. Two
+ * streams racing for the last place may both give theirs back; the client
+ * tries again after `Retry-After`.
  *
  * A hold is a lease, not a reservation for the whole stream: the stream renews
  * it while it is open. With `ignore_user_abort` off, PHP ends the script at the
@@ -60,66 +63,56 @@ final readonly class A2aStreamSlots
         }
 
         $connection = $this->connection();
-
-        return $connection->transactional(function (Connection $connection) use ($clientUid, $taskId, $perTask, $perClient, $total, $now): ?string {
-            $this->lockClient($connection, $clientUid);
-            if ($this->live($connection, 'client_uid', $clientUid, $now) >= $perClient) {
-                return null;
-            }
-
-            if ($taskId !== '' && $this->live($connection, 'task_id', $taskId, $now) >= $perTask) {
-                return null;
-            }
-
-            $holder = bin2hex(random_bytes(16));
-            for ($slot = 1; $slot <= $total; ++$slot) {
-                $exists = $connection->executeQuery(
-                    'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE slot = ?' . $this->lockingRead($connection),
-                    [$slot],
-                    [Connection::PARAM_INT],
-                )->fetchOne();
-                if (is_numeric($exists) && (int) $exists === 0) {
-                    try {
-                        $connection->insert(self::TABLE, ['slot' => $slot, 'holder' => '', 'client_uid' => 0, 'task_id' => '', 'expires' => 0]);
-                    } catch (UniqueConstraintViolationException) {
-                        // Another stream created it first.
-                    }
-                }
-
-                $taken = $connection->executeStatement(
-                    'UPDATE ' . $connection->quoteIdentifier(self::TABLE)
-                    . ' SET holder = ?, client_uid = ?, task_id = ?, expires = ? WHERE slot = ? AND (holder = ? OR expires < ?)',
-                    [$holder, $clientUid, $taskId, $now + self::LEASE_SECONDS, $slot, '', $now],
-                    [Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
-                );
-                if ($taken === 1) {
-                    return $holder;
+        $holder     = bin2hex(random_bytes(16));
+        $held       = false;
+        for ($slot = 1; $slot <= $total && !$held; ++$slot) {
+            if ($connection->count('slot', self::TABLE, ['slot' => $slot]) === 0) {
+                try {
+                    $connection->insert(self::TABLE, ['slot' => $slot, 'holder' => '', 'client_uid' => 0, 'task_id' => '', 'expires' => 0]);
+                } catch (UniqueConstraintViolationException) {
+                    // Another stream created it first.
                 }
             }
+
+            $held = $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier(self::TABLE)
+                . ' SET holder = ?, client_uid = ?, task_id = ?, expires = ? WHERE slot = ? AND (holder = ? OR expires < ?)',
+                [$holder, $clientUid, $taskId, $now + self::LEASE_SECONDS, $slot, '', $now],
+                [Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT, Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_INT],
+            ) === 1;
+        }
+
+        if (!$held) {
+            return null;
+        }
+
+        if ($this->live('client_uid', $clientUid, $now) > $perClient || ($taskId !== '' && $this->live('task_id', $taskId, $now) > $perTask)) {
+            $this->release($holder);
 
             return null;
-        });
+        }
+
+        return $holder;
     }
 
     /**
-     * Name the task a slot taken for a not yet existing task reads, unless
-     * the task already has $perTask other live streams.
+     * Name the task a slot taken for a not yet existing task reads; false,
+     * with the task taken off the slot again, when the task then has more
+     * than $perTask live streams. The caller releases the slot.
      */
-    public function bind(string $holder, int $clientUid, string $taskId, int $perTask, int $now): bool
+    public function bind(string $holder, string $taskId, int $perTask, int $now): bool
     {
-        return $this->connection()->transactional(function (Connection $connection) use ($holder, $clientUid, $taskId, $perTask, $now): bool {
-            $this->lockClient($connection, $clientUid);
-            $others = $connection->executeQuery(
-                'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_id = ? AND holder <> ? AND holder <> ? AND expires >= ?' . $this->lockingRead($connection),
-                [$taskId, '', $holder, $now],
-                [Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT],
-            )->fetchOne();
-            if (!is_numeric($others) || (int) $others >= $perTask) {
-                return false;
-            }
+        if ($this->connection()->update(self::TABLE, ['task_id' => $taskId], ['holder' => $holder]) !== 1) {
+            return false;
+        }
 
-            return $connection->update(self::TABLE, ['task_id' => $taskId], ['holder' => $holder]) === 1;
-        });
+        if ($this->live('task_id', $taskId, $now) > $perTask) {
+            $this->connection()->update(self::TABLE, ['task_id' => ''], ['holder' => $holder]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -136,39 +129,16 @@ final readonly class A2aStreamSlots
         $this->connection()->update(self::TABLE, ['holder' => '', 'client_uid' => 0, 'task_id' => '', 'expires' => 0], ['holder' => $holder]);
     }
 
-    /**
-     * The client row lock the acceptance takes as well (A2A-SV5).
-     */
-    private function lockClient(Connection $connection, int $clientUid): void
+    private function live(string $column, int|string $value, int $now): int
     {
-        $connection->executeStatement(
-            'UPDATE ' . $connection->quoteIdentifier(A2aInboundClientRepository::TABLE) . ' SET uid = uid WHERE uid = ?',
-            [$clientUid],
-            [Connection::PARAM_INT],
-        );
-    }
-
-    private function live(Connection $connection, string $column, int|string $value, int $now): int
-    {
-        $count = $connection->executeQuery(
-            'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE ' . $connection->quoteIdentifier($column) . ' = ? AND holder <> ? AND expires >= ?' . $this->lockingRead($connection),
+        $connection = $this->connection();
+        $count      = $connection->executeQuery(
+            'SELECT COUNT(*) FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE ' . $connection->quoteIdentifier($column) . ' = ? AND holder <> ? AND expires >= ?',
             [$value, '', $now],
             [is_int($value) ? Connection::PARAM_INT : Connection::PARAM_STR, Connection::PARAM_STR, Connection::PARAM_INT],
         )->fetchOne();
 
         return is_numeric($count) ? (int) $count : 0;
-    }
-
-    /**
-     * Every read inside the transaction is a locking read. Under REPEATABLE
-     * READ (MariaDB, MySQL) a plain read would fix a snapshot, and the guarded
-     * UPDATE of a slot another stream renewed meanwhile would then fail with
-     * MariaDB's snapshot-isolation error instead of moving to the next slot.
-     * A locking read creates no snapshot. SQLite serialises writers.
-     */
-    private function lockingRead(Connection $connection): string
-    {
-        return $connection->getDatabasePlatform() instanceof SQLitePlatform ? '' : ' FOR UPDATE';
     }
 
     private function connection(): Connection
