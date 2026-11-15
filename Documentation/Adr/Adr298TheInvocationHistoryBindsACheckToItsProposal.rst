@@ -13,6 +13,8 @@ ADR-298: The invocation history binds a check to its proposal
 :Date: 2026-11-15
 :Amends: :ref:`ADR-216 <adr-216>` (a history entry may carry a keyed digest
    of the call's arguments and of the record state the call observed)
+   and :ref:`ADR-297 <adr-297>` (a page metadata write is bound to a passed
+   check of its proposal instead of a read and an unchanged ``tstamp``)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -94,8 +96,10 @@ Slashes and Unicode are not escaped, integers and numeric strings stay apart,
 floats are written with ``serialize_precision -1``, and a float without a
 fraction whose magnitude is below 2^53 is written as an integer (``-0.0`` as
 ``0``): a suspended state does not keep the fraction, so ``1.0`` and ``1``
-must not differ across a resume. Every other float keeps its JSON float
-form. Whether an array is a list is decided before its keys are sorted. A
+must not differ across a resume. PHP writes larger integral floats up to
+about 1e17 without a fraction as well, so they share the digest of the
+equal integer, as they do after a resume; every other float keeps its JSON
+float form. Whether an array is a list is decided before its keys are sorted. A
 value that cannot be encoded (``JSON_THROW_ON_ERROR``) gets no digest. A new
 canonical form is a new version prefix.
 
