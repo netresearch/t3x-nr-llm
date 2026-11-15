@@ -68,18 +68,18 @@ history, which before the card does not yet hold the calls of the same turn,
 so this rule is asked only when the call runs, after its approval. A read
 and a write the model asks for in one turn are shown together, and the write
 runs after the read. A run whose history is incomplete (a requeued run, a
-state suspended without one) cannot show a read, so the rule refuses its
-writes of this skill (``history_incomplete``) and leaves every other call
-alone.
+state suspended without one) may have lost an earlier read: unless it reads
+again, its writes of this skill are refused (``history_incomplete``), and
+every other call is left alone.
 
 A version row counts as the requested row only when it belongs to the live
 workspace or to the client's workspace.
 
 The requested row and its version in the client's workspace are checked as
 above; the scope admits both. A row the scope refuses (another page, another
-language, an unresolvable uid) is left to the scope, which refuses it with
+language, a uid without a row) is left to the scope, which refuses it with
 its own reason (``outside_scope``, ``language_not_allowed``,
-``scope_unresolvable``); otherwise the first refusing rule would hide that
+``unresolvable``); otherwise the first refusing rule would hide that
 reason. Every other row is refused (``not_the_requested_row``): a second
 translation, a row the scope admits by another path, and a requested row
 that no longer exists. The decision which rows to leave to the scope is the
@@ -101,7 +101,9 @@ Consequences
 - ● A row changed by an editor after the task was accepted is not written
   over by a proposal built on the older state; the client sends the task
   again.
-- ◑ "Read before write" means a successful ``get_page_content`` of any page
+- ◑ "Read before write" means a ``get_page_content`` call with the outcome
+  ``ok``, which includes its answer that a page was not found or not
+  permitted; it is a call of any page
   earlier in the run, not a read of this row with this state: the invocation
   history records neither arguments nor results. Binding a check to the exact
   proposal and data state needs the history to carry them, which is a

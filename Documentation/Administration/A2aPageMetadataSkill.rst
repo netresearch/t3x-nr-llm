@@ -106,15 +106,16 @@ identifier and one of these reasons:
    descriptions; 100 for the SEO, Open Graph and X titles.
 
 ``page_not_read`` (rule ``page_metadata_read_first``)
-   The run has not called ``get_page_content`` successfully yet. Any page
-   counts; the rule does not know which page was read. This rule is asked
+   The run has not called ``get_page_content`` yet. Any call counts, also
+   one that answered that a page was not found; the rule does not know which
+   page was read. This rule is asked
    when the call runs, after its approval, so an editor can approve a write
    that is then refused.
 
 ``history_incomplete`` (rule ``page_metadata_read_first``)
-   The run's history is incomplete, for example after a requeue, so it
-   cannot show a read. Writes of this skill in that run are refused; other
-   calls are not affected.
+   The run's history is incomplete, for example after a requeue, and holds
+   no read since. Writes of this skill are refused, after their approval,
+   until the run reads the page again; other calls are not affected.
 
 ``changed_since_accepted``
    The row's ``tstamp`` as the client's workspace shows it (its draft
@@ -125,17 +126,17 @@ identifier and one of these reasons:
 
 ``not_the_requested_row``
    The call aims at another row of the requested page and language, at a
-   version of another workspace, or the requested row no longer exists in
-   the workspace.
+   version of another workspace, at a row the scope admits by another path,
+   or the requested row no longer exists in the workspace.
 
 ``request_unreadable``
    The task's request cannot be read: its profile is gone, its history is
    full (100 messages), or the configuration's privacy level stores no
    message content. Such a configuration cannot run this skill.
 
-A call aimed at another page, table or language is refused by the scope
-with its own reason (``outside_scope``, ``language_not_allowed``,
-``scope_unresolvable``).
+A call aimed at a row the scope refuses (another page, table or language, a
+uid without a row) is refused by the scope with its own reason
+(``outside_scope``, ``language_not_allowed``, ``unresolvable``).
 
 ..  _a2a-page-metadata-skill-setup:
 
