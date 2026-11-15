@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\CreateRecordDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateTranslationDraftTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeleteRecordTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DescribeFalAssetTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\DisableRedirectTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchExternalUrlTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchLogsTool;
@@ -143,6 +144,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'list_fal_storages'                   => [ListFalStoragesTool::class, 'files'],
             'browse_fal_folder'                   => [BrowseFalFolderTool::class, 'files'],
             'search_fal_files'                    => [SearchFalFilesTool::class, 'files'],
+            'describe_fal_asset'                  => [DescribeFalAssetTool::class, 'files'],
             'get_fal_references'                  => [GetFalReferencesTool::class, 'files'],
             'find_missing_files'                  => [FindMissingFilesTool::class, 'files'],
             'update_page_metadata'                => [UpdatePageMetadataTool::class, 'editing'],

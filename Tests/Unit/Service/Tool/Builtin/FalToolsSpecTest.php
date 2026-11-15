@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\DescribeFalAssetTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\FindMissingFilesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFalReferencesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
@@ -28,6 +29,7 @@ use ReflectionClass;
  * newInstanceWithoutConstructor is safe.
  */
 #[CoversClass(BrowseFalFolderTool::class)]
+#[CoversClass(DescribeFalAssetTool::class)]
 #[CoversClass(FindMissingFilesTool::class)]
 #[CoversClass(GetFalReferencesTool::class)]
 #[CoversClass(ListFalStoragesTool::class)]
@@ -45,6 +47,7 @@ final class FalToolsSpecTest extends TestCase
             SearchFalFilesTool::class,
             GetFalReferencesTool::class,
             FindMissingFilesTool::class,
+            DescribeFalAssetTool::class,
         ];
     }
 
@@ -81,6 +84,15 @@ final class FalToolsSpecTest extends TestCase
         $missing = $this->bare(FindMissingFilesTool::class)->getSpec();
         self::assertSame('find_missing_files', $missing->name);
         self::assertArrayNotHasKey('required', $missing->parameters);
+
+        $describe = $this->bare(DescribeFalAssetTool::class)->getSpec();
+        self::assertSame('describe_fal_asset', $describe->name);
+        self::assertSame(['uid'], $describe->parameters['required'] ?? []);
+        $properties = $describe->parameters['properties'] ?? null;
+        self::assertIsArray($properties);
+        self::assertSame(['uid'], array_keys($properties));
+        // The model is told what "not set" means before it reads one.
+        self::assertStringContainsString('never infer usage rights', $describe->description);
     }
 
     #[Test]
@@ -106,6 +118,10 @@ final class FalToolsSpecTest extends TestCase
         self::assertSame(
             'Error: "query" is required.',
             $this->bare(SearchFalFilesTool::class)->execute([], ToolExecutionContext::none())->content,
+        );
+        self::assertSame(
+            'Asset not found or not permitted.',
+            $this->bare(DescribeFalAssetTool::class)->execute(['uid' => 0], ToolExecutionContext::none())->content,
         );
     }
 }

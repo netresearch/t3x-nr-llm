@@ -103,7 +103,7 @@ Group              Tools
 ``code``           ``get_last_exception``, ``read_source``, ``search_code``
 ``files``          ``list_fal_storages``, ``browse_fal_folder``,
                    ``search_fal_files``, ``get_fal_references``,
-                   ``find_missing_files``
+                   ``find_missing_files``, ``describe_fal_asset``
 ``rag``            ``site_rag_query``, ``site_fetch_source``
 ``web``            ``fetch_external_url`` — the only group that reaches hosts
                    outside the installation
