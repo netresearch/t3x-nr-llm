@@ -21,10 +21,7 @@ use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Uid\Uuid;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
-use TYPO3\CMS\Core\Database\Connection;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
@@ -41,9 +38,9 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
  * of the model can widen it, and a queued, paused or resumed run keeps it.
  *
  * The user message of the run is built from the checked values only. The
- * field list is an instruction to the model in this handler; the write tool
- * accepts any of its fields on the scoped row, and this handler does not hold
- * the call to the list. A client that is not pinned to a draft workspace never
+ * field list is an instruction to the model here; the write tool accepts any
+ * of its fields on the scoped row, and {@see A2aPageMetadataContractRule}
+ * holds the call to the list (ADR-297). A client that is not pinned to a draft workspace never
  * reaches this handler: the server refuses a writing profile for it first. The run
  * may use `get_page_content` and `update_page_metadata`, and `ask_choice` when
  * the profile grants it, and nothing else; it runs only when the profile grants
@@ -71,15 +68,12 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
      */
     private const NOT_AVAILABLE = '"page" and "language" do not name a page this skill may work on in the client\'s workspace';
 
-    /** The t3ver_state of a row deleted in a workspace. */
-    private const DELETE_PLACEHOLDER = 2;
-
     private LoggerInterface $logger;
 
     private ActingBackendUserResolver $users;
 
     public function __construct(
-        private ConnectionPool $connectionPool,
+        private A2aPageMetadataRows $rows,
         ?LoggerInterface $logger = null,
         ?ActingBackendUserResolver $users = null,
     ) {
@@ -188,14 +182,14 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
      */
     private function targetRow(A2aPageMetadataRequest $request, int $workspace, BackendUserAuthentication $user): int
     {
-        $page = $this->visibleRow($this->rows(['uid' => $request->page], $workspace), $workspace);
+        $page = $this->rows->page($request->page, $workspace);
         if ($page === null || !$this->may($user, $page, Permission::PAGE_SHOW, $request->language)) {
             throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
         }
 
-        if ($this->int($page['sys_language_uid'] ?? 0) !== 0 || $this->int($page['l10n_parent'] ?? 0) !== 0) {
+        if (!A2aPageMetadataRows::isDefaultLanguage($page)) {
             // Told apart only for a translation in a language the user may edit.
-            if (!$this->may($user, $page, Permission::PAGE_SHOW, $this->int($page['sys_language_uid'] ?? 0))) {
+            if (!$this->may($user, $page, Permission::PAGE_SHOW, A2aPageMetadataRows::int($page['sys_language_uid'] ?? 0))) {
                 throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
             }
 
@@ -210,7 +204,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             return $request->page;
         }
 
-        $translation = $this->visibleRow($this->rows(['l10n_parent' => $request->page, 'sys_language_uid' => $request->language], $workspace), $workspace);
+        $translation = $this->rows->translation($request->page, $request->language, $workspace);
         if ($translation === null) {
             throw A2aRpcError::invalidParams('message.parts', 'the page has no translation in "language" in the client\'s workspace; this skill does not create one');
         }
@@ -219,63 +213,7 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             throw A2aRpcError::invalidParams('message.parts', self::NOT_AVAILABLE);
         }
 
-        return $this->int($translation['uid'] ?? 0);
-    }
-
-    /**
-     * The live rows and the rows new in the workspace that match, not deleted.
-     * A workspace version (t3ver_oid > 0) is read through its live row.
-     *
-     * @param array<string, int> $where
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function rows(array $where, int $workspace): array
-    {
-        $query = $this->connectionPool->getQueryBuilderForTable('pages');
-        $query->getRestrictions()->removeAll();
-        $query->select('*')->from('pages')
-            ->where(
-                $query->expr()->eq('deleted', $query->createNamedParameter(0, Connection::PARAM_INT)),
-                $query->expr()->eq('t3ver_oid', $query->createNamedParameter(0, Connection::PARAM_INT)),
-                $query->expr()->in('t3ver_wsid', $query->createNamedParameter([0, $workspace], Connection::PARAM_INT_ARRAY)),
-            )
-            ->orderBy('t3ver_wsid')
-            ->addOrderBy('uid');
-        foreach ($where as $field => $value) {
-            $query->andWhere($query->expr()->eq($field, $query->createNamedParameter($value, Connection::PARAM_INT)));
-        }
-
-        $rows = [];
-        foreach ($query->executeQuery()->fetchAllAssociative() as $row) {
-            $rows[] = $row;
-        }
-
-        return $rows;
-    }
-
-    /**
-     * The first of the rows the workspace still shows. A row deleted in the
-     * workspace is left out: `workspaceOL()` lays the delete placeholder
-     * (t3ver_state 2) over the live row instead of dropping it.
-     *
-     * @param list<array<string, mixed>> $rows
-     *
-     * @return array<array-key, mixed>|null
-     */
-    private function visibleRow(array $rows, int $workspace): ?array
-    {
-        foreach ($rows as $row) {
-            $uid = $this->int($row['uid'] ?? 0);
-            BackendUtility::workspaceOL('pages', $row, $workspace);
-            if (is_array($row) && $this->int($row['t3ver_state'] ?? 0) !== self::DELETE_PLACEHOLDER) {
-                $row['uid'] = $uid;
-
-                return $row;
-            }
-        }
-
-        return null;
+        return A2aPageMetadataRows::int($translation['uid'] ?? 0);
     }
 
     /**
@@ -310,10 +248,5 @@ final readonly class A2aPageMetadataDomainHandler implements A2aDomainHandlerInt
             sprintf('Then call update_page_metadata once with uid %d and exactly these fields: %s.', $target, implode(', ', $request->fields)),
             'Write each value in the language of that record. Do not change any other field or record.',
         ]);
-    }
-
-    private function int(mixed $value): int
-    {
-        return is_numeric($value) ? (int) $value : 0;
     }
 }

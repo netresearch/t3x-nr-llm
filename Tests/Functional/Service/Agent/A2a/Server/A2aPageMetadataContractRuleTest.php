@@ -1,0 +1,257 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
+
+use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
+use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
+use Netresearch\NrLlm\Domain\Model\CompletionResponse;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataContractRule;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataRows;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
+use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Type\Bitmask\Permission;
+
+/**
+ * The deterministic conditions a write of the page metadata skill meets
+ * before it reaches an approval (spec 055 PC1 to PC6, ADR-297), with the
+ * installation and runtime of {@see A2aPageMetadataSkillFixture}.
+ */
+#[CoversClass(A2aPageMetadataContractRule::class)]
+#[CoversClass(A2aPageMetadataRows::class)]
+final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
+{
+    use A2aPageMetadataSkillFixture;
+
+    /** @var non-empty-string[] */
+    protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'frontend', 'workspaces'];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->setUpSkill();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->tearDownSkill();
+        parent::tearDown();
+    }
+
+    /**
+     * PC3: a description over its limit is refused before an approval, the
+     * model reads which rule refused it, and the governance log has the
+     * refusal with the rule's identifier.
+     */
+    #[Test]
+    public function aValueOverItsLengthIsRefusedAndLogged(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => str_repeat('a', 400)]),
+            $this->answer(),
+        ]);
+
+        self::assertStringContainsString('rule: page_metadata_contract, reason: value_not_allowed', $this->toolResultOf($run));
+        self::assertStringContainsString('at most 300 characters', $this->toolResultOf($run));
+        self::assertSame(AgentRunStatus::COMPLETED, $this->stored($run)->statusEnum(), 'no approval was asked');
+        self::assertSame(1, $this->rows('tx_nrllm_governance_event', ['decision' => 'invocation_denied', 'reason' => 'value_not_allowed']));
+        self::assertStringContainsString(
+            'invocationRule=page_metadata_contract',
+            self::text($this->db('tx_nrllm_governance_event')->select(['detail'], 'tx_nrllm_governance_event', ['decision' => 'invocation_denied'])->fetchOne()),
+        );
+        self::assertSame('Old ' . self::TRANSLATION, $this->description(self::TRANSLATION));
+    }
+
+    /**
+     * PC3, the other direction, end to end: the same call with a value
+     * within its limit reaches the approval, is approved, writes a draft in
+     * the client's workspace, and the task's `writes` artifact lists it.
+     */
+    #[Test]
+    public function aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult(): void
+    {
+        $this->db('be_groups')->update('be_groups', ['tables_select' => 'pages', 'tables_modify' => 'pages', 'non_exclude_fields' => 'pages:description'], ['uid' => self::GROUP]);
+        $taskId = self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? '');
+        $run    = $this->runOf($taskId);
+
+        $this->responses = [
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Eine kurze Beschreibung.']),
+        ];
+        $runtime = $this->runtime();
+        $runtime->runQueued($run->uuid);
+
+        $waiting = $this->stored($run);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $waiting->statusEnum());
+
+        $this->responses = [$this->answer()];
+        $state           = SuspendedRunState::fromArray(self::objectOf(json_decode($waiting->suspendedState ?? '', true)));
+        $result          = $runtime->approve(AiActorContext::backendUser(1, isAdmin: true), $run->uuid, new ApprovalDecision(true, 1, (new PendingTurnDigest())->forState($state)));
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error?->getMessage());
+
+        $draft = $this->db('pages')->select(['description'], 'pages', ['t3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE])->fetchOne();
+        self::assertSame('Eine kurze Beschreibung.', $draft, "the value is a draft in the client's workspace");
+        self::assertSame('Old ' . self::TRANSLATION, $this->description(self::TRANSLATION), 'live is unchanged');
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_COMPLETED', self::j($task, 'status.state'));
+        self::assertSame('writes', self::j($task, 'artifacts.1.name'));
+        self::assertStringContainsString('pages:' . self::TRANSLATION . ' in workspace ' . self::WORKSPACE, self::text(self::j($task, 'artifacts.1.parts.0.text')));
+    }
+
+    /**
+     * PC2: a field the request did not name is refused, also when the
+     * request named another one.
+     */
+    #[Test]
+    public function aFieldTheRequestDidNotNameIsRefused(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.', 'nav_title' => 'Anders']),
+            $this->answer(),
+        ]);
+
+        self::assertStringContainsString('rule: page_metadata_contract, reason: field_not_requested', $this->toolResultOf($run));
+        self::assertStringContainsString('This task may only set description.', $this->toolResultOf($run));
+    }
+
+    /**
+     * PC4: a write before the page was read is refused.
+     */
+    #[Test]
+    public function aWriteBeforeThePageWasReadIsRefused(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            $this->answer(),
+        ]);
+
+        self::assertStringContainsString('rule: page_metadata_contract, reason: page_not_read', $this->toolResultOf($run));
+    }
+
+    /**
+     * PC5: a row changed after the task was accepted is not written over.
+     */
+    #[Test]
+    public function aRowChangedAfterTheTaskWasAcceptedIsRefused(): void
+    {
+        $taskId = self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? '');
+        $run    = $this->runOf($taskId);
+        $this->db('pages')->update('pages', ['tstamp' => time() + 60], ['uid' => self::TRANSLATION]);
+
+        $this->responses = [
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            $this->answer(),
+        ];
+        $this->runtime()->runQueued($run->uuid);
+
+        self::assertStringContainsString('rule: page_metadata_contract, reason: changed_since_accepted', $this->toolResultOf($run));
+    }
+
+    /**
+     * PC1: a call aimed at another row is left to the scope, whose reason
+     * the model reads; the contract rule does not hide it.
+     */
+    #[Test]
+    public function aCallAimedAtAnotherRowIsTheScopesToRefuse(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::NEIGHBOUR_TRANSLATION, 'description' => str_repeat('a', 400)]),
+            $this->answer(),
+        ]);
+
+        self::assertStringContainsString('rule: assignment_scope, reason: outside_scope', $this->toolResultOf($run));
+    }
+
+    /**
+     * A uid the scope admits besides the requested row, the workspace version
+     * of that row or a second translation in the same language, is held to
+     * the same contract: never let through unchecked.
+     */
+    #[Test]
+    public function aUidTheScopeAlsoAdmitsIsHeldToTheContract(): void
+    {
+        $this->db('pages')->insert('pages', [
+            'uid'       => 960, 'pid' => 1, 'title' => 'Draft of 142', 'description' => 'Old 142', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE, 'doktype' => 1,
+            't3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE, 't3ver_state' => 0, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+        ]);
+        $this->db('pages')->insert('pages', ['uid' => 961, 'pid' => 1, 'title' => 'Second German row', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE, 'doktype' => 1, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT]);
+
+        $long = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => 960, 'description' => str_repeat('a', 400)]),
+            $this->answer(),
+        ]);
+        self::assertStringContainsString('rule: page_metadata_contract, reason: value_not_allowed', $this->toolResultOf($long), 'the version uid of the requested row');
+
+        $unread = $this->ranWith([
+            $this->callOf('update_page_metadata', ['uid' => 960, 'description' => 'Gut.']),
+            $this->answer(),
+        ], 'u-2');
+        self::assertStringContainsString('rule: page_metadata_contract, reason: page_not_read', $this->toolResultOf($unread));
+
+        $sibling = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => 961, 'description' => 'Gut.']),
+            $this->answer(),
+        ], 'u-3');
+        self::assertStringContainsString('rule: page_metadata_contract, reason: not_the_requested_row', $this->toolResultOf($sibling), 'a second translation in the language');
+    }
+
+    /**
+     * The rule holds the page metadata skill only: a write of a task of the
+     * text skill is not asked for a read first and reaches its approval.
+     */
+    #[Test]
+    public function aTaskOfAnotherSkillIsNotHeldToTheContract(): void
+    {
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['handler' => A2aTextDomainHandler::IDENTIFIER], ['uid' => 1]);
+        $this->db('tx_nrllm_configuration')->update('tx_nrllm_configuration', ['require_assignment_scope' => 0], ['uid' => 1]);
+        $run = $this->runOf(self::text($this->taskOf($this->sendRaw('Improve the German description of page 42.'))['id'] ?? ''));
+
+        $this->responses = [$this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'nav_title' => str_repeat('a', 400)])];
+        $this->runtime()->runQueued($run->uuid);
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->stored($run)->statusEnum());
+    }
+
+    // ------------------------------------------------------------------
+
+    /**
+     * A task for the German description of page 42, run with the given
+     * model responses.
+     *
+     * @param list<CompletionResponse> $responses
+     */
+    private function ranWith(array $responses, string $messageId = ''): AgentRun
+    {
+        $run             = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']], $messageId)['id'] ?? ''));
+        $this->responses = $responses;
+        $this->runtime()->runQueued($run->uuid);
+
+        return $run;
+    }
+
+    private function answer(): CompletionResponse
+    {
+        return new CompletionResponse('Done.', 'fake', UsageStatistics::fromTokens(1, 1));
+    }
+}
