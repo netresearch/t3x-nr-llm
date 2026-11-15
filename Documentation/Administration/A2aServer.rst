@@ -16,9 +16,9 @@ client sends a message to one of them. The message becomes an agent run that a
 worker executes; the client receives the result as an A2A task
 (:ref:`ADR-280 <adr-280>`, :ref:`ADR-282 <adr-282>`, :ref:`ADR-283 <adr-283>`).
 
-This page covers stages 3 and 4 of spec 051: tasks, and a client that
-answers a task waiting for input. Streaming, push notifications and file
-parts are not offered (stages 5a to 5c).
+This page covers stages 3, 4 and 5a of spec 051: tasks, a client that
+answers a task waiting for input, and streams. Push notifications and file
+parts are not offered (stages 5b and 5c).
 
 Switch it on
 ============
@@ -187,6 +187,30 @@ Answering a task (``SendMessage`` with ``taskId``)
    ``AUTH_REQUIRED`` is never set: no run of this installation waits for a
    credential that a client supplies out of band.
 
+``SendStreamingMessage``, ``SubscribeToTask``
+   Answer with Server-Sent Events (``text/event-stream``) while
+   :guilabel:`Answer A2A streams` (``a2a.server.streaming``, on by default)
+   is on; off, the card declares no ``streaming`` and both are refused with
+   ``-32004``. ``SendStreamingMessage`` accepts the message like
+   ``SendMessage`` without waiting, takes no waiting slot, and streams the
+   task it created (or the message the skill answered with). Each event is one
+   ``data:`` line holding a JSON-RPC response with the request's id. The
+   first event is the task as ``GetTask`` returns it; after it come only
+   changes that were stored later, in order: a ``statusUpdate`` per state,
+   and an ``artifactUpdate`` per artifact, always whole (``lastChunk`` true),
+   just before the status that announces it. No part of an answer leaves
+   before the run has finished and its output checks have passed: a stream
+   carries status progress until then, for every skill.
+
+   A stream closes after a terminal state or ``INPUT_REQUIRED``, and after
+   :guilabel:`Longest A2A stream` (``a2a.server.streamMaxSeconds``, default
+   300); a comment line keeps it alive at least every 15 seconds. Closing a
+   stream, or a client that goes away, never cancels the task. A client
+   whose record is disabled, expires or loses its token while it reads is
+   cut off within 10 seconds. ``SubscribeToTask`` on a finished task is
+   ``-32004``; recovery after a lost stream is ``GetTask`` or a new
+   subscription, and ``Last-Event-ID`` is ignored.
+
 ``GetTask``, ``ListTasks``, ``CancelTask``
    Only the client's own tasks. Another client's task and a task that does
    not exist are the same ``-32001``. ``ListTasks`` sorts by status time,
@@ -215,6 +239,23 @@ Limits and protection
   blocking requests wait at the same time on the installation; one more is
   refused with HTTP 503, ``WAITING_CAPACITY_EXHAUSTED``. A request with
   ``returnImmediately`` takes no waiting slot.
+- **Streams.** A stream holds a PHP-FPM worker while it is open. At most
+  ``a2a.server.maxStreamsPerTask`` (default 2) streams read one task,
+  ``a2a.server.maxStreamsPerClient`` (default 4) belong to one client, and
+  ``a2a.server.maxStreams`` (default 8) are open on the installation; one
+  more is refused with HTTP 503, ``STREAM_CAPACITY_EXHAUSTED`` and
+  ``Retry-After``, before anything is stored. A stream that dies without
+  closing frees its slot within 30 seconds. An event larger than
+  ``a2a.server.maxFrameBytes`` (default 1 MiB) is not sent; the stream ends
+  and the client reads the task with ``GetTask``.
+- **Proxies in front of a stream.** The response carries
+  ``X-Accel-Buffering: no`` and ``Cache-Control: no-cache``, and pads each
+  write to 4 KiB with a comment line, so a proxy that holds small chunks
+  passes every event on when it is written. A proxy whose read timeout is
+  below 15 seconds cuts a quiet stream; one that buffers whole responses
+  regardless of these headers delivers the events only when the stream
+  closes. Check the proxy chain of the installation with a
+  ``SubscribeToTask`` before relying on streams.
 - **Request size.** A body above ``a2a.server.maxRequestBytes`` (default
   1 MiB) is refused with HTTP 413 before it is parsed; a message has at most
   16 parts. A task's history keeps the most recent 100 messages.

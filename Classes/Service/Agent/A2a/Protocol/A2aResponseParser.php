@@ -96,6 +96,75 @@ final class A2aResponseParser
     }
 
     /**
+     * One `StreamResponse` of a stream (A2A-SSE6): exactly one known member.
+     * A result whose members are all unknown (a later protocol's payload
+     * kind) is skipped by the caller and logged once per kind (A2A-P4).
+     *
+     * @param array<string, mixed> $result
+     *
+     * @throws A2aInvalidAgentResponseException
+     * @throws A2aUnknownPayloadException
+     */
+    public function parseStreamResponse(array $result): A2aStreamEvent
+    {
+        $known = array_values(array_intersect(array_map(strval(...), array_keys($result)), [A2aStreamEvent::KIND_TASK, A2aStreamEvent::KIND_MESSAGE, A2aStreamEvent::KIND_STATUS_UPDATE, A2aStreamEvent::KIND_ARTIFACT_UPDATE]));
+        if (count($known) > 1) {
+            throw A2aInvalidAgentResponseException::invalidField('result', 'carries more than one StreamResponse member');
+        }
+
+        if ($known === []) {
+            if ($result === []) {
+                throw A2aInvalidAgentResponseException::missingField('result.task|result.message|result.statusUpdate|result.artifactUpdate');
+            }
+
+            $members = array_map(strval(...), array_keys($result));
+            foreach ($members as $member) {
+                $this->logOnce('payload:' . $member, 'A2A StreamResponse member "{member}" is not part of protocol 1.0; skipped', ['member' => $member]);
+            }
+
+            throw A2aUnknownPayloadException::onlyUnknownMembers('StreamResponse', $members);
+        }
+
+        $kind = $known[0];
+        $path = 'result.' . $kind;
+        $json = $this->object($result[$kind], $path);
+
+        return match ($kind) {
+            A2aStreamEvent::KIND_TASK          => A2aStreamEvent::ofTask($this->parseTask($json, $path)),
+            A2aStreamEvent::KIND_MESSAGE       => A2aStreamEvent::ofMessage($this->parseMessage($json, $path)),
+            A2aStreamEvent::KIND_STATUS_UPDATE => A2aStreamEvent::ofStatusUpdate(
+                $this->requiredString($json, 'taskId', $path),
+                $this->requiredString($json, 'contextId', $path),
+                $this->parseStatus($this->object($json['status'] ?? throw A2aInvalidAgentResponseException::missingField($path . '.status'), $path . '.status'), $path . '.status'),
+                $this->struct($json, 'metadata', $path),
+            ),
+            default => A2aStreamEvent::ofArtifactUpdate(
+                $this->requiredString($json, 'taskId', $path),
+                $this->requiredString($json, 'contextId', $path),
+                $this->parseArtifact($this->object($json['artifact'] ?? throw A2aInvalidAgentResponseException::missingField($path . '.artifact'), $path . '.artifact'), $path . '.artifact'),
+                $this->flag($json, 'append', $path),
+                $this->flag($json, 'lastChunk', $path),
+                $this->struct($json, 'metadata', $path),
+            ),
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $json
+     *
+     * @throws A2aInvalidAgentResponseException
+     */
+    private function flag(array $json, string $key, string $path): bool
+    {
+        $value = $json[$key] ?? null;
+        if ($value !== null && !is_bool($value)) {
+            throw A2aInvalidAgentResponseException::invalidField($path . '.' . $key, 'not a boolean');
+        }
+
+        return $value === true;
+    }
+
+    /**
      * @param array<string, mixed> $json
      *
      * @throws A2aInvalidAgentResponseException

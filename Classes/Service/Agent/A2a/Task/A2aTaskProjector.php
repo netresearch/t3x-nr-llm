@@ -166,8 +166,27 @@ final readonly class A2aTaskProjector
      */
     public function events(int $taskUid): array
     {
-        $rows = $this->connectionPool->getConnectionForTable(self::TABLE)
-            ->select(['revision', 'kind', 'payload'], self::TABLE, ['task_uid' => $taskUid], [], ['revision' => 'ASC'])
+        return $this->eventsAfter($taskUid, 0, PHP_INT_MAX);
+    }
+
+    /**
+     * The events of a task newer than a revision, in revision order, decoded:
+     * what a stream sends after its snapshot (A2A-SSE2).
+     *
+     * @return list<array{revision: int, kind: string, payload: array<string, mixed>}>
+     */
+    public function eventsAfter(int $taskUid, int $revision, int $limit = 100): array
+    {
+        $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
+        $builder->getRestrictions()->removeAll();
+        $rows = $builder->select('revision', 'kind', 'payload')->from(self::TABLE)
+            ->where(
+                $builder->expr()->eq('task_uid', $builder->createNamedParameter($taskUid, Connection::PARAM_INT)),
+                $builder->expr()->gt('revision', $builder->createNamedParameter($revision, Connection::PARAM_INT)),
+            )
+            ->orderBy('revision', 'ASC')
+            ->setMaxResults(max(1, $limit))
+            ->executeQuery()
             ->fetchAllAssociative();
 
         $events = [];

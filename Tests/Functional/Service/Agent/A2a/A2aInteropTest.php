@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aJsonRpcCodec;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aMessage;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aResponseParser;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aSendMessageConfiguration;
+use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aStreamEvent;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aHttpRequest;
@@ -138,6 +139,37 @@ final class A2aInteropTest extends AbstractFunctionalTestCase
         // Another local user holds no handle and the remote is not asked.
         $this->expectException(A2aTaskHandleNotFoundException::class);
         $client->getTask($agent, self::OWNER + 1, $taskId);
+    }
+
+    /**
+     * Stage 5a (A2A-SSE6): SendStreamingMessage and SubscribeToTask against
+     * a2a-python's server, through nr-vault's streaming client and the pin.
+     */
+    #[Test]
+    public function theStreamingClientWorksAgainstA2aPython(): void
+    {
+        $agent = $this->importedAgent();
+        self::assertTrue($agent->declaresStreaming());
+        $client = new A2aClient($this->journal(), $this->transport(), new A2aResponseParser());
+
+        $events  = [];
+        $outcome = $client->sendStreamingMessage($agent, self::OWNER, A2aMessage::userText(A2aClient::newMessageId(), 'streamed'), static function (A2aStreamEvent $event) use (&$events): void {
+            $events[] = $event;
+        });
+
+        self::assertSame(A2aSendState::ACCEPTED, $outcome->intent->state);
+        self::assertSame('', $outcome->endReason, 'the remote closed the stream');
+        self::assertSame('TASK_STATE_COMPLETED', $outcome->lastState);
+        self::assertNotSame('', $outcome->intent->remoteTaskId);
+        $artifacts = array_values(array_filter($events, static fn (A2aStreamEvent $event): bool => $event->kind === A2aStreamEvent::KIND_ARTIFACT_UPDATE));
+        self::assertSame('echo: streamed', $artifacts[0]->artifact?->text());
+
+        $quick  = $client->sendMessage($agent, self::OWNER, A2aMessage::userText(A2aClient::newMessageId(), 'subscribe me'), A2aSendMessageConfiguration::returningImmediately());
+        $states = [];
+        $sub    = $client->subscribeToTask($agent, self::OWNER, $quick->intent->remoteTaskId, static function (A2aStreamEvent $event) use (&$states): void {
+            $states[] = $event->status?->rawState;
+        });
+        self::assertSame('TASK_STATE_COMPLETED', $sub->lastState, implode(',', array_map(strval(...), $states)));
     }
 
     #[Test]

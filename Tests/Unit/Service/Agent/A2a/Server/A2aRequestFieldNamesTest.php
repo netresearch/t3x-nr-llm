@@ -106,7 +106,7 @@ final class A2aRequestFieldNamesTest extends TestCase
     public function unknownMembersAndUnknownMethodsAreLeftAlone(): void
     {
         self::assertSame(['id' => 't', 'some_extension' => 1], A2aRequestFieldNames::normalise('GetTask', ['id' => 't', 'some_extension' => 1]));
-        self::assertSame(['history_length' => 1], A2aRequestFieldNames::normalise('SubscribeToTask', ['history_length' => 1]));
+        self::assertSame(['history_length' => 1], A2aRequestFieldNames::normalise('SomeLaterMethod', ['history_length' => 1]));
         self::assertSame(['message' => 'not an object'], A2aRequestFieldNames::normalise('SendMessage', ['message' => 'not an object']));
     }
 }

@@ -238,15 +238,22 @@ final readonly class A2aTaskView
             $status['message'] = $message;
         }
 
-        if (is_numeric($row['status_timestamp'] ?? null)) {
-            $millis  = (int) $row['status_timestamp'];
-            $instant = DateTimeImmutable::createFromFormat('U.u', sprintf('%d.%06d', intdiv($millis, 1000), ($millis % 1000) * 1000), new DateTimeZone('UTC'));
-            if ($instant !== false) {
-                $status['timestamp'] = A2aTimestamp::format($instant);
-            }
+        $timestamp = is_numeric($row['status_timestamp'] ?? null) ? self::timestamp((int) $row['status_timestamp']) : null;
+        if ($timestamp !== null) {
+            $status['timestamp'] = $timestamp;
         }
 
         return $status;
+    }
+
+    /**
+     * A status timestamp in milliseconds as A2A writes it (A2A-P3).
+     */
+    public static function timestamp(int $millis): ?string
+    {
+        $instant = DateTimeImmutable::createFromFormat('U.u', sprintf('%d.%06d', intdiv($millis, 1000), ($millis % 1000) * 1000), new DateTimeZone('UTC'));
+
+        return $instant !== false ? A2aTimestamp::format($instant) : null;
     }
 
     /**

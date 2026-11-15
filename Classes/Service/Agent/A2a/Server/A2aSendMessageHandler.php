@@ -120,12 +120,14 @@ final readonly class A2aSendMessageHandler
 
     /**
      * @param array<string, mixed> $params
+     * @param bool                 $streaming for SendStreamingMessage: never wait, never take a
+     *                                        waiting slot; the caller streams the task (A2A-SSE1)
      *
      * @return array<string, mixed> the `SendMessageResponse`
      *
      * @throws A2aRpcError
      */
-    public function handle(A2aInboundClient $client, array $params, int $now): array
+    public function handle(A2aInboundClient $client, array $params, int $now, bool $streaming = false): array
     {
         $this->checkConnections($client);
 
@@ -135,7 +137,7 @@ final readonly class A2aSendMessageHandler
             throw A2aRpcError::a2a(A2aErrorCode::PUSH_NOTIFICATION_NOT_SUPPORTED, 'Push notifications are not supported.');
         }
 
-        $blocking      = !$this->bool($configuration, 'returnImmediately', 'configuration.returnImmediately');
+        $blocking      = !$this->bool($configuration, 'returnImmediately', 'configuration.returnImmediately') && !$streaming;
         $historyLength = $this->historyLength($configuration);
 
         $allowed = $this->profiles->findAllowedFor($client);

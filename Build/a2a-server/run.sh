@@ -95,6 +95,7 @@ cat > config/system/additional.php <<'PHP'
 $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
 $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a']['server'] = [
     'enabled' => '1', 'blockingWaitSeconds' => '20', 'maxWaitingRequests' => '8', 'maxRequestBytes' => '1048576',
+    'streaming' => '1', 'streamMaxSeconds' => '15', 'maxStreamsPerTask' => '4', 'maxStreamsPerClient' => '16', 'maxStreams' => '16',
 ];
 PHP
 cat > config/sites/a2a/config.yaml <<'YAML'
@@ -176,7 +177,8 @@ PY
     fi
     # The score is reported, not gated: the manual items (TLS, card
     # signing, AUTH-SERVER-001, CARD-CLIENT-001, BIND-CUSTOM-002) stay open,
-    # and stages 4 and 5 are not built (A2A-SV11).
+    # and push notifications and files (stages 5b, 5c) are not built yet
+    # (A2A-SV11).
     echo "TCK exit status: ${status} (reported, not a gate)"
     if [[ ! -f "${ROOT}/.Build/a2a-tck-reports/compatibility.json" ]]; then
         echo "The TCK produced no report: it did not run to the end." >&2

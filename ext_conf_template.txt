@@ -228,6 +228,24 @@ a2a.server.maxWaitingRequests = 4
 # cat=tools; type=int+; label=Largest A2A request (bytes): A request body above this is refused with HTTP 413 before it is parsed (spec 051 A2A-SEC6). Default 1048576 (1 MiB).
 a2a.server.maxRequestBytes = 1048576
 
+# cat=tools; type=boolean; label=Answer A2A streams: On (default): the agent card declares streaming, and SendStreamingMessage and SubscribeToTask answer with Server-Sent Events read from the task's event journal (spec 051 A2A-SSE1, A2A-OPS2). Off: the card declares no streaming and both methods are refused with -32004, while GetTask and ListTasks keep working. Needs "Answer A2A requests".
+a2a.server.streaming = 1
+
+# cat=tools; type=int+; label=Longest A2A stream (seconds): A stream ends after this, whatever the task's state. The client then reads the task with GetTask or subscribes again (A2A-SSE3). Default 300, at most 3600. A stream holds a PHP-FPM worker while it is open.
+a2a.server.streamMaxSeconds = 300
+
+# cat=tools; type=int+; label=A2A streams per task: How many streams may read one task at the same time. One more is refused with HTTP 503 (STREAM_CAPACITY_EXHAUSTED). Default 2.
+a2a.server.maxStreamsPerTask = 2
+
+# cat=tools; type=int+; label=A2A streams per client: How many streams one client may hold open at the same time. Default 4.
+a2a.server.maxStreamsPerClient = 4
+
+# cat=tools; type=int+; label=A2A streams: How many streams may be open on this installation at the same time, all clients together. Each holds a PHP-FPM worker. Default 8. 0 refuses every stream.
+a2a.server.maxStreams = 8
+
+# cat=tools; type=int+; label=Largest A2A stream frame (bytes): An event larger than this is not sent. The stream ends instead, and the client reads the task with GetTask (A2A-SSE3). Default 1048576 (1 MiB).
+a2a.server.maxFrameBytes = 1048576
+
 # =============================================================================
 # MCP servers (ADR-170)
 # =============================================================================

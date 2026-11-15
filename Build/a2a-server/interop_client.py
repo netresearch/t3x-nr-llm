@@ -18,7 +18,7 @@ import httpx
 from a2a.client import ClientConfig, create_client
 from a2a.types import (
     CancelTaskRequest, GetTaskRequest, ListTasksRequest, Message, Part, Role,
-    SendMessageConfiguration, SendMessageRequest, TaskState,
+    SendMessageConfiguration, SendMessageRequest, SubscribeToTaskRequest, TaskState,
 )
 
 
@@ -94,6 +94,22 @@ async def main() -> None:
 
     anonymous = await httpx.AsyncClient().post(base, headers={'A2A-Version': '1.0'}, json={'jsonrpc': '2.0', 'id': 'a', 'method': 'GetTask', 'params': {'id': completed}})
     check('No token is 401', anonymous.status_code == 401, anonymous.status_code)
+
+    # Stage 5a (A2A-SSE1 to A2A-SSE4): the SDK's streaming client.
+    streaming = await create_client(base, client_config=ClientConfig(streaming=True, httpx_client=http, supported_protocol_bindings=['JSONRPC']))
+    kinds = [event.WhichOneof('payload') async for event in streaming.send_message(SendMessageRequest(message=msg('tck-stream-001')))]
+    check('SendStreamingMessage begins with the task and closes', kinds[:1] == ['task'] and len(kinds) >= 1, kinds)
+    kinds = [event.WhichOneof('payload') async for event in streaming.send_message(SendMessageRequest(message=msg('tck-message-response')))]
+    check('SendStreamingMessage of a message answer', kinds == ['message'], kinds)
+    event = await last(client.send_message(SendMessageRequest(message=msg('tck-input-required'), configuration=SendMessageConfiguration(return_immediately=True))))
+    subscribed = [e async for e in streaming.subscribe(SubscribeToTaskRequest(id=event.task.id))]
+    check('SubscribeToTask on a task waiting for input', len(subscribed) == 1 and subscribed[0].task.status.state == TaskState.TASK_STATE_INPUT_REQUIRED, [e.WhichOneof('payload') for e in subscribed])
+    try:
+        [e async for e in streaming.subscribe(SubscribeToTaskRequest(id=completed))]
+        check('SubscribeToTask on a terminal task', False, 'no error')
+    except Exception as error:  # noqa: BLE001
+        check('SubscribeToTask on a terminal task', 'UnsupportedOperation' in type(error).__name__, type(error).__name__)
+    await streaming.close()
 
     await client.close()
     print('RESULT ' + json.dumps({'cells': 'all passed'}))

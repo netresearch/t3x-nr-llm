@@ -53,6 +53,44 @@ final class A2aTransportReadTest extends TestCase
         self::assertSame(1, $body->reads);
     }
 
+    /**
+     * A2A-SSE6: an event stream that sends nothing ends at its deadline, as
+     * a stream that may have reached the remote.
+     */
+    #[Test]
+    public function anEventStreamThatSendsNothingEndsAtTheDeadline(): void
+    {
+        $body    = $this->silentBody();
+        $started = microtime(true);
+        $result  = $this->transport()->pump(new Response(200, ['Content-Type' => 'text/event-stream'], $body), static fn (): bool => true, $started + 0.2);
+
+        self::assertSame(A2aTransportOutcome::MAYBE_SENT, $result->outcome);
+        self::assertSame('TIMEOUT_AFTER_SEND', $result->reason);
+        self::assertLessThan(2.0, microtime(true) - $started);
+        self::assertTrue($body->closed);
+    }
+
+    /**
+     * Each piece reaches the callback as it is read; a callback that returns
+     * false stops the stream, which then ends as a response with no body.
+     */
+    #[Test]
+    public function theCallbackGetsEachPieceAndCanStopTheStream(): void
+    {
+        $body   = new A2aSilentBody(["data: a\n\n", "data: b\n\n", "data: c\n\n"]);
+        $pieces = [];
+        $result = $this->transport()->pump(new Response(200, ['Content-Type' => 'text/event-stream'], $body), static function (string $piece) use (&$pieces): bool {
+            $pieces[] = $piece;
+
+            return count($pieces) < 2;
+        }, microtime(true) + 60);
+
+        self::assertSame(["data: a\n\n", "data: b\n\n"], $pieces);
+        self::assertSame(A2aTransportOutcome::RESPONSE, $result->outcome);
+        self::assertSame('', $result->body);
+        self::assertTrue($body->closed, 'the transfer was stopped');
+    }
+
     private function silentBody(): A2aSilentBody
     {
         return new A2aSilentBody();

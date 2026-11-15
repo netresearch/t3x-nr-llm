@@ -9,7 +9,9 @@ variables. nr-llm's server refuses every unauthenticated JSON-RPC request
 relaxing the server. With A2A_TOKEN set it adds `Authorization: Bearer $A2A_TOKEN` when the
 request carries none, passes the Host header through (the site's A2A base URL
 names this proxy), and forwards to $A2A_UPSTREAM. Without A2A_TOKEN (the interop job) it adds
-nothing. Nothing else is changed.
+nothing. Nothing else is changed. An answer of type text/event-stream is passed
+on piece by piece as it arrives and ends with the connection (stage 5a);
+every other answer is read whole and sent with its length.
 
     A2A_TOKEN=... A2A_UPSTREAM=a2a-s3-sut:8080 python -I auth_proxy.py 8080
 """
@@ -37,6 +39,22 @@ class Proxy(BaseHTTPRequestHandler):
         connection = http.client.HTTPConnection(host, int(port or 80), timeout=180)
         connection.request(self.command, self.path, body=body, headers=headers)
         response = connection.getresponse()
+        if (response.getheader('Content-Type') or '').startswith('text/event-stream'):
+            self.send_response(response.status, response.reason)
+            for key, value in response.getheaders():
+                if key.lower() not in HOP and key.lower() != 'content-length':
+                    self.send_header(key, value)
+            self.send_header('Connection', 'close')
+            self.end_headers()
+            self.close_connection = True
+            while True:
+                piece = response.read1(65536)
+                if not piece:
+                    break
+                self.wfile.write(piece)
+                self.wfile.flush()
+            connection.close()
+            return
         payload = response.read()
         self.send_response(response.status, response.reason)
         for key, value in response.getheaders():

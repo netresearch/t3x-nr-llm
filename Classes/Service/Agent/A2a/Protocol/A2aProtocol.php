@@ -36,6 +36,13 @@ final class A2aProtocol
 
     public const METHOD_CANCEL_TASK = 'CancelTask';
 
+    public const METHOD_SEND_STREAMING_MESSAGE = 'SendStreamingMessage';
+
+    public const METHOD_SUBSCRIBE_TO_TASK = 'SubscribeToTask';
+
+    /** The media type of a streaming method's answer (A2A-SSE1). */
+    public const EVENT_STREAM_CONTENT_TYPE = 'text/event-stream';
+
     /** The domain of an `ErrorInfo` the protocol itself defines (A2A-P6). */
     public const ERROR_DOMAIN = 'a2a-protocol.org';
 
