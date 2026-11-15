@@ -54,14 +54,16 @@ final readonly class A2aPageMetadataReadFirstRule implements ToolInvocationRuleI
             return ToolInvocationDecision::allow();
         }
 
-        if (!$context->history->complete) {
-            return ToolInvocationDecision::deny('history_incomplete', 'This run cannot show that the page was read, so no write is allowed. Nothing was changed.');
-        }
-
         foreach ($context->history->entries as $entry) {
             if (($entry['tool'] ?? null) === A2aPageMetadataDomainHandler::READ_TOOL && ($entry['outcome'] ?? null) === 'ok') {
                 return ToolInvocationDecision::allow();
             }
+        }
+
+        // An incomplete history may have lost an earlier read; a read made
+        // since is counted above.
+        if (!$context->history->complete) {
+            return ToolInvocationDecision::deny('history_incomplete', 'This run cannot show that the page was read, so no write is allowed. Read the page again. Nothing was changed.');
         }
 
         return ToolInvocationDecision::deny(self::REASON_NOT_READ, 'Read the page with get_page_content before writing its metadata. Nothing was changed.');

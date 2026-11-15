@@ -189,13 +189,13 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
     {
         $run    = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? ''));
         $policy = $this->getService(ToolInvocationPolicyInterface::class);
-        $decide = static fn (string $tool, ?AgentRunReference $reference): ToolInvocationDecision => $policy->decide(new ToolInvocationContext(
+        $decide = static fn (string $tool, ?AgentRunReference $reference, ?ToolInvocationHistory $history = null): ToolInvocationDecision => $policy->decide(new ToolInvocationContext(
             $tool,
             ['uid' => self::TRANSLATION, 'description' => 'Gut.'],
             null,
             new LlmConfiguration(),
             new ToolExecutionContext(AiActorContext::anonymous(), run: $reference),
-            ToolInvocationHistory::fromStored(null),
+            $history ?? ToolInvocationHistory::fromStored(null),
         ));
 
         self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $decide('get_page_content', new AgentRunReference($run->uid, $run->uuid))->ruleIdentifier, 'another tool');
@@ -205,6 +205,9 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         self::assertFalse($write->allowed);
         self::assertSame('history_incomplete', $write->reason);
         self::assertSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $write->ruleIdentifier);
+
+        $readSince = $decide('update_page_metadata', new AgentRunReference($run->uid, $run->uuid), ToolInvocationHistory::fromStored(null)->append('get_page_content', 'ok', null));
+        self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $readSince->ruleIdentifier, 'a read made since the history became incomplete counts');
     }
 
     /**
