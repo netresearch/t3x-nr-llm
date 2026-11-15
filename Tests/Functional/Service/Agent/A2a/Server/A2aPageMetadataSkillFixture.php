@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -87,7 +88,7 @@ trait A2aPageMetadataSkillFixture
 
     private const WORKSPACE = 3;
 
-    /** @var list<CompletionResponse> */
+    /** @var list<CompletionResponse|Closure(): CompletionResponse> */
     private array $responses = [];
 
     private function setUpSkill(): void
@@ -192,6 +193,9 @@ trait A2aPageMetadataSkillFixture
         $manager  = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(function (): CompletionResponse {
             $next = array_shift($this->responses);
+            // A closure is a response with a side effect at the moment the
+            // model answers, inside the running segment.
+            $next = $next instanceof Closure ? $next() : $next;
             self::assertInstanceOf(CompletionResponse::class, $next, 'The model was asked more often than scripted.');
 
             return $next;

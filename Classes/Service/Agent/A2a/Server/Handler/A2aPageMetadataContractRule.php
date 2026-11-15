@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server\Handler;
 
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
-use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
@@ -85,7 +84,6 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
 
     public function __construct(
         private ConnectionPool $connectionPool,
-        private A2aSkillProfileRepository $profiles,
         private AgentStateCodec $codec,
         private A2aPageMetadataRows $rows,
     ) {}
@@ -108,7 +106,16 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
         }
 
         $task = $this->task($run->uid);
-        if ($task === null || !$this->isSkillTask($task)) {
+        if ($task === null) {
+            return ToolInvocationDecision::allow();
+        }
+
+        $handler = $this->handlerOf(A2aPageMetadataRows::int($task['profile_uid'] ?? 0));
+        if ($handler === null) {
+            return ToolInvocationDecision::deny(self::REASON_UNREADABLE, 'The skill of this task can no longer be read, so no write is allowed. Nothing was changed.');
+        }
+
+        if ($handler !== A2aPageMetadataDomainHandler::IDENTIFIER) {
             return ToolInvocationDecision::allow();
         }
 
@@ -153,7 +160,7 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
 
             $value = $context->arguments[$field];
             $limit = self::MAX_LENGTH[$field] ?? 0;
-            if (!is_string($value) || trim($value) === '' || mb_strlen($value) > $limit) {
+            if (!is_string($value) || preg_match('/[^\s\p{Z}\p{Cf}]/u', $value) !== 1 || mb_strlen($value) > $limit) {
                 return ToolInvocationDecision::deny(self::REASON_VALUE, sprintf('The value of %s must be non-empty text of at most %d characters. Nothing was changed.', $field, $limit));
             }
         }
@@ -180,9 +187,12 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
      */
     private function isTarget(int $uid, int $target, A2aPageMetadataRequest $request, int $workspace): bool
     {
-        $facts = (new DatabaseRecordTopology($this->connectionPool))->row('pages', $uid, $workspace);
+        $topology = new DatabaseRecordTopology($this->connectionPool);
+        $facts    = $topology->row('pages', $uid, $workspace);
 
-        return $facts instanceof RecordFacts && $facts->liveUid === $target && $facts->language === $request->language;
+        // A version row belongs to one workspace; only the client's counts.
+        return $facts instanceof RecordFacts && $facts->liveUid === $target && $facts->language === $request->language
+            && in_array((int) ($topology->storedValue('pages', $uid, 't3ver_wsid') ?? -1), [0, $workspace], true);
     }
 
     private function hasRead(ToolInvocationContext $context): bool
@@ -216,13 +226,23 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
     }
 
     /**
-     * @param array<string, mixed> $task
+     * The handler of the task's profile, read whether or not the profile was
+     * hidden or deleted since; null when there is no such profile row.
      */
-    private function isSkillTask(array $task): bool
+    private function handlerOf(int $profileUid): ?string
     {
-        $profile = $this->profiles->findByUid(A2aPageMetadataRows::int($task['profile_uid'] ?? 0));
+        if ($profileUid < 1) {
+            return null;
+        }
 
-        return $profile instanceof A2aSkillProfile && $profile->handler === A2aPageMetadataDomainHandler::IDENTIFIER;
+        $query = $this->connectionPool->getQueryBuilderForTable(A2aSkillProfileRepository::TABLE);
+        $query->getRestrictions()->removeAll();
+        $handler = $query->select('handler')->from(A2aSkillProfileRepository::TABLE)
+            ->where($query->expr()->eq('uid', $query->createNamedParameter($profileUid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_string($handler) ? $handler : null;
     }
 
     /**
@@ -239,7 +259,14 @@ final readonly class A2aPageMetadataContractRule implements ToolInvocationRuleIn
 
         try {
             $history = json_decode($this->codec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true, 64, JSON_THROW_ON_ERROR);
-            $parts   = is_array($history) && is_array($history[0] ?? null) && is_array($history[0]['parts'] ?? null) ? $history[0]['parts'] : [];
+
+            // A full history may have dropped the first message, and a later
+            // message of the client is not the request.
+            if (!is_array($history) || count($history) >= A2aTaskStore::MAX_HISTORY) {
+                return null;
+            }
+
+            $parts = is_array($history[0] ?? null) && is_array($history[0]['parts'] ?? null) ? $history[0]['parts'] : [];
 
             // The text parts joined as A2aMessage::text() joins them; the
             // server accepts no other part kind.

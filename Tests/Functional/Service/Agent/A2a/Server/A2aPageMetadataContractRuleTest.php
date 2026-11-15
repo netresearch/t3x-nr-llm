@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataContractRule;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataRows;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -217,6 +219,92 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A profile hidden or deleted while a segment of its run is under way
+     * does not switch the contract off for the rest of that segment; the
+     * resume guard refuses the next segment anyway.
+     */
+    #[Test]
+    public function aHiddenProfileDoesNotSwitchTheContractOff(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            function (): CompletionResponse {
+                $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['hidden' => 1, 'deleted' => 1], ['uid' => 1]);
+
+                return $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => str_repeat('a', 400)]);
+            },
+            $this->answer(),
+        ]);
+
+        self::assertStringContainsString('rule: page_metadata_contract', $this->toolResultOf($run));
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['hidden' => 0, 'deleted' => 0], ['uid' => 1]);
+        $gone = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            function (): CompletionResponse {
+                $this->db('tx_nrllm_a2a_profile')->delete('tx_nrllm_a2a_profile', ['uid' => 1]);
+
+                return $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']);
+            },
+            $this->answer(),
+        ], 'g-2');
+        self::assertStringContainsString('rule: page_metadata_contract, reason: request_unreadable', $this->toolResultOf($gone), 'a profile row that is gone');
+    }
+
+    /**
+     * A value of invisible characters only is not text, and a version row of
+     * the requested row in another workspace is not the requested row.
+     */
+    #[Test]
+    public function anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused(): void
+    {
+        $blank = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => "\u{00A0}\u{200B}\u{FEFF}"]),
+            $this->answer(),
+        ]);
+        self::assertStringContainsString('rule: page_metadata_contract, reason: value_not_allowed', $this->toolResultOf($blank));
+
+        $this->db('pages')->insert('pages', [
+            'uid'       => 970, 'pid' => 1, 'title' => 'Draft of 142 elsewhere', 'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::PAGE, 'doktype' => 1,
+            't3ver_oid' => self::TRANSLATION, 't3ver_wsid' => 99, 't3ver_state' => 0, 'perms_everybody' => Permission::PAGE_SHOW | Permission::PAGE_EDIT,
+        ]);
+        $other = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => 970, 'description' => 'Gut.']),
+            $this->answer(),
+        ], 'o-2');
+        self::assertStringContainsString('rule: page_metadata_contract, reason: not_the_requested_row', $this->toolResultOf($other));
+    }
+
+    /**
+     * A history past its cap no longer starts with the request: a later
+     * message of the client that names another page and field is not taken
+     * for the request, and the write is refused instead of left to the scope
+     * unchecked.
+     */
+    #[Test]
+    public function aHistoryPastItsCapIsNotReadAsTheRequest(): void
+    {
+        $run   = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? ''));
+        $store = $this->getService(A2aTaskStore::class);
+        $other = ['role' => 'ROLE_USER', 'parts' => [['text' => (string) json_encode(['page' => self::NEIGHBOUR, 'language' => self::GERMAN, 'fields' => ['nav_title']])]]];
+        for ($i = 0; $i < A2aTaskStore::MAX_HISTORY; ++$i) {
+            $store->appendHistory($run->uid, $other);
+        }
+
+        $this->responses = [
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => str_repeat('a', 400)]),
+            $this->answer(),
+        ];
+        $this->runtime()->runQueued($run->uuid);
+
+        self::assertStringContainsString('rule: page_metadata_contract, reason: request_unreadable', $this->toolResultOf($run));
+        self::assertSame(AgentRunStatus::COMPLETED, $this->stored($run)->statusEnum(), 'no approval was asked');
+    }
+
+    /**
      * The rule holds the page metadata skill only: a write of a task of the
      * text skill is not asked for a read first and reaches its approval.
      */
@@ -239,7 +327,7 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
      * A task for the German description of page 42, run with the given
      * model responses.
      *
-     * @param list<CompletionResponse> $responses
+     * @param list<CompletionResponse|Closure(): CompletionResponse> $responses
      */
     private function ranWith(array $responses, string $messageId = ''): AgentRun
     {

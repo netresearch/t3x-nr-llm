@@ -18,9 +18,10 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * live rows and the rows new in that workspace, not deleted, with the
  * workspace's version laid over a live row. A row deleted in the workspace
  * is not shown: `workspaceOL()` lays the delete placeholder (t3ver_state 2)
- * over the live row instead of dropping it, so it is skipped here. The handler reads the page and its translation through it
- * before a task exists, and the contract rule reads the same rows before a
- * write. Neither checks a permission here.
+ * over the live row instead of dropping it, so it is skipped here. The
+ * handler reads the page and its translation through it before a task
+ * exists, and the contract rule reads the same rows before a write. Neither
+ * checks a permission here.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
