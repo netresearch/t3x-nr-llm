@@ -68,7 +68,7 @@ item of the cross-check against a second plan they come from in brackets
 ## Stages
 
 Every stage below is in scope. Stages 0 to 4 and 5a are implemented on
-`main`; 5b is implemented in both roles, the sender (server role) and the receiver (client role); 5c is not built yet. The Status column says where each
+`main`; 5b is implemented in both roles, the sender (server role) and the receiver (client role); 5c is implemented in part (see its row). The Status column says where each
 stage stands, and the change that completes a stage updates its row. The stages
 are an implementation order, nothing more: a stage builds on the ones it
 depends on.
@@ -82,7 +82,7 @@ depends on.
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
 | 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | merged (#1378), released in 0.48.0; a delegating run polls rather than streams (the client stream is the PHP API and `nrllm:a2a:send --stream`) |
 | 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | sender (server role, A2A-PUSH1 to A2A-PUSH5) implemented, off by default (`a2a.server.push`); receiver (client role, A2A-PUSH6 to A2A-PUSH8) implemented, off by default (`a2a.client.push`, endpoint on the site named by `a2a.client.pushSite`); the client registers without an embedded config only |
-| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | not built; the server accepts `text/plain` parts only |
+| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | partly built, behind `a2a.files.enabled` (off by default): inbound `raw` and `url` parts in the server role (A2A-FILE1 to A2A-FILE4); outbound files of the server role, inline or as a protected download with a capability URL (A2A-FILE5), with no producer yet; FAL export and adoption (A2A-FILE6, A2A-FILE7) and files in the client role are not built |
 
 Each stage is released only with its own gates (see "Verification") and the
 rollout order of A2A-OPS1.
@@ -689,9 +689,11 @@ Client role (receiver):
   prefix and is checked against a stored hash with a constant-time comparison
   (ADR-280). Missing, unknown, disabled or expired: HTTP 401,
   `WWW-Authenticate: Bearer realm="a2a"`, JSON-RPC `-32000` with `reason`
-  `UNAUTHENTICATED`. The agent card is the only unauthenticated response.
-  Failed attempts are logged without the token and rate-limited per source
-  address.
+  `UNAUTHENTICATED`. The agent card is the only response without
+  authentication. A file download may present a capability URL instead of
+  the bearer token (A2A-FILE5, ADR-284); a failed capability is logged and
+  limited like a failed token. Failed attempts are logged without the token
+  and rate-limited per source address.
 - **A2A-SEC2 Scoping before lookup.** The owner of a task is the client
   record uid. Every query that reads a task, a context, a cursor, a file or a
   push config has the owner in its `WHERE` clause; a task id of another client
@@ -765,7 +767,7 @@ because `Task`, `Skill` and `ToolArtifact` are taken.
 | `tx_nrllm_a2a_task` | server task view | task id (UUID), context id, owner client uid, run uid, profile uid, state, status timestamp (ms), status message, artifacts (sealed), history (sealed), journal revision, outcome reason |
 | `tx_nrllm_a2a_dedup` | accepted messages | owner client uid, `message_id`, message sha256, task uid; unique (owner, `message_id`) |
 | `tx_nrllm_a2a_event` | A2A event journal | task uid, revision, kind, payload (sealed); unique (task, revision) |
-| `tx_nrllm_a2a_file` | private file store (5c) | owner, task uid, origin, size, media type, sha256, check state, approval state, expiry, storage location |
+| `tx_nrllm_a2a_file` | private file store (5c) | owner, task uid, origin, size, media type, sha256, check state, approval state, expiry; the bytes (and a url part's URL) sealed in the row instead of a separate storage location, so they commit with the task; the expected files in `tx_nrllm_a2a_task.input_manifest` |
 | `tx_nrllm_a2a_push_config` | push config, sender (5b) | config id, task uid, owner, URL, token and credential references, state |
 | `tx_nrllm_a2a_push_outbox` | delivery jobs, sender (5b) | config uid, event revision, attempts, next attempt, deadline, state |
 | `tx_nrllm_a2a_push_registration` | push registration, receiver (5b) | send-intent uid, remote task id, callback credential prefix and hash, remote config id, state |

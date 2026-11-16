@@ -59,9 +59,9 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     public function itDeclaresTheTablesItWrites(): void
     {
         // The A2A task view and event journal (ADR-282), the push configs
-        // and the push inbox (ADR-285) are sealed with the same codec, so a rotation must reach
-        // them too.
-        self::assertSame([self::TABLE, 'tx_nrllm_a2a_task', 'tx_nrllm_a2a_event', 'tx_nrllm_a2a_push_config', 'tx_nrllm_a2a_push_inbox'], $this->rotator->getTables());
+        // and the push inbox (ADR-285), and the A2A file store (ADR-284) are
+        // sealed with the same codec, so a rotation must reach them too.
+        self::assertSame([self::TABLE, 'tx_nrllm_a2a_task', 'tx_nrllm_a2a_event', 'tx_nrllm_a2a_push_config', 'tx_nrllm_a2a_push_inbox', 'tx_nrllm_a2a_file'], $this->rotator->getTables());
         self::assertStringContainsString('nr-llm', $this->rotator->getIdentifier());
     }
 
@@ -245,6 +245,86 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The sealed URL and bytes of every A2A file move to the new key, also
+     * when the file table is read in pages smaller than its row count.
+     */
+    #[Test]
+    public function rewrappingMovesEveryFileRowToTheNewKey(): void
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $uids = [];
+        for ($i = 0; $i < 3; ++$i) {
+            $uids[$i] = $this->insertFile(
+                $codec->seal('https://93.184.216.34/files/' . $i . '.txt', AgentStateCodec::PURPOSE_A2A_FILE),
+                $codec->seal('Notes ' . $i, AgentStateCodec::PURPOSE_A2A_FILE),
+            );
+        }
+
+        $newKey = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES);
+        self::assertSame(6, $this->rotator->rewrapAll($this->contextTo($newKey)));
+
+        $newCodec = $this->codecFor($newKey);
+        foreach ($uids as $i => $uid) {
+            self::assertSame('https://93.184.216.34/files/' . $i . '.txt', $newCodec->open($this->storedValue($uid, 'source_url', 'tx_nrllm_a2a_file'), AgentStateCodec::PURPOSE_A2A_FILE));
+            self::assertSame('Notes ' . $i, $newCodec->open($this->storedValue($uid, 'content', 'tx_nrllm_a2a_file'), AgentStateCodec::PURPOSE_A2A_FILE));
+        }
+    }
+
+    /**
+     * A file of the largest size (8 MiB, about 15 MiB sealed) is rewrapped
+     * by a statement that carries the new sealed value only: one that also
+     * named the old value in its WHERE would exceed the 16 MiB a MariaDB
+     * packet holds by default (`max_allowed_packet`).
+     */
+    #[Test]
+    public function aFileOfTheLargestSizeIsRewrapped(): void
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $bytes  = str_repeat("Line of a long text file.\n", intdiv(8388608, 26));
+        $sealed = $codec->seal($bytes, AgentStateCodec::PURPOSE_A2A_FILE);
+        self::assertGreaterThan(8388608, strlen($sealed));
+        $uid = $this->insertFile('', $sealed);
+        unset($sealed);
+
+        $newKey = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES);
+        self::assertSame(1, $this->rotator->rewrapAll($this->contextTo($newKey)));
+        self::assertSame($bytes, $this->codecFor($newKey)->open($this->storedValue($uid, 'content', 'tx_nrllm_a2a_file'), AgentStateCodec::PURPOSE_A2A_FILE));
+    }
+
+    /**
+     * A sealed A2A file holds up to about 15 MiB, so the file table is read
+     * one row at a time: rotating ten files of 2 MiB peaks at a few times one
+     * sealed file (about 4 times on SQLite, 6 on MariaDB, measured), while a
+     * page holding all ten peaked at 13 and 20 times.
+     */
+    #[Test]
+    public function theFileTableIsRewrappedOneRowAtATime(): void
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $sealedLength = 0;
+        for ($i = 0; $i < 10; ++$i) {
+            $sealed       = $codec->seal(random_bytes(2097152), AgentStateCodec::PURPOSE_A2A_FILE);
+            $sealedLength = strlen($sealed);
+            $this->insertFile('', $sealed);
+        }
+
+        unset($sealed);
+        $context = $this->contextTo(random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES));
+        gc_collect_cycles();
+        memory_reset_peak_usage();
+        $before = memory_get_usage();
+
+        self::assertSame(10, $this->rotator->rewrapAll($context));
+        self::assertLessThan(9 * $sealedLength, memory_get_peak_usage() - $before, 'the rotation holds no page of several sealed files');
+    }
+
+    /**
      * Build a value in the format nr-llm 0.24.0-0.25.x wrote, straight from the
      * encryption service, so the test proves format compatibility rather than
      * restating the codec's marker shim.
@@ -315,15 +395,27 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
         return (int) $connection->lastInsertId();
     }
 
-    private function storedValue(int $uid, string $column): string
+    private function insertFile(string $sourceUrl, string $content): int
     {
-        $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_a2a_file');
+        $connection->insert('tx_nrllm_a2a_file', [
+            'file_id'    => bin2hex(random_bytes(16)),
+            'source_url' => $sourceUrl,
+            'content'    => $content,
+        ]);
+
+        return (int) $connection->lastInsertId();
+    }
+
+    private function storedValue(int $uid, string $column, string $table = self::TABLE): string
+    {
+        $connection   = $this->connectionPool->getConnectionForTable($table);
         $queryBuilder = $connection->createQueryBuilder();
         $queryBuilder->getRestrictions()->removeAll();
 
         $value = $queryBuilder
             ->select($column)
-            ->from(self::TABLE)
+            ->from($table)
             ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid)))
             ->executeQuery()
             ->fetchOne();

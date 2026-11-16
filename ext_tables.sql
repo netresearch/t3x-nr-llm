@@ -1713,6 +1713,15 @@ CREATE TABLE tx_nrllm_a2a_task (
     history mediumtext,
     -- An nr-llm reason in Task.metadata, e.g. RESULT_NOT_RETAINABLE.
     outcome_reason varchar(64) DEFAULT '' NOT NULL,
+    -- The files the accepted message carried (spec 051 A2A-FILE4): a JSON
+    -- list of file id, SHA-256 and size per tx_nrllm_a2a_file row, written
+    -- with the task. The worker checks the rows against it before the run's
+    -- first model call; an empty value is a task without files.
+    input_manifest text,
+    -- The A2A endpoint the task was accepted at, as the site configures it
+    -- (never the request's host): the base of the download URL of a file the
+    -- task sends (spec 051 A2A-FILE5).
+    endpoint varchar(512) DEFAULT '' NOT NULL,
 
     -- Every committed change raises the revision; the projector writes the
     -- events up to it into tx_nrllm_a2a_event (A2A-R15).
@@ -2046,4 +2055,51 @@ CREATE TABLE tx_nrllm_a2a_push_inbox (
 
     PRIMARY KEY (uid),
     KEY registration (registration_uid, received)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_file'
+# The private file store of the A2A server role (spec 051 A2A-FILE4,
+# ADR-284): one row per file part of an accepted message. The bytes live in
+# this row, sealed (AgentStateCodec), never in FAL, a public folder or the
+# task's history. A raw part is checked and approved when the message is
+# accepted; a url part is fetched, checked and approved by the worker before
+# the run's first model call, and its stored copy is the input from then on.
+# Rows go with their task's purge and are deleted once past their expiry. Not
+# a TCA table.
+#
+CREATE TABLE tx_nrllm_a2a_file (
+    uid int(11) NOT NULL auto_increment,
+
+    file_id varchar(64) DEFAULT '' NOT NULL,
+    owner_client_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    task_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    part_index int(11) unsigned DEFAULT '0' NOT NULL,
+    -- in: a file a client sent; out: a file a task sends (A2A-FILE5)
+    direction varchar(4) DEFAULT 'in' NOT NULL,
+    -- in: raw or url; out: what produced the file
+    origin varchar(8) DEFAULT '' NOT NULL,
+    -- The URL of a url part, sealed; empty for a raw part.
+    source_url mediumtext,
+    filename varchar(255) DEFAULT '' NOT NULL,
+    declared_media_type varchar(100) DEFAULT '' NOT NULL,
+    -- The type the validator confirmed; empty until a check passed.
+    media_type varchar(100) DEFAULT '' NOT NULL,
+    size int(11) unsigned DEFAULT '0' NOT NULL,
+    sha256 char(64) DEFAULT '' NOT NULL,
+    -- pending, passed or failed
+    check_state varchar(16) DEFAULT 'pending' NOT NULL,
+    -- pending, approved or refused
+    approval_state varchar(16) DEFAULT 'pending' NOT NULL,
+    refusal varchar(255) DEFAULT '' NOT NULL,
+    -- The bytes, sealed; empty until a url part was fetched.
+    content longtext,
+    expires int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY file (file_id),
+    KEY task (task_uid, owner_client_uid, direction),
+    KEY expires (expires)
 );

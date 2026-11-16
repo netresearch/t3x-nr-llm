@@ -74,6 +74,25 @@ final readonly class A2aTaskView
     }
 
     /**
+     * @return array<string, mixed>|null the row, or null when the client owns no task of this uid
+     */
+    public function findByUid(int $ownerClientUid, int $taskUid): ?array
+    {
+        if ($taskUid < 1 || $ownerClientUid < 1) {
+            return null;
+        }
+
+        $row = $this->builder()->select('*')->from(A2aTaskStore::TABLE)
+            ->where('owner_client_uid = :owner AND uid = :uid')
+            ->setParameter('owner', $ownerClientUid, Connection::PARAM_INT)
+            ->setParameter('uid', $taskUid, Connection::PARAM_INT)
+            ->executeQuery()
+            ->fetchAssociative();
+
+        return is_array($row) ? $row : null;
+    }
+
+    /**
      * Whether a context belongs to the client: one of its tasks carries it.
      */
     public function ownsContext(int $ownerClientUid, string $contextId): bool

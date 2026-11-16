@@ -36,6 +36,12 @@ use function is_string;
  * makes the vault call {@see rewrapAll()} inside its own rotation transaction.
  * A failure here rolls the whole rotation back, which is the point: a partial
  * rotation is worse than none.
+ *
+ * A value is written back only if it is still the one read: most tables
+ * compare the old value in the UPDATE. The A2A file store holds values of
+ * up to about 15 MiB, too large to send twice in one statement, so its rows
+ * are rewrapped one at a time under a row lock, read again under the lock
+ * and written by uid alone.
  */
 final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotatorInterface
 {
@@ -69,6 +75,10 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
         'tx_nrllm_a2a_push_inbox' => [
             'body' => AgentStateCodec::PURPOSE_A2A_PUSH_INBOX,
         ],
+        'tx_nrllm_a2a_file' => [
+            'source_url' => AgentStateCodec::PURPOSE_A2A_FILE,
+            'content'    => AgentStateCodec::PURPOSE_A2A_FILE,
+        ],
     ];
 
     /**
@@ -76,6 +86,27 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
      * so the batch bounds memory, not transaction size.
      */
     private const BATCH_SIZE = 200;
+
+    /**
+     * Tables whose values are too large for a page of BATCH_SIZE rows. A
+     * sealed A2A file holds up to about 15 MiB (1.81 times the 8 MiB
+     * `a2a.maxRawPartBytes` allows), so 200 of them could hold GiBs; that
+     * table is read one row at a time.
+     */
+    private const TABLE_BATCH_SIZES = [
+        'tx_nrllm_a2a_file' => 1,
+    ];
+
+    /**
+     * Tables rewrapped row by row under a row lock instead of by comparing
+     * the old value in the UPDATE. An UPDATE that names both the old and the
+     * new sealed file carries about 30 MiB, more than the 16 MiB a MariaDB
+     * packet holds by default (`max_allowed_packet`); under the lock the
+     * statement carries the new value only.
+     */
+    private const ROW_LOCKED_TABLES = [
+        'tx_nrllm_a2a_file' => true,
+    ];
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -142,7 +173,9 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
                 foreach ($rows as $row) {
                     $lastUid = $row['uid'];
-                    $rewrapped += $this->rewrapRow($context, $connection, $table, $column, $identifier, $row);
+                    $rewrapped += isset(self::ROW_LOCKED_TABLES[$table])
+                        ? $this->rewrapLockedRow($context, $connection, $table, $column, $identifier, $row['uid'])
+                        : $this->rewrapRow($context, $connection, $table, $column, $identifier, $row);
                 }
             }
         }
@@ -188,6 +221,41 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
     }
 
     /**
+     * Rewrap one value of a row-locked table: lock the row, read the value
+     * again under the lock, and write the new value by uid alone. A value
+     * that is no longer sealed (a privacy scrub or the task's end emptied it
+     * since the page was read) is skipped.
+     */
+    private function rewrapLockedRow(EnvelopeRotationContext $context, Connection $connection, string $table, string $column, string $identifier, int $uid): int
+    {
+        return $connection->transactional(function (Connection $connection) use ($context, $table, $column, $identifier, $uid): int {
+            $connection->executeStatement(
+                'UPDATE ' . $connection->quoteIdentifier($table) . ' SET uid = uid WHERE uid = ?',
+                [$uid],
+                [Connection::PARAM_INT],
+            );
+
+            $queryBuilder = $connection->createQueryBuilder();
+            $queryBuilder->getRestrictions()->removeAll();
+            $value = $queryBuilder
+                ->select($column)
+                ->from($table)
+                ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
+                ->executeQuery()
+                ->fetchOne();
+
+            $sealed = is_string($value) ? AgentStateEnvelopeMarker::normalise($value) : null;
+            if ($sealed === null || !$context->isSealed($sealed)) {
+                return 0;
+            }
+
+            $connection->update($table, [$column => $context->rewrap($sealed, $identifier)], ['uid' => $uid]);
+
+            return 1;
+        });
+    }
+
+    /**
      * One page of sealed values for a column, keyed by uid for a stable cursor.
      *
      * Paged by uid rather than by OFFSET because the rows are being rewritten as
@@ -201,15 +269,18 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
     {
         $queryBuilder = $connection->createQueryBuilder();
         $queryBuilder->getRestrictions()->removeAll();
+        // A row-locked table reads its value again under the lock, so the
+        // page carries uids only and no sealed value is held twice.
+        $locked = isset(self::ROW_LOCKED_TABLES[$table]);
         $result = $queryBuilder
-            ->select('uid', $column)
+            ->select(...($locked ? ['uid'] : ['uid', $column]))
             ->from($table)
             ->where(
                 $queryBuilder->expr()->gt('uid', $queryBuilder->createNamedParameter($afterUid, Connection::PARAM_INT)),
                 $this->sealedPredicate($queryBuilder, $column),
             )
             ->orderBy('uid', 'ASC')
-            ->setMaxResults(self::BATCH_SIZE)
+            ->setMaxResults(self::TABLE_BATCH_SIZES[$table] ?? self::BATCH_SIZE)
             ->executeQuery();
 
         $rows = [];

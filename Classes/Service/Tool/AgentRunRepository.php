@@ -57,6 +57,8 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
 
     private const TABLE_A2A_PUSH_INBOX = 'tx_nrllm_a2a_push_inbox';
 
+    private const TABLE_A2A_FILE = 'tx_nrllm_a2a_file';
+
     /** Rows deleted per statement, so a neglected install purges in batches. */
     private const PURGE_CHUNK_SIZE = 500;
 
@@ -1445,6 +1447,15 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                 ->where($push->expr()->in('task_uid', $push->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
                 ->executeStatement();
         }
+
+        // The files a task's message carried (spec 051 A2A-FILE4) go with it;
+        // before it, for the same reason. Only the private store's rows: a
+        // file adopted into FAL is a FAL file and stays.
+        $files = $this->connectionPool->getConnectionForTable(self::TABLE_A2A_FILE)->createQueryBuilder();
+        $files
+            ->delete(self::TABLE_A2A_FILE)
+            ->where($files->expr()->in('task_uid', $files->createNamedParameter($taskUids, Connection::PARAM_INT_ARRAY)))
+            ->executeStatement();
 
         // Then the tasks: the projector writes an event only under a lock on its
         // task row, so a projection still running holds this delete, and one

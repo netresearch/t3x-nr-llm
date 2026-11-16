@@ -61,6 +61,9 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         // delivery jobs go with the task (spec 051 A2A-PUSH1, A2A-PUSH3).
         'tx_nrllm_a2a_push_config',
         'tx_nrllm_a2a_push_outbox',
+        // A file an A2A message carried goes with its task, and on its own
+        // expiry before that (spec 051 A2A-FILE4).
+        'tx_nrllm_a2a_file',
         'tx_nrllm_governance_event',
     ];
 
@@ -303,6 +306,16 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         ]);
 
         $taskUid = (int) $taskConnection->lastInsertId();
+        // Not yet expired: it goes because its task goes.
+        $connectionPool->getConnectionForTable('tx_nrllm_a2a_file')->insert('tx_nrllm_a2a_file', [
+            'file_id'          => 'file-1',
+            'owner_client_uid' => 1,
+            'task_uid'         => $taskUid,
+            'origin'           => 'raw',
+            'content'          => 'sealed',
+            'expires'          => time() + 86400,
+            'crdate'           => $timestamp,
+        ]);
 
         $connectionPool->getConnectionForTable('tx_nrllm_a2a_event')->insert('tx_nrllm_a2a_event', [
             'task_uid' => $taskUid,

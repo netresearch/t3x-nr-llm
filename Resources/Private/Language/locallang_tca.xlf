@@ -1816,6 +1816,9 @@
             <trans-unit id="tx_nrllm_a2a_profile.input_modes">
                 <source>Input modes</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.input_modes.description">
+                <source>The media types a client may send to this skill. A file type is accepted only while the extension setting &quot;Accept A2A files&quot; is on, and each file is checked against its type before it is stored (ADR-284).</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.output_modes">
                 <source>Output modes</source>
             </trans-unit>

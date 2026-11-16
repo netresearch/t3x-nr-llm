@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Command;
 
 use Netresearch\NrLlm\Domain\Enum\PrivacyDataCategory;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileStore;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepositoryInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepositoryInterface;
@@ -59,6 +60,7 @@ final class PurgePrivacyDataCommand extends Command
         private readonly AgentRunRepositoryInterface $agentRuns,
         private readonly GovernanceEventRepositoryInterface $governanceEvents,
         private readonly CallOutcomeRepositoryInterface $callOutcomes,
+        private readonly ?A2aFileStore $a2aFiles = null,
     ) {
         parent::__construct();
     }
@@ -114,6 +116,12 @@ final class PurgePrivacyDataCommand extends Command
 
         [$days, $cutoff] = $window(PrivacyDataCategory::GOVERNANCE);
         $purged[]        = sprintf('Governance events (%d d): %d', $days, $this->governanceEvents->purgeOlderThan($cutoff));
+
+        // A2A files carry their own expiry (spec 051 A2A-FILE4); --days does
+        // not move it.
+        if ($this->a2aFiles instanceof A2aFileStore) {
+            $purged[] = sprintf('A2A files past their expiry: %d', $this->a2aFiles->purgeExpired(time()));
+        }
 
         $io->success('Retention enforced across all content-bearing tables.');
         $io->listing($purged);

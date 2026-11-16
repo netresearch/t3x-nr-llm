@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 use DateTimeImmutable;
 use JsonException;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aErrorCode;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
@@ -75,6 +76,7 @@ final readonly class A2aRpcServer
         private A2aTaskStream $taskStream,
         private A2aPushConfigStore $pushConfigs,
         ?LoggerInterface $logger = null,
+        private ?A2aFileSettings $fileSettings = null,
     ) {
         $this->logger = $logger ?? new NullLogger();
     }
@@ -87,7 +89,10 @@ final readonly class A2aRpcServer
             $client = $this->authenticator->authenticate($request, $now);
             $call   = $this->envelope($body, $id);
             $this->checkVersion($request);
-            $result = $this->dispatch($client, $call['method'], $call['params'], $now, $id);
+            // The configured base the middleware matched, never the request's
+            // host: a new task keeps it for its file downloads (A2A-FILE5).
+            $base   = $request->getAttribute(A2aBaseUrl::class);
+            $result = $this->dispatch($client, $call['method'], $call['params'], $now, $id, $base instanceof A2aBaseUrl ? $base->endpoint() : '');
 
             return $result instanceof A2aRpcReply ? $result : A2aRpcReply::result($id, $result);
         } catch (A2aRpcError $error) {
@@ -101,10 +106,17 @@ final readonly class A2aRpcServer
 
     /**
      * The body, read up to the limit and not one byte further (A2A-SEC6).
+     * With files switched on, the limit grows by the base64 text one
+     * message's files may hold (A2A-FILE2); it is checked before anything
+     * else, so it cannot depend on who sends the request.
      */
     private function body(ServerRequestInterface $request): string
     {
-        $limit  = $this->settings->maxRequestBytes();
+        $limit = $this->settings->maxRequestBytes();
+        if ($this->fileSettings instanceof A2aFileSettings && $this->fileSettings->enabled()) {
+            $limit += $this->fileSettings->maxBase64Length();
+        }
+
         $length = $request->getHeaderLine('Content-Length');
         if (is_numeric($length) && (int) $length > $limit) {
             throw A2aRpcError::tooLarge();
@@ -199,7 +211,7 @@ final readonly class A2aRpcServer
      *
      * @return array<string, mixed>|A2aRpcReply a result, or a stream
      */
-    private function dispatch(A2aInboundClient $client, string $method, array $params, int $now, int|string|null $id): array|A2aRpcReply
+    private function dispatch(A2aInboundClient $client, string $method, array $params, int $now, int|string|null $id, string $endpoint = ''): array|A2aRpcReply
     {
         if (array_key_exists($method, self::UNDECLARED)) {
             throw A2aRpcError::a2a(self::UNDECLARED[$method], 'This agent does not offer ' . $method . '.');
@@ -227,8 +239,8 @@ final readonly class A2aRpcServer
         }
 
         return match ($method) {
-            A2aProtocol::METHOD_SEND_MESSAGE           => $this->sendMessage->handle($client, $params, $now),
-            A2aProtocol::METHOD_SEND_STREAMING_MESSAGE => $this->sendStreamingMessage($client, $params, $now, $id),
+            A2aProtocol::METHOD_SEND_MESSAGE           => $this->sendMessage->handle($client, $params, $now, false, $endpoint),
+            A2aProtocol::METHOD_SEND_STREAMING_MESSAGE => $this->sendStreamingMessage($client, $params, $now, $id, $endpoint),
             A2aProtocol::METHOD_SUBSCRIBE_TO_TASK      => $this->subscribeToTask($client, $params, $now, $id),
             A2aProtocol::METHOD_GET_TASK               => $this->getTask($client, $params),
             A2aProtocol::METHOD_LIST_TASKS             => $this->listTasks($client, $params),
@@ -251,7 +263,7 @@ final readonly class A2aRpcServer
      *
      * @param array<string, mixed> $params
      */
-    private function sendStreamingMessage(A2aInboundClient $client, array $params, int $now, int|string|null $id): A2aRpcReply
+    private function sendStreamingMessage(A2aInboundClient $client, array $params, int $now, int|string|null $id, string $endpoint = ''): A2aRpcReply
     {
         $message       = is_array($params['message'] ?? null) ? $params['message'] : [];
         $configuration = is_array($params['configuration'] ?? null) ? $params['configuration'] : [];
@@ -264,7 +276,7 @@ final readonly class A2aRpcServer
 
         $holder = $this->takeStreamSlot($client, $named, $now);
         try {
-            $result = $this->sendMessage->handle($client, $params, $now, true);
+            $result = $this->sendMessage->handle($client, $params, $now, true, $endpoint);
             if (is_array($result['message'] ?? null)) {
                 $this->streamSlots->release($holder);
 

@@ -16,9 +16,11 @@ client sends a message to one of them. The message becomes an agent run that a
 worker executes; the client receives the result as an A2A task
 (:ref:`ADR-280 <adr-280>`, :ref:`ADR-282 <adr-282>`, :ref:`ADR-283 <adr-283>`).
 
-This page covers stages 3 to 5b of spec 051: tasks, a client that answers a
+This page covers stages 3 to 5b of spec 051 (tasks, a client that answers a
 task waiting for input, streams, and push notifications to a client's
-webhook. File parts are not offered (stage 5c).
+webhook) and the files of stage 5c, switched off by default: files a client
+sends, and files a task registers for its result, sent inline or as a
+protected download. No producer of result files exists yet.
 
 Switch it on
 ============
@@ -105,7 +107,14 @@ Public
    Listed on the card and callable. A profile that is not public cannot be
    called by any client.
 
-Messages and results are ``text/plain`` only (files are stage 5c).
+Input modes
+   The media types a client may send to the skill: ``text/plain`` and, while
+   files are switched on (see :ref:`administration-a2a-server-files`),
+   ``application/json``, ``application/pdf``, ``image/png`` and
+   ``image/jpeg``. While files are off the card lists ``text/plain`` for
+   every skill, whatever is ticked here.
+
+Results are ``text/plain`` only.
 
 Register a client
 =================
@@ -299,6 +308,154 @@ client can register webhooks for its own tasks, with
   :guilabel:`A2A Push Config` on the root page, read-only, with their state
   and the reason of the last refusal; the credential is not shown.
 
+..  _administration-a2a-server-files:
+
+Files
+=====
+
+Off by default. With :guilabel:`Accept A2A files (server role)`
+(``a2a.files.enabled``) on, a client message may carry file parts besides its
+text (:ref:`ADR-284 <adr-284>`). Off, every part other than ``text/plain``
+text is refused with ``-32005``, as before. Switched off while a task with
+files waits for the worker, that task fails before its files are fetched
+or read.
+
+What is accepted
+   A ``raw`` part (the bytes, base64 in the JSON) that names its
+   ``mediaType``, one of ``text/plain``, ``application/json``,
+   ``application/pdf``, ``image/png`` and ``image/jpeg``, and that the skill
+   lists among its :guilabel:`Input modes`. Each file is checked against its
+   type before anything is stored: text must be UTF-8 without control
+   characters and must not open with HTML, SVG or XML markup; JSON must parse;
+   a PDF needs its header and cross-reference trailer, must not be encrypted
+   and must not name JavaScript, launch actions, embedded files, rich media
+   or XFA forms; an image must carry its type's signature, be at most 4096 x
+   4096 pixels and decode with GD (without the GD extension no image is
+   accepted). The images of one message may hold at most 16,777,216 pixels
+   together, read from their headers before any is decoded (``-32602``).
+   The content is checked only after the skill, its input modes and the
+   client's limits allow the message. Archives, HTML, SVG and any other
+   type, a part without a ``mediaType`` and a ``data`` part are refused with
+   ``-32005``. A message that answers a waiting task carries text only.
+
+File URLs
+   A ``url`` part with the same ``mediaType`` rules is accepted only from a
+   host listed in :guilabel:`Hosts A2A file URLs may come from`
+   (``a2a.files.allowedHosts``). Unlike the host list of the A2A client, an
+   empty list admits no file URL at all (``-32005``). The URL must be https
+   and passes the address guard of :ref:`ADR-202 <adr-202>` when the task is
+   accepted (``-32602`` otherwise): no private, loopback, link-local or
+   metadata address, no credentials in the URL, no host of this
+   installation, and :guilabel:`Hosts A2A file URLs never come from`
+   (``a2a.files.deniedHosts``) is checked first. Nothing is fetched in the
+   request. The worker fetches the file before the run starts, through the
+   same guard again, pinned to the checked addresses, with a plain ``GET``
+   that carries no credential of the client or of a remote agent and no
+   cookie, following no redirect and reading at most the size limit. The
+   fetched bytes pass the same type check and count against the message's
+   limit together with its raw files; a fetched image counts against the
+   message's pixel budget together with its other images, before it is
+   decoded. A refusal (a redirect, a status that
+   is not 2xx, the size, the content, the guard) is stored with the file
+   and fails the task; a timeout, 408, 429 or 5xx leaves the file pending
+   and the run is retried like any transient failure. Once stored, the copy
+   is the input: the URL is never fetched again.
+
+Sizes
+   :guilabel:`Largest A2A file` (``a2a.maxRawPartBytes``, default 5 MiB, at
+   most 8 MiB) bounds the decoded bytes of one file and of all files of one
+   message together. Sealed, a file takes about 1.8 times its size in its
+   database row, which must fit into one packet of the database
+   (``max_allowed_packet``, 16 MiB by default on MariaDB). The base64 text
+   is measured before it is decoded. Larger is ``-32602``. While files are
+   on, the largest request (``a2a.server.maxRequestBytes``) grows by the
+   base64 size of this limit.
+
+Where a file goes
+   Into a private store (``tx_nrllm_a2a_file``), not into FAL and not under
+   any public path: one row per file with the client, the task, the origin,
+   the real size, the checked type, the SHA-256, the check and approval
+   state and an expiry, the bytes sealed in the row like a task's history.
+   The task's history keeps a reference in place of the bytes (the part's
+   ``raw`` is empty, its ``metadata`` under
+   ``https://nr-llm.netresearch.de/a2a/ext/file/v1`` names the file id,
+   SHA-256 and size). A ``url`` part keeps its URL in the history; in the
+   store the URL is sealed like the bytes.
+
+What the run sees
+   Before the worker asks the model for the first time it checks the task's
+   files against the list recorded when the task was accepted: each must be
+   there, of the client, checked, approved, unexpired and unchanged.
+   Otherwise the task fails and the model is never asked. The run then
+   receives, after the client's text, one message per file, marked as data
+   the client sent and not as instructions: text and JSON as text, an image
+   as an image for a model that declares vision, and a PDF as a line naming
+   it, because a run cannot read a PDF. A large text file goes into the
+   prompt whole; set the size limit with the model's context in mind.
+
+Files a task sends
+   A file a task sends is one of the five types and passed the same check,
+   and is stored in the same private store, with the direction ``out``.
+   When the run completes, each file becomes an artifact of its own. Files
+   go inline as ``raw`` while they fit together into
+   :guilabel:`Largest inline A2A artifact` (``a2a.maxInlineArtifactBytes``,
+   default 256 KiB, at most 512 KiB, so that they still fit into one event
+   of a stream at the default frame size); every further file goes out as a
+   ``url`` to ``<endpoint>/files/<file id>``, below the A2A endpoint the task
+   was accepted at, as the site configures it. No artifact names a URL of
+   the installation's own storage. The part's ``metadata`` names the file
+   id, SHA-256 and size as for an inbound file. A run kept at the
+   ``redacted`` level sends no file, because a file cannot be redacted; one
+   text artifact says how many files were withheld. No producer uses this
+   yet: the export of a FAL file into an artifact is not built.
+
+Downloading a file
+   ``GET <endpoint>/files/<file id>`` with the client's bearer token returns
+   the bytes with their type, ``Content-Disposition: attachment``,
+   ``X-Content-Type-Options: nosniff`` and ``Cache-Control: no-store``. A
+   file of another client, an unknown file, an expired one and one the
+   task's artifacts no longer name all answer the same ``404``; a file is
+   served only while the artifacts, read at the run's current answer level,
+   still carry it, so a tightened privacy level withdraws the download too.
+   ``POST <endpoint>/files/<file id>/capability`` with the bearer token
+   returns ``{"url": ..., "expiresAt": ...}``: a URL that reads this one
+   file of this one client without the bearer token for 15 minutes.
+
+   ..  warning::
+
+       A capability URL is a transferable bearer right: whoever holds it
+       reads the file until it expires, without any other credential. It
+       stops working when it expires, when the client gets a new token and
+       when the client is disabled. Hand it on only where the file may go.
+       The capability sits in the query string, so it can end up in the
+       access log of a proxy or web server in front of the endpoint; keep
+       those logs as you would keep the file.
+
+   A wrong, expired or revoked capability answers ``401`` and is logged and
+   counted per source address together with failed bearer tokens, under the
+   same limit (``nrllm-a2a-auth``, 10 failures per 15 minutes); over it the
+   answer is ``429``.
+
+   Asking for a capability again issues a new URL and changes nothing of
+   the task: its status, the artifact ids, the digest and the content stay
+   as they are, and no event is written. With
+   :guilabel:`Accept A2A files (server role)` off, the download paths are
+   not answered.
+
+Cleanup
+   When a task ends (completed, failed, canceled or refused), its input
+   files keep their record (id, size, SHA-256, check and approval state)
+   but lose their bytes and URL in the same transaction, whatever the
+   answer level: nothing reads them after a final state. A ``url`` part
+   not fetched yet is refused (``task ended``), so a fetch still running
+   stores nothing. The files a task
+   sends stay until they expire, because they are its result. A task's
+   files go with the run purge, like its history.
+   ``nrllm:privacy:purge`` also deletes every file older than
+   :guilabel:`Hours an A2A file is kept` (``a2a.files.retentionHours``,
+   default 168); a queued task whose file is gone fails rather than running
+   without it.
+
 Limits and protection
 =====================
 
@@ -334,7 +491,8 @@ Limits and protection
   closes. Check the proxy chain of the installation with a
   ``SubscribeToTask`` before relying on streams.
 - **Request size.** A body above ``a2a.server.maxRequestBytes`` (default
-  1 MiB) is refused with HTTP 413 before it is parsed; a message has at most
+  1 MiB, plus the base64 size of ``a2a.maxRawPartBytes`` while files are on)
+  is refused with HTTP 413 before it is parsed; a message has at most
   16 parts. A task's history keeps the most recent 100 messages.
 - **Failed logins.** A failed authentication is logged with the source
   address, never with the token, and counted per address: after 10 failures

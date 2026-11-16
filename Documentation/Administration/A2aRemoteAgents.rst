@@ -385,6 +385,11 @@ Known limits
    callback, under a lock on the registration only. Callbacks of different
    delegations arriving at the same moment can exceed it by their number;
    the bound per delegation is exact.
+-  **No files.** The client sends text only, and of a remote result it
+   reads the text parts; a ``raw``, ``url`` or ``data`` part of an artifact
+   is not passed on to the run. Files in the client role are part of spec 051
+   stage 5c and not built yet; the server role takes inbound files, see
+   :ref:`administration-a2a-server-files`.
 -  **An interrupted remote task** (``TASK_STATE_INPUT_REQUIRED``,
    ``TASK_STATE_AUTH_REQUIRED``) is handed to the model as such; nothing
    answers the remote agent yet.

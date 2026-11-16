@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
@@ -43,6 +44,7 @@ final readonly class A2aAgentCardBuilder
         private RunPrivacyLevelResolver $privacy,
         private LlmConfigurationRepository $configurations,
         private A2aServerSettings $settings,
+        private ?A2aFileSettings $fileSettings = null,
     ) {}
 
     /**
@@ -74,8 +76,24 @@ final readonly class A2aAgentCardBuilder
             'securityRequirements' => [['schemes' => [self::SCHEME => ['list' => []]]]],
             'defaultInputModes'    => ['text/plain'],
             'defaultOutputModes'   => ['text/plain'],
-            'skills'               => array_map(static fn (A2aSkillProfile $profile): array => $profile->toAgentSkill(), array_values(array_filter($this->profiles->findPublic(), $this->servable(...)))),
+            'skills'               => array_map($this->skill(...), array_values(array_filter($this->profiles->findPublic(), $this->servable(...)))),
         ];
+    }
+
+    /**
+     * A skill as the card lists it. While files are switched off, every skill
+     * takes text/plain only, whatever its profile lists (A2A-OPS2).
+     *
+     * @return array<string, mixed>
+     */
+    private function skill(A2aSkillProfile $profile): array
+    {
+        $skill = $profile->toAgentSkill();
+        if (!$this->fileSettings instanceof A2aFileSettings || !$this->fileSettings->enabled()) {
+            $skill['inputModes'] = ['text/plain'];
+        }
+
+        return $skill;
     }
 
     private function servable(A2aSkillProfile $profile): bool
