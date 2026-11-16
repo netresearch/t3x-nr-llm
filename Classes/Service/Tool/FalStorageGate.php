@@ -13,6 +13,7 @@ use Doctrine\DBAL\Exception as DbalException;
 use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
@@ -86,6 +87,7 @@ final class FalStorageGate implements RunScopedStateInterface
             return $this->allowedStorages;
         }
 
+        $this->forgetCoreMountRecords($user);
         $reachable = [];
         foreach ($user->getFileStorages() as $storage) {
             $reachable[$storage->getUid()] = true;
@@ -253,11 +255,30 @@ final class FalStorageGate implements RunScopedStateInterface
     }
 
     /**
+     * Core keeps the mount records behind `getFileStorages()` in the runtime
+     * cache: up to TYPO3 14.3.10 under one key for every user, from 14.3.11
+     * per user and workspace. A web request is one user's, but a queue worker
+     * keeps the cache for its whole life, so the first user's mounts would
+     * answer for every later user, and a removed mount would stay. Dropping
+     * both keys makes core read them for the user passed in, as they are now.
+     */
+    private function forgetCoreMountRecords(BackendUserAuthentication $user): void
+    {
+        try {
+            $runtime = GeneralUtility::makeInstance(CacheManager::class)->getCache('runtime');
+            $runtime->remove('backendUserAuthenticationFileMountRecords');
+            $runtime->remove('backendUserAuthenticationFileMountRecords-' . (int) $user->getUserId() . '-' . $user->workspace);
+        } catch (Throwable) {
+            // No runtime cache: core cannot have cached anything either.
+        }
+    }
+
+    /**
      * The file-mount records of THIS user, read directly.
      *
      * `BackendUserAuthentication::getFileMountRecords()` cannot be used here,
-     * and the reason is worth stating because it is not obvious: it memoises
-     * into the runtime cache under the single key
+     * and the reason is worth stating because it is not obvious: up to TYPO3
+     * 14.3.10 it memoises into the runtime cache under the single key
      * `backendUserAuthenticationFileMountRecords`, with no user in it. The
      * first backend user to ask in a request populates it, and every other
      * user object then receives that user's mounts. Two users in one request

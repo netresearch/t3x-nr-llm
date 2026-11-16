@@ -1366,7 +1366,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     /**
-     * Also a run whose claim is lost, or that fails, leaves nothing behind.
+     * Also a run that is not claimed leaves nothing behind.
      */
     #[Test]
     public function aQueuedRunThatIsNotClaimedStillResetsItsRunScopedState(): void

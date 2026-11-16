@@ -29,8 +29,10 @@ use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
+use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
 
 /**
@@ -73,7 +75,8 @@ final readonly class A2aDependencyPoller
     private Closure $jitter;
 
     /**
-     * @param (Closure(int): int)|null $jitter the jitter added to an interval, 0 to a quarter of it by default; tests pass a fixed one
+     * @param (Closure(int): int)|null          $jitter          the jitter added to an interval, 0 to a quarter of it by default; tests pass a fixed one
+     * @param iterable<RunScopedStateInterface> $runScopedStates reset around each resume, as for a queued run
      */
     public function __construct(
         private DependencyResumeCoordinator $resumes,
@@ -87,6 +90,8 @@ final readonly class A2aDependencyPoller
         private ?A2aPushDeliverer $pushes = null,
         private ?A2aPushRegistrationStore $pushInbox = null,
         ?Closure $jitter = null,
+        #[AutowireIterator(RunScopedStateInterface::TAG)]
+        private iterable $runScopedStates = [],
     ) {
         $this->jitter = $jitter ?? static fn (int $interval): int => random_int(0, max(0, intdiv($interval, 4)));
     }
@@ -256,7 +261,22 @@ final readonly class A2aDependencyPoller
             }
         };
 
-        return $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->resume($run, $checkpoint, $result, $claimed));
+        // One tick resumes many runs in one process: what one run memoised
+        // must not answer for the next (see AgentRuntime::runQueued()).
+        $this->resetRunScopedState();
+
+        try {
+            return $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->resume($run, $checkpoint, $result, $claimed));
+        } finally {
+            $this->resetRunScopedState();
+        }
+    }
+
+    private function resetRunScopedState(): void
+    {
+        foreach ($this->runScopedStates as $state) {
+            $state->reset();
+        }
     }
 
     /**

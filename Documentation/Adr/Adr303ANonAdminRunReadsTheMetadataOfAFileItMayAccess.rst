@@ -112,4 +112,9 @@ so a run that checks many files builds each storage once. A queue worker keeps
 the gate between runs; without a reset, a mount or permission an administrator
 took from a user stayed reachable until the worker restarted. The runtime
 therefore resets every ``nr_llm.run_scoped_state`` service, the gate among
-them, before a queued run starts and again when it ends (amended 2026-11-16).
+them, before a queued run starts and again when it ends; ``nrllm:a2a:poll``
+does the same around each run it resumes. The storage list
+(``effectiveStorages()``) comes from core, which keeps the mount records in
+the runtime cache, up to TYPO3 14.3.10 under one key for every user; the gate
+drops that entry before it asks, so core reads the mounts of the user passed
+in, as they are now (amended 2026-11-16).
