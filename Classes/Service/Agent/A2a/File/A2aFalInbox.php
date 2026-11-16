@@ -55,8 +55,10 @@ final readonly class A2aFalInbox
     ) {}
 
     /**
-     * The storage uid and the folder identifier (with a trailing slash) of a
-     * combined identifier, or null when it is none.
+     * The storage uid and the canonical folder identifier of a combined
+     * identifier, or null when it is none. Canonical as the Local driver
+     * resolves it: repeated slashes and `.` segments dropped, one leading and
+     * one trailing slash. A `..` segment is refused, not resolved.
      *
      * @return array{storage: int, folder: string}|null
      */
@@ -66,12 +68,42 @@ final readonly class A2aFalInbox
             return null;
         }
 
-        $folder = rtrim($matches[2], '/') . '/';
-        if (in_array('..', explode('/', $folder), true)) {
-            return null;
+        $folder = self::canonicalFolder($matches[2]);
+
+        return $folder !== null ? ['storage' => (int) $matches[1], 'folder' => $folder] : null;
+    }
+
+    /**
+     * The canonical combined identifier, as the save hook stores it and every
+     * check uses it; null when it is none.
+     */
+    public static function canonical(string $combined): ?string
+    {
+        $target = self::parse($combined);
+
+        return $target !== null ? $target['storage'] . ':' . $target['folder'] : null;
+    }
+
+    /**
+     * A folder identifier with repeated slashes and `.` segments dropped,
+     * framed by slashes; null for one with a `..` segment.
+     */
+    private static function canonicalFolder(string $identifier): ?string
+    {
+        $segments = [];
+        foreach (explode('/', $identifier) as $segment) {
+            if ($segment === '' || $segment === '.') {
+                continue;
+            }
+
+            if ($segment === '..') {
+                return null;
+            }
+
+            $segments[] = $segment;
         }
 
-        return ['storage' => (int) $matches[1], 'folder' => $folder];
+        return $segments === [] ? '/' : '/' . implode('/', $segments) . '/';
     }
 
     /**
@@ -95,7 +127,7 @@ final readonly class A2aFalInbox
             return sprintf('storage %d is public.', $target['storage']);
         }
 
-        if ($this->managedByCore($record, $target['folder'])) {
+        if ($this->managedByCore($record, $target['storage'], $target['folder'])) {
             return sprintf('%s is a processing or recycler folder of storage %d.', $target['folder'], $target['storage']);
         }
 
@@ -107,31 +139,61 @@ final readonly class A2aFalInbox
     }
 
     /**
-     * Whether the folder is the storage's processing folder, lies below it,
-     * or is a recycler folder. The processing folder is read from the record
-     * (core's default `_processed_`); one kept in another storage cannot
-     * contain this folder.
+     * Whether the folder is a processing folder of the storage, lies below
+     * one, or is a recycler folder. Core exempts a processing folder from the
+     * file mount check, and counts as the storage's processing folders, by
+     * `ResourceStorage::getProcessingFolders()` and `isWithinProcessingFolder()`
+     * (the same in TYPO3 13.4.39 and 14.3.11):
+     *
+     * - its own `processingfolder` (core's default `_processed_`), whose path
+     *   core compares by identifier even when the field names another storage;
+     * - the folder every storage's `processingfolder` names in this storage
+     *   (`<uid>:<path>`).
      *
      * @param array<string, mixed> $record
      */
-    private function managedByCore(array $record, string $folder): bool
+    private function managedByCore(array $record, int $storage, string $folder): bool
     {
         if (in_array('_recycler_', explode('/', $folder), true)) {
             return true;
         }
 
-        $processing = is_string($record['processingfolder'] ?? null) ? trim($record['processingfolder']) : '';
-        $processing = $processing !== '' ? $processing : '_processed_';
-        if (str_contains($processing, ':')) {
-            [$storage, $processing] = explode(':', $processing, 2);
-            if ((int) $storage !== (is_numeric($record['uid'] ?? null) ? (int) $record['uid'] : 0)) {
-                return false;
+        $own = is_string($record['processingfolder'] ?? null) ? trim($record['processingfolder']) : '';
+        $own = $own !== '' ? $own : '_processed_';
+
+        $processing = [str_contains($own, ':') ? explode(':', $own, 2)[1] : $own];
+        foreach ($this->processingFolderFields() as $field) {
+            [$uid, $path] = array_pad(explode(':', $field, 2), 2, '');
+            if (trim($path) !== '' && (int) trim($uid) === $storage) {
+                $processing[] = trim($path);
             }
         }
 
-        $processing = '/' . trim($processing, '/') . '/';
+        foreach ($processing as $path) {
+            $canonical = self::canonicalFolder('/' . $path);
+            if ($canonical !== null && str_starts_with(strtolower($folder), strtolower($canonical))) {
+                return true;
+            }
+        }
 
-        return str_starts_with(strtolower($folder), strtolower($processing));
+        return false;
+    }
+
+    /**
+     * The `processingfolder` field of every storage that names one.
+     *
+     * @return list<string>
+     */
+    private function processingFolderFields(): array
+    {
+        $builder = $this->connectionPool->getQueryBuilderForTable('sys_file_storage');
+        $builder->getRestrictions()->removeAll();
+        $fields = $builder->select('processingfolder')->from('sys_file_storage')
+            ->where($builder->expr()->eq('deleted', 0))
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return array_values(array_filter($fields, static fn (mixed $field): bool => is_string($field) && str_contains($field, ':')));
     }
 
     /**

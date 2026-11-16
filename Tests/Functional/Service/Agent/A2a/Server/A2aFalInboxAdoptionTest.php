@@ -464,6 +464,109 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Two adoptions in one turn of files with the same name: both cards show
+     * report.txt, because the previews are taken before either call runs.
+     * The first is written as report.txt; the second may not be written
+     * under a name that was not on its card, so it is refused, and nothing
+     * is written as report_01.txt.
+     */
+    #[Test]
+    public function aNameTakenByAnEarlierCallOfTheTurnIsNotReplacedByAnother(): void
+    {
+        $taskId          = $this->accepted('report.txt', 'Second data.', 'report.txt');
+        $this->responses = [new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [
+            new ToolCall('c-adopt-1', A2aAdoptClientFileTool::NAME, ['file' => 1]),
+            new ToolCall('c-adopt-2', A2aAdoptClientFileTool::NAME, ['file' => 2]),
+        ])];
+        $this->runtime()->runQueued($this->runUuidOf($taskId));
+        $run   = $this->runOf($this->runUuidOf($taskId));
+        $cards = $this->card($run)->pendingCalls;
+        self::assertCount(2, $cards);
+        self::assertSame('File 2 of the client, named report.txt, is stored as report.txt', $cards[1]->previewLines[1] ?? null, 'both cards name report.txt');
+
+        $this->decide($run, true);
+
+        self::assertSame(['report.txt'], $this->inboxFiles());
+        self::assertSame(self::CONTENT, (string) file_get_contents($this->inboxRoot . '/a2a-inbox/report.txt'));
+        $results = $this->toolResultsOf($this->runOf($run->uuid));
+        self::assertCount(2, $results);
+        self::assertSame('Not adopted: the name report.txt that was approved for this file is taken now. Nothing was written under another name; adopt the file again to approve a new name.', $results[1]);
+    }
+
+    /**
+     * A call carried out without an approved card writes nothing.
+     */
+    #[Test]
+    public function aCallWithoutAnApprovedCardWritesNothing(): void
+    {
+        $run     = $this->runOf($this->runUuidOf($this->accepted()));
+        $context = new ToolExecutionContext(AiActorContext::backendUser(7, false, [self::GROUP], [], self::WORKSPACE), $this->technicalUser(), new AgentRunReference($run->uid, $run->uuid));
+
+        self::assertSame('Not adopted: the call was not approved on a card that named the file and its name.', $this->tool()->execute(['file' => 1], $context)->content);
+        self::assertSame([], $this->inboxFiles());
+    }
+
+    /**
+     * The preview's visibility follows the inbox the card names, not the
+     * profile's inbox now: after the profile moved to another folder, an
+     * editor who may read only the new one gets the withheld card.
+     */
+    #[Test]
+    public function aViewerOfTheNewInboxDoesNotSeeTheCardOfTheOldOne(): void
+    {
+        GeneralUtility::mkdir_deep($this->inboxRoot . '/other');
+        $run = $this->suspendedForApproval();
+        $this->db('sys_workspace')->update('sys_workspace', ['members' => 'be_users_7,be_users_8'], ['uid' => self::WORKSPACE]);
+        $this->db('sys_filemounts')->insert('sys_filemounts', ['uid' => 4, 'pid' => 0, 'title' => 'Other', 'identifier' => '2:/other/', 'read_only' => 1]);
+        $this->db('be_groups')->insert('be_groups', ['uid' => 72, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '4', 'file_permissions' => 'readFolder,readFile', 'workspace_perms' => 1]);
+        $this->db('be_users')->insert('be_users', ['uid' => 8, 'pid' => 0, 'username' => 'editor', 'admin' => 0, 'usergroup' => '72', 'options' => 3]);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['fal_inbox_folder' => '2:/other/'], ['uid' => 1]);
+
+        $card = $this->cardFor($run, 8)->pendingCalls[0];
+
+        self::assertTrue($card->previewFailed);
+        self::assertStringNotContainsString('report.txt', implode("\n", $card->previewLines));
+    }
+
+    /**
+     * Identifiers are taken in their canonical form: `.` segments and
+     * repeated slashes do not hide the processing or a recycler folder, and
+     * the save hook stores the canonical form.
+     */
+    #[Test]
+    public function aFolderIdentifierIsCheckedAndStoredInItsCanonicalForm(): void
+    {
+        $inbox = $this->getService(A2aFalInbox::class);
+        self::assertSame(['storage' => 2, 'folder' => '/a2a-inbox/'], A2aFalInbox::parse('2://a2a-inbox/./'));
+        self::assertNotNull($inbox->refusal('2:/./_processed_/'), 'a dot segment');
+        self::assertNotNull($inbox->refusal('2://_processed_/'), 'a repeated slash');
+        self::assertNotNull($inbox->refusal('2:/a2a-inbox/.//_recycler_/'), 'a recycler folder behind both');
+
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->createFromUserPreferences($this->setUpBackendUser(self::APPROVER));
+        $this->dataHandler(['tx_nrllm_a2a_profile' => [1 => ['fal_inbox_folder' => '2://a2a-inbox/./']]]);
+        self::assertSame(self::INBOX, $this->inboxOf(1));
+    }
+
+    /**
+     * A processing folder another storage assigns into the inbox's storage
+     * counts as core counts it (ResourceStorage::getProcessingFolders(), the
+     * same in TYPO3 13.4 and 14.3), and so does the storage's own processing
+     * folder kept in another storage, whose path core compares here too.
+     */
+    #[Test]
+    public function aProcessingFolderAssignedByAnyStorageIsRefused(): void
+    {
+        $this->db('sys_file_storage')->update('sys_file_storage', ['processingfolder' => '2:/shared-processing/'], ['uid' => 1]);
+        $inbox = $this->getService(A2aFalInbox::class);
+        self::assertNotNull($inbox->refusal('2:/shared-processing/'), 'assigned by storage 1');
+        self::assertNotNull($inbox->refusal('2:/shared-processing/sub/'), 'below it');
+
+        $this->db('sys_file_storage')->update('sys_file_storage', ['processingfolder' => '1:/proc2/'], ['uid' => 2]);
+        self::assertNotNull($inbox->refusal('2:/proc2/'), 'the own processing folder kept in storage 1');
+        self::assertNull($inbox->refusal(self::INBOX), 'the inbox itself');
+    }
+
+    /**
      * The preview names the client's file and the inbox folder, so only a
      * viewer who may read the inbox sees it: an administrator, or an editor
      * whose file mount reaches the folder. An editor without such a mount
@@ -766,14 +869,14 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     /**
      * A task of client 1 for profile 1 that carries the client's file.
      */
-    private function accepted(string $filename = 'report.txt', string $second = ''): string
+    private function accepted(string $filename = 'report.txt', string $second = '', string $secondName = 'second.txt'): string
     {
         $parts = [
             ['text' => 'Keep the report.'],
             ['raw' => base64_encode(self::CONTENT), 'mediaType' => 'text/plain', 'filename' => $filename],
         ];
         if ($second !== '') {
-            $parts[] = ['raw' => base64_encode($second), 'mediaType' => 'text/plain', 'filename' => 'second.txt'];
+            $parts[] = ['raw' => base64_encode($second), 'mediaType' => 'text/plain', 'filename' => $secondName];
         }
 
         $message = ['messageId' => bin2hex(random_bytes(8)), 'role' => 'ROLE_USER', 'parts' => $parts];

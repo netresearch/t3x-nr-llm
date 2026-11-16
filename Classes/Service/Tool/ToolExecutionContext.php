@@ -54,6 +54,11 @@ final readonly class ToolExecutionContext
      *                                                         runtime checked the acting user may read. Null for a run
      *                                                         without a process subject; the highlight builtin then
      *                                                         accepts no target.
+     * @param list<string>|null      $approvedPreview          the preview lines the approver saw for the call that runs
+     *                                                         now, set by the loop only while it carries out an approved
+     *                                                         call whose preview did not fail (ADR-184). A tool that must
+     *                                                         do exactly what its card showed reads them; null for any
+     *                                                         other execution.
      */
     public function __construct(
         public AiActorContext $actor,
@@ -61,7 +66,19 @@ final readonly class ToolExecutionContext
         public ?AgentRunReference $run = null,
         public ?ToolInvocationHistory $initialInvocationHistory = null,
         public ?SubjectRecord $subjectRecord = null,
+        public ?array $approvedPreview = null,
     ) {}
+
+    /**
+     * The same context, carrying the preview lines the approver saw for the
+     * call about to run.
+     *
+     * @param list<string> $lines
+     */
+    public function withApprovedPreview(array $lines): self
+    {
+        return new self($this->actor, $this->backendUser, $this->run, $this->initialInvocationHistory, $this->subjectRecord, $lines);
+    }
 
     /**
      * A tool run with a resolved live backend user (production + tests that need

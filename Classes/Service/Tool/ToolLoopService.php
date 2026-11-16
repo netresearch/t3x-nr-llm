@@ -2252,7 +2252,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $call,
                         $resume,
                         $remoteCalls,
-                        $environment,
+                        $this->withApprovedPreviewOf($environment, $state, $index),
                         $invocationHistory,
                         $state->iterations,
                         $catalogue,
@@ -3535,6 +3535,29 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * carries eleven collaborators, and a twelfth optional one would be a
      * positional argument every lean test wiring has to skip past.
      */
+    /**
+     * The environment of an approved call, its context carrying the preview
+     * lines the approver saw for it (ADR-184): a tool that must do exactly
+     * what its card showed reads them, because the comparison of the whole
+     * turn ran before any call of it changed anything. A call without a
+     * preview, or whose preview failed, keeps the environment as it is.
+     */
+    private function withApprovedPreviewOf(ToolInvocationEnvironment $environment, SuspendedRunState $state, int $index): ToolInvocationEnvironment
+    {
+        foreach ($state->callPreviews as $preview) {
+            if ($preview['index'] === $index && !$preview['failed']) {
+                return new ToolInvocationEnvironment(
+                    $environment->configuration,
+                    $environment->skillAllowList,
+                    $environment->execution->withApprovedPreview($preview['lines']),
+                    $environment->trace,
+                );
+            }
+        }
+
+        return $environment;
+    }
+
     private function previewComparator(): ApprovalPreviewComparator
     {
         return new ApprovalPreviewComparator($this->registry, $this->logger, $this->previewTranslator);

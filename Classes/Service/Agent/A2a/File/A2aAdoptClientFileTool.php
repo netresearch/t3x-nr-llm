@@ -28,6 +28,7 @@ use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
+use Netresearch\NrLlm\Service\Tool\StoredPreviewVisibilityInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -37,6 +38,7 @@ use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
+use TYPO3\CMS\Core\Resource\Exception\ExistingTargetFileNameException;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
@@ -83,7 +85,7 @@ use TYPO3\CMS\Core\Utility\PathUtility;
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
-final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface, ToolPreviewInterface
+final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface, ToolPreviewInterface, StoredPreviewVisibilityInterface
 {
     use SafeCastTrait;
 
@@ -113,6 +115,13 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
     private const NO_FREE_NAME = 'Not adopted: the inbox folder holds no free name for the file %s.';
 
     private const PARTIAL = 'Not completed: TYPO3 failed after the file was written. A file named %s may remain in the inbox folder %s; nothing references it.';
+
+    private const NOT_APPROVED = 'Not adopted: the call was not approved on a card that named the file and its name.';
+
+    private const TAKEN = 'Not adopted: the name %s that was approved for this file is taken now. Nothing was written under another name; adopt the file again to approve a new name.';
+
+    /** A combined folder identifier in a preview line (ADR-305). */
+    private const IDENTIFIER = '#(?<![0-9])([0-9]+:/[^\s;]*/)#u';
 
     public function __construct(
         private ConnectionPool $connectionPool,
@@ -161,6 +170,19 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
             return ToolResult::error(sprintf(self::GONE, $number));
         }
 
+        // The name the approver saw. Another call of the same turn may have
+        // taken it since the card was compared (ADR-184 compares the whole
+        // turn before any call runs); the file is then not written under a
+        // name that was not on its card.
+        $name = $this->approvedName($arguments, $context, $plan);
+        if ($name === null) {
+            return ToolResult::error(self::NOT_APPROVED);
+        }
+
+        if ($this->taken($plan['folder'], $name)) {
+            return ToolResult::error(sprintf(self::TAKEN, $name));
+        }
+
         $mediaType = self::toStr($row['media_type'] ?? '');
         $local     = GeneralUtility::tempnam('nrllm_a2a_adopt_');
 
@@ -169,15 +191,18 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
                 return ToolResult::error('Not adopted: the file could not be written.');
             }
 
-            $file = $plan['folder']->addFile($local, $plan['name'], DuplicationBehavior::RENAME);
+            // CANCEL: never another name, never over an existing file.
+            $file = $plan['folder']->addFile($local, $name, DuplicationBehavior::CANCEL);
+        } catch (ExistingTargetFileNameException) {
+            return ToolResult::error(sprintf(self::TAKEN, $name));
         } catch (Throwable) {
             // Core's message can name server paths; the model and the client
             // read this answer. A file core wrote before it failed is named,
             // not deleted: the name was free when the call started, but
             // deleting by name could remove a file another writer put there
             // meanwhile, and an unreferenced file in the inbox changes nothing.
-            return ToolResult::error($this->written($plan['folder'], $plan['name'])
-                ? sprintf(self::PARTIAL, $plan['name'], $plan['target'])
+            return ToolResult::error($this->written($plan['folder'], $name)
+                ? sprintf(self::PARTIAL, $name, $plan['target'])
                 : 'Not adopted: TYPO3 refused to add the file to the inbox folder.');
         } finally {
             if (is_file($local)) {
@@ -228,39 +253,47 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
 
         return [
             $t(ApprovalPreviewLabel::AdoptClientFileHeading),
-            $t(ApprovalPreviewLabel::AdoptClientFileName, self::toInt($arguments['file'] ?? 0), $this->withoutFormatCharacters(self::toStr($row['filename'] ?? '')), $plan['name']),
+            $this->nameLine($user, $arguments, $row, $plan['name']),
             $t(ApprovalPreviewLabel::AdoptClientFileContent, self::toStr($row['media_type'] ?? ''), self::toInt($row['size'] ?? 0), substr(self::toStr($row['sha256'] ?? ''), 0, 12)),
             $t(ApprovalPreviewLabel::AdoptClientFileTarget, $plan['target']),
         ];
     }
 
     /**
-     * The preview names the client's file and the inbox folder, so only a
-     * viewer who may read the inbox sees it; any other gets the withheld card.
-     * The arguments name no run, so the viewer must be able to read the inbox
-     * of every profile that names one: the run's is among them. No inbox at
-     * all shows nothing.
+     * Asked by nothing for this tool: the inbox decides on the stored lines
+     * ({@see self::mayViewerReadStoredPreview()}), because the arguments do
+     * not name the folder the card shows. Withheld if anything asks.
      */
     public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
     {
-        $inboxes = $this->connectionPool->getConnectionForTable(A2aSkillProfileRepository::TABLE)
-            ->select(['fal_inbox_folder'], A2aSkillProfileRepository::TABLE, ['deleted' => 0])
-            ->fetchFirstColumn();
-        $any = false;
-        foreach ($inboxes as $inbox) {
-            $target = A2aFalInbox::parse(is_string($inbox) ? $inbox : '');
-            if ($target === null) {
-                continue;
-            }
+        return false;
+    }
 
-            if (!$this->storageGate->isFolderReadableBy($viewer, $target['storage'], $target['folder'])) {
-                return false;
+    /**
+     * Only a viewer who may read the inbox folder the card names sees it: an
+     * administrator, or a user whose file mounts reach that folder. The
+     * folder is read from the stored lines, not from the profile, which may
+     * name another one by now. A card that names no folder, or more than one,
+     * is withheld.
+     */
+    public function mayViewerReadStoredPreview(array $arguments, array $lines, BackendUserAuthentication $viewer): bool
+    {
+        $folders = [];
+        foreach ($lines as $line) {
+            if (preg_match_all(self::IDENTIFIER, $line, $matches) > 0) {
+                foreach ($matches[1] as $identifier) {
+                    $folders[A2aFalInbox::canonical($identifier) ?? ''] = true;
+                }
             }
-
-            $any = true;
         }
 
-        return $any;
+        if (count($folders) !== 1 || isset($folders[''])) {
+            return false;
+        }
+
+        $target = A2aFalInbox::parse(array_key_first($folders));
+
+        return $target !== null && $this->storageGate->isFolderReadableBy($viewer, $target['storage'], $target['folder']);
     }
 
     public function getEffect(): ToolEffect
@@ -364,27 +397,96 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The name the file is stored as: sanitised as core does, and when taken,
-     * with core's `_01` to `_99` suffix. Null when all are taken.
+     * The name the file is stored as: the first free one of
+     * {@see self::candidates()}. Null when all are taken.
      */
     private function freeName(Folder $folder, string $wanted): ?string
     {
-        $name = $folder->getStorage()->sanitizeFileName($wanted, $folder);
-        if (!$folder->hasFile($name) && !$folder->hasFolder($name)) {
-            return $name;
-        }
-
-        $info      = PathUtility::pathinfo($name);
-        $stem      = (string) preg_replace('/_[0-9][0-9]$/', '', $info['filename'] ?? '');
-        $extension = ($info['extension'] ?? '') !== '' ? '.' . $info['extension'] : '';
-        for ($number = 1; $number <= 99; ++$number) {
-            $candidate = sprintf('%s_%02d%s', $stem, $number, $extension);
-            if (!$folder->hasFile($candidate) && !$folder->hasFolder($candidate)) {
+        foreach ($this->candidates($folder, $wanted) as $candidate) {
+            if (!$this->taken($folder, $candidate)) {
                 return $candidate;
             }
         }
 
         return null;
+    }
+
+    /**
+     * The names the file may be stored as, in order: sanitised as core does,
+     * then with core's `_01` to `_99` suffix.
+     *
+     * @return list<string>
+     */
+    private function candidates(Folder $folder, string $wanted): array
+    {
+        $name       = $folder->getStorage()->sanitizeFileName($wanted, $folder);
+        $info       = PathUtility::pathinfo($name);
+        $stem       = (string) preg_replace('/_[0-9][0-9]$/', '', $info['filename'] ?? '');
+        $extension  = ($info['extension'] ?? '') !== '' ? '.' . $info['extension'] : '';
+        $candidates = [$name];
+        for ($number = 1; $number <= 99; ++$number) {
+            $candidates[] = sprintf('%s_%02d%s', $stem, $number, $extension);
+        }
+
+        return $candidates;
+    }
+
+    private function taken(Folder $folder, string $name): bool
+    {
+        return $folder->hasFile($name) || $folder->hasFolder($name);
+    }
+
+    /**
+     * The stored name on the card the approver saw: the candidate whose name
+     * line, rendered as the preview renders it for the same acting user, is
+     * among the approved lines. Null without an approved card, or when none
+     * matches.
+     *
+     * @param array<string, mixed>                                                                       $arguments
+     * @param array{row: array<string, mixed>, owner: int, folder: Folder, name: string, target: string} $plan
+     */
+    private function approvedName(array $arguments, ToolExecutionContext $context, array $plan): ?string
+    {
+        if ($context->approvedPreview === null) {
+            return null;
+        }
+
+        $approved = array_map($this->normalised(...), $context->approvedPreview);
+        $user     = $context->actingBackendUser();
+        $wanted   = $this->targetName(self::toStr($plan['row']['filename'] ?? ''), self::toStr($plan['row']['media_type'] ?? ''));
+        foreach ($this->candidates($plan['folder'], $wanted) as $candidate) {
+            if (in_array($this->normalised($this->nameLine($user, $arguments, $plan['row'], $candidate)), $approved, true)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The preview's name line for one stored name.
+     *
+     * @param array<string, mixed> $arguments
+     * @param array<string, mixed> $row
+     */
+    private function nameLine(?BackendUserAuthentication $user, array $arguments, array $row, string $name): string
+    {
+        return $this->translator->text(
+            $user,
+            ApprovalPreviewLabel::AdoptClientFileName,
+            self::toInt($arguments['file'] ?? 0),
+            $this->withoutFormatCharacters(self::toStr($row['filename'] ?? '')),
+            $name,
+        );
+    }
+
+    /**
+     * A preview line as the run state keeps it (ApprovalPreviewComparator::bound()):
+     * whitespace collapsed, at most 500 characters.
+     */
+    private function normalised(string $line): string
+    {
+        return mb_substr(trim((string) preg_replace('/\s+/u', ' ', $line)), 0, 500);
     }
 
     /**

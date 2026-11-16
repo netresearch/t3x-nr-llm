@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingLanguageInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
+use Netresearch\NrLlm\Service\Tool\StoredPreviewVisibilityInterface;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -204,7 +205,7 @@ final readonly class WaitingRunViewFactory
                 $previewFailed = true;
             } elseif ($preview !== null && $preview['tool'] === $call->name) {
                 if ($this->viewerStartedTheRun($run, $viewer)
-                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $viewer))
+                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $preview['lines'], $viewer))
                 ) {
                     $previewLines  = $preview['lines'];
                     $previewFailed = $preview['failed'];
@@ -412,9 +413,13 @@ final readonly class WaitingRunViewFactory
      * produced it, so the tool under this name may no longer be the one that
      * wrote those lines.
      *
+     * A tool whose stored preview names more than its arguments decides on
+     * the lines themselves ({@see StoredPreviewVisibilityInterface}).
+     *
      * @param array<string, mixed> $arguments
+     * @param list<string>         $lines     the stored preview lines
      */
-    private function viewerMayRead(?ToolInterface $tool, array $arguments, ?BackendUserAuthentication $viewer): bool
+    private function viewerMayRead(?ToolInterface $tool, array $arguments, array $lines, ?BackendUserAuthentication $viewer): bool
     {
         if (!$viewer instanceof BackendUserAuthentication) {
             return false;
@@ -425,7 +430,9 @@ final readonly class WaitingRunViewFactory
         }
 
         try {
-            return $tool->mayViewerReadPreview($arguments, $viewer);
+            return $tool instanceof StoredPreviewVisibilityInterface
+                ? $tool->mayViewerReadStoredPreview($arguments, $lines, $viewer)
+                : $tool->mayViewerReadPreview($arguments, $viewer);
         } catch (Throwable) {
             return false;
         }

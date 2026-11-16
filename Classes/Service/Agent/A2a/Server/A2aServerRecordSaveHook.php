@@ -259,7 +259,12 @@ final readonly class A2aServerRecordSaveHook
         if ($refusal !== null) {
             unset($fieldArray['fal_inbox_folder']);
             $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The inbox folder for client files was not stored: ' . $refusal);
+
+            return;
         }
+
+        // Stored as every check reads it: repeated slashes and `.` dropped.
+        $fieldArray['fal_inbox_folder'] = A2aFalInbox::canonical($folder) ?? $folder;
     }
 
     /**
