@@ -2434,6 +2434,14 @@
                 <source>Runs of this skill may use its writing tools too. They write drafts only, into the pinned workspace of the calling client; a client pinned to live cannot call a writing skill. The task's result lists the writes that were executed.</source>
                 <target>Läufe dieses Skills dürfen auch seine schreibenden Werkzeuge verwenden. Sie schreiben nur Entwürfe, in den festgelegten Workspace des aufrufenden Clients; ein auf Live festgelegter Client kann einen schreibenden Skill nicht aufrufen. Das Ergebnis der Aufgabe nennt die ausgeführten Schreibvorgänge.</target>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.send_fal_files">
+                <source>Send FAL files to clients</source>
+                <target>FAL-Dateien an Clients senden</target>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.send_fal_files.description">
+                <source>The clients of this skill may receive files from FAL: send_fal_file puts a file into the task's result when the client's technical user may read it through its file mounts. List the tool under Tools and switch it on in the tool management as well. Off: no FAL file leaves through this skill.</source>
+                <target>Die Clients dieses Skills dürfen Dateien aus FAL erhalten: send_fal_file legt eine Datei in das Ergebnis der Aufgabe, wenn der technische Benutzer des Clients sie über seine Dateifreigaben lesen darf. Das Werkzeug muss außerdem unter Werkzeuge eingetragen und in der Werkzeugverwaltung eingeschaltet sein. Aus: Über diesen Skill verlässt keine FAL-Datei die Installation.</target>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.public">
                 <source>Public</source>
                 <target>Öffentlich</target>

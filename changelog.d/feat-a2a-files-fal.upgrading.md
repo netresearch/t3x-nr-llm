@@ -1,0 +1,1 @@
+- Run the database analyzer: the recipient approval of the FAL export adds the column `tx_nrllm_a2a_profile.send_fal_files` (default off). Existing publication profiles send no FAL file until an administrator switches it on, lists `send_fal_file` among the profile's tools and enables the tool in the tool management.

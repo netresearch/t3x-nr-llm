@@ -54,6 +54,7 @@ return [
                     output_modes,
                     max_active_tasks,
                     may_write,
+                    send_fal_files,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     public,
                     hidden,
@@ -143,6 +144,13 @@ return [
         'may_write' => [
             'label'       => $ll . '.may_write',
             'description' => $ll . '.may_write.description',
+            'config'      => ['type' => 'check', 'default' => 0],
+        ],
+        // The recipient approval of A2A-FILE6 (ADR-284): send_fal_file sends
+        // a file only while this is on, read at each call.
+        'send_fal_files' => [
+            'label'       => $ll . '.send_fal_files',
+            'description' => $ll . '.send_fal_files.description',
             'config'      => ['type' => 'check', 'default' => 0],
         ],
         'public' => [

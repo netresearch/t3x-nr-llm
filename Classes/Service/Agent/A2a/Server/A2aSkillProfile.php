@@ -40,6 +40,9 @@ final readonly class A2aSkillProfile
         public int $maxActiveTasks,
         public bool $public,
         public bool $mayWrite,
+        // The recipient approval of A2A-FILE6: its clients may receive files
+        // from FAL through send_fal_file.
+        public bool $sendsFalFiles = false,
     ) {}
 
     /**
@@ -65,6 +68,7 @@ final readonly class A2aSkillProfile
             $int('max_active_tasks'),
             $int('public') === 1,
             $int('may_write') === 1,
+            $int('send_fal_files') === 1,
         );
     }
 

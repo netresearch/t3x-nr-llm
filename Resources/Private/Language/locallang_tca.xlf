@@ -1834,6 +1834,12 @@
             <trans-unit id="tx_nrllm_a2a_profile.may_write.description">
                 <source>Runs of this skill may use its writing tools too. They write drafts only, into the pinned workspace of the calling client; a client pinned to live cannot call a writing skill. The task's result lists the writes that were executed.</source>
             </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.send_fal_files">
+                <source>Send FAL files to clients</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.send_fal_files.description">
+                <source>The clients of this skill may receive files from FAL: send_fal_file puts a file into the task's result when the client's technical user may read it through its file mounts. List the tool under Tools and switch it on in the tool management as well. Off: no FAL file leaves through this skill.</source>
+            </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.public">
                 <source>Public</source>
             </trans-unit>

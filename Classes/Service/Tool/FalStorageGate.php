@@ -295,6 +295,14 @@ final class FalStorageGate implements RunScopedStateInterface
     {
         $declared  = $user->groupData['filemounts'] ?? '';
         $mountUids = is_scalar($declared) ? GeneralUtility::intExplode(',', (string) $declared, true) : [];
+
+        // A draft workspace whose record names file mounts limits the user to
+        // those, as core's getFileMountRecords() does.
+        $workspaceMounts = is_array($user->workspaceRec) ? ($user->workspaceRec['file_mountpoints'] ?? '') : '';
+        if ($user->workspace > 0 && is_scalar($workspaceMounts) && (string) $workspaceMounts !== '') {
+            $mountUids = array_values(array_intersect($mountUids, GeneralUtility::intExplode(',', (string) $workspaceMounts, true)));
+        }
+
         if ($mountUids === [] || !$this->connectionPool instanceof ConnectionPool) {
             return [];
         }

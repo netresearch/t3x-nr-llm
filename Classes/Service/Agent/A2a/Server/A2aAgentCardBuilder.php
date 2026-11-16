@@ -12,6 +12,8 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileSettings;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileValidator;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aSendFalFileTool;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aProtocol;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerInterface;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
@@ -82,7 +84,10 @@ final readonly class A2aAgentCardBuilder
 
     /**
      * A skill as the card lists it. While files are switched off, every skill
-     * takes text/plain only, whatever its profile lists (A2A-OPS2).
+     * takes text/plain only, whatever its profile lists (A2A-OPS2). While they
+     * are on, a skill that offers `send_fal_file` and approves its clients as
+     * recipients of FAL files lists the five file types among its output
+     * modes as well (A2A-FILE1, A2A-FILE6).
      *
      * @return array<string, mixed>
      */
@@ -91,6 +96,12 @@ final readonly class A2aAgentCardBuilder
         $skill = $profile->toAgentSkill();
         if (!$this->fileSettings instanceof A2aFileSettings || !$this->fileSettings->enabled()) {
             $skill['inputModes'] = ['text/plain'];
+
+            return $skill;
+        }
+
+        if ($profile->sendsFalFiles && in_array(A2aSendFalFileTool::NAME, $profile->tools, true)) {
+            $skill['outputModes'] = array_values(array_unique([...$profile->outputModes, ...A2aFileValidator::MEDIA_TYPES]));
         }
 
         return $skill;
