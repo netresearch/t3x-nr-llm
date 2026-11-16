@@ -683,11 +683,15 @@ Client role (receiver):
   client files", `fal_inbox_folder`, a combined identifier such as
   `2:/a2a-inbox/`), never a folder the client or the model names; no folder
   turns adoption off, and a public target (a storage marked public, a `Local`
-  storage whose base path lies in the web root, a storage without a record)
-  is refused when the profile is saved and again at each call; (2) the
+  storage with a relative base path or an absolute one inside the web root
+  as written or resolved, a folder linked into the web root, the processing
+  or a recycler folder, a storage without a record) is refused when the
+  profile is saved and again at each call; (2) the
   client's technical backend user writes, with its own file mounts and file
   permissions, never the approver's; (3) every call waits for the normal
-  backend approval of a writing tool, so only a writing profile offers it;
+  backend approval of a writing tool, so only a writing profile offers it,
+  and the card's preview (names, type, size, digest, folder) is the
+  reservation of ADR-184;
   (4) a name already taken is never overwritten: the new file is renamed
   (`DuplicationBehavior::RENAME`) and the existing file and record stay;
   (5) nothing references the adopted file, which takes effect only when an

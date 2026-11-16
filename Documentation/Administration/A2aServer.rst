@@ -500,11 +500,17 @@ Taking a client's file into FAL
 
    - **Where:** only into that folder. Neither the client nor the model
      chooses a folder or a storage. The folder must exist and must not be
-     public; the tool asks this again at each call, so a storage made public
-     later stops the next adoption.
+     public: not in a storage marked public, not in a ``Local`` storage with
+     a relative base path or with an absolute one inside the web root (as
+     written or through a link), not linked into the web root itself, and not
+     the processing folder or a ``_recycler_`` folder. Give the inbox its own
+     ``Local`` storage with an absolute base path outside the web root. The
+     tool asks this again at each call, so a storage made public later stops
+     the next adoption.
    - **Who writes:** the client's technical backend user, with its own file
      mounts and file permissions. It needs a file mount on the folder that is
-     not read-only, and the permissions to add files and to write folders.
+     not read-only, and the permissions to read and write folders and to add
+     files.
      The approving editor's rights do not count, also not an
      administrator's. The storage list the FAL tools may read from
      (storage 1 by default) does not limit the inbox.
@@ -513,12 +519,19 @@ Taking a client's file into FAL
      task stays ``WORKING`` meanwhile. A call that cannot be written is
      refused before an approval is asked: no inbox folder, a public folder,
      no such file, a file the task no longer holds, a technical user who may
-     not add a file to the folder, or files switched off.
-   - **Names:** the file keeps the name the client gave it, without any path,
-     with the extension of its checked type (``.txt``, ``.json``, ``.pdf``,
-     ``.png``, ``.jpg``). A name already taken in the folder is kept: the new
-     file gets another one (``report_01.txt``), and the existing file and its
-     record stay as they are.
+     not add a file to the folder, or files switched off. The card shows the
+     client's file name, the name it will be stored as, its type, size and
+     the start of its SHA-256 digest, and the inbox folder. If any of that
+     reads differently when the approved call runs (the folder was changed,
+     the name was taken, the user lost the right), the file is not stored and
+     the run asks for a new approval.
+   - **Names:** the file keeps the name the client gave it, without any path
+     and without Unicode format characters, with the extension of its
+     checked type (``.txt``, ``.json``, ``.pdf``, ``.png``, ``.jpg``). A name
+     already taken in the folder is kept: the new file gets another one
+     (``report_01.txt``), and the existing file and its record stay as they
+     are. If TYPO3 fails after it wrote the file, the answer says that a file
+     of that name may remain in the inbox; it is not deleted.
    - **Effect:** nothing references the stored file. It takes effect only
      when an editor uses it in a record of a workspace, which is published
      like any other change. The ``writes`` artifact of the task names the new

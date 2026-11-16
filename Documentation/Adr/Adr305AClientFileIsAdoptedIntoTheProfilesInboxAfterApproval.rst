@@ -51,11 +51,18 @@ without a folder adopts nothing. The folder must exist and must not be public.
 A target is public when any of these holds:
 
 - its storage record is marked public (``sys_file_storage.is_public``);
-- its storage uses the ``Local`` driver and its base path lies inside the web
-  root (``Environment::getPublicPath()``); a relative base path is taken from
-  the web root, as core takes it. The web server serves such a path whatever
-  the record says; core's Local driver uses the same test to derive the
-  public URL of a public storage;
+- its storage uses the ``Local`` driver with a relative base path: core takes
+  that from the web root (``Environment::getPublicPath()``), so it lies there
+  however the directory links;
+- its storage uses the ``Local`` driver with an absolute base path that lies
+  inside the web root as written or as resolved, compared with the web root
+  as written and as resolved. Core's Local driver derives the public URL of a
+  public storage from the written path; a link can bring the resolved path
+  into the web root as well;
+- the folder itself, resolved, lies inside the web root: a folder of the
+  storage that links there;
+- the folder is or lies below the storage's processing folder, where core
+  skips the file mount check, or is a ``_recycler_`` folder;
 - its storage has no record, storage 0 (core's fallback for the web root)
   included.
 
@@ -69,8 +76,8 @@ storage record can change without the profile being saved.
 storage that :php:`FalStorageGate::folderToAddFilesTo()` builds for the run's
 acting user, which is the client's technical user (A2A-SEC3), with that user's
 file mounts and file permissions. The user needs a mount on the folder that is
-not read-only, and the permissions ``addFile`` and ``writeFolder``; core asks
-them again when it adds the file. The approver's rights do not count, and an
+not read-only, and the permissions ``readFolder``, ``addFile`` and
+``writeFolder``; core asks them again when it adds the file. The approver's rights do not count, and an
 administrator who approves lends none. The gate's storage allow-list is not
 asked: it bounds the storages a model may name, and here an administrator
 named the one folder in the profile.
@@ -88,12 +95,28 @@ A call that cannot be written is refused before a card is raised
 such file, a file the task no longer holds, a user who may not add a file to
 the folder, A2A files switched off.
 
+The card shows what the approver decides on: the client's file name, the name
+the file will be stored as, its checked type, its size, the start of its
+SHA-256 digest and the inbox folder (:php:`ToolPreviewInterface`). Those lines
+are the reservation of :ref:`ADR-184 <adr-184>`: they are produced again before
+the approved call runs, and when they read differently (another folder, the
+name taken meanwhile, another file, a user who lost the right to write there)
+the call is not carried out and the run waits for a new approval.
+
 **4. Nothing is overwritten.** A name that is taken gives the new file another
-name (core's ``DuplicationBehavior::RENAME``, ``report.txt`` becomes
-``report_01.txt``). The existing file keeps its bytes and its record. The
-file is named after the client's file name without any path, with an
-extension of the type the store checked (``.txt``, ``.json``, ``.pdf``,
-``.png``, ``.jpg`` or ``.jpeg``); core sanitises the rest.
+name, chosen when the card is built with core's suffix (``report.txt``
+becomes ``report_01.txt``) and shown on it; core's
+``DuplicationBehavior::RENAME`` still applies when the file is added, should
+the name be taken in between. The existing file keeps its bytes and its
+record. The file is named after the client's file name without any path and
+without Unicode format characters, with an extension of the type the store
+checked (``.txt``, ``.json``, ``.pdf``, ``.png``, ``.jpg`` or ``.jpeg``); core
+sanitises the rest.
+
+When TYPO3 fails after its driver wrote the file, the answer says that a file
+of that name may remain in the inbox, and the file is left there: deleting by
+name could remove a file another writer put there meanwhile, and an
+unreferenced file in the inbox changes nothing.
 
 **5. The adopted file takes effect only through an editor.** The tool creates no
 reference and changes no other record. The file reaches the site only when an
@@ -101,8 +124,7 @@ editor uses it in a record of a workspace, and that record is published through
 the workspace like any other change.
 
 **Adoption happens while the task runs.** The bytes are those of the private
-store, checked again against their digest and size when the approved call
-runs. The task's end releases them and the file's expiry deletes them, so an
+store, checked again against their digest when the approved call runs. The task's end releases them and the file's expiry deletes them, so an
 approval that arrives after either adopts nothing and the tool says so. A run
 that waits for its approval longer than ``a2a.files.retentionHours`` loses the
 file.
@@ -139,12 +161,12 @@ Consequences
 - ◐ The file is a managed asset, so the cleanup of expired A2A files leaves it
   alone (:ref:`ADR-284 <adr-284>`).
 - ◑ A run waiting longer than the retention for its approval cannot adopt.
-- ◑ The approval card shows the call, the tool and the file's number, not a
-  preview of the file.
+- ● The approval binds to the folder, name and file the card showed; any
+  change asks again.
 - ✕ An adopted file is a live ``sys_file`` row in a run of a draft workspace;
   someone has to remove files nobody uses, because nothing here does.
 
-Net Score: +3.5
+Net Score: +5.5
 
 Alternatives considered
 =======================
