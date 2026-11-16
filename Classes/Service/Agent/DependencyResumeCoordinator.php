@@ -148,12 +148,13 @@ final readonly class DependencyResumeCoordinator
      * checkpoint read again and checked, then suspended for input with the
      * pending call as the input target, the question as the title of its one
      * field, and the checkpoint kept beside it. No model call and no tool
-     * runs. False when another worker or a cancel won the run, or it was
-     * failed because it could not be paused.
+     * runs. $endpoint binds the answer to where the question came from. False
+     * when another worker or a cancel won the run, or it was failed because
+     * it could not be paused.
      *
      * @param (Closure(): void)|null $onClaimed
      */
-    public function askInitiator(AgentRun $run, DependencyCheckpoint $expected, string $question, ?Closure $onClaimed = null): bool
+    public function askInitiator(AgentRun $run, DependencyCheckpoint $expected, string $question, ?Closure $onClaimed = null, string $endpoint = ''): bool
     {
         // Literal lease-identity factory; it only builds a bounded process-identity string.
         // nosemgrep: php.lang.security.exec-use.exec-use
@@ -190,7 +191,7 @@ final readonly class DependencyResumeCoordinator
             'inputCallId'   => $checkpoint->toolCallId,
             'inputSchema'   => self::answerSchema($question),
         ] + $state->toArray());
-        if ($this->persister->suspendForRemoteQuestion($handle, $paused, $checkpoint)) {
+        if ($this->persister->suspendForRemoteQuestion($handle, $paused, $checkpoint->withEndpoint($endpoint))) {
             return true;
         }
 

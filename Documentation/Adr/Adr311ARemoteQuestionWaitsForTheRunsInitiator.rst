@@ -54,7 +54,12 @@ Decision
    continues the first one; its message id is derived from the run, the pause
    and the checkpoint, so a repeated execution gets the existing intent back.
    A response about another task is not followed. Every rewrite of the pause,
-   such as the release after a refused answer, keeps the checkpoint.
+   such as the release after a refused answer, keeps the checkpoint. The
+   checkpoint is bound to the endpoint that asked (a digest of the record's
+   stored card), and an answer is sent only while the record still points
+   there and the record object in memory matches the stored row; an answer
+   is also bound to the pause its checks read, so a question answered and
+   asked again before the answer's claim refuses it.
 4. **The pending call is never executed again.** The answer goes to the
    remote task; a settled task answers the pending call as a dependency
    resume does, and any other state puts the run back into

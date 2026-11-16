@@ -40,7 +40,9 @@ use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
  *   journal as an intent that continues the first one. A send whose intent
  *   already exists is not repeated: an accepted one is read with GetTask, an
  *   unsettled or unknown one is an unknown outcome.
- * - The record must still be usable now; otherwise nothing is sent.
+ * - The record must still be usable now and point where it pointed when the
+ *   question came (the endpoint bound to the checkpoint); otherwise nothing
+ *   is sent.
  * - A remote that answers about another task is not followed (the client
  *   settles that unknown); a settled task is the call's result; otherwise the
  *   run waits again on the same task, with a fresh wait from now, and push is
@@ -67,7 +69,7 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
             return A2aToolResults::unavailable('the remote task this answer belongs to cannot be found');
         }
 
-        $agent = $this->usableAgent($checkpoint->agentUid);
+        $agent = $this->usableAgent($checkpoint);
         if (is_string($agent)) {
             return A2aToolResults::unavailable($agent);
         }
@@ -141,29 +143,33 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
             $now + max(1, $agent->getMaxWaitSeconds()),
             $totals['delegations'],
             $totals['transferredBytes'],
+            $checkpoint->endpoint,
         );
     }
 
     /**
-     * The record as it is now, or the reason it cannot be used.
+     * The record as it is now, or the reason nothing may be sent. The stored
+     * card must still be the one the question came from (the endpoint bound
+     * to the checkpoint), and the record object the send would use must
+     * match the stored row.
      */
-    private function usableAgent(int $agentUid): A2aRemoteAgent|string
+    private function usableAgent(DependencyCheckpoint $checkpoint): A2aRemoteAgent|string
     {
-        $trust = $this->agents->currentTrust($agentUid);
+        $trust = $this->agents->currentTrust($checkpoint->agentUid);
         if ($trust === null || !$trust['enabled'] || $trust['dataClass'] === null) {
             return 'the record is gone, disabled or has no data class';
         }
 
-        if ($trust['card']['cardChanged']) {
-            return 'the card changed and waits for an administrator to confirm it';
+        if ($checkpoint->endpoint === '' || !hash_equals($checkpoint->endpoint, A2aRemoteAgentCard::endpoint($trust['card']))) {
+            return 'the remote agent record points elsewhere than when the question was asked; the answer was not sent';
         }
 
-        $agent = $this->agents->findByUid($agentUid);
+        $agent = $this->agents->findByUid($checkpoint->agentUid);
         if (!$agent instanceof A2aRemoteAgent) {
             return 'the record is gone';
         }
 
-        return $agent->useRefusal() ?? $agent;
+        return A2aRemoteAgentCard::refusal($trust['card'], $agent) ?? $agent->useRefusal() ?? $agent;
     }
 
     private function taskOnce(A2aRemoteAgent $agent, A2aSendIntent $intent): ?A2aTask

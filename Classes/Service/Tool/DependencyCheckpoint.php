@@ -39,6 +39,8 @@ final readonly class DependencyCheckpoint
      * @param int      $deadline         unix time after which the run resumes with a timeout result
      * @param int      $delegations      how many delegations this run had made, this one included
      * @param int      $transferredBytes request and response bytes of this run's delegations so far
+     * @param string   $endpoint         a digest of where the external operation answers, bound when it asked a
+     *                                   question (spec 060); empty when nothing is bound
      */
     public function __construct(
         public string $kind,
@@ -53,6 +55,7 @@ final readonly class DependencyCheckpoint
         public int $deadline,
         public int $delegations,
         public int $transferredBytes,
+        public string $endpoint = '',
     ) {}
 
     /**
@@ -60,15 +63,23 @@ final readonly class DependencyCheckpoint
      */
     public function forCall(string $toolCallId, string $toolName): self
     {
-        return new self($this->kind, $toolCallId, $toolName, $this->journalUid, $this->agentUid, $this->remoteTaskId, $this->ownerUid, $this->workspaceId, $this->suspendedAt, $this->deadline, $this->delegations, $this->transferredBytes);
+        return new self($this->kind, $toolCallId, $toolName, $this->journalUid, $this->agentUid, $this->remoteTaskId, $this->ownerUid, $this->workspaceId, $this->suspendedAt, $this->deadline, $this->delegations, $this->transferredBytes, $this->endpoint);
     }
 
     /**
-     * @return array{kind: string, toolCallId: string, toolName: string, journalUid: int, agentUid: int, remoteTaskId: string, ownerUid: int, workspaceId: int|null, suspendedAt: int, deadline: int, delegations: int, transferredBytes: int}
+     * The same checkpoint bound to the endpoint that asked a question.
+     */
+    public function withEndpoint(string $endpoint): self
+    {
+        return new self($this->kind, $this->toolCallId, $this->toolName, $this->journalUid, $this->agentUid, $this->remoteTaskId, $this->ownerUid, $this->workspaceId, $this->suspendedAt, $this->deadline, $this->delegations, $this->transferredBytes, $endpoint);
+    }
+
+    /**
+     * @return array{kind: string, toolCallId: string, toolName: string, journalUid: int, agentUid: int, remoteTaskId: string, ownerUid: int, workspaceId: int|null, suspendedAt: int, deadline: int, delegations: int, transferredBytes: int, endpoint?: string}
      */
     public function toArray(): array
     {
-        return [
+        return ($this->endpoint !== '' ? ['endpoint' => $this->endpoint] : []) + [
             'kind'             => $this->kind,
             'toolCallId'       => $this->toolCallId,
             'toolName'         => $this->toolName,
@@ -122,6 +133,7 @@ final readonly class DependencyCheckpoint
         }
 
         $workspace = $data['workspaceId'] ?? null;
+        $endpoint  = $data['endpoint'] ?? null;
 
         return new self(
             $strings['kind'],
@@ -136,6 +148,7 @@ final readonly class DependencyCheckpoint
             $ints['deadline'],
             $ints['delegations'],
             $ints['transferredBytes'],
+            is_string($endpoint) ? $endpoint : '',
         );
     }
 }

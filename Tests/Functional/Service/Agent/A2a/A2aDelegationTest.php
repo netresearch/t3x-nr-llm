@@ -1017,6 +1017,31 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Spec 060 RQ2: the answer goes only to the endpoint that asked. An agent
+     * record repointed to another interface after the question gets no
+     * answer: nothing is sent, and the run goes on with an error result.
+     */
+    #[Test]
+    public function anAnswerIsNotSentToAnEndpointOtherThanTheOneThatAsked(): void
+    {
+        $agent   = $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('could not answer')]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent')->update(
+            'tx_nrllm_a2a_agent',
+            ['interface_url' => 'https://other.example/a2a/jsonrpc', 'confirmed_interface' => 'https://other.example/a2a/jsonrpc'],
+            ['uid' => (int) $agent->getUid()],
+        );
+
+        $result = $this->answer($runtime, $runUuid, 'my private answer');
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+        self::assertSame(['SendMessage', 'GetTask'], $this->methods());
+        self::assertStringNotContainsString('my private answer', implode("\n", array_map(static fn (A2aHttpRequest $request): string => $request->body, $this->transport->requests)));
+        self::assertStringContainsString('the remote agent record points elsewhere', $this->lastResultOf($this->runOf($runUuid)));
+    }
+
+    /**
      * Sends the delegation (the remote accepts task-1), then lets the poller
      * see the remote's question.
      */

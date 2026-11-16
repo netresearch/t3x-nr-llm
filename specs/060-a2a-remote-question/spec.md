@@ -44,6 +44,13 @@ started the run answer, and sends that answer to exactly that remote task.
   existing intent back and sends nothing; an existing accepted intent is read
   with GetTask, an intent found `intended` or `outcome_unknown` is never sent
   again. The pending call is never executed again.
+- **RQ4a Only the endpoint that asked.** When the question becomes a pause,
+  the checkpoint is bound to a digest of the record's stored card (card URL,
+  interface URL, tenant, confirmed interface). The answer is sent only while
+  the stored card still has that digest and the record object the client
+  sends with matches the stored row (`A2aRemoteAgentCard`, shared with the
+  delegation tool); otherwise nothing is sent and the run goes on with an
+  error result.
 - **RQ5 The remote must answer about the same task.** A task with another id
   in the response settles the answer's intent `outcome_unknown`
   (`INVALID_AGENT_RESPONSE`) and the run goes on with an error result; nothing
@@ -101,6 +108,7 @@ mutation of the behaviour it covers.
 | RQ2 | `aStoredAnswerIsSentByAFreshWorkerToTheBoundTask`, `aRefusedAnswerKeepsTheBindingAndTwoQuestionsGetTwoAnswers` |
 | RQ3 | `anotherUserCannotAnswerEvenAsAdministrator`, `anAnswerToAQuestionThatWasReplacedIsRefused` (the pause changes between the checks and the claim) |
 | RQ4 | `aRepeatedExecutionSendsTheAnswerOnce`, `aRefusedAnswerKeepsTheBindingAndTwoQuestionsGetTwoAnswers` |
+| RQ4a | `anAnswerIsNotSentToAnEndpointOtherThanTheOneThatAsked` |
 | RQ5 | `anAnswerAboutAnotherTaskIsNotFollowed` |
 | RQ6 | `anUnansweredQuestionTimesOutAtTheDeadline` |
 | RQ7 | `anAnswerIsNotADelegation` |

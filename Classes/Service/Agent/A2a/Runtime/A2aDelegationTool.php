@@ -142,7 +142,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             return A2aToolResults::unavailable('the record is gone');
         }
 
-        $refusal = $this->cardRefusal($trust['card'], $agent) ?? $agent->useRefusal();
+        $refusal = A2aRemoteAgentCard::refusal($trust['card'], $agent) ?? $agent->useRefusal();
         if ($refusal !== null) {
             return A2aToolResults::unavailable($refusal);
         }
@@ -229,27 +229,6 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
     public function requiresApproval(): bool
     {
         return $this->agents->currentTrust((int) $this->agent->getUid())['requiresApproval'] ?? true;
-    }
-
-    /**
-     * The card as stored now against the record object the send would use:
-     * a card waiting for confirmation, or one an import changed since the
-     * object was read, sends nothing.
-     *
-     * @param array{cardUrl: string, interfaceUrl: string, interfaceTenant: string, cardChanged: bool, confirmedInterface: string} $card
-     */
-    private function cardRefusal(array $card, A2aRemoteAgent $agent): ?string
-    {
-        if ($card['cardChanged']) {
-            return 'the card changed and waits for an administrator to confirm it';
-        }
-
-        $read = [$agent->getCardUrl(), $agent->getInterfaceUrl(), $agent->getInterfaceTenant(), $agent->getConfirmedInterface()];
-        if ($read !== [$card['cardUrl'], $card['interfaceUrl'], $card['interfaceTenant'], $card['confirmedInterface']]) {
-            return 'the card changed since this worker read the record; nothing was sent';
-        }
-
-        return null;
     }
 
     private function strictest(): ToolDataClass

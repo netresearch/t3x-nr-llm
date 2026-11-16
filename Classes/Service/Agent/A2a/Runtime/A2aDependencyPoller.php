@@ -219,7 +219,7 @@ final readonly class A2aDependencyPoller
             // and never answered from here (spec 060 RQ1, RQ3).
             $asked = $this->resumes->askInitiator($run, $checkpoint, A2aToolResults::question($title, $task), function () use ($checkpoint): void {
                 $this->closePush($checkpoint->journalUid);
-            });
+            }, $this->endpointOf($checkpoint->agentUid));
             $report->asked += $asked ? 1 : 0;
 
             return;
@@ -327,6 +327,17 @@ final readonly class A2aDependencyPoller
         }
 
         $report->timedOut += $resumed instanceof AgentRunResult ? 1 : 0;
+    }
+
+    /**
+     * The endpoint the question came from, from the stored card; empty when
+     * the record cannot be read, so no answer is ever sent for it.
+     */
+    private function endpointOf(int $agentUid): string
+    {
+        $card = $this->agents->currentTrust($agentUid)['card'] ?? null;
+
+        return is_array($card) ? A2aRemoteAgentCard::endpoint($card) : '';
     }
 
     private function resetRunScopedState(): void
