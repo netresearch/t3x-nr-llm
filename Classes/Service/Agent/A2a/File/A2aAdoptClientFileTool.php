@@ -20,6 +20,8 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
+use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
@@ -29,12 +31,15 @@ use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Service\Tool\ToolPreviewInterface;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
 use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\PathUtility;
 
 /**
  * `adopt_client_file`: a run in the A2A server role stores ONE file its
@@ -59,9 +64,17 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * The model names the file by its number, the N of the "File N of M" line
  * the run was given ({@see A2aFileInputPreparer}); the file keeps the name
- * the client gave it, with the extension of its checked type. The bytes are
- * the stored copy, checked again against their digest: they exist only
- * until the task ends or the file expires.
+ * the client gave it, without format characters, with the extension of its
+ * checked type, and with core's `_01` to `_99` suffix when the name is
+ * taken. The bytes are the stored copy, checked again against their digest:
+ * they exist only until the task ends or the file expires.
+ *
+ * The approval card shows the client's name, the name the file is stored
+ * as, the checked type, the size, a short digest and the inbox folder
+ * ({@see ToolPreviewInterface}). Those lines are the reservation of
+ * ADR-184: when they read differently at execution, because the folder, the
+ * free name or the file changed, the call is not carried out and the run
+ * waits for a new approval.
  *
  * Every refusal the configuration or the user's rights decide comes before
  * the approval ({@see RefusesBeforeApprovalInterface}), so no card asks a
@@ -70,7 +83,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
-final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface
+final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface, ToolPreviewInterface
 {
     use SafeCastTrait;
 
@@ -97,6 +110,10 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
 
     private const GONE = 'Not adopted: the file %d is no longer held; it expired, or its bytes changed.';
 
+    private const NO_FREE_NAME = 'Not adopted: the inbox folder holds no free name for the file %s.';
+
+    private const PARTIAL = 'Not completed: TYPO3 failed after the file was written. A file named %s may remain in the inbox folder %s; nothing references it.';
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
@@ -104,6 +121,7 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
         private A2aFileSettings $fileSettings,
         private A2aSkillProfileRepository $profiles,
         private A2aFalInbox $inbox,
+        private ApprovalPreviewTranslator $translator,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -139,7 +157,6 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
         $row    = $plan['row'];
         $bytes  = $this->fileStore->content(self::toInt($row['uid'] ?? 0), $plan['owner']);
         if (self::toInt($row['expires'] ?? 0) <= time()
-            || strlen($bytes) !== self::toInt($row['size'] ?? -1)
             || !hash_equals(self::toStr($row['sha256'] ?? ''), hash('sha256', $bytes))) {
             return ToolResult::error(sprintf(self::GONE, $number));
         }
@@ -152,11 +169,16 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
                 return ToolResult::error('Not adopted: the file could not be written.');
             }
 
-            $file = $plan['folder']->addFile($local, $this->targetName(self::toStr($row['filename'] ?? ''), $mediaType), DuplicationBehavior::RENAME);
+            $file = $plan['folder']->addFile($local, $plan['name'], DuplicationBehavior::RENAME);
         } catch (Throwable) {
             // Core's message can name server paths; the model and the client
-            // read this answer.
-            return ToolResult::error('Not adopted: TYPO3 refused to add the file to the inbox folder.');
+            // read this answer. A file core wrote before it failed is named,
+            // not deleted: the name was free when the call started, but
+            // deleting by name could remove a file another writer put there
+            // meanwhile, and an unreferenced file in the inbox changes nothing.
+            return ToolResult::error($this->written($plan['folder'], $plan['name'])
+                ? sprintf(self::PARTIAL, $plan['name'], $plan['target'])
+                : 'Not adopted: TYPO3 refused to add the file to the inbox folder.');
         } finally {
             if (is_file($local)) {
                 unlink($local);
@@ -183,6 +205,37 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
         $plan = $this->plan($arguments, $context);
 
         return is_string($plan) ? ToolResult::error($plan) : null;
+    }
+
+    /**
+     * What the approver decides on: the client's name and the stored name,
+     * the checked type, the size, a short digest and the inbox folder. Read
+     * again at execution and compared (ADR-184).
+     */
+    public function previewCall(array $arguments, ToolExecutionContext $context): array
+    {
+        $plan = $this->plan($arguments, $context);
+        if (is_string($plan)) {
+            return [$plan];
+        }
+
+        $user = $context->actingBackendUser();
+        $t    = fn (ApprovalPreviewLabel $label, int|string ...$values): string => $this->translator->text($user, $label, ...$values);
+        $row  = $plan['row'];
+
+        return [
+            $t(ApprovalPreviewLabel::AdoptClientFileHeading),
+            $t(ApprovalPreviewLabel::AdoptClientFileName, self::toInt($arguments['file'] ?? 0), $this->withoutFormatCharacters(self::toStr($row['filename'] ?? '')), $plan['name']),
+            $t(ApprovalPreviewLabel::AdoptClientFileContent, self::toStr($row['media_type'] ?? ''), self::toInt($row['size'] ?? 0), substr(self::toStr($row['sha256'] ?? ''), 0, 12)),
+            $t(ApprovalPreviewLabel::AdoptClientFileTarget, $plan['target']),
+        ];
+    }
+
+    public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
+    {
+        // The preview names the client's file and the inbox folder, both of
+        // which an approver of the run must see to decide.
+        return true;
     }
 
     public function getEffect(): ToolEffect
@@ -235,7 +288,7 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{row: array<string, mixed>, owner: int, folder: Folder}|string
+     * @return array{row: array<string, mixed>, owner: int, folder: Folder, name: string, target: string}|string
      */
     private function plan(array $arguments, ToolExecutionContext $context): array|string
     {
@@ -271,7 +324,63 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
             return self::NOT_WRITABLE;
         }
 
-        return ['row' => $row, 'owner' => $task['owner'], 'folder' => $folder];
+        $wanted = $this->targetName(self::toStr($row['filename'] ?? ''), self::toStr($row['media_type'] ?? ''));
+        try {
+            $name = $this->freeName($folder, $wanted);
+        } catch (Throwable) {
+            return self::NOT_WRITABLE;
+        }
+
+        if ($name === null) {
+            return sprintf(self::NO_FREE_NAME, $wanted);
+        }
+
+        return ['row' => $row, 'owner' => $task['owner'], 'folder' => $folder, 'name' => $name, 'target' => $target['storage'] . ':' . $target['folder']];
+    }
+
+    /**
+     * The name the file is stored as: sanitised as core does, and when taken,
+     * with core's `_01` to `_99` suffix. Null when all are taken.
+     */
+    private function freeName(Folder $folder, string $wanted): ?string
+    {
+        $name = $folder->getStorage()->sanitizeFileName($wanted, $folder);
+        if (!$folder->hasFile($name) && !$folder->hasFolder($name)) {
+            return $name;
+        }
+
+        $info      = PathUtility::pathinfo($name);
+        $stem      = (string) preg_replace('/_[0-9][0-9]$/', '', $info['filename'] ?? '');
+        $extension = ($info['extension'] ?? '') !== '' ? '.' . $info['extension'] : '';
+        for ($number = 1; $number <= 99; ++$number) {
+            $candidate = sprintf('%s_%02d%s', $stem, $number, $extension);
+            if (!$folder->hasFile($candidate) && !$folder->hasFolder($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a file of this name is in the folder now.
+     */
+    private function written(Folder $folder, string $name): bool
+    {
+        try {
+            return $folder->hasFile($name);
+        } catch (Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * The name without Unicode format characters (category Cf), such as a
+     * right-to-left override that would show it reversed.
+     */
+    private function withoutFormatCharacters(string $name): string
+    {
+        return (string) preg_replace('/\p{Cf}/u', '', $name);
     }
 
     /**
@@ -306,7 +415,7 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
     private function targetName(string $clientName, string $mediaType): string
     {
         $extensions = self::EXTENSIONS[$mediaType] ?? ['bin'];
-        $base       = basename(str_replace('\\', '/', $clientName));
+        $base       = basename(str_replace('\\', '/', $this->withoutFormatCharacters($clientName)));
         $extension  = strtolower(pathinfo($base, PATHINFO_EXTENSION));
         if (in_array($extension, $extensions, true)) {
             return $base;

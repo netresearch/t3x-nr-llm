@@ -3430,6 +3430,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     }
 
     /**
+     * Whether the table is known to keep no workspace versions: its TCA is
+     * loaded and names no `ctrl.versioningWS`. A table whose TCA is not
+     * loaded is not known to be live-only, so its write keeps the acting
+     * user's workspace. Walked one level at a time: `$GLOBALS['TCA']` is
+     * mixed to the analyser.
+     */
+    private function keepsOnlyALiveRow(string $table): bool
+    {
+        $tca   = $GLOBALS['TCA'] ?? null;
+        $entry = is_array($tca) ? ($tca[$table] ?? null) : null;
+        $ctrl  = is_array($entry) ? ($entry['ctrl'] ?? null) : null;
+
+        return is_array($ctrl) && !(bool) ($ctrl['versioningWS'] ?? false);
+    }
+
+    /**
      * Tell consumers a record was written by an AI run (ADR-187).
      *
      * Dispatched here rather than in the seven writers, because here is the one
@@ -3457,20 +3473,6 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * same reason (ADR-206).
      * Swallows, not hides: the full Throwable goes to the log.
      */
-    /**
-     * Whether the loaded TCA gives the table workspace versions
-     * (`ctrl.versioningWS`), walked one level at a time: `$GLOBALS['TCA']` is
-     * mixed to the analyser.
-     */
-    private function keepsVersions(string $table): bool
-    {
-        $tca   = $GLOBALS['TCA'] ?? null;
-        $entry = is_array($tca) ? ($tca[$table] ?? null) : null;
-        $ctrl  = is_array($entry) ? ($entry['ctrl'] ?? null) : null;
-
-        return is_array($ctrl) && (bool) ($ctrl['versioningWS'] ?? false);
-    }
-
     private function announceWrite(ToolResult $result, ToolExecutionContext $context, bool $generated = false): void
     {
         if (!$this->eventDispatcher instanceof EventDispatcherInterface) {
@@ -3490,12 +3492,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // workspace changed a workspace version, not the live row it names.
         // A table that keeps no versions, such as `sys_file` (ADR-305), has
         // only its live row, whatever workspace the user wrote from.
-        $versioned = $this->keepsVersions($result->writeTarget->table);
-        $event     = new AfterAiRecordWrittenEvent(
+        $liveOnly = $this->keepsOnlyALiveRow($result->writeTarget->table);
+        $event    = new AfterAiRecordWrittenEvent(
             $correlationId,
             $result->writeTarget,
             $result->writeKind,
-            $versioned ? max(0, $context->actingBackendUser()->workspace ?? 0) : 0,
+            $liveOnly ? 0 : max(0, $context->actingBackendUser()->workspace ?? 0),
         );
 
         try {

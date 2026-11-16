@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
@@ -236,18 +237,9 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
             '2:/a2a-inbox/../x/' => 'a parent segment',
             'a2a-inbox'          => 'no storage',
         ];
-        // A worker's working directory may lie outside the web root, where an
-        // empty path would resolve to.
-        $cwd = (string) getcwd();
-        chdir(sys_get_temp_dir());
-
-        try {
-            foreach ($cases as $target => $case) {
-                $this->dataHandler(['tx_nrllm_a2a_profile' => [1 => ['fal_inbox_folder' => $target]]]);
-                self::assertSame('', $this->inboxOf(1), $case);
-            }
-        } finally {
-            chdir($cwd);
+        foreach ($cases as $target => $case) {
+            $this->dataHandler(['tx_nrllm_a2a_profile' => [1 => ['fal_inbox_folder' => $target]]]);
+            self::assertSame('', $this->inboxOf(1), $case);
         }
 
         $this->dataHandler(['tx_nrllm_a2a_profile' => [1 => ['fal_inbox_folder' => self::INBOX]]]);
@@ -324,7 +316,8 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     /**
      * No admin bypass: the mount is taken away while the run waits, and an
      * administrator approves from the backend. The write is still the
-     * technical user's, and that user may no longer add the file.
+     * technical user's, and that user may no longer add the file, so the
+     * call is not carried out.
      */
     #[Test]
     public function anAdministratorsApprovalDoesNotLendItsRights(): void
@@ -337,10 +330,10 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
 
         $this->decide($run, true);
 
-        self::assertSame(
-            ['Not adopted: the technical user of this client may not add a file to the inbox folder, or the folder does not exist.'],
-            $this->toolResultsOf($this->runOf($run->uuid)),
-        );
+        // The card the administrator approved described a write the user
+        // can no longer make; the run waits for a new decision (ADR-184).
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->runOf($run->uuid)->statusEnum());
+        self::assertSame([], $this->toolResultsOf($this->runOf($run->uuid)));
         self::assertSame(0, $this->rows('sys_file', ['storage' => 2]));
         self::assertSame([], $this->inboxFiles());
     }
@@ -397,7 +390,7 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     /**
      * The bytes are checked again when the approved call runs: a file that
      * expired while the run waited, or whose bytes no longer match their
-     * digest or their size, is not adopted.
+     * digest, is not adopted.
      */
     #[Test]
     public function anExpiredOrAlteredFileIsNotAdoptedAfterTheApproval(): void
@@ -406,18 +399,17 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
         $this->db('tx_nrllm_a2a_file')->update('tx_nrllm_a2a_file', ['expires' => time() - 1], ['direction' => 'in']);
         $this->decide($expired, true);
 
+        // Bytes of the same length behind an unchanged record: the card reads
+        // the same, and the digest check refuses them.
         $altered = $this->suspendedForApproval();
-        $this->db('tx_nrllm_a2a_file')->update('tx_nrllm_a2a_file', ['sha256' => hash('sha256', 'Other data.')], ['task_uid' => $this->taskUidOf($altered), 'direction' => 'in']);
+        $sealed  = $this->getService(AgentStateCodec::class)->encode('Client daTa.', AgentStateCodec::PURPOSE_A2A_FILE);
+        $this->db('tx_nrllm_a2a_file')->update('tx_nrllm_a2a_file', ['content' => $sealed], ['task_uid' => $this->taskUidOf($altered), 'direction' => 'in']);
         $this->decide($altered, true);
-
-        $resized = $this->suspendedForApproval();
-        $this->db('tx_nrllm_a2a_file')->update('tx_nrllm_a2a_file', ['size' => 99], ['task_uid' => $this->taskUidOf($resized), 'direction' => 'in']);
-        $this->decide($resized, true);
 
         $gone = ['Not adopted: the file 1 is no longer held; it expired, or its bytes changed.'];
         self::assertSame(
-            [$gone, $gone, $gone],
-            [$this->toolResultsOf($this->runOf($expired->uuid)), $this->toolResultsOf($this->runOf($altered->uuid)), $this->toolResultsOf($this->runOf($resized->uuid))],
+            [$gone, $gone],
+            [$this->toolResultsOf($this->runOf($expired->uuid)), $this->toolResultsOf($this->runOf($altered->uuid))],
         );
         self::assertSame(0, $this->rows('sys_file', ['storage' => 2]));
         self::assertSame([], $this->inboxFiles());
@@ -451,18 +443,154 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The approvals-inbox card names the call: the tool and the file's
-     * number, with no preview of the file.
+     * The approvals-inbox card shows what is decided: the client's name and
+     * the name the file is stored as, the checked type, the size, a short
+     * digest and the target folder.
      */
     #[Test]
-    public function theApprovalCardNamesTheToolAndTheFileNumber(): void
+    public function theApprovalCardShowsTheFileAndWhereItGoes(): void
     {
         $card = $this->card($this->suspendedForApproval());
 
         self::assertCount(1, $card->pendingCalls);
         self::assertSame(A2aAdoptClientFileTool::NAME, $card->pendingCalls[0]->name);
-        self::assertSame(['file' => 1], json_decode($card->pendingCalls[0]->argumentsJson, true));
-        self::assertSame([], $card->pendingCalls[0]->previewLines);
+        self::assertFalse($card->pendingCalls[0]->previewFailed);
+        self::assertSame([
+            'Store a file the client sent in FAL',
+            'File 1 of the client, named report.txt, is stored as report.txt',
+            sprintf('Type text/plain, %d bytes, SHA-256 %s', strlen(self::CONTENT), substr(hash('sha256', self::CONTENT), 0, 12)),
+            'Into the inbox folder 2:/a2a-inbox/; nothing references the file',
+        ], $card->pendingCalls[0]->previewLines);
+    }
+
+    /**
+     * The preview is the reservation (ADR-184): the inbox folder changed
+     * after the approver saw the card, so the approved call does not write
+     * to the new folder; the run waits for a new approval instead.
+     */
+    #[Test]
+    public function aFolderChangedAfterTheApproverSawTheCardWritesNothing(): void
+    {
+        GeneralUtility::mkdir_deep($this->inboxRoot . '/a2a-inbox/elsewhere');
+        $run    = $this->suspendedForApproval();
+        $digest = $this->card($run)->turnDigest;
+        self::assertIsString($digest);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['fal_inbox_folder' => '2:/a2a-inbox/elsewhere/'], ['uid' => 1]);
+
+        $this->responses = [];
+        $this->runtime()->approve(AiActorContext::backendUser(self::APPROVER, isAdmin: true), $run->uuid, new ApprovalDecision(true, self::APPROVER, $digest));
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->runOf($run->uuid)->statusEnum());
+        self::assertSame(['elsewhere'], $this->inboxFiles());
+        self::assertSame([], array_values(array_diff(scandir($this->inboxRoot . '/a2a-inbox/elsewhere') ?: [], ['.', '..'])));
+        self::assertSame(0, $this->rows('sys_file', ['storage' => 2]));
+    }
+
+    /**
+     * A base path the web server reaches is public whatever it resolves to:
+     * a relative base path always lies in the web root, and an absolute one
+     * written inside it counts even when it links elsewhere (core derives a
+     * public URL from the written path).
+     */
+    #[Test]
+    public function aBasePathWrittenInTheWebRootIsPublicWhereverItLinks(): void
+    {
+        $link = $this->instancePath . '/a2a-link';
+        self::assertTrue(symlink($this->inboxRoot, $link));
+
+        try {
+            $this->storage(8, 'a2a-link/', 'relative', false);
+            $this->storage(10, $link . '/', 'absolute', false);
+            $this->storage(11, '/a2a-link/', 'relative', false);
+            $inbox = $this->getService(A2aFalInbox::class);
+
+            self::assertNotNull($inbox->refusal('8:/a2a-inbox/'), 'relative, linked out of the web root');
+            self::assertNotNull($inbox->refusal('11:/a2a-inbox/'), 'relative with a leading slash');
+            self::assertNotNull($inbox->refusal('10:/a2a-inbox/'), 'absolute, written in the web root');
+            self::assertNull($inbox->refusal(self::INBOX), 'absolute, outside the web root');
+        } finally {
+            unlink($link);
+        }
+    }
+
+    /**
+     * The folder itself counts, not only the base path: a folder of the
+     * storage that links into the web root, the processing folder (where
+     * core skips the mount check) and a recycler folder are refused before
+     * any approval.
+     */
+    #[Test]
+    public function aFolderTheWebServerReachesOrCoreManagesIsRefused(): void
+    {
+        self::assertTrue(symlink($this->instancePath . '/fileadmin/a2a-inbox', $this->inboxRoot . '/a2a-pub'));
+        GeneralUtility::mkdir_deep($this->inboxRoot . '/_processed_');
+        GeneralUtility::mkdir_deep($this->inboxRoot . '/a2a-inbox/_recycler_');
+        $inbox = $this->getService(A2aFalInbox::class);
+
+        self::assertNotNull($inbox->refusal('2:/a2a-pub/'), 'a folder linked into the web root');
+        self::assertNotNull($inbox->refusal('2:/_processed_/'), 'the processing folder');
+        self::assertNotNull($inbox->refusal('2:/_processed_/sub/'), 'below the processing folder');
+        self::assertNotNull($inbox->refusal('2:/a2a-inbox/_recycler_/'), 'a recycler folder');
+
+        $this->db('sys_filemounts')->update('sys_filemounts', ['identifier' => '2:/'], ['uid' => 3]);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['fal_inbox_folder' => '2:/a2a-pub/'], ['uid' => 1]);
+        $run = $this->runToEnd();
+
+        self::assertStringStartsWith('Not adopted: the inbox folder of this skill cannot be written to:', $this->toolResultsOf($run)[0] ?? '');
+        self::assertFileDoesNotExist($this->instancePath . '/fileadmin/a2a-inbox/report.txt');
+    }
+
+    /**
+     * A user who may write to the folder but not read it gets no card for a
+     * call that cannot be carried out.
+     */
+    #[Test]
+    public function aUserWhoMayNotReadTheInboxIsRefusedBeforeAnyApproval(): void
+    {
+        $this->db('be_groups')->update('be_groups', ['file_permissions' => 'writeFolder,addFile'], ['uid' => self::GROUP]);
+
+        $run = $this->runToEnd();
+
+        self::assertSame(AgentRunStatus::COMPLETED, $run->statusEnum());
+        self::assertSame(['Not adopted: the technical user of this client may not add a file to the inbox folder, or the folder does not exist.'], $this->toolResultsOf($run));
+        self::assertNull($this->getService(FalStorageGate::class)->folderToAddFilesTo($this->technicalUser(), 2, '/a2a-inbox/'), 'the gate gives no folder the user cannot read');
+    }
+
+    /**
+     * A failure after core wrote the file is not reported as "not adopted":
+     * the answer names the file that may remain in the inbox, which nothing
+     * references. The file is left: deleting it could remove another file
+     * that took the name meanwhile.
+     */
+    #[Test]
+    public function aFailureAfterTheWriteNamesTheFileThatMayRemain(): void
+    {
+        $run = $this->suspendedForApproval();
+        $this->failSysFileInserts(true);
+
+        try {
+            $this->decide($run, true);
+        } finally {
+            $this->failSysFileInserts(false);
+        }
+
+        self::assertSame(
+            ['Not completed: TYPO3 failed after the file was written. A file named report.txt may remain in the inbox folder 2:/a2a-inbox/; nothing references it.'],
+            $this->toolResultsOf($this->runOf($run->uuid)),
+        );
+        self::assertSame(['report.txt'], $this->inboxFiles());
+    }
+
+    /**
+     * Unicode format characters, such as a right-to-left override, are
+     * removed from the stored name.
+     */
+    #[Test]
+    public function formatCharactersAreRemovedFromTheStoredName(): void
+    {
+        $this->decide($this->suspendedForApproval("rep\u{202E}ort.txt"), true);
+
+        self::assertSame(['report.txt'], $this->inboxFiles());
     }
 
     /**
@@ -484,13 +612,30 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
         $this->decideDurably($run);
 
         self::assertSame(['report.txt'], $this->inboxFiles());
-        self::assertSame(
-            ['Not adopted: the technical user of this client may not add a file to the inbox folder, or the folder does not exist.'],
-            $this->toolResultsOf($this->runOf($run->uuid)),
-        );
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->runOf($run->uuid)->statusEnum());
+        self::assertSame([], $this->toolResultsOf($this->runOf($run->uuid)));
     }
 
     // ------------------------------------------------------------------
+
+    /**
+     * A database trigger that makes every insert into `sys_file` fail, after
+     * core's driver has written the file; false removes it.
+     */
+    private function failSysFileInserts(bool $fail): void
+    {
+        $connection = $this->db('sys_file');
+        $sqlite     = str_contains(strtolower($connection->getDatabasePlatform()::class), 'sqlite');
+        if (!$fail) {
+            $connection->executeStatement('DROP TRIGGER IF EXISTS nrllm_fail_sys_file');
+
+            return;
+        }
+
+        $connection->executeStatement($sqlite
+            ? "CREATE TRIGGER nrllm_fail_sys_file BEFORE INSERT ON sys_file BEGIN SELECT RAISE(ABORT, 'refused by the test'); END"
+            : "CREATE TRIGGER nrllm_fail_sys_file BEFORE INSERT ON sys_file FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'refused by the test'");
+    }
 
     private function taskUidOf(AgentRun $run): int
     {

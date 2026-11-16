@@ -122,15 +122,35 @@ final class ToolLoopServiceWriteEventTest extends TestCase
     #[Test]
     public function aWriteToATableWithoutVersionsIsAnnouncedAsLive(): void
     {
+        // The written table's TCA is loaded and keeps no versions, as for
+        // sys_file.
+        $GLOBALS['TCA']['pages']['ctrl']['versioningWS'] = false;
+        self::assertSame(0, $this->workspaceAnnouncedFrom(4));
         unset($GLOBALS['TCA']['pages']);
+    }
+
+    /**
+     * A table whose TCA is not loaded is not known to keep no versions: the
+     * write keeps the acting user's workspace.
+     */
+    #[Test]
+    public function aWriteToATableWithoutLoadedTcaKeepsTheWorkspace(): void
+    {
+        unset($GLOBALS['TCA']['pages']);
+        self::assertSame(4, $this->workspaceAnnouncedFrom(4));
+    }
+
+    private function workspaceAnnouncedFrom(int $workspace): int
+    {
         $dispatcher      = new RecordingEventDispatcher();
         $user            = self::createStub(BackendUserAuthentication::class);
-        $user->workspace = 4;
+        $user->workspace = $workspace;
         $this->runWriteOf($this->writingTool(), $dispatcher, new AgentRunReference(91, self::RUN_UUID), $user);
 
         $event = $dispatcher->dispatched[0] ?? null;
         self::assertInstanceOf(AfterAiRecordWrittenEvent::class, $event);
-        self::assertSame(0, $event->workspace);
+
+        return $event->workspace;
     }
 
     /**

@@ -24,11 +24,17 @@ use TYPO3\CMS\Core\Utility\PathUtility;
  * A target is refused when it is public, which here means any of:
  *
  * - its storage record is marked public (`sys_file_storage.is_public`);
- * - its storage uses the `Local` driver and its base path (a relative one
- *   taken from the web root, as core takes it) lies inside the web root
- *   (`Environment::getPublicPath()`), where the web server serves it whatever
- *   the record says. Core's Local driver derives a public URL for exactly
- *   these paths.
+ * - its storage uses the `Local` driver with a relative base path: core takes
+ *   that from the web root, so it lies there however the directory links;
+ * - its storage uses the `Local` driver with an absolute base path that lies
+ *   inside the web root (`Environment::getPublicPath()`) as written or as
+ *   resolved, compared with the web root as written and as resolved. Core's
+ *   Local driver derives a public URL from the written path; a link can
+ *   bring a resolved path into the web root as well;
+ * - the folder itself, resolved, lies inside the web root (a folder of the
+ *   storage that links there);
+ * - the folder is or lies below the storage's processing folder, where core
+ *   skips the file mount check, or a `_recycler_` folder.
  *
  * A storage of another driver is taken as its record declares it: it has no
  * path in the web root to compare. Storage 0, core's fallback for the web
@@ -89,20 +95,53 @@ final readonly class A2aFalInbox
             return sprintf('storage %d is public.', $target['storage']);
         }
 
-        if (($record['driver'] ?? null) === 'Local' && $this->underWebRoot($record)) {
-            return sprintf('the base path of storage %d lies in the web root, which the web server serves.', $target['storage']);
+        if ($this->managedByCore($record, $target['folder'])) {
+            return sprintf('%s is a processing or recycler folder of storage %d.', $target['folder'], $target['storage']);
+        }
+
+        if (($record['driver'] ?? null) === 'Local' && $this->underWebRoot($record, $target['folder'])) {
+            return sprintf('%s of storage %d lies in the web root, which the web server serves.', $target['folder'], $target['storage']);
         }
 
         return null;
     }
 
     /**
-     * Whether a Local storage's base path lies in the web root. A base path
-     * that cannot be read counts as inside: the check fails closed.
+     * Whether the folder is the storage's processing folder, lies below it,
+     * or is a recycler folder. The processing folder is read from the record
+     * (core's default `_processed_`); one kept in another storage cannot
+     * contain this folder.
      *
      * @param array<string, mixed> $record
      */
-    private function underWebRoot(array $record): bool
+    private function managedByCore(array $record, string $folder): bool
+    {
+        if (in_array('_recycler_', explode('/', $folder), true)) {
+            return true;
+        }
+
+        $processing = is_string($record['processingfolder'] ?? null) ? trim($record['processingfolder']) : '';
+        $processing = $processing !== '' ? $processing : '_processed_';
+        if (str_contains($processing, ':')) {
+            [$storage, $processing] = explode(':', $processing, 2);
+            if ((int) $storage !== (is_numeric($record['uid'] ?? null) ? (int) $record['uid'] : 0)) {
+                return false;
+            }
+        }
+
+        $processing = '/' . trim($processing, '/') . '/';
+
+        return str_starts_with(strtolower($folder), strtolower($processing));
+    }
+
+    /**
+     * Whether a Local storage's base path, or the folder in it, lies in the
+     * web root. A base path that cannot be read counts as inside: the check
+     * fails closed.
+     *
+     * @param array<string, mixed> $record
+     */
+    private function underWebRoot(array $record, string $folder): bool
     {
         try {
             $configuration = $this->storageRepository->createFromRecord($record)->getConfiguration();
@@ -111,21 +150,40 @@ final readonly class A2aFalInbox
         }
 
         $basePath = is_string($configuration['basePath'] ?? null) ? trim($configuration['basePath']) : '';
-        if ($basePath === '') {
+        // A relative base path is taken from the web root; an empty one is
+        // nothing to compare.
+        if (($configuration['pathType'] ?? null) === 'relative' || !str_starts_with($basePath, '/')) {
             return true;
         }
 
-        $webRoot  = $this->canonical(Environment::getPublicPath());
-        $absolute = ($configuration['pathType'] ?? null) === 'relative' ? $webRoot . '/' . $basePath : $basePath;
+        $webRoots = $this->forms(Environment::getPublicPath());
+        $paths    = [...$this->forms($basePath), ...$this->forms(rtrim($basePath, '/') . $folder)];
+        foreach ($paths as $path) {
+            foreach ($webRoots as $webRoot) {
+                if (str_starts_with($path . '/', $webRoot . '/')) {
+                    return true;
+                }
+            }
+        }
 
-        return str_starts_with($this->canonical($absolute) . '/', $webRoot . '/');
+        return false;
     }
 
-    private function canonical(string $path): string
+    /**
+     * A path as written (canonicalised, links kept) and as resolved, where it
+     * exists.
+     *
+     * @return list<string>
+     */
+    private function forms(string $path): array
     {
-        $real = realpath($path);
+        $forms = [rtrim(PathUtility::getCanonicalPath($path), '/')];
+        $real  = realpath($path);
+        if ($real !== false) {
+            $forms[] = rtrim($real, '/');
+        }
 
-        return rtrim($real !== false ? $real : PathUtility::getCanonicalPath($path), '/');
+        return $forms;
     }
 
     /**

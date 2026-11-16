@@ -4700,6 +4700,18 @@
             <trans-unit id="approvalPreview.technical.languagePair">
                 <source>language codes %s to %s</source>
             </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.heading">
+                <source>Store a file the client sent in FAL</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.name">
+                <source>File %d of the client, named %s, is stored as %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.content">
+                <source>Type %s, %d bytes, SHA-256 %s</source>
+            </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.target">
+                <source>Into the inbox folder %s; nothing references the file</source>
+            </trans-unit>
             <trans-unit id="approvalPreview.redirect.createHeading">
                 <source>Create a redirect</source>
             </trans-unit>

@@ -173,7 +173,7 @@ final class FalStorageGate implements RunScopedStateInterface
      * The folder `$user` may add a file to, taken from a storage built for
      * that user like {@see self::isFileAccessible()}: its own file mounts
      * (a read-only mount grants no write) and its own file permissions
-     * (`addFile`, `writeFolder`), whoever the ambient user is. Null for no
+     * (`readFolder`, `addFile`, `writeFolder`), whoever the ambient user is. Null for no
      * user, a folder that does not exist and a folder the user may not write
      * to alike. A file added through the returned folder is written by that
      * storage, which asks core's checks again for `$user`.
@@ -196,7 +196,9 @@ final class FalStorageGate implements RunScopedStateInterface
                 return null;
             }
 
-            $folder = $storage->getFolder($identifier, true);
+            // Without the flag core refuses a folder the user may not read
+            // (an InaccessibleFolder could not be listed for a free name).
+            $folder = $storage->getFolder($identifier);
 
             return $storage->checkUserActionPermission('add', 'File') && $storage->checkFolderActionPermission('write', $folder) ? $folder : null;
         } catch (Throwable) {
