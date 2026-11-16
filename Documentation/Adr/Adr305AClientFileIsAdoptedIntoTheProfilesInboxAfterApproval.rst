@@ -109,27 +109,44 @@ the file will be stored as, its checked type, its size, the start of its
 SHA-256 digest and the inbox folder (:php:`ToolPreviewInterface`). Only a
 viewer who may read the inbox folder the card names sees them, an
 administrator or an editor whose file mount reaches it; any other gets the
-withheld card of :ref:`ADR-136 <adr-136>`. The folder is stored with the
-preview as a field of its own (:php:`StoredPreviewVisibilityInterface`), never
-read from the lines, which carry the client's file name, and not from the
-profile, which may name another folder by the time the card is shown. Those
-lines
-are the reservation of :ref:`ADR-184 <adr-184>`: they are produced again before
-the approved call runs, and when they read differently (another folder, the
-name taken meanwhile, another file, a user who lost the right to write there)
-the call is not carried out and the run waits for a new approval.
+withheld card of :ref:`ADR-136 <adr-136>`.
+
+With the lines the tool names its plan as structured data: the canonical inbox
+folder and the exact name the file is stored as (:php:`PreviewPlanInterface`).
+The loop stores the plan with the preview as a field of its own. Who may see
+the card is decided on the plan's folder, never on the lines, which carry the
+client's file name, and not on the profile, which may name another folder by
+the time the card is shown. Lines and plan are the reservation of
+:ref:`ADR-184 <adr-184>`: both are produced again before the approved call
+runs, and when either differs (another folder, the name taken meanwhile,
+another file, a user who lost the right to write there) the call is not
+carried out and the run waits for a new approval. The plan is compared on its
+own because a long name cuts the name line at 500 characters, where two names
+can read the same.
 
 **4. Nothing is overwritten.** A name that is taken gives the new file another
 name, chosen when the card is built with core's suffix (``report.txt``
-becomes ``report_01.txt``) and shown on it. The approved call writes under
-exactly that name: the loop hands the tool the lines the approver saw
-(:php:`ToolExecutionContext::$approvedPreview`), and the file is added with
+becomes ``report_01.txt``) and shown on it. The approved call writes into
+exactly the folder and under exactly the name of the approved plan: the loop
+hands the tool that plan (:php:`ToolExecutionContext::$approvedPlan`), the
+tool never derives either from text, and the file is added with
 ``DuplicationBehavior::CANCEL``. The cards of one turn are compared before any
-call of it runs, so two files of the same name adopted in one turn can both
-show ``report.txt``; the second finds the name taken, is not written under
-another one, and answers so, and adopting it again raises a new card. A call
-carried out without an approved card writes nothing. The existing file keeps
-its bytes and its record. The file is named after the client's file name without any path and
+call of it runs, so a later call of the turn, or a change of the profile, can
+still come between the comparison and the write. The call then writes nothing
+and answers why: when the profile names another folder than the approved one,
+when the approved name is taken (two files of the same name adopted in one
+turn both show ``report.txt``, and the second finds it taken), or when there is
+no approved plan. Adopting the file again raises a new card. The existing file
+keeps its bytes and its record.
+
+One order is not covered. Core's Local driver adds a file by renaming a
+temporary file into place, without an exclusive create. Two approved
+adoptions of the same name into the same inbox, carried out by two workers at
+the same instant, could both pass the check that the name is free, and the
+second rename would replace the first file's bytes. That needs two runs whose
+cards named the same file name in the same folder, both approved and executed
+within the same moment; every sequential order is caught by the check and by
+``CANCEL``. No lock is built for it. The file is named after the client's file name without any path and
 without Unicode format characters, with an extension of the type the store
 checked (``.txt``, ``.json``, ``.pdf``, ``.png``, ``.jpg`` or ``.jpeg``); core
 sanitises the rest.

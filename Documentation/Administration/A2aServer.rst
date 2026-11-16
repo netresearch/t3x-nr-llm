@@ -535,10 +535,13 @@ Taking a client's file into FAL
      checked type (``.txt``, ``.json``, ``.pdf``, ``.png``, ``.jpg``). A name
      already taken in the folder is kept: the new file gets another one
      (``report_01.txt``), and the existing file and its record stay as they
-     are. The approved call writes under the name the card showed and no
-     other: if two files of one name are adopted in one turn, the second
-     finds the name taken, is not written, and has to be adopted again with
-     a new card. If TYPO3 fails after it wrote the file, the answer says that a file
+     are. The approved call writes into the folder and under the name the
+     card showed and nowhere else: if two files of one name are adopted in
+     one turn, or the skill's inbox folder changes after the approval, the
+     call writes nothing and the file has to be adopted again with a new
+     card. Two approved adoptions of the same name, carried out by two
+     workers at the same instant, are not guarded against: core's Local
+     driver could then replace the first file. If TYPO3 fails after it wrote the file, the answer says that a file
      of that name may remain in the inbox; it is not deleted.
    - **Effect:** nothing references the stored file. It takes effect only
      when an editor uses it in a record of a workspace, which is published

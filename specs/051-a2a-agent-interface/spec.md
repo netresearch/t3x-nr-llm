@@ -694,7 +694,9 @@ Client role (receiver):
   reservation of ADR-184;
   (4) a name already taken is never overwritten: the card shows the new
   file under a free name with core's suffix, the approved call writes under
-  exactly that name (`DuplicationBehavior::CANCEL`; a name taken by then is
+  exactly that name, into the approved folder, both carried as the card's
+  structured plan (`DuplicationBehavior::CANCEL`; a name taken or a folder
+  changed by then is
   refused, not replaced by another), and the existing file and record stay;
   (5) nothing references the adopted file, which takes effect only when an
   editor references it in a workspace record. A2A-MT5 and ADR-265 hold: a
