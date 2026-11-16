@@ -9,8 +9,11 @@
 ADR-216: Invocation policies see the call they decide
 ==============================================================
 
-:Status: Accepted
+:Status: Accepted (amended: a history entry may carry digests, see
+   :ref:`ADR-298 <adr-298>`)
 :Date: 2026-10-09
+:Amended: 2026-11-15 by :ref:`ADR-298 <adr-298>` (a history entry may carry a
+   keyed digest of the call's arguments and of the record state it observed)
 :Amends: :ref:`ADR-093 <adr-093>` (the execution gate also receives the
     arguments, target and observed history of the particular call)
 :Authors: Netresearch DTT GmbH

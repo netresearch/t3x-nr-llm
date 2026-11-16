@@ -9,10 +9,16 @@
 ADR-297: A page metadata write meets its request before its approval
 ======================================================================
 
-:Status: Accepted
+:Status: Accepted (amended: the read before the write and the unchanged row
+   are replaced by a write bound to a passed check of exactly its proposal)
 :Date: 2026-11-15
 :Amends: :ref:`ADR-296 <adr-296>` (the requested fields are now held by a
    rule, not only named to the model)
+:Amended: 2026-11-16 by :ref:`ADR-298 <adr-298>` (the invocation history
+   binds a check to its proposal): the rule ``page_metadata_read_first`` and
+   the ``tstamp`` comparison of ``page_metadata_contract`` are replaced by
+   the rule ``page_metadata_binding`` and the check tool
+   ``check_page_metadata`` (spec 056)
 :Authors: Netresearch DTT GmbH
 
 Context
