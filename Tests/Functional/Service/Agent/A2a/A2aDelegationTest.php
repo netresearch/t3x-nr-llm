@@ -1210,7 +1210,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
      */
     private function asking(string $id, string $question, string $state = 'TASK_STATE_INPUT_REQUIRED'): array
     {
-        return ['id' => $id, 'contextId' => 'ctx-1', 'status' => ['state' => $state, 'message' => ['messageId' => 'q-' . md5($question), 'role' => 'ROLE_AGENT', 'parts' => [['text' => $question]]]]];
+        return ['id' => $id, 'contextId' => 'ctx-1', 'status' => ['state' => $state, 'message' => ['messageId' => 'q-' . hash('sha256', $question), 'role' => 'ROLE_AGENT', 'parts' => [['text' => $question]]]]];
     }
 
     /**
