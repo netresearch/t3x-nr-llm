@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\File;
 
+use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -16,6 +17,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\DeclaresReadEffectTrait;
 use Netresearch\NrLlm\Service\Tool\Builtin\FetchesSysFileRowTrait;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
@@ -75,6 +77,8 @@ final readonly class A2aSendFalFileTool implements ToolInterface, ToolEffectInte
 
     private const NOT_APPROVED = 'Not sent: this skill sends no files from FAL to its clients.';
 
+    private const NOT_KEPT = 'Not sent: this task keeps its answer below the full level, and a file cannot be redacted.';
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
@@ -82,6 +86,7 @@ final readonly class A2aSendFalFileTool implements ToolInterface, ToolEffectInte
         private A2aFileSettings $fileSettings,
         private A2aSkillProfileRepository $profiles,
         private ResourceFactory $resourceFactory,
+        private RunPrivacyLevelResolver $privacy,
     ) {}
 
     public function getSpec(): ToolSpec
@@ -120,6 +125,13 @@ final readonly class A2aSendFalFileTool implements ToolInterface, ToolEffectInte
 
         if (!$profile->sendsFalFiles) {
             return ToolResult::text(self::NOT_APPROVED);
+        }
+
+        // Below the full level the task's artifacts withhold every file
+        // (A2aOutboundFileArtifacts); registering one would only claim a
+        // delivery that never happens.
+        if ($this->privacy->forRunAnswer($run->uid) !== PrivacyLevel::FULL) {
+            return ToolResult::text(self::NOT_KEPT);
         }
 
         $file = $this->fetchFile(self::toInt($arguments['uid'] ?? 0));

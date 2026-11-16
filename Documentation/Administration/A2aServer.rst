@@ -430,8 +430,9 @@ Files from FAL
    offer it.
 
    At each call the tool checks, in this order: the run is a task of the
-   server role; files are on; the skill approves its clients as recipients.
-   Then the file: the client's technical user must reach it through its
+   server role; files are on; the skill approves its clients as recipients;
+   the task keeps its answer at the ``full`` level (below it no file is
+   sent, so the tool refuses rather than claim a delivery). Then the file: the client's technical user must reach it through its
    file mounts and file permissions, read for this run
    (:php:`FalStorageGate::isFileAccessible()`). A file outside those mounts,
    a uid that no file carries and a run without a user get the same answer,
@@ -454,8 +455,10 @@ Files from FAL
    run. Restart the worker after giving a technical user its first mount in
    a storage.
 
-   A file a client sends is never taken into FAL: that needs a decision that
-   is not made yet.
+   A file a client sends is never taken into FAL. A FAL file has no draft,
+   so taking one in would write live, which a writing skill may not do
+   (it writes drafts in the client's workspace only); that needs a decision
+   first.
 
 Downloading a file
    ``GET <endpoint>/files/<file id>`` with the client's bearer token returns

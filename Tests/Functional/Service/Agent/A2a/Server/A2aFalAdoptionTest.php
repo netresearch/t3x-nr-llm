@@ -241,6 +241,21 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-FILE5, A2A-FILE6: a task whose answer is kept below the full level
+     * sends no file, so the tool sends none and says so instead of claiming
+     * that the file goes to the client.
+     */
+    #[Test]
+    public function aTaskKeptBelowTheFullLevelSendsNoFile(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+        $this->privacyLevel('redacted');
+
+        self::assertSame('Not sent: this task keeps its answer below the full level, and a file cannot be redacted.', $this->send(self::IN_DOCS, $run));
+        self::assertSame(0, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT]));
+    }
+
+    /**
      * A2A-FILE1, A2A-FILE6: a file the user may read is sent only when it is
      * one of the five types, within the size limit and passes its type's
      * check.
