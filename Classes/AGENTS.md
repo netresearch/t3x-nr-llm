@@ -51,6 +51,7 @@ Full test matrix in root `AGENTS.md` Commands section.
 | `Provider/Middleware/` | Middleware pipeline (Fallback, Budget, Usage, Cache) — see ADR-026 |
 | `Service/Feature/` | CompletionService, ConversationService, EmbeddingService, ToolCallingService, TranslationService, VisionService — each with its interface |
 | `Service/Decision/` | DecisionService: typed decisions by a consumer-declared profile (DI tag `nr_llm.decision_profile`) on a configuration's model — natively through `LlmServiceManager::decideForConfiguration()` for a model that declares `decision`, through structured output (`StructuredDecisionAsker`) for a chat model — ADR-211 |
+| `Service/Editorial/` | ExternalTextCheck: checks a text used outside TYPO3 against a configuration's term lists and rule-set judge, without the pipeline's word limits, and reports it bound to the text's digest (ADR-300) |
 | `Service/Glossary/` | GlossaryResolver: the site glossary for a language pair, read by TranslationService (ADR-208) |
 | `Service/Guardrail/` | Output and input guardrails, the policy resolver (ADR-106); `Term/` is the term list guardrail (ADR-238) |
 | `Service/Option/` | ChatOptions, DecisionOptions, EmbeddingOptions, ToolOptions, TranslationOptions, VisionOptions on `AbstractOptions`, plus the budget-aware trait and interface |

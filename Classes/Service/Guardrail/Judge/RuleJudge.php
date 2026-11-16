@@ -70,11 +70,14 @@ class RuleJudge
     ) {}
 
     /**
+     * @param list<string> $passageForms further forms a quoted passage may be found in, such as the
+     *                                   decoded strings of a JSON text the judge reads raw (ADR-300)
+     *
      * @return list<JudgeViolation>
      *
      * @throws JudgeUnavailableException
      */
-    public function judge(string $text, RuleSet $rules, LlmConfiguration $judging, string $correlationId = '', ?int $beUserUid = null): array
+    public function judge(string $text, RuleSet $rules, LlmConfiguration $judging, string $correlationId = '', ?int $beUserUid = null, array $passageForms = []): array
     {
         if ($rules->isEmpty()) {
             throw new JudgeUnavailableException('The rule set has no rule.', 4208511155);
@@ -105,7 +108,7 @@ class RuleJudge
             throw new JudgeUnavailableException('The judge call failed: ' . $failure->getMessage(), 0, $failure);
         }
 
-        $violations = $this->parser->parse($response->content, $rules, $this->matcher->searchForms($text));
+        $violations = $this->parser->parse($response->content, $rules, [...$this->matcher->searchForms($text), ...$passageForms]);
         $this->logger->info('Rule-set judge answered.', [
             'configuration'    => $judging->getIdentifier(),
             'model'            => $response->model,

@@ -59,6 +59,8 @@ use function str_ends_with;
 #[CoversClass(RuleJudgeMessages::class)]
 final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
 {
+    private RecordingLogger $logger;
+
     private const TEXT = 'Hallo du, hier ist dein Angebot für den Sommer. Wir zeigen dir in diesem Text, wie du mit wenigen Schritten eine neue Seite anlegst, sie mit Inhalt füllst und am Ende für alle Besucher deiner Website freigibst, ohne lange zu suchen.';
 
     private int $judgeCalls = 0;
@@ -95,6 +97,20 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         self::assertSame(GuardrailVerdict::ALLOW, $result->verdict);
         self::assertSame([], $result->hints);
         self::assertSame(1, $this->judgeCalls);
+    }
+
+    /**
+     * The raw message a provider failure keeps as its cause can carry a key
+     * from the request URL: the log gets the sanitized message only.
+     */
+    #[Test]
+    public function aFailedJudgeIsLoggedWithoutTheRawMessageOfItsCause(): void
+    {
+        $this->guardrail(new JudgeUnavailableException('The provider did not answer.', 0, new RuntimeException('GET https://llm.example/v1/models?key=SECRET-KEY-123 failed')))
+            ->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::REPORT));
+
+        self::assertNotSame([], $this->logger->records);
+        self::assertStringNotContainsString('SECRET-KEY-123', print_r($this->logger->records, true));
     }
 
     #[Test]
@@ -462,7 +478,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
             $this->providers($servedBy),
             self::createStub(TermListResolverInterface::class),
             $reentry ?? new JudgeReentry(),
-            new RecordingLogger(),
+            $this->logger = new RecordingLogger(),
         );
     }
 

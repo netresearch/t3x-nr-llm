@@ -13,13 +13,11 @@ use Netresearch\NrLlm\Domain\Enum\RuleJudgeMode;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
-use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailResult;
-use Netresearch\NrLlm\Domain\ValueObject\ProviderIdentifier;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\GuardrailMiddleware;
 use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
@@ -28,6 +26,7 @@ use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\StreamAnnotatingGuardrailInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListResolverInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
+use Netresearch\NrLlm\Utility\ErrorMessageSanitizerTrait;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AsTaggedItem;
 use Throwable;
@@ -76,10 +75,14 @@ use function trim;
 #[AsTaggedItem(priority: -1000)]
 final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailInterface
 {
+    use ErrorMessageSanitizerTrait;
+
     public const IDENTIFIER = 'rule-set-judge';
 
     /** Below this an answer is a label, a score or a code, not prose a rule speaks about. */
     public const MIN_WORDS = 30;
+
+    private JudgeEgressGate $egress;
 
     public function __construct(
         private RuleSetResolver $ruleSets,
@@ -92,7 +95,9 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
         private TermListResolverInterface $users,
         private JudgeReentry $reentry,
         private LoggerInterface $logger,
-    ) {}
+    ) {
+        $this->egress = new JudgeEgressGate($this->trustZones, $this->providers, $this->configurations);
+    }
 
     public function getIdentifier(): string
     {
@@ -152,7 +157,11 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
             $this->logger->warning('The rule-set judge gave no usable answer.', [
                 'configuration' => $current?->getIdentifier() ?? '',
                 'mode'          => $mode->value,
-                'exception'     => $failure,
+                // The cause of a provider failure keeps the raw request
+                // message, whose URL can carry a key: class and sanitized
+                // message only.
+                'exception' => $failure::class,
+                'message'   => $this->sanitizeErrorMessage($failure->getMessage()),
             ]);
 
             return $mode === RuleJudgeMode::BLOCK
@@ -291,77 +300,27 @@ final readonly class RuleSetJudgeGuardrail implements StreamAnnotatingGuardrailI
     private function violations(string $text, CompletionResponse $response, LlmConfiguration $configuration, ProviderCallContext $context): array
     {
         $rules   = $this->ruleSets->forTags($configuration->getRuleJudgeTagList());
-        $judging = $this->judgingConfiguration($configuration);
+        $judging = $this->egress->judgingConfiguration($configuration);
         // The zone of the provider that wrote the text: the call's own
         // configuration, also when a named configuration's judge asks
         // (ADR-290). The named side brings its rules and its judge, not the
         // provider of the text.
-        $this->assertMayReceive($this->judgedZone($response, $context->configuration ?? $configuration), $judging, $rules);
+        $this->egress->assertMayReceive($this->judgedZone($response, $context->configuration ?? $configuration), $judging, $rules);
 
         $userUid = $context->metadata[BudgetMiddleware::METADATA_BE_USER_UID] ?? null;
 
         return $this->judge->judge($text, $rules, $judging, $context->correlationId, is_int($userUid) ? $userUid : null);
     }
 
-    private function judgingConfiguration(LlmConfiguration $configuration): LlmConfiguration
-    {
-        $uid = $configuration->getRuleJudgeConfiguration();
-        if ($uid <= 0 || $uid === $configuration->getUid()) {
-            throw new JudgeUnavailableException('No judging configuration is chosen.', 9422928822);
-        }
-
-        $judging = $this->configurations->findByUid($uid);
-        if (!$judging instanceof LlmConfiguration || !$judging->isActive()) {
-            throw new JudgeUnavailableException('The judging configuration does not exist or is not active.', 4624017905);
-        }
-
-        return $judging;
-    }
-
     /**
-     * The zone of the provider that wrote the text, failing closed.
-     *
-     * The provider that served the call where the response names it, else the
-     * configuration's own provider. Where neither is known, or the provider
-     * declares no zone, the text is treated as written in the most trusted
-     * zone, so only a judge in that zone is asked. The usual default for an
-     * unknown zone, the least trusted one, would let any judge pass here: it
-     * is the right default for where data may go, and the wrong one for where
-     * it came from.
+     * The zone of the provider that wrote the text: the serving provider the
+     * response names, else the configuration's own ({@see JudgeEgressGate::writerZone()}).
      */
     private function judgedZone(CompletionResponse $response, LlmConfiguration $configuration): TrustZone
     {
-        $provider   = null;
         $provenance = GeneratorProvenance::fromArray($response->metadata[GeneratorProvenance::METADATA_KEY] ?? null);
-        if ($provenance instanceof GeneratorProvenance && $provenance->providerIdentifier !== '') {
-            $provider = $this->providers->findOneByIdentifier(new ProviderIdentifier($provenance->providerIdentifier));
-        }
 
-        $provider ??= $configuration->getProvider();
-
-        return $provider instanceof Provider
-            ? TrustZone::tryFrom($provider->getTrustZone()) ?? TrustZone::LOCAL
-            : TrustZone::LOCAL;
-    }
-
-    /**
-     * The judge sends the output and the rules to another provider. It may not
-     * reach a provider less trusted than the one that wrote the text, nor one
-     * whose zone does not admit a rule snippet's declared class. The judging
-     * side counts every provider it can reach, its fallbacks included.
-     */
-    private function assertMayReceive(TrustZone $own, LlmConfiguration $judging, RuleSet $rules): void
-    {
-        $judge = $this->trustZones->zoneFor($judging);
-        if (TrustZone::leastTrusted($own, $judge) !== $own) {
-            throw new JudgeUnavailableException('The judging configuration reaches a less trusted provider than the judged one.', 2088642690);
-        }
-
-        foreach ($rules->dataClasses as $class) {
-            if (!$judge->permits($class)) {
-                throw new JudgeUnavailableException('A rule snippet declares a data class the judging configuration may not receive.', 8136373669);
-            }
-        }
+        return $this->egress->writerZone($provenance instanceof GeneratorProvenance ? $provenance->providerIdentifier : '', $configuration);
     }
 
     private function judges(CompletionResponse $response, ProviderCallContext $context): bool

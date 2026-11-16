@@ -303,4 +303,5 @@ All decision records
    Adr296AnA2aSkillBindsItsRunToTheScopeOfItsRequest
    Adr297APageMetadataWriteMeetsItsRequestBeforeItsApproval
    Adr298TheInvocationHistoryBindsACheckToItsProposal
+   Adr300ADeliveredTextIsCheckedAsItIsDelivered
    Adr303ANonAdminRunReadsTheMetadataOfAFileItMayAccess
