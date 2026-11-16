@@ -302,7 +302,8 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
                 $owner,
                 $context->actor->workspaceId,
                 $now,
-                $now + max(1, $agent->getMaxWaitSeconds()),
+                // The wait budget starts after the registration and the read.
+                time() + max(1, $agent->getMaxWaitSeconds()),
                 $totals['delegations'],
                 $totals['transferredBytes'],
             ),
