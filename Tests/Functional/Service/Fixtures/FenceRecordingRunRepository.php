@@ -40,6 +40,9 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     /** @var (Closure(): void)|null runs before every findByUuid(), so a test can make that read fail */
     public ?Closure $beforeFindByUuid = null;
 
+    /** @var (Closure(): void)|null runs once before the next claimForResumeFromInput(), so a test can change the pause in between */
+    public ?Closure $beforeClaimFromInput = null;
+
     public function __construct(private readonly AgentRunRepositoryInterface $inner) {}
 
     public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
@@ -61,6 +64,12 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
 
     public function claimForResumeFromInput(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
+        $before                     = $this->beforeClaimFromInput;
+        $this->beforeClaimFromInput = null;
+        if ($before instanceof Closure) {
+            $before();
+        }
+
         $granted = $this->inner->claimForResumeFromInput($runUid, $claimedBy, $leaseExpires);
         if ($granted) {
             $this->resumeClaims[] = ['claimedBy' => $claimedBy, 'leaseExpires' => $leaseExpires];

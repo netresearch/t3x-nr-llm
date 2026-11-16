@@ -99,6 +99,11 @@ final readonly class A2aClient
     }
 
     /**
+     * A message that names a `taskId` continues that task (spec 060): a task
+     * with another id in the response is not followed, and the intent settles
+     * as an unknown outcome (`INVALID_AGENT_RESPONSE`). $continuesSendUid names
+     * the intent of that task in the journal.
+     *
      * @throws A2aAgentUnavailableException when the record may not be used
      * @throws A2aIntentConflictException   when the message id was used for another request
      * @throws A2aJournalException          when the intent cannot be committed
@@ -109,6 +114,7 @@ final readonly class A2aClient
         A2aMessage $message,
         A2aSendMessageConfiguration $configuration = new A2aSendMessageConfiguration(),
         int $runUid = 0,
+        int $continuesSendUid = 0,
     ): A2aSendOutcome {
         $this->assertUsable($agent);
         $message->assertSendable();
@@ -119,7 +125,7 @@ final readonly class A2aClient
         }
 
         $encoded = $this->encode($params);
-        $begin   = $this->journal->begin($ownerUid, (int) $agent->getUid(), $runUid, $message->messageId, A2aJsonRpcCodec::digest($encoded));
+        $begin   = $this->journal->begin($ownerUid, (int) $agent->getUid(), $runUid, $message->messageId, A2aJsonRpcCodec::digest($encoded), $continuesSendUid);
         if (!$begin->created) {
             return new A2aSendOutcome($begin->intent, false);
         }
@@ -131,7 +137,7 @@ final readonly class A2aClient
         // The outcome settles first, so a failed accounting write cannot cost
         // the handle of a task the remote accepted; what left and came back
         // is counted after it either way (spec 051 A2A-R7).
-        $outcome = $this->settle($intent, $result, $id);
+        $outcome = $this->settle($intent, $result, $id, $message->taskId);
         $this->journal->addTransferredBytes($intent, strlen($request->body) + strlen($result->body));
 
         return $outcome;
@@ -554,7 +560,7 @@ final readonly class A2aClient
     /**
      * @throws A2aJournalException
      */
-    private function settle(A2aSendIntent $intent, A2aTransportResult $result, string $id): A2aSendOutcome
+    private function settle(A2aSendIntent $intent, A2aTransportResult $result, string $id, string $continuedTaskId = ''): A2aSendOutcome
     {
         if ($result->outcome === A2aTransportOutcome::NOT_SENT) {
             return new A2aSendOutcome($this->journal->refuse($intent, null, $result->reason, $result->detail), true);
@@ -581,7 +587,7 @@ final readonly class A2aClient
             return new A2aSendOutcome($this->journal->refuse($intent, null, $refusal[0], $refusal[1]), true);
         }
 
-        return $this->settleResponse($intent, $result, $id);
+        return $this->settleResponse($intent, $result, $id, $continuedTaskId);
     }
 
     /**
@@ -594,7 +600,7 @@ final readonly class A2aClient
      *
      * @throws A2aJournalException
      */
-    private function settleResponse(A2aSendIntent $intent, A2aTransportResult $result, string $id): A2aSendOutcome
+    private function settleResponse(A2aSendIntent $intent, A2aTransportResult $result, string $id, string $continuedTaskId = ''): A2aSendOutcome
     {
         try {
             $response = A2aJsonRpcCodec::decodeResponse($result->body, $id);
@@ -617,6 +623,12 @@ final readonly class A2aClient
             }
 
             return new A2aSendOutcome($this->journal->refuse($intent, null, 'INVALID_AGENT_RESPONSE', $e->getMessage()), true);
+        }
+
+        if ($continuedTaskId !== '' && $sent->isTask() && $sent->task->id !== $continuedTaskId) {
+            // The message continued one task; an answer about another is not
+            // followed, and the remote took the request (spec 060 RQ5).
+            return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, 'INVALID_AGENT_RESPONSE', 'the agent answered about another task than the one the message continues'), true);
         }
 
         $settled = $sent->isTask()

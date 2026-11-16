@@ -261,12 +261,41 @@ shortest minimum poll interval of the records:
 
 It looks at each waiting run's remote task first at the record's minimum poll
 interval after the send, then at twice the last interval up to the maximum,
-with up to a quarter of jitter. A task that finished, failed or asks for input
-continues the run with the remote's answer as the tool's result, as the run's
-owner and in its workspace. A request that fails on the way counts as no news.
-After the record's maximum wait the run continues with a "timed out" result
-and the remote task is cancelled once. The poller acts as
+with up to a quarter of jitter. A task that finished or failed continues the
+run with the remote's answer as the tool's result, as the run's owner and in
+its workspace. A request that fails on the way counts as no news. After the
+record's maximum wait the run continues with a "timed out" result and the
+remote task is cancelled once. The poller acts as
 ``worker.technicalBeUserUid`` towards nr-vault, like the commands.
+
+..  _administration-a2a-remote-agents-questions:
+
+When the remote agent asks a question
+-------------------------------------
+
+A remote task in ``TASK_STATE_INPUT_REQUIRED`` asks for something. The model
+is not asked; the run waits for the person who started it
+(:ref:`ADR-311 <adr-311>`):
+
+-  The run moves to the waiting runs with an input form, whose field shows the
+   remote agent's question, marked as the remote agent's.
+-  Only the backend user who started the run can answer it. An administrator
+   or a user with the approval grant who did not start it is refused.
+-  The answer goes to exactly the remote task that asked, with its task and
+   context id, through the journal and with secret shapes masked. It is not
+   approved again. Then the run waits for that task again, with a fresh
+   maximum wait; a further question asks again.
+-  The maximum wait of the delegation also runs while nobody answers: at the
+   deadline the run continues with the "timed out" result and the remote task
+   is cancelled once. A run cancelled or failed while it waits for the answer
+   has its remote task cancelled by the next ``nrllm:a2a:poll``.
+-  An answer is not a delegation: the record's delegations per run count only
+   the first send of each delegation.
+
+A remote task in ``TASK_STATE_AUTH_REQUIRED`` asks for authentication, which
+this installation never gives. Nothing is sent in reply; the poller keeps
+looking until the task goes on or the maximum wait has passed, and the "timed
+out" result then says that the remote asked for authentication.
 
 Cancelling a waiting run (``nrllm:agent:cancel``) cancels its remote task once,
 as the owner of the delegation, and the run ends cancelled whatever the remote
@@ -390,8 +419,11 @@ Known limits
    is not passed on to the run. Files in the client role are part of spec 051
    stage 5c and not built yet; the server role takes inbound files, see
    :ref:`administration-a2a-server-files`.
--  **An interrupted remote task** (``TASK_STATE_INPUT_REQUIRED``,
-   ``TASK_STATE_AUTH_REQUIRED``) is handed to the model as such; nothing
-   answers the remote agent yet.
+-  **A remote question is answered by the run's initiator only**, as text.
+   A run started by an A2A client of this installation could pass the
+   question on to that client, but the delegation tools need an
+   administrator, and a client's technical user usually is not one. A request
+   for authentication is never answered (see
+   :ref:`administration-a2a-remote-agents-questions`).
 -  **A run that cannot be suspended** after its message was accepted fails;
    the remote task stays in the journal as ``accepted`` and is not sent again.

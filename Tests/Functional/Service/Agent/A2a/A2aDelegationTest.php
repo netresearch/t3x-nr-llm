@@ -39,6 +39,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDelegationTool;
 use Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDelegationToolProvider;
 use Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDependencyCanceller;
 use Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDependencyPoller;
+use Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aRemoteAnswerer;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aHttpRequest;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportResult;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
@@ -46,9 +47,15 @@ use Netresearch\NrLlm\Service\Agent\AgentRunRequest;
 use Netresearch\NrLlm\Service\Agent\AgentRunResult;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
+use Netresearch\NrLlm\Service\Agent\DecisionReceipt;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
+use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
+use Netresearch\NrLlm\Service\Agent\InputSubmission;
+use Netresearch\NrLlm\Service\Agent\PendingPause;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
+use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
@@ -677,6 +684,404 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     // ------------------------------------------------------------------
 
     /**
+     * Spec 060 RQ1, RQ2, RQ4, RQ6, RQ7: a remote question becomes a pause of
+     * the run without a model call; the initiator's answer goes out with the
+     * bound task and context id, once; the run waits for the task again, and
+     * its completion answers exactly the pending call.
+     */
+    #[Test]
+    public function theInitiatorsAnswerGoesToTheSameRemoteTask(): void
+    {
+        $agent    = $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_wait_seconds' => 600]);
+        $runtime  = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'summarise the report'])]), $this->finalTurn('the summary is in')]);
+        $runUuid  = $this->delegatedAndAsked($runtime, 'Which year should the summary cover?');
+        $original = $this->journal->findByMessageId(self::OWNER, $this->sentMessageId(0));
+        self::assertInstanceOf(A2aSendIntent::class, $original);
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
+        self::assertCount(1, $this->transcripts, 'the model is not asked');
+        $pause = $runtime->pendingPause(AiActorContext::backendUser(self::OWNER), $runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        self::assertStringContainsString('Which year should the summary cover?', (string) json_encode($pause->inputSchema));
+
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $answered = $this->answer($runtime, $runUuid, 'The year 2025.');
+
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $answered->outcome, (string) $answered->error);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage'], $this->methods());
+        self::assertSame(['task-1', 'ctx-1', 'The year 2025.'], $this->continuation(2));
+        self::assertSame(1, $this->messagesWithoutTask(), 'one new remote task, the first send');
+        self::assertSame('5', $this->sentMessageId(2)[14] ?? '', 'the id is derived from the run and the pause, so a repetition sends nothing');
+        $checkpoint = $this->checkpointOf($this->runOf($runUuid));
+        self::assertSame([$original->uid, 'task-1', 'd1'], [$checkpoint->journalUid, $checkpoint->remoteTaskId, $checkpoint->toolCallId]);
+        self::assertSame(1, $this->journal->runTotals($this->runOf($runUuid)->uid, (int) $agent->getUid())['delegations']);
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'Three things happened in 2025.')]);
+        self::assertSame(1, $this->poller()->tick($checkpoint->suspendedAt + 10)->resumed);
+
+        $finished = $this->runOf($runUuid);
+        self::assertSame(AgentRunStatus::COMPLETED, $finished->statusEnum());
+        self::assertStringContainsString('Three things happened in 2025.', $this->lastResultOf($finished));
+        self::assertSame(['tool', 'd1'], $this->lastToolResultOf($this->transcript(1)));
+    }
+
+    /**
+     * Spec 060 RQ3: an administrator who did not start the run cannot answer
+     * its remote question, neither in the request nor stored for the worker;
+     * nothing is sent. The initiator can.
+     */
+    #[Test]
+    public function anotherUserCannotAnswerEvenAsAdministrator(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('done')]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?', AiActorContext::backendUser(2));
+        $admin   = AiActorContext::backendUser(self::OWNER, true);
+        $pause   = $runtime->pendingPause($admin, $runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $submission = new InputSubmission(['answer' => 'from the admin'], self::OWNER, $pause->turnDigest);
+
+        foreach (['submitInput' => static fn (): AgentRunResult => $runtime->submitInput($admin, $runUuid, $submission), 'storeInput' => static fn (): DecisionReceipt => $runtime->storeInput($admin, $runUuid, $submission, $pause->generation)] as $way => $try) {
+            try {
+                $try();
+                self::fail($way . ' accepted an answer from another user');
+            } catch (RunAccessDeniedException) {
+            }
+        }
+
+        self::assertSame(['SendMessage', 'GetTask'], $this->methods());
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
+
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, 'from the initiator', 2)->outcome);
+        self::assertSame(['task-1', 'ctx-1', 'from the initiator'], $this->continuation(2));
+    }
+
+    /**
+     * Spec 060 RQ2: an answer stored for the worker is sent by a worker that
+     * starts later, with nothing in memory, to the bound task.
+     */
+    #[Test]
+    public function aStoredAnswerIsSentByAFreshWorkerToTheBoundTask(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+        $owner   = AiActorContext::backendUser(self::OWNER);
+        $pause   = $runtime->pendingPause($owner, $runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+
+        $runtime->storeInput($owner, $runUuid, new InputSubmission(['answer' => 'stored 2025'], self::OWNER, $pause->turnDigest), $pause->generation);
+        self::assertSame([AgentRunStatus::QUEUED, 2], [$this->runOf($runUuid)->statusEnum(), count($this->transport->requests)]);
+
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $continued = $this->runtime([])->runQueued($runUuid);
+
+        self::assertInstanceOf(AgentRunResult::class, $continued);
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $continued->outcome, (string) $continued->error);
+        self::assertSame(['task-1', 'ctx-1', 'stored 2025'], $this->continuation(2));
+        self::assertSame('task-1', $this->checkpointOf($this->runOf($runUuid))->remoteTaskId);
+    }
+
+    /**
+     * Spec 060 RQ4: the same answer under the same message id is sent once;
+     * a repetition reads the task instead. An answer whose outcome is unknown
+     * is never sent again.
+     */
+    #[Test]
+    public function aRepeatedExecutionSendsTheAnswerOnce(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid    = $this->delegatedAndAsked($runtime, 'Which year?');
+        $run        = $this->runOf($runUuid);
+        $checkpoint = $this->checkpointOf($run);
+        $answerer   = new A2aRemoteAnswerer($this->journal, $this->getService(A2aRemoteAgentRepository::class), $this->client());
+
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+        self::assertInstanceOf(DependencyCheckpoint::class, $answerer->answer($checkpoint, '2025', '01890000-0000-7000-8000-00000000a001', $run->uid));
+        self::assertInstanceOf(DependencyCheckpoint::class, $answerer->answer($checkpoint, '2025', '01890000-0000-7000-8000-00000000a001', $run->uid));
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask'], $this->methods());
+
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::maybeSent('TIMEOUT_AFTER_SEND', 'no answer'));
+        $unknown = $answerer->answer($checkpoint, '2026', '01890000-0000-7000-8000-00000000a002', $run->uid);
+        $again   = $answerer->answer($checkpoint, '2026', '01890000-0000-7000-8000-00000000a002', $run->uid);
+        self::assertInstanceOf(ToolResult::class, $again);
+        self::assertStringContainsString('outcome unknown', $again->content);
+        self::assertInstanceOf(ToolResult::class, $unknown);
+        self::assertCount(5, $this->transport->requests, 'the unknown answer left once');
+    }
+
+    /**
+     * Spec 060 RQ5: a remote that answers about another task is not followed;
+     * the run goes on with an error result and nothing is read of that task.
+     */
+    #[Test]
+    public function anAnswerAboutAnotherTaskIsNotFollowed(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('could not')]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-9', 'TASK_STATE_COMPLETED', 'not ours')]]);
+        $result = $this->answer($runtime, $runUuid, '2025');
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage'], $this->methods());
+        $results = $this->toolResultsOf($this->runOf($runUuid), $this->skillTool());
+        self::assertStringContainsString('outcome unknown', $results[count($results) - 1]);
+        self::assertStringNotContainsString('not ours', implode("\n", $results));
+        self::assertSame(A2aSendState::OUTCOME_UNKNOWN, $this->journal->findByMessageId(self::OWNER, $this->sentMessageId(2))?->state);
+    }
+
+    /**
+     * Spec 060 RQ7: an answer is not a delegation. With a limit of two, a
+     * delegation, its answer and a second delegation all go out.
+     */
+    #[Test]
+    public function anAnswerIsNotADelegation(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_delegations_per_run' => 2]);
+        $runtime = $this->runtime([
+            $this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'one'])]),
+            $this->toolTurn([new ToolCall('d2', $this->skillTool(), ['message' => 'two'])]),
+            $this->finalTurn('both done'),
+        ]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'first done')]]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-2', 'TASK_STATE_COMPLETED', 'second done')]]);
+
+        $result = $this->answer($runtime, $runUuid, '2025');
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'SendMessage'], $this->methods());
+        $results = $this->toolResultsOf($this->runOf($runUuid), $this->skillTool());
+        self::assertStringContainsString('second done', $results[count($results) - 1]);
+    }
+
+    /**
+     * Spec 060 RQ8: AUTH_REQUIRED is waited out: nothing but GetTask, and at
+     * the deadline the timeout says that authentication was asked for.
+     */
+    #[Test]
+    public function authRequiredSendsNothingButGetTask(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_wait_seconds' => 60]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_SUBMITTED')]]);
+        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('no luck')]);
+        $runUuid    = $runtime->run($this->request())->runUuid;
+        $checkpoint = $this->checkpointOf($this->runOf($runUuid));
+
+        $this->transport->thenJson(['result' => $this->asking('task-1', 'Log in at https://agent.example/login first.', 'TASK_STATE_AUTH_REQUIRED')]);
+        $report = $this->poller()->tick($checkpoint->suspendedAt + 10);
+        self::assertSame([0, 1], [$report->asked, $report->waiting]);
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($runUuid)->statusEnum());
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        self::assertSame(1, $this->poller()->tick($checkpoint->deadline)->timedOut);
+
+        self::assertSame(['SendMessage', 'GetTask', 'CancelTask'], $this->methods());
+        self::assertStringContainsString('asked for authentication', $this->lastResultOf($this->runOf($runUuid)));
+    }
+
+    /**
+     * Spec 060 RQ9: a run cancelled while it waits for the answer leaves no
+     * open question on the remote side: the next tick cancels the task once.
+     */
+    #[Test]
+    public function cancellingTheQuestionCancelsTheRemoteTask(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+
+        self::assertTrue($runtime->cancel(AiActorContext::backendUser(self::OWNER), $runUuid));
+        self::assertSame(AgentRunStatus::CANCELLED, $this->runOf($runUuid)->statusEnum());
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        $this->poller()->tick(time());
+        $this->poller()->tick(time() + 1000);
+
+        self::assertSame(['SendMessage', 'GetTask', 'CancelTask'], $this->methods());
+    }
+
+    /**
+     * Spec 060 RQ6: the delegation's deadline holds while nobody answers: the
+     * run goes on with the timeout result and the remote task is cancelled
+     * once.
+     */
+    #[Test]
+    public function anUnansweredQuestionTimesOutAtTheDeadline(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_wait_seconds' => 60]);
+        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('nobody answered')]);
+        $runUuid    = $this->delegatedAndAsked($runtime, 'Which year?');
+        $checkpoint = $this->checkpointOf($this->runOf($runUuid));
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        self::assertSame(1, $this->poller()->tick($checkpoint->deadline)->timedOut);
+        $this->poller()->tick($checkpoint->deadline + 1000);
+
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($runUuid)->statusEnum());
+        self::assertSame(['SendMessage', 'GetTask', 'CancelTask'], $this->methods());
+        self::assertStringContainsString('did not finish within 60 seconds', $this->lastResultOf($this->runOf($runUuid)));
+    }
+
+    /**
+     * Spec 060 RQ2, RQ4: a refused answer (another turn's digest) puts the run
+     * back into its pause with the binding; two questions in a row get two
+     * answers under two message ids, both to the bound task.
+     */
+    #[Test]
+    public function aRefusedAnswerKeepsTheBindingAndTwoQuestionsGetTwoAnswers(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('both answered')]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+
+        try {
+            $runtime->submitInput(AiActorContext::backendUser(self::OWNER), $runUuid, new InputSubmission(['answer' => '2025'], self::OWNER, 'another-turn'));
+            self::fail('a stale digest was accepted');
+        } catch (StaleInputTurnException) {
+        }
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
+        self::assertSame('task-1', $this->checkpointOf($this->runOf($runUuid))->remoteTaskId, 'the release kept the binding');
+
+        $this->transport->thenJson(['result' => ['task' => $this->asking('task-1', 'And which month?')]]);
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, '2025')->outcome);
+        $this->transport->thenJson(['result' => $this->asking('task-1', 'And which month?')]);
+        self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($runUuid))->suspendedAt + 10)->asked);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'March 2025.')]]);
+        $result = $this->answer($runtime, $runUuid, 'March');
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask', 'SendMessage'], $this->methods());
+        self::assertSame(['task-1', 'ctx-1', '2025'], $this->continuation(2));
+        self::assertSame(['task-1', 'ctx-1', 'March'], $this->continuation(4));
+        self::assertNotSame($this->sentMessageId(2), $this->sentMessageId(4));
+        self::assertStringContainsString('March 2025.', $this->lastResultOf($this->runOf($runUuid)));
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function transcript(int $index): array
+    {
+        return $this->transcripts[$index] ?? [];
+    }
+
+    private function lastResultOf(AgentRun $run): string
+    {
+        $results = $this->toolResultsOf($run, $this->skillTool());
+
+        return $results === [] ? '' : $results[count($results) - 1];
+    }
+
+    /**
+     * Spec 060 RQ2, RQ3: an answer is bound to the question it was given
+     * for. When the run was answered and asked again between the checks and
+     * the claim, even with the same question, the late answer is refused and
+     * the run waits for the new question unchanged.
+     */
+    #[Test]
+    public function anAnswerToAQuestionThatWasReplacedIsRefused(): void
+    {
+        $repository      = new FenceRecordingRunRepository(AgentRunRepositoryFactory::create($this->getService(ConnectionPool::class), $this->getService(AgentStateCodec::class)));
+        $this->persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+        $owner   = AiActorContext::backendUser(self::OWNER);
+        $pause   = $runtime->pendingPause($owner, $runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+
+        // Between the checks of the late answer and its claim, the first
+        // answer goes out and the remote asks the same question again.
+        $repository->beforeClaimFromInput = function () use ($runtime, $runUuid): void {
+            $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+            self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, 'the first answer')->outcome);
+            $this->transport->thenJson(['result' => $this->asking('task-1', 'Which year?')]);
+            self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($runUuid))->suspendedAt + 10)->asked);
+        };
+
+        try {
+            $runtime->submitInput($owner, $runUuid, new InputSubmission(['answer' => 'the late answer'], self::OWNER, $pause->turnDigest));
+            self::fail('an answer to a replaced question was accepted');
+        } catch (StaleInputTurnException) {
+        }
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
+        self::assertSame('task-1', $this->checkpointOf($this->runOf($runUuid))->remoteTaskId);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask'], $this->methods());
+        self::assertSame(['task-1', 'ctx-1', 'the first answer'], $this->continuation(2));
+    }
+
+    /**
+     * Sends the delegation (the remote accepts task-1), then lets the poller
+     * see the remote's question.
+     */
+    private function delegatedAndAsked(AgentRuntime $runtime, string $question, ?AiActorContext $actor = null): string
+    {
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_SUBMITTED')]]);
+        $suspended = $runtime->run($this->request($actor));
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $suspended->outcome, (string) $suspended->error);
+        $this->transport->thenJson(['result' => $this->asking('task-1', $question)]);
+        self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($suspended->runUuid))->suspendedAt + 10)->asked);
+
+        return $suspended->runUuid;
+    }
+
+    private function answer(AgentRuntime $runtime, string $runUuid, string $text, int $by = self::OWNER): AgentRunResult
+    {
+        $actor = AiActorContext::backendUser($by);
+        $pause = $runtime->pendingPause($actor, $runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+
+        return $runtime->submitInput($actor, $runUuid, new InputSubmission(['answer' => $text], $by, $pause->turnDigest));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function asking(string $id, string $question, string $state = 'TASK_STATE_INPUT_REQUIRED'): array
+    {
+        return ['id' => $id, 'contextId' => 'ctx-1', 'status' => ['state' => $state, 'message' => ['messageId' => 'q-' . md5($question), 'role' => 'ROLE_AGENT', 'parts' => [['text' => $question]]]]];
+    }
+
+    /**
+     * Task id, context id and text of the message request $index sent.
+     *
+     * @return array{string, string, string}
+     */
+    private function continuation(int $index): array
+    {
+        $params  = ScriptedA2aTransport::envelopeOf($this->transport->requests[$index])['params'] ?? null;
+        $message = is_array($params) ? ($params['message'] ?? null) : null;
+        self::assertIsArray($message);
+        $parts = is_array($message['parts'] ?? null) ? $message['parts'] : [];
+        $first = is_array($parts[0] ?? null) ? $parts[0] : [];
+
+        return [self::text($message['taskId'] ?? null), self::text($message['contextId'] ?? null), self::text($first['text'] ?? null)];
+    }
+
+    /**
+     * How many SendMessage requests named no task: each one may create a task.
+     */
+    private function messagesWithoutTask(): int
+    {
+        $count = 0;
+        foreach ($this->transport->requests as $request) {
+            $envelope = ScriptedA2aTransport::envelopeOf($request);
+            $message  = is_array($envelope['params'] ?? null) ? ($envelope['params']['message'] ?? null) : null;
+            if (($envelope['method'] ?? null) === 'SendMessage' && is_array($message) && ($message['taskId'] ?? '') === '') {
+                ++$count;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
      * Role and call id of the last message of a transcript.
      *
      * @param list<mixed> $messages
@@ -712,6 +1117,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $bus->method('dispatch')->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
 
         $this->loop = new ToolLoopService($manager, $registry, $policy);
+        $executor   = new AgentRunExecutor($this->loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry));
 
         return new AgentRuntime(
             $this->loop,
@@ -721,6 +1127,16 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
             $bus,
             actingBackendUserResolver: new ActingBackendUserResolver(),
             toolEffectResolver: new ToolEffectResolver($registry),
+            resumeCoordinator: new ResumeCoordinator(
+                $this->persister,
+                $this->configurations(),
+                $this->loop,
+                $executor,
+                toolEffectResolver: new ToolEffectResolver($registry),
+                toolPolicy: $policy,
+                actingBackendUserResolver: new ActingBackendUserResolver(),
+                remoteQuestions: new A2aRemoteAnswerer($this->journal, $this->getService(A2aRemoteAgentRepository::class), $this->client()),
+            ),
             toolPolicy: $policy,
             dependencyCanceller: $this->canceller(),
         );

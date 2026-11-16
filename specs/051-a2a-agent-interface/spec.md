@@ -340,8 +340,10 @@ the proto column. Where the proto is silent, the tie-breaker is named.
 - **A2A-R11 Resume.** When the remote task reaches a terminal or interrupted
   state, the run continues as the same actor, in the workspace the run
   recorded (ADR-260), with the budgets of A2A-R7; the remote's artifacts become
-  the tool result. An interrupted remote state (INPUT_REQUIRED, AUTH_REQUIRED)
-  is returned to the model as such; stage 2 does not answer it.
+  the tool result. An interrupted remote state was returned to the model as
+  such in stage 2; since spec 060 (ADR-311) INPUT_REQUIRED pauses the run for
+  its initiator's answer, which goes to that remote task, and AUTH_REQUIRED is
+  waited out and never answered.
 - **A2A-R12 Cancel propagation.** Cancelling a waiting run sends `CancelTask`
   for its remote task (once, no retry beyond the call's own timeout) and
   settles the run CANCELLED whatever the remote answers; the answer is recorded

@@ -1,0 +1,1 @@
+- Run the database analyzer: answers to a remote agent's question are journalled with the new column `tx_nrllm_a2a_send.continues_send_uid` (default 0), which keeps them out of the delegations a run may make.

@@ -52,6 +52,9 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class DependencyResumeCoordinator
 {
+    /** The longest answer to a remote question (spec 060 RQ1). */
+    public const MAX_ANSWER = 4000;
+
     public function __construct(
         private AgentRunPersister $persister,
         private LlmConfigurationRepository $configurations,
@@ -97,6 +100,137 @@ final readonly class DependencyResumeCoordinator
             return null;
         }
 
+        return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner);
+    }
+
+    /**
+     * A run that waits for its initiator's answer to a remote question
+     * (spec 060) and whose dependency's deadline passed: resumed like
+     * {@see self::resume()} with $result, from its input pause.
+     *
+     * @param (Closure(): void)|null $onClaimed
+     */
+    public function expireQuestion(AgentRun $run, DependencyCheckpoint $expected, ToolResult $result, ?Closure $onClaimed = null): ?AgentRunResult
+    {
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
+        $leaseOwner = ExecutionIdentity::resume();
+        if (!$this->persister->claimResumeFromInput($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+            return null;
+        }
+
+        return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner);
+    }
+
+    /**
+     * The runs that wait for their initiator's answer to a remote question
+     * (spec 060), with their checkpoint: input pauses whose sealed state
+     * carries one.
+     *
+     * @return list<array{AgentRun, DependencyCheckpoint}>
+     */
+    public function questionRuns(int $limit = 100): array
+    {
+        $questions = [];
+        foreach ($this->persister->findAwaitingRuns($limit) ?? [] as $run) {
+            $checkpoint = $run->statusEnum() === AgentRunStatus::WAITING_FOR_INPUT ? self::checkpointOf($run) : null;
+            if ($checkpoint instanceof DependencyCheckpoint) {
+                $questions[] = [$run, $checkpoint];
+            }
+        }
+
+        return $questions;
+    }
+
+    /**
+     * Turn the run's wait for the remote operation into a wait for its
+     * initiator's answer (spec 060 RQ1): claimed like a resume, the
+     * checkpoint read again and checked, then suspended for input with the
+     * pending call as the input target, the question as the title of its one
+     * field, and the checkpoint kept beside it. No model call and no tool
+     * runs. False when another worker or a cancel won the run, or it was
+     * failed because it could not be paused.
+     *
+     * @param (Closure(): void)|null $onClaimed
+     */
+    public function askInitiator(AgentRun $run, DependencyCheckpoint $expected, string $question, ?Closure $onClaimed = null): bool
+    {
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
+        $leaseOwner = ExecutionIdentity::resume();
+        if (!$this->persister->claimResumeFromDependency($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+            return false;
+        }
+
+        $claimed = $this->persister->findRun($run->uuid);
+        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
+            if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                $this->fail(new AgentRunHandle($run->uid, $run->uuid), 'The event-stream position could not be determined after the dependency claim', $leaseOwner);
+            }
+
+            return false;
+        }
+
+        [$state, $checkpoint] = $this->decode($claimed) ?? [null, null];
+        if (!$state instanceof SuspendedRunState || !$checkpoint instanceof DependencyCheckpoint
+            || $checkpoint->journalUid !== $expected->journalUid || $checkpoint->toolCallId !== $expected->toolCallId
+            || !$this->owner($state, $claimed) instanceof AiActorContext) {
+            $this->fail($handle, 'The dependency checkpoint could not be read after the claim', $leaseOwner);
+
+            return false;
+        }
+
+        if ($onClaimed instanceof Closure) {
+            $onClaimed();
+        }
+
+        $paused = SuspendedRunState::fromArray([
+            'inputToolName' => $checkpoint->toolName,
+            'inputCallId'   => $checkpoint->toolCallId,
+            'inputSchema'   => self::answerSchema($question),
+        ] + $state->toArray());
+        if ($this->persister->suspendForRemoteQuestion($handle, $paused, $checkpoint)) {
+            return true;
+        }
+
+        $this->fail($handle, 'The run could not wait for the answer to the remote question', $leaseOwner);
+
+        return false;
+    }
+
+    /**
+     * The input a remote question asks of the initiator: one text, the
+     * question as its title.
+     *
+     * @return array<string, mixed>
+     */
+    public static function answerSchema(string $question): array
+    {
+        return [
+            'type'       => 'object',
+            'required'   => ['answer'],
+            'properties' => [
+                'answer' => ['type' => 'string', 'title' => $question, 'minLength' => 1, 'maxLength' => self::MAX_ANSWER],
+            ],
+        ];
+    }
+
+    /**
+     * The checkpoint a run's sealed state carries, whatever it waits for.
+     */
+    public static function checkpointOf(AgentRun $run): ?DependencyCheckpoint
+    {
+        $decoded = json_decode($run->suspendedState ?? '', true);
+
+        return is_array($decoded) ? DependencyCheckpoint::fromStoredState($decoded) : null;
+    }
+
+    /**
+     * @param (Closure(): void)|null $onClaimed
+     */
+    private function resumeClaimed(AgentRun $run, DependencyCheckpoint $expected, ToolResult $result, ?Closure $onClaimed, string $leaseOwner): ?AgentRunResult
+    {
         $claimed = $this->persister->findRun($run->uuid);
         $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
