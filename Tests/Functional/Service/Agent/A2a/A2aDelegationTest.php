@@ -1117,6 +1117,12 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         } catch (InvalidInputSubmissionException) {
         }
 
+        try {
+            $runtime->submitInput($owner, $runUuid, new InputSubmission(['answer' => "\u{00A0}\u{3000}"], self::OWNER, $first->turnDigest));
+            self::fail('an answer of non-breaking and ideographic spaces was accepted');
+        } catch (InvalidInputSubmissionException) {
+        }
+
         $this->transport->thenJson(['result' => ['task' => $this->asking('task-1', 'Which year?')]]);
         self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, 'the first answer')->outcome);
         $this->transport->thenJson(['result' => $this->asking('task-1', 'Which year?')]);
@@ -1130,6 +1136,40 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 
         self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
         self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask'], $this->methods());
+    }
+
+    /**
+     * Spec 060 RQ4: a worker that dies after the answer went out, before the
+     * run waited again, sends nothing twice. The replay of the stored answer
+     * is refused as stale and the run is back at the question; the same
+     * answer given again gets the existing intent back, under the same id.
+     */
+    #[Test]
+    public function aReplayAfterACrashDoesNotSendTheAnswerTwice(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+        $owner   = AiActorContext::backendUser(self::OWNER);
+        $pause   = $runtime->pendingPause($owner, $runUuid);
+        self::assertInstanceOf(PendingPause::class, $pause);
+        $runtime->storeInput($owner, $runUuid, new InputSubmission(['answer' => '2025'], self::OWNER, $pause->turnDigest), $pause->generation);
+        $runs   = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_agentrun');
+        $queued = $runs->select(['*'], 'tx_nrllm_agentrun', ['uuid' => $runUuid])->fetchAssociative();
+        self::assertIsArray($queued);
+
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $this->runtime([])->runQueued($runUuid);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage'], $this->methods());
+
+        // The crash: the answer left, the run's next state was never stored.
+        $runs->update('tx_nrllm_agentrun', $queued, ['uuid' => $runUuid]);
+        $this->runtime([])->runQueued($runUuid);
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_WORKING')]);
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, '2025')->outcome);
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask'], $this->methods(), 'the existing intent was read, not sent again');
     }
 
     /**

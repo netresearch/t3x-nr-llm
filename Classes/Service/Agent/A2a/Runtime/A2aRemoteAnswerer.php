@@ -83,7 +83,7 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
         }
 
         $text = trim($answer);
-        if ($text === '') {
+        if (preg_match('/[^\\s\\p{Z}\\p{Cc}\\p{Cf}]/u', $text) !== 1) {
             return A2aToolResults::unavailable('the answer is empty');
         }
 

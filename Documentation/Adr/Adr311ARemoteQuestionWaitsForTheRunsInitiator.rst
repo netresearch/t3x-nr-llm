@@ -51,8 +51,9 @@ Decision
 3. **The binding is local.** The remote task id, context id, agent and owner
    come from the checkpoint and the original journal row. The answer is sent
    with that task and context id through the send journal, as an intent that
-   continues the first one; its message id is derived from the run, the pause
-   and the checkpoint, so a repeated execution gets the existing intent back.
+   continues the first one; its message id is derived from the run, the
+   checkpoint and the question's marker, never from the claim, so a repeated
+   execution or a replay after a crash gets the existing intent back.
    A response about another task is not followed. Every rewrite of the pause,
    such as the release after a refused answer, keeps the checkpoint. The
    checkpoint is bound to the endpoint that asked (a digest of the record's
