@@ -30,6 +30,7 @@ use Netresearch\NrLlm\Provider\Middleware\ProviderCallContext;
 use Netresearch\NrLlm\Provider\Middleware\ProviderOperation;
 use Netresearch\NrLlm\Service\CallMetadataFactory;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
+use Netresearch\NrLlm\Service\Guardrail\Judge\DeferredAnswerJudging;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeReentry;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeUnavailableException;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeViolation;
@@ -57,6 +58,7 @@ use function str_ends_with;
  */
 #[CoversClass(RuleSetJudgeGuardrail::class)]
 #[CoversClass(RuleJudgeMessages::class)]
+#[CoversClass(DeferredAnswerJudging::class)]
 final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
 {
     private RecordingLogger $logger;
@@ -414,6 +416,46 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         self::assertSame(0, $this->judgeCalls);
     }
 
+    /**
+     * ADR-302: the answer of a run with an end-of-run check is judged once,
+     * after the loop, so the pipeline leaves it alone while the run's loop
+     * runs, and judges it again afterwards.
+     */
+    #[Test]
+    public function theAnswerOfARunWithAnEndCheckIsLeftToThatCheck(): void
+    {
+        $deferred  = new DeferredAnswerJudging();
+        $guardrail = $this->guardrail([$this->violation()], deferred: $deferred);
+        $call      = $this->call(RuleJudgeMode::BLOCK, run: new AgentRunReference(5, 'u'));
+
+        $during = $deferred->during(5, fn (): GuardrailResult => $guardrail->checkOutputInContext($this->response(), $call));
+        self::assertSame(GuardrailVerdict::ALLOW, $during->verdict);
+        self::assertSame(0, $this->judgeCalls);
+        self::assertFalse($deferred->during(5, static fn (): bool => $guardrail->holdsStream($call)));
+
+        self::assertSame(GuardrailVerdict::DENY, $guardrail->checkOutputInContext($this->response(), $call)->verdict);
+        self::assertSame(1, $this->judgeCalls);
+    }
+
+    /**
+     * ADR-302: another run is not covered, and the written arguments of a run
+     * that offers tools are judged as before, also while its answer is left
+     * to the end check.
+     */
+    #[Test]
+    public function writtenArgumentsAndOtherRunsAreStillJudgedWhileAnAnswerIsDeferred(): void
+    {
+        $deferred  = new DeferredAnswerJudging();
+        $guardrail = $this->guardrail([$this->violation()], deferred: $deferred);
+
+        $other = $deferred->during(6, fn (): GuardrailResult => $guardrail->checkOutputInContext($this->response(), $this->call(RuleJudgeMode::BLOCK, run: new AgentRunReference(5, 'u'))));
+        self::assertSame(GuardrailVerdict::DENY, $other->verdict);
+
+        $write = $deferred->during(5, fn (): GuardrailResult => $guardrail->checkOutputInContext($this->proposing('update_record', 'search_records'), $this->chatCall(RuleJudgeMode::BLOCK)));
+        self::assertSame(GuardrailVerdict::DENY, $write->verdict);
+        self::assertSame(2, $this->judgeCalls);
+    }
+
     #[Test]
     public function theGuardrailIsMandatory(): void
     {
@@ -433,6 +475,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
         ?RuleJudge $judge = null,
         ?JudgeReentry $reentry = null,
         ?Provider $servedBy = null,
+        ?DeferredAnswerJudging $deferred = null,
     ): RuleSetJudgeGuardrail {
         $ruleSets = self::createStub(RuleSetResolver::class);
         $ruleSets->method('forTags')->willReturn(RuleSet::fromSnippets([['name' => 'Ton', 'text' => 'Sprich die Leser mit „Sie“ an.', 'dataClass' => $ruleClass]]));
@@ -479,6 +522,7 @@ final class RuleSetJudgeGuardrailTest extends AbstractUnitTestCase
             self::createStub(TermListResolverInterface::class),
             $reentry ?? new JudgeReentry(),
             $this->logger = new RecordingLogger(),
+            $deferred ?? new DeferredAnswerJudging(),
         );
     }
 

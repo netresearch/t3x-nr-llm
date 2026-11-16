@@ -15,9 +15,11 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
@@ -39,6 +41,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\RunStartRefusedException;
 use Netresearch\NrLlm\Service\Agent\Exception\WriteWithoutDurableExecutionException;
 use Netresearch\NrLlm\Service\Agent\Process\PreparedProcess;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
+use Netresearch\NrLlm\Service\Guardrail\Judge\DeferredAnswerJudging;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -74,6 +77,9 @@ use Throwable;
 final readonly class AgentRunExecutor
 {
     use OptionalAgentDiagnostics;
+
+    /** The guardrail name of a stop by the end-of-run check (ADR-302). */
+    public const OUTPUT_CHECK = 'output-check';
 
     public function __construct(
         private ToolLoopServiceInterface $toolLoop,
@@ -111,6 +117,15 @@ final readonly class AgentRunExecutor
         /** @var iterable<RunStartPreparerInterface> */
         #[AutowireIterator(RunStartPreparerInterface::TAG)]
         private iterable $startPreparers = [],
+        // Checks a run's final answer after its loop, before the completion
+        // is stored (ADR-302). The starter decides on the server whether a
+        // run's answer is checked; a run no check plans for completes as before.
+        /** @var iterable<RunOutputCheckInterface> */
+        #[AutowireIterator(RunOutputCheckInterface::TAG)]
+        private iterable $outputChecks = [],
+        // The runs whose answer the pipeline's judge leaves to the end-of-run
+        // check, so a text is judged once (ADR-302).
+        private ?DeferredAnswerJudging $deferredJudging = null,
     ) {}
 
     /**
@@ -222,7 +237,34 @@ final readonly class AgentRunExecutor
             },
             $recover,
             $leaseOwner,
+            true,
+            // A check-only run (ADR-302): the submitted text is the answer. No
+            // generator call, no tool call, the text as it was sent.
+            static fn (): ToolLoopResult => new ToolLoopResult(self::submittedText($request), [], 0, false, UsageStatistics::fromTokens(0, 0)),
         );
+    }
+
+    /**
+     * The text of the last user message of a request: what a check-only run
+     * checks (ADR-302).
+     */
+    private static function submittedText(AgentRunRequest $request): string
+    {
+        foreach (array_reverse($request->messages) as $message) {
+            if ($message instanceof ChatMessage) {
+                if ($message->role === 'user') {
+                    return $message->content;
+                }
+
+                continue;
+            }
+
+            if (($message['role'] ?? null) === 'user') {
+                return is_string($message['content'] ?? null) ? $message['content'] : '';
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -306,6 +348,7 @@ final readonly class AgentRunExecutor
             },
             null,
             $leaseOwner,
+            false,
         );
     }
 
@@ -693,37 +736,27 @@ final readonly class AgentRunExecutor
      * arm, before the default settleFailed, it decides retry-vs-dead-letter and,
      * when it handles the failure, returns the outcome that replaces FAILED.
      *
+     * A run an output check plans for (ADR-302) has its answer checked after
+     * the loop and before the completion is stored, outside every transaction;
+     * a blocking verdict takes the guardrail arm. The plan is decided here
+     * once, for all three paths. A check-only run replaces the loop with
+     * $checkOnlyCall; a segment that has none cannot be a check-only run.
+     *
      * @param Closure(): ToolLoopResult                                 $loopCall
      * @param (Closure(Throwable, list<RunStep>): ?AgentRunResult)|null $recover
+     * @param (Closure(): ToolLoopResult)|null                          $checkOnlyCall
      */
-    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null, ?string $ownerGuard = null): AgentRunResult
+    private function execute(?AgentRunHandle $handle, RunTrace $trace, Closure $loopCall, ?Closure $recover = null, ?string $ownerGuard = null, bool $start = true, ?Closure $checkOnlyCall = null): AgentRunResult
     {
         $runUuid = $handle instanceof AgentRunHandle ? $handle->uuid : '';
         $settled = false;
 
         try {
-            $result = $loopCall();
+            $result    = $this->loopResult($handle, $start, $loopCall, $checkOnlyCall, $ownerGuard);
+            $completed = $this->completed($handle, $result, $trace, $ownerGuard, $runUuid);
+            $settled   = true;
 
-            if ($handle instanceof AgentRunHandle) {
-                $settledOk = $this->persister->settleCompleted($handle, $result, $ownerGuard);
-                // Ownership-guarded on the queued path: if the run was reclaimed
-                // to another worker mid-loop, this completion must not overwrite
-                // its state — stop as LEASE_LOST rather than reporting COMPLETED.
-                if ($ownerGuard !== null && !$settledOk) {
-                    $settled = true;
-
-                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
-                }
-            }
-
-            $settled = true;
-
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::COMPLETED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                loopResult: $result,
-            );
+            return $completed;
         } catch (RunCancellationRequestedException $cancelled) {
             // ADR-103: the operator's cancel already won the guarded terminal
             // transition — the row IS CANCELLED and its late settle would be
@@ -821,6 +854,102 @@ final readonly class AgentRunExecutor
                 // queued run the reaper reclaimed to another worker.
                 $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'), $ownerGuard);
             }
+        }
+    }
+
+    /**
+     * The loop of this segment, and the end-of-run check its plan asks for
+     * (ADR-302): a check-only run replaces the loop with $checkOnlyCall, the
+     * pipeline judge leaves the answer to the end check while the loop runs,
+     * and a blocking verdict throws into the guardrail arm.
+     *
+     * @param Closure(): ToolLoopResult        $loopCall
+     * @param (Closure(): ToolLoopResult)|null $checkOnlyCall
+     */
+    private function loopResult(?AgentRunHandle $handle, bool $start, Closure $loopCall, ?Closure $checkOnlyCall, ?string $ownerGuard): ToolLoopResult
+    {
+        [$check, $plan] = $this->outputCheckFor($handle, $start);
+        if ($plan->checkOnly && !$checkOnlyCall instanceof Closure) {
+            throw new RuntimeException(sprintf('Run %s is a check-only run and cannot resume.', $handle instanceof AgentRunHandle ? $handle->uuid : ''), 1799430201);
+        }
+
+        $loop = $plan->checkOnly && $checkOnlyCall instanceof Closure ? $checkOnlyCall : $loopCall;
+        if (!$check instanceof RunOutputCheckInterface || !$handle instanceof AgentRunHandle) {
+            return $loop();
+        }
+
+        $result = ($this->deferredJudging ?? new DeferredAnswerJudging())->during($handle->runUid, $loop);
+        $this->checkOutput($check, $handle, $result, $ownerGuard);
+
+        return $result;
+    }
+
+    /**
+     * Settles a completed run. Ownership-guarded on the queued path: if the
+     * run was reclaimed to another worker mid-loop, this completion must not
+     * overwrite its state — it stops as LEASE_LOST rather than COMPLETED.
+     */
+    private function completed(?AgentRunHandle $handle, ToolLoopResult $result, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle
+            && !$this->persister->settleCompleted($handle, $result, $ownerGuard)
+            && $ownerGuard !== null
+        ) {
+            return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
+        }
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::COMPLETED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            loopResult: $result,
+        );
+    }
+
+    /**
+     * The one output check that plans for this run, and its plan. Two that
+     * both plan for one run are a configuration error, not a choice.
+     *
+     * @return array{?RunOutputCheckInterface, RunOutputCheckPlan}
+     */
+    private function outputCheckFor(?AgentRunHandle $handle, bool $start): array
+    {
+        if (!$handle instanceof AgentRunHandle) {
+            return [null, RunOutputCheckPlan::none()];
+        }
+
+        $found = [null, RunOutputCheckPlan::none()];
+        foreach ($this->outputChecks as $check) {
+            $plan = $check->planFor($handle, $start);
+            if (!$plan->applies) {
+                continue;
+            }
+
+            if ($found[0] instanceof RunOutputCheckInterface) {
+                throw new RuntimeException(sprintf('Two output checks plan for run %s.', $handle->uuid), 1799430202);
+            }
+
+            $found = [$check, $plan];
+        }
+
+        return $found;
+    }
+
+    /**
+     * Check the final answer outside every transaction (ADR-302). The lease is
+     * renewed first: the check may call a judge. A blocking verdict stops the
+     * run through the guardrail arm, with a reason that names lists and rules,
+     * never a term or a passage.
+     */
+    private function checkOutput(RunOutputCheckInterface $check, AgentRunHandle $handle, ToolLoopResult $result, ?string $ownerGuard): void
+    {
+        if ($ownerGuard !== null && !$this->persister->renewLease($handle, $ownerGuard, time() + AgentRuntime::LEASE_SECONDS)) {
+            throw RunLeaseLostException::forRun($handle->uuid);
+        }
+
+        $verdict = $check->check($handle, $result->finalContent);
+        if ($verdict->blocks) {
+            throw new GuardrailViolationException(self::OUTPUT_CHECK, $verdict->reason, null, $verdict->reason);
         }
     }
 

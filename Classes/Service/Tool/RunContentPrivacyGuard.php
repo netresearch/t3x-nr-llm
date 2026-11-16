@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool;
 
 use Closure;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Exception\RuntimeException;
@@ -360,7 +361,7 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
             ->fetchAllAssociative();
         foreach ($rows as $row) {
             $kind = is_string($row['kind']) ? $row['kind'] : '';
-            if (!in_array($kind, RunStep::kinds(), true)) {
+            if (!in_array($kind, RunStep::kinds(), true) && $kind !== AgentEventKind::OUTPUT_CHECK->value) {
                 continue;
             }
 
@@ -373,11 +374,38 @@ final readonly class RunContentPrivacyGuard implements RunProviderPrivacyInterfa
         }
     }
 
+    /**
+     * The record of an end-of-run check (ADR-302) holds no passage, but the
+     * term a finding names and the digest of the text say what the text
+     * held: below `redacted` both go, status and reasons stay.
+     */
+    private function outputCheckPayload(string $payload, PrivacyLevel $level): string
+    {
+        if ($level->persistsContent()) {
+            return $payload;
+        }
+
+        $decoded = json_decode($payload, true);
+        if (!is_array($decoded)) {
+            return json_encode(['status' => 'not_checked'], JSON_THROW_ON_ERROR);
+        }
+
+        unset($decoded['findings']);
+        $decoded['textDigest']       = '';
+        $decoded['findingsWithheld'] = true;
+
+        return json_encode($decoded, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+    }
+
     private function eventPayload(
         string $kind,
         string $payload,
         PrivacyLevel $level,
     ): string {
+        if ($kind === AgentEventKind::OUTPUT_CHECK->value) {
+            return $this->outputCheckPayload($payload, $level);
+        }
+
         if (!in_array($kind, RunStep::kinds(), true) || $level === PrivacyLevel::FULL) {
             return $payload;
         }

@@ -21,7 +21,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input', 'lineage', 'highlight', 'tool_changes'], AgentEventKind::values());
+        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input', 'lineage', 'highlight', 'tool_changes', 'output_check', 'rule_state'], AgentEventKind::values());
     }
 
     #[Test]
@@ -55,6 +55,9 @@ final class AgentEventKindTest extends TestCase
         self::assertNull(AgentEventKind::fromRunStepKind('input'));
         // 'lineage' (ADR-228) is written by the runtime, not by a RunStep.
         self::assertNull(AgentEventKind::fromRunStepKind('lineage'));
+        // ADR-302: written by the end-of-run check, not by a RunStep.
+        self::assertNull(AgentEventKind::fromRunStepKind('output_check'));
+        self::assertNull(AgentEventKind::fromRunStepKind('rule_state'));
         self::assertNull(AgentEventKind::fromRunStepKind('artifact'));
     }
 
@@ -105,7 +108,7 @@ final class AgentEventKindTest extends TestCase
 
         $unexplained = [];
         foreach (AgentEventKind::cases() as $case) {
-            if (in_array($case, [AgentEventKind::APPROVAL, AgentEventKind::INPUT, AgentEventKind::LINEAGE], true)) {
+            if (in_array($case, AgentEventKind::runtimeEvents(), true)) {
                 continue;
             }
 

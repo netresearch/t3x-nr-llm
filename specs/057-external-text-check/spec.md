@@ -61,9 +61,11 @@ edited outside nr-llm can only be checked by generating it again.
   offered tools and only read, and also for a short answer.
 - **X11 No lock.** The check runs before the transaction that completes the
   run; no model call happens under the run-row lock.
-- **X12 Result stored.** The report is stored as a run event, at the run's
-  answer privacy level: passages at `full`, redacted like the answer at
-  `redacted`, none at `metadata` or `none`.
+- **X12 Result stored.** The report is stored as a run event without any
+  passage of the text. Below `redacted` (the run's event level, at write time
+  and on a later tightening) the event also drops the terms the findings name
+  and the digest of the text; status and reasons stay. The rule-state digest
+  at the start of the run is stored the same way.
 - **X13 Block.** A blocking report ends the run FAILED with the guardrail
   outcome; no completed result carries the text.
 - **X14 Check-only run.** A run of the check kind takes the submitted text as
@@ -101,4 +103,6 @@ edited outside nr-llm can only be checked by generating it again.
 | --- | --- |
 | X1-X9 | `ExternalTextCheckTest`, functional `ExternalTextCheckWiringTest` (rule-state digest included) |
 | X7 shared | `RuleSetJudgeGuardrailTest` (behaviour after the extraction), `ExternalTextCheckTest::aNamedWriterThatDoesNotExistCountsAsTheMostTrustedZone` (a named provider that is gone) |
-| X10-X21 | functional `A2aEditorialEndCheckTest`, which ships with the end-of-run check (ADR-302) and the result contract (ADR-301): no judge call in a transaction (X11), the check record and the report at each privacy level (X12, X16), the digest binding of the delivered text (X19) |
+| X10-X14, X16 | functional `A2aEditorialEndCheckTest` (read-only run with a twelve-word answer, judge failure in block and report mode, check-only run with zero generator and tool calls, no judge call inside a transaction, a continued run checked on its final answer, the text handler unchanged) |
+| X15 | `RuleSetJudgeGuardrailTest` (answer deferred, written arguments and other runs still judged), functional `A2aEditorialEndCheckTest` (deferred during the loop only) |
+| X17-X21 | functional `A2aEditorialEndCheckTest`, extended by the result contract (ADR-301) |

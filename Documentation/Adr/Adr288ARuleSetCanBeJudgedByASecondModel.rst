@@ -16,7 +16,9 @@ ADR-288: A rule set can be judged by a second model
 :Amended: 2026-11-11 by :ref:`ADR-290 <adr-290>` (a call that names further
    configurations is judged by each of their judges; the strictest mode decides);
    2026-11-15 by :ref:`ADR-300 <adr-300>` (the egress rule of R10 is shared with
-   the check of a delivered text)
+   the check of a delivered text); 2026-11-15 by :ref:`ADR-302 <adr-302>` (the
+   answer of a run with an end-of-run check is judged there, not in the
+   pipeline)
 :Authors: Netresearch DTT GmbH
 
 Context
