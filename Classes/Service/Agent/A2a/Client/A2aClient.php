@@ -625,7 +625,8 @@ final readonly class A2aClient
             return new A2aSendOutcome($this->journal->refuse($intent, null, 'INVALID_AGENT_RESPONSE', $e->getMessage()), true);
         }
 
-        if ($continuedTaskId !== '' && $sent->isTask() && $sent->task->id !== $continuedTaskId) {
+        $about = $sent->isTask() ? $sent->task->id : $sent->message->taskId;
+        if ($continuedTaskId !== '' && $about !== '' && $about !== $continuedTaskId) {
             // The message continued one task; an answer about another is not
             // followed, and the remote took the request (spec 060 RQ5).
             return new A2aSendOutcome($this->journal->markOutcomeUnknown($intent, 'INVALID_AGENT_RESPONSE', 'the agent answered about another task than the one the message continues'), true);

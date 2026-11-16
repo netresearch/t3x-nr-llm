@@ -49,6 +49,20 @@ final class A2aRemoteAgentCard
      */
     public static function endpoint(array $card): string
     {
-        return hash('sha256', implode("\0", [$card['cardUrl'], $card['interfaceUrl'], $card['interfaceTenant'], $card['confirmedInterface']]));
+        return self::digest($card['cardUrl'], $card['interfaceUrl'], $card['interfaceTenant'], $card['confirmedInterface']);
+    }
+
+    /**
+     * The same digest of the record object a call just used, so a question
+     * is bound to the endpoint that asked it, not to a row read afterwards.
+     */
+    public static function endpointOf(A2aRemoteAgent $agent): string
+    {
+        return self::digest($agent->getCardUrl(), $agent->getInterfaceUrl(), $agent->getInterfaceTenant(), $agent->getConfirmedInterface());
+    }
+
+    private static function digest(string ...$parts): string
+    {
+        return hash('sha256', implode("\0", $parts));
     }
 }

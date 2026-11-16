@@ -125,8 +125,13 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
      */
     private function continued(A2aRemoteAgent $agent, A2aSendIntent $intent, ?A2aTask $task, DependencyCheckpoint $checkpoint): ToolResult|DependencyCheckpoint
     {
-        if (!$task instanceof A2aTask || $task->id !== $intent->remoteTaskId) {
+        if ($task instanceof A2aTask && $task->id !== $intent->remoteTaskId) {
             return A2aToolResults::unavailable('the remote task could not be read after the answer');
+        }
+
+        if (!$task instanceof A2aTask) {
+            // The answer was accepted; the task is read again by the poller.
+            return $this->waitAgain($agent, $intent, $checkpoint);
         }
 
         // The handle of the task is the first intent: GetTask records its
@@ -138,6 +143,14 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
             return A2aToolResults::task($agent->getTitle(), $task);
         }
 
+        return $this->waitAgain($agent, $intent, $checkpoint);
+    }
+
+    /**
+     * The run waits on the same task again, with a fresh wait from now.
+     */
+    private function waitAgain(A2aRemoteAgent $agent, A2aSendIntent $intent, DependencyCheckpoint $checkpoint): DependencyCheckpoint
+    {
         $now = time();
         $this->push?->register($agent, $intent, $now);
         $totals = $this->journal->runTotals($intent->runUid, $intent->agentUid);

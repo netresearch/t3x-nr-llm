@@ -43,6 +43,9 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     /** @var (Closure(): void)|null runs once before the next claimForResumeFromInput(), so a test can change the pause in between */
     public ?Closure $beforeClaimFromInput = null;
 
+    /** @var (Closure(): void)|null runs once before the next claimForResumeFromDependency() */
+    public ?Closure $beforeClaimFromDependency = null;
+
     public function __construct(private readonly AgentRunRepositoryInterface $inner) {}
 
     public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
@@ -263,6 +266,12 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
 
     public function claimForResumeFromDependency(int $runUid, string $claimedBy, int $leaseExpires): bool
     {
+        $before                          = $this->beforeClaimFromDependency;
+        $this->beforeClaimFromDependency = null;
+        if ($before instanceof Closure) {
+            $before();
+        }
+
         return $this->inner->claimForResumeFromDependency($runUid, $claimedBy, $leaseExpires);
     }
 

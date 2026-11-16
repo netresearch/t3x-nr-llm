@@ -119,6 +119,21 @@ final readonly class DependencyResumeCoordinator
             return null;
         }
 
+        // The deadline was read for this pause: a question answered and
+        // asked again since then keeps waiting, unchanged.
+        $claimed = $this->persister->findRun($run->uuid);
+        if ($claimed instanceof AgentRun && !$this->samePause($run, $claimed)) {
+            $handle   = $this->persister->resumeHandle($claimed);
+            $state    = $this->decode($claimed)[0] ?? null;
+            $question = self::checkpointOf($claimed);
+            if (!$handle instanceof AgentRunHandle || !$state instanceof SuspendedRunState || !$question instanceof DependencyCheckpoint
+                || !$this->persister->suspendForRemoteQuestion($handle, $state, $question)) {
+                $this->fail($handle ?? new AgentRunHandle($run->uid, $run->uuid), 'The replaced question could not be put back', $leaseOwner);
+            }
+
+            return null;
+        }
+
         return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner);
     }
 
@@ -162,6 +177,16 @@ final readonly class DependencyResumeCoordinator
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
                 $this->fail(new AgentRunHandle($run->uid, $run->uuid), 'The event-stream position could not be determined after the dependency claim', $leaseOwner);
+            }
+
+            return false;
+        }
+
+        // The question was read for this wait: a wait that was answered and
+        // began again since then goes back, unasked.
+        if (!$this->samePause($run, $claimed)) {
+            if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                $this->fail($handle, 'The dependency claim could not be given back', $leaseOwner);
             }
 
             return false;
@@ -215,6 +240,15 @@ final readonly class DependencyResumeCoordinator
             // does not match a later one.
             'x-nr-llm-question' => $marker,
         ];
+    }
+
+    /**
+     * Whether the claimed row still holds the sealed pause the caller read:
+     * every write seals the state anew, so any pause written since differs.
+     */
+    private function samePause(AgentRun $read, AgentRun $claimed): bool
+    {
+        return hash_equals(hash('sha256', (string) $read->suspendedState), hash('sha256', (string) $claimed->suspendedState));
     }
 
     /**

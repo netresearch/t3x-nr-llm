@@ -21,7 +21,8 @@ started the run answer, and sends that answer to exactly that remote task.
   state. No model call is made. The answer's limits (not only whitespace, at
   most 4000 characters) are checked by the coordinator before anything is
   claimed or stored, since the input path validates only types and required
-  fields. The delegation tool treats only a terminal
+  fields. A question read for one wait is not asked once that wait was
+  answered and began again before the claim; the claim goes back. The delegation tool treats only a terminal
   task as its result; an interrupted one waits, so the poller is the one
   place that converts.
 - **RQ2 The binding is durable and local.** The remote task id, context id,
@@ -52,24 +53,27 @@ started the run answer, and sends that answer to exactly that remote task.
   again. The pending call is never executed again.
 - **RQ4a Only the endpoint that asked.** When the question becomes a pause,
   the checkpoint is bound to a digest of the record's stored card (card URL,
-  interface URL, tenant, confirmed interface). The answer is sent only while
+  interface URL, tenant, confirmed interface) of the record object whose
+  `GetTask` saw the question. The answer is sent only while
   the stored card still has that digest and the record object the client
   sends with matches the stored row (`A2aRemoteAgentCard`, shared with the
   delegation tool); otherwise nothing is sent and the run goes on with an
   error result.
-- **RQ5 The remote must answer about the same task.** A task with another id
-  in the response settles the answer's intent `outcome_unknown`
+- **RQ5 The remote must answer about the same task.** A task, or a message
+  naming a task, with another id in the response settles the answer's intent `outcome_unknown`
   (`INVALID_AGENT_RESPONSE`) and the run goes on with an error result; nothing
   is read of the other task.
 - **RQ6 After the answer, and the deadline.** A terminal remote task answers
   the pending call as a dependency resume does. Any other state puts the run
-  back into `waiting_for_dependency` on the same checkpoint, with a fresh
+  back into `waiting_for_dependency` on the same checkpoint (also when the
+  answer was accepted but the task could not be read right after it), with a fresh
   deadline of the record's maximum wait from the send, and push is registered
   again when it is on; a further question becomes a further pause. While
   nobody answers, the delegation's deadline holds: the poller resumes the run
   with the timeout result and cancels the remote task once. It finds such runs
   through the journal, paged, so older pauses of any kind cannot keep a
-  question from its deadline.
+  question from its deadline. A deadline read for one question does not
+  expire a question that replaced it before the claim.
 - **RQ7 Counting.** An answer is not a delegation: the record's delegations
   per run count first sends only. Its bytes count towards the run's total.
 - **RQ8 AUTH_REQUIRED sends nothing.** A remote task in
@@ -124,7 +128,8 @@ mutation of the behaviour it covers.
 | RQ4 | `aRepeatedExecutionSendsTheAnswerOnce`, `aRefusedAnswerKeepsTheBindingAndTwoQuestionsGetTwoAnswers` |
 | RQ4a | `anAnswerIsNotSentToAnEndpointOtherThanTheOneThatAsked` |
 | RQ4 (repeated execution of a stored answer) | `aReplayOfAStoredAnswerDoesNotSendItTwice` |
-| RQ5 | `anAnswerAboutAnotherTaskIsNotFollowed` |
+| RQ5 | `anAnswerAboutAnotherTaskIsNotFollowed`, `aMessageReplyAboutAnotherTaskIsNotFollowed` |
+| RQ1, RQ6 (stale reads) | `aStaleQuestionIsNotAskedAgainAfterItWasAnswered`, `aDeadlineDoesNotExpireTheQuestionThatReplacedIt`, `anAcceptedAnswerWhoseTaskCannotBeReadKeepsTheWait` |
 | RQ6 | `anUnansweredQuestionTimesOutAtTheDeadline`, `aQuestionBehindOlderPausesStillTimesOut` |
 | RQ1, RQ2 (old form, blank answer, failed release) | `anOldFormDoesNotAnswerARepeatedQuestionAndBlankAnswersAreRefused`, `aReleaseThatCannotReadTheRunFailsClosed` |
 | RQ7 | `anAnswerIsNotADelegation` |
