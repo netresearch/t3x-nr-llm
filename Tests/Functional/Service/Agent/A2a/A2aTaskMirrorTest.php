@@ -223,6 +223,29 @@ final class A2aTaskMirrorTest extends AbstractFunctionalTestCase
 
         self::assertTrue($released);
         self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($handle)->statusEnum());
+        self::assertSame(['', 0], [$this->runOf($handle)->claimedBy, (int) $this->connection()->select(['lease_expires'], 'tx_nrllm_agentrun', ['uid' => $handle->runUid])->fetchOne()]);
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view(), 'the task view stays behind until the next transition');
+    }
+
+    /**
+     * A stored status message that cannot be opened (a damaged envelope, a
+     * key that is gone) does not stop a transition that keeps the state: it
+     * is written anew.
+     */
+    #[Test]
+    public function anUnreadableStatusMessageDoesNotStopTheWait(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForDependency($handle, $this->state(), $this->checkpoint()));
+        // The sealed wait text with one byte of its ciphertext changed.
+        $sealed = $this->taskRow()['status_message'];
+        self::assertIsString($sealed);
+        $damaged = substr($sealed, 0, -12) . ($sealed[-12] === 'A' ? 'B' : 'A') . substr($sealed, -11);
+        $this->connection()->update(A2aTaskStore::TABLE, ['status_message' => $damaged], ['task_id' => 'task-1']);
+
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($handle), 'resume:1', time() + 300));
+
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view());
     }
 
     /**

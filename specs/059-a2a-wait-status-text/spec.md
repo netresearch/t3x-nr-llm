@@ -54,6 +54,9 @@ text for those two waits and removes it when the run goes on.
 - A decision refused after its claim (stale digest, approver without the
   permission, approval not recorded) clears the text and writes it back: two
   updates on every channel for one refused click.
+- When the task view cannot be written while a dependency claim is given back
+  (the release follows a store error), the claim is given back without it and
+  the text returns with the next transition.
 
 ## Verification
 

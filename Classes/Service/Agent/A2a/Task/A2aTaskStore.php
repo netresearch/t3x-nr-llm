@@ -306,17 +306,25 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
 
     /**
      * The text of the task's current status message; empty when it has none
-     * or when a tightened answer level removed it.
+     * or when a tightened answer level removed it, null when it cannot be
+     * opened.
      */
-    private function statusTextOf(int $runUid): string
+    private function statusTextOf(int $runUid): ?string
     {
         $stored = $this->connection()->select(['status_message'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
         if (!is_string($stored) || $stored === '') {
             return '';
         }
 
-        $message = json_decode($this->codec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true);
-        $text    = is_array($message) && is_array($message['parts'] ?? null) && is_array($message['parts'][0] ?? null) ? ($message['parts'][0]['text'] ?? '') : '';
+        try {
+            $message = json_decode($this->codec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true);
+        } catch (Throwable) {
+            // An envelope that cannot be opened equals no text: the mirror
+            // writes the message anew, which also repairs the row.
+            return null;
+        }
+
+        $text = is_array($message) && is_array($message['parts'] ?? null) && is_array($message['parts'][0] ?? null) ? ($message['parts'][0]['text'] ?? '') : '';
 
         return is_string($text) ? $text : '';
     }

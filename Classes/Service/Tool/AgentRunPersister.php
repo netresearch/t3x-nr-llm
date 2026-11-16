@@ -965,9 +965,12 @@ final readonly class AgentRunPersister
             try {
                 return $this->transitioned($run->uid, fn (): bool => $this->repository->releaseDependencyClaim($run->uid, $claimedBy));
             } catch (Throwable $mirrorFailed) {
-                $this->logger?->warning('A dependency claim was given back without its A2A task view', ['run' => $run->uuid, 'exception' => $mirrorFailed]);
+                $released = $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+                $this->recordDiagnostic(function () use ($run, $released, $mirrorFailed): void {
+                    $this->logger?->warning('The mirrored release of a dependency claim failed; the plain release followed', ['run' => $run->uuid, 'released' => $released, 'exception' => $mirrorFailed]);
+                });
 
-                return $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+                return $released;
             }
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
