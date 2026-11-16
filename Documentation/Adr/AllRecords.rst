@@ -306,3 +306,4 @@ All decision records
    Adr300ADeliveredTextIsCheckedAsItIsDelivered
    Adr302TheFinalAnswerOfAnEditorialRunIsCheckedBeforeItIsStored
    Adr303ANonAdminRunReadsTheMetadataOfAFileItMayAccess
+   Adr305AClientFileIsAdoptedIntoTheProfilesInboxAfterApproval

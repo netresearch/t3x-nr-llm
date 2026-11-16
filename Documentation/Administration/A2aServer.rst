@@ -115,6 +115,11 @@ May write
    artifact, ``writes``, that lists every write the run executed (table,
    record uid, workspace, kind), taken from the write events, not from the
    model's answer; a run that wrote nothing says so.
+   The one exception to "drafts only" is ``adopt_client_file``, which
+   stores a client's file in the skill's inbox folder as a new FAL file. A
+   FAL file has no draft; nothing uses it until an editor references it in
+   a record of a workspace (see
+   :ref:`Taking a client's file into FAL <administration-a2a-server-fal-adoption>`).
 
 Send FAL files to clients
    The recipient approval for ``send_fal_file``: the clients of this skill
@@ -122,6 +127,15 @@ Send FAL files to clients
    :ref:`Files from FAL <administration-a2a-server-fal-export>`). Off by
    default; off, the tool refuses every file. It is read at each call, so
    clearing it while a run is under way stops the next file.
+
+Inbox folder for client files
+   The one folder ``adopt_client_file`` stores a client's file in, as a
+   combined identifier such as ``2:/a2a-inbox/`` (see
+   :ref:`Taking a client's file into FAL <administration-a2a-server-fal-adoption>`).
+   The folder must not be public: a folder of a storage marked public, of a
+   ``Local`` storage whose base path lies in the web root, or of a storage
+   that does not exist is not stored. Empty, the default: no file is taken
+   into FAL.
 
 Active task quota
    How many tasks of this skill, from all clients together, may be queued or
@@ -472,10 +486,49 @@ Files from FAL
    run. Restart the worker after giving a technical user its first mount in
    a storage.
 
-   A file a client sends is never taken into FAL. A FAL file has no draft,
-   so taking one in would write live, which a writing skill may not do
-   (it writes drafts in the client's workspace only); that needs a decision
-   first.
+..  _administration-a2a-server-fal-adoption:
+
+Taking a client's file into FAL
+   A run stores a file the client sent with the task in FAL with the tool
+   ``adopt_client_file`` (group ``files``), naming the file by its number,
+   the N of the line "File N of M from the client" the run received
+   (:ref:`ADR-305 <adr-305>`). It ships disabled. A skill offers it when the
+   tool is switched on in the tool management, the skill lists it under
+   :guilabel:`Tools`, :guilabel:`May write` is on (the tool writes, so the
+   calling client is pinned to a draft workspace) and
+   :guilabel:`Inbox folder for client files` names a folder.
+
+   - **Where:** only into that folder. Neither the client nor the model
+     chooses a folder or a storage. The folder must exist and must not be
+     public; the tool asks this again at each call, so a storage made public
+     later stops the next adoption.
+   - **Who writes:** the client's technical backend user, with its own file
+     mounts and file permissions. It needs a file mount on the folder that is
+     not read-only, and the permissions to add files and to write folders.
+     The approving editor's rights do not count, also not an
+     administrator's. The storage list the FAL tools may read from
+     (storage 1 by default) does not limit the inbox.
+   - **Approval:** every call waits for the approval of a person of this
+     installation, in the approvals inbox, as every writing tool does; the
+     task stays ``WORKING`` meanwhile. A call that cannot be written is
+     refused before an approval is asked: no inbox folder, a public folder,
+     no such file, a file the task no longer holds, a technical user who may
+     not add a file to the folder, or files switched off.
+   - **Names:** the file keeps the name the client gave it, without any path,
+     with the extension of its checked type (``.txt``, ``.json``, ``.pdf``,
+     ``.png``, ``.jpg``). A name already taken in the folder is kept: the new
+     file gets another one (``report_01.txt``), and the existing file and its
+     record stay as they are.
+   - **Effect:** nothing references the stored file. It takes effect only
+     when an editor uses it in a record of a workspace, which is published
+     like any other change. The ``writes`` artifact of the task names the new
+     ``sys_file`` record in workspace 0: a FAL file has no draft.
+   - **When:** a task's files are held until the task ends or the file
+     expires (:guilabel:`Hours an A2A file is kept`), whichever comes first. An
+     approval given later stores nothing, and the tool says that the file is
+     no longer held.
+
+   The cleanup of expired A2A files never deletes a file taken into FAL.
 
 Downloading a file
    ``GET <endpoint>/files/<file id>`` with the client's bearer token returns

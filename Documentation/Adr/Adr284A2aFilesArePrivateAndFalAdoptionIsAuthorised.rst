@@ -9,8 +9,9 @@
 ADR-284: A2A files are private, and adopting one into FAL is a write
 =======================================================================
 
-:Status: Accepted
+:Status: Accepted (amended: the adoption's actor, target, approval and collision rule)
 :Date: 2026-11-10
+:Amended: 2026-11-16 by :ref:`ADR-305 <adr-305>`
 :Authors: Netresearch DTT GmbH
 
 Context

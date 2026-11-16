@@ -82,7 +82,7 @@ depends on.
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
 | 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | merged (#1378), released in 0.48.0; a delegating run polls rather than streams (the client stream is the PHP API and `nrllm:a2a:send --stream`) |
 | 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | sender (server role, A2A-PUSH1 to A2A-PUSH5) implemented, off by default (`a2a.server.push`); receiver (client role, A2A-PUSH6 to A2A-PUSH8) implemented, off by default (`a2a.client.push`, endpoint on the site named by `a2a.client.pushSite`); the client registers without an embedded config only |
-| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | partly built, behind `a2a.files.enabled` (off by default): inbound `raw` and `url` parts in the server role (A2A-FILE1 to A2A-FILE4); outbound files of the server role, inline or as a protected download with a capability URL (A2A-FILE5); the FAL export of A2A-FILE6 (`send_fal_file`) and fresh file mounts per run execution (A2A-FILE7); the adoption of an inbound file into FAL (A2A-FILE6) and files in the client role are not built: adoption writes live, which A2A-MT5 and ADR-265 rule out for a run in a draft workspace, so it needs a decision that amends them |
+| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | partly built, behind `a2a.files.enabled` (off by default): inbound `raw` and `url` parts in the server role (A2A-FILE1 to A2A-FILE4); outbound files of the server role, inline or as a protected download with a capability URL (A2A-FILE5); the FAL export of A2A-FILE6 (`send_fal_file`) and fresh file mounts per run execution (A2A-FILE7); the adoption of an inbound file into FAL of A2A-FILE6 (`adopt_client_file`, ADR-305: into the profile's non-public inbox folder only, as the client's technical user, after a backend approval, renaming on a collision); files in the client role are not built |
 
 Each stage is released only with its own gates (see "Verification") and the
 rollout order of A2A-OPS1.
@@ -528,6 +528,10 @@ the proto column. Where the proto is silent, the tie-breaker is named.
 - **A2A-MT5 First write capability.** A profile may write only drafts, only in
   the client's pinned workspace, never live (ADR-260, ADR-265). A pinned
   workspace of 0 (live) refuses a writing profile at configuration time.
+  The adoption of A2A-FILE6 (ADR-305) creates a live `sys_file` row, which
+  has no workspace version, in a non-public inbox folder and references
+  nothing; it changes no published content until an editor references the
+  file in a workspace record.
 - **A2A-MT6 A write result names the writes [B13].** The artifact of a writing
   task lists the changes actually executed (table, record uid, workspace,
   field), taken from the write events, not from the model's answer. A completed
@@ -673,14 +677,25 @@ Client role (receiver):
   own (target storage, folder, naming, collision rule), by an actor allowed to
   write there. Cleanup deletes only temporary A2A objects, never an adopted FAL
   file. The recipient approval is a field of the profile ("Send FAL files to
-  clients", `send_fal_files`), read at each call of `send_fal_file`. Adoption
-  is not built: a FAL file has no workspace version, so adopting one writes
-  live. A2A-MT5 allows a writing profile drafts in the client's pinned draft
-  workspace only, and ADR-265 (like the redirect writers) neither plans nor
-  writes a table without versions in a draft workspace, so under the
-  current records an A2A run cannot adopt at all. Building it needs a
-  decision that amends them: which actor writes, where, under which
-  approval, and with which collision rules.
+  clients", `send_fal_files`), read at each call of `send_fal_file`. The
+  adoption (`adopt_client_file`, ADR-305, amending ADR-284) is restricted to
+  five points: (1) the target is the profile's inbox folder ("Inbox folder for
+  client files", `fal_inbox_folder`, a combined identifier such as
+  `2:/a2a-inbox/`), never a folder the client or the model names; no folder
+  turns adoption off, and a public target (a storage marked public, a `Local`
+  storage whose base path lies in the web root, a storage without a record)
+  is refused when the profile is saved and again at each call; (2) the
+  client's technical backend user writes, with its own file mounts and file
+  permissions, never the approver's; (3) every call waits for the normal
+  backend approval of a writing tool, so only a writing profile offers it;
+  (4) a name already taken is never overwritten: the new file is renamed
+  (`DuplicationBehavior::RENAME`) and the existing file and record stay;
+  (5) nothing references the adopted file, which takes effect only when an
+  editor references it in a workspace record. A2A-MT5 and ADR-265 hold: a
+  `sys_file` row has no workspace version, but an unreferenced file in a
+  non-public folder changes no published content. The bytes are the private
+  store's, held until the task ends or the file expires, so adoption happens
+  while the task runs, including while it waits for the approval.
 - **A2A-FILE7 Fresh permissions in long-running workers [B21].**
   `FalStorageGate` caches the storage it builds per user in `$userStorages`,
   keyed by user and storage, with no invalidation. A gate shared across the
@@ -821,7 +836,7 @@ empty, and the journal state says why.
 | A2A-MT1 to A2A-MT6 | functional `A2aMultiTurnTest`; `DurableDecisionTest` (stale pause generation refused; synchronous and durable decision race for one pause, exactly one wins; worker re-checks a revoked permission before the first effect); `A2aWriteProfileTest` (draft in the pinned workspace, live refused, the artifact lists the executed writes and only those) |
 | A2A-SSE1 to A2A-SSE6 | functional `A2aSseTest` (snapshot and cursor at one revision, order, close at terminal and INPUT_REQUIRED, open after AUTH_REQUIRED, subscribe on terminal `-32004`, caps, closing a stream leaves the task running, hold-back sends no fragment before the check); unit `A2aSseParserTest` (split UTF-8 and split frames, id and content-type mismatch); manual check behind nginx and Apache with buffering on |
 | A2A-PUSH1 to A2A-PUSH8 | functional `A2aPushSenderTest` (owner scoping, sealed and masked credential, no call from the request path, outbox written with the event, each delivery outcome, no attempt after delete); `A2aPushReceiverTest` (wrong credential stores nothing, early callback kept, bounded inbox, duplicate triggers no second execution, reconciliation by `GetTask` as the owner) |
-| A2A-FILE1 to A2A-FILE7 | functional `A2aFilePartTest` (each validator, refused types, each limit, guarded fetch without credentials, manifest checked before the first call, no re-fetch); `A2aDownloadTest` (capability URL scope and expiry, re-issue keeps digest); `A2aFalAdoptionTest` (mount check on export, separate authorised import, cleanup spares adopted files, mount change between two runs in one worker process takes effect) |
+| A2A-FILE1 to A2A-FILE7 | functional `A2aFilePartTest` (each validator, refused types, each limit, guarded fetch without credentials, manifest checked before the first call, no re-fetch); `A2aDownloadTest` (capability URL scope and expiry, re-issue keeps digest); `A2aFalAdoptionTest` (mount check on export, cleanup spares FAL files, mount change between two runs in one worker process takes effect); `A2aFalInboxAdoptionTest` (adoption: approved into the inbox with no reference, nothing without approval, no folder and a public target refused, collision renamed with the original untouched, a user without a writable mount refused, an administrator's approval lends no rights, a file no longer held refused) |
 | A2A-SEC1 to A2A-SEC10 | the tests above; `A2aTestingOnlyServicesTest` (fixture profile and test classifier absent outside Testing); a security review of the inbound surfaces before stage 3 and stage 5b are released |
 | A2A-OPS1 to A2A-OPS3 | rollout steps in each stage's upgrade notes; `A2aFeatureSwitchTest` (card and methods per switch, polling unaffected); the concurrency tests in a MariaDB CI job |
 | Each stage | `make gate`; red-before tests per behaviour; docs and a `changelog.d` fragment; this specification's row in `specs/README.md` updated with the stage's evidence |
