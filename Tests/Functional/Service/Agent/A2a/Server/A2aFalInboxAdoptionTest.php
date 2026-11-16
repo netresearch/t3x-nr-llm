@@ -576,6 +576,26 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A taken name of the full 255 bytes leaves no room for `_01`: the stem
+     * is shortened so the suffixed name still fits a file system's limit.
+     */
+    #[Test]
+    public function aSuffixedNameOfATakenFullLengthNameStaysWithinTheNameLimit(): void
+    {
+        $stem = str_repeat('a', 251);
+        file_put_contents($this->inboxRoot . '/a2a-inbox/' . $stem . '.txt', 'Original.');
+
+        $run = $this->suspendedForApproval($stem . '.txt');
+        $this->decide($run, true);
+
+        $expected = str_repeat('a', 248) . '_01.txt';
+        self::assertSame(255, strlen($expected));
+        self::assertSame('Original.', (string) file_get_contents($this->inboxRoot . '/a2a-inbox/' . $stem . '.txt'));
+        self::assertFileExists($this->inboxRoot . '/a2a-inbox/' . $expected);
+        self::assertSame(self::CONTENT, (string) file_get_contents($this->inboxRoot . '/a2a-inbox/' . $expected));
+    }
+
+    /**
      * The preview's visibility follows the inbox the card names, not the
      * profile's inbox now: after the profile moved to another folder, an
      * editor who may read only the new one gets the withheld card.

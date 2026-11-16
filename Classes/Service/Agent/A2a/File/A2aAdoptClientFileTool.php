@@ -427,10 +427,13 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
      */
     private function candidates(Folder $folder, string $wanted): array
     {
-        $name       = $folder->getStorage()->sanitizeFileName($wanted, $folder);
-        $info       = PathUtility::pathinfo($name);
-        $stem       = (string) preg_replace('/_[0-9][0-9]$/', '', $info['filename'] ?? '');
-        $extension  = ($info['extension'] ?? '') !== '' ? '.' . $info['extension'] : '';
+        $name      = $folder->getStorage()->sanitizeFileName($wanted, $folder);
+        $info      = PathUtility::pathinfo($name);
+        $stem      = (string) preg_replace('/_[0-9][0-9]$/', '', $info['filename'] ?? '');
+        $extension = ($info['extension'] ?? '') !== '' ? '.' . $info['extension'] : '';
+        // Keep the stem, the 3-byte "_NN" and the extension within the
+        // 255 bytes a file system allows; never split a multibyte character.
+        $stem       = mb_strcut($stem, 0, max(0, 255 - strlen($extension) - 3), 'UTF-8');
         $candidates = [$name];
         for ($number = 1; $number <= 99; ++$number) {
             $candidates[] = sprintf('%s_%02d%s', $stem, $number, $extension);
