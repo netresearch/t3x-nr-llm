@@ -958,7 +958,8 @@ final readonly class AgentRunPersister
     public function releaseDependencyClaim(AgentRun $run, string $claimedBy): bool
     {
         try {
-            return $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+            // Back in the wait, the A2A task view says so again (spec 059).
+            return $this->transitioned($run->uid, fn (): bool => $this->repository->releaseDependencyClaim($run->uid, $claimedBy));
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {

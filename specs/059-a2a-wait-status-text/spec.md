@@ -53,7 +53,8 @@ text for those two waits and removes it when the run goes on.
 
 | Requirement | Evidence |
 | --- | --- |
-| WS1, WS2, WS3 | functional `A2aTaskMirrorTest::aWaitTheInstallationDecidesNamesWhatTheTaskWaitsFor` (exact revisions and events), `aStoredDecisionEndsTheWaitText`, and the revision counts of `aTerminalTransitionOfABoundRunReachesTheTaskView` |
+| WS1, WS2 | functional `A2aTaskMirrorTest::aWaitTheInstallationDecidesNamesWhatTheTaskWaitsFor` (exact revisions and events), `aDependencyClaimGivenBackWaitsWithTheTextAgain`, `aStoredDecisionEndsTheWaitText` |
+| WS3 | functional `A2aTaskMirrorTest::aStoredDecisionEndsTheWaitText` (the worker's claim of the continuation writes no revision and no event) |
 | WS4 | functional `A2aTaskMirrorTest::aWaitForTheClientKeepsItsQuestion` |
 | WS5 | functional `A2aTaskMethodsTest::getTaskAndListTasksSayWhatAWorkingTaskWaitsFor` |
 | WS6 | functional `A2aSseTest::aStreamSaysWhatAWorkingTaskWaitsFor`, `aSubscriptionDuringAWaitStartsWithTheText` |

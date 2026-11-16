@@ -165,6 +165,9 @@ final class A2aSseTest extends AbstractFunctionalTestCase
 
         self::assertSame('TASK_STATE_WORKING', self::j($events['frames'][0], 'result.task.status.state'));
         self::assertSame(A2aTaskStore::TEXT_WAITING_FOR_APPROVAL, self::j($events['frames'][0], 'result.task.status.message.parts.0.text'));
+        $last = $events['frames'][count($events['frames']) - 1];
+        self::assertSame('TASK_STATE_CANCELED', self::j($last, 'result.statusUpdate.status.state'));
+        self::assertStringNotContainsString('waiting', (string) json_encode($last), 'the cancel ends the wait text');
     }
 
     /**

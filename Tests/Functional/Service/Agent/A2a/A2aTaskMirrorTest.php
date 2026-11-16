@@ -188,6 +188,24 @@ final class A2aTaskMirrorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Spec 059 WS1: a dependency claim given back after a read that failed
+     * for now puts the run back into its wait, and the task says so again.
+     */
+    #[Test]
+    public function aDependencyClaimGivenBackWaitsWithTheTextAgain(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForDependency($handle, $this->state(), $this->checkpoint()));
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($handle), 'resume:1', time() + 300));
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view());
+
+        self::assertTrue($this->persister->releaseDependencyClaim($this->runOf($handle), 'resume:1'));
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($handle)->statusEnum());
+        self::assertSame(['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_REMOTE_AGENT, 4], $this->view());
+    }
+
+    /**
      * Spec 059 WS2: a decision stored for the worker (ADR-281) ends the wait
      * as well: the queued continuation is WORKING without the text.
      */
