@@ -213,8 +213,8 @@ final class InvocationDigestsTest extends TestCase
 
         foreach (['', 'v1:' . str_repeat('A', 64), 'v2:' . str_repeat('a', 64), 'v1:' . str_repeat('a', 63), 'v1:' . str_repeat('a', 64) . "\n"] as $invalid) {
             try {
-                new ObservedState($invalid, []);
-                self::fail('Accepted ' . var_export($invalid, true));
+                $accepted = new ObservedState($invalid, []);
+                self::fail('Accepted ' . var_export($accepted->digest, true));
             } catch (InvalidArgumentException) {
                 // refused, as it must be
             }

@@ -298,13 +298,12 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         // A check stored without digests (before this change, or with an
         // empty encryption key) never matches a write whose arguments have
         // no digest either: no digest is not a match.
-        $undigested                                         = (new ToolInvocationHistory())->append('check_page_metadata', 'ok', null);
-        $key                                                = self::text($GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] ?? '');
-        $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] = '';
+        $undigested = (new ToolInvocationHistory())->append('check_page_metadata', 'ok', null);
+        $key        = $this->encryptionKey('');
         try {
             $noKey = $decide('update_page_metadata', $reference, $undigested);
         } finally {
-            $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] = $key;
+            $this->encryptionKey($key);
         }
 
         self::assertFalse($noKey->allowed);
@@ -581,6 +580,22 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         $this->responses = [$this->answer()];
         $state           = SuspendedRunState::fromArray(self::objectOf(json_decode($waiting->suspendedState ?? '', true)));
         $this->runtime()->approve(AiActorContext::backendUser(1, isAdmin: true), $run->uuid, new ApprovalDecision(true, 1, (new PendingTurnDigest())->forState($state)));
+    }
+
+    /**
+     * Set the installation's encryption key and return the previous one.
+     */
+    private function encryptionKey(string $key): string
+    {
+        $configuration = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
+        $system        = is_array($configuration['SYS'] ?? null) ? $configuration['SYS'] : [];
+        $previous      = is_string($system['encryptionKey'] ?? null) ? $system['encryptionKey'] : '';
+
+        $system['encryptionKey']    = $key;
+        $configuration['SYS']       = $system;
+        $GLOBALS['TYPO3_CONF_VARS'] = $configuration;
+
+        return $previous;
     }
 
     private function answer(): CompletionResponse
