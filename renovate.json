@@ -4,7 +4,7 @@
     "github>netresearch/renovate-config"
   ],
   "pep621": {
-    "description": "Refresh the sidecar uv.lock files (Build/decision, Build/reranker) weekly. Renovate tracks only the direct dependencies declared in pyproject.toml, so a transitive pin in uv.lock (filelock, setuptools, certifi) stays where it is until someone re-locks by hand; each of those three carried an advisory before it was raised. Scoped to pep621 so the npm lock files keep their current handling.",
+    "description": "Refresh the uv.lock files (sidecars Build/decision, Build/reranker; A2A interop partner Build/a2a-interop) weekly. Renovate tracks only the direct dependencies declared in pyproject.toml, so a transitive pin in uv.lock (filelock, setuptools, certifi) stays where it is until someone re-locks by hand; each of those three carried an advisory before it was raised. Scoped to pep621 so the npm lock files keep their current handling.",
     "lockFileMaintenance": {
       "enabled": true
     }
@@ -20,6 +20,21 @@
         "Build/reranker/pyproject.toml"
       ],
       "allowedVersions": "<3.15"
+    },
+    {
+      "description": "The A2A interop partner measures nr-llm against a2a-python 1.3.0 (spec 051 A2A-S0-5), so its two direct pins move only by hand. Lock maintenance still refreshes the rest of Build/a2a-interop/uv.lock.",
+      "matchPackageNames": ["a2a-sdk", "uvicorn"],
+      "matchFileNames": ["Build/a2a-interop/pyproject.toml"],
+      "enabled": false
+    },
+    {
+      "description": "Keep the A2A interop partner on Python 3.12: the docker base image and the pep621 requires-python pin must move together, because the image installs Build/a2a-interop/uv.lock, which is resolved for ==3.12.*.",
+      "matchPackageNames": ["python"],
+      "matchFileNames": [
+        "Build/a2a-interop/Dockerfile",
+        "Build/a2a-interop/pyproject.toml"
+      ],
+      "allowedVersions": "<3.13"
     }
   ]
 }
