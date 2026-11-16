@@ -752,40 +752,11 @@ final readonly class AgentRunExecutor
         $settled = false;
 
         try {
-            [$check, $plan] = $this->outputCheckFor($handle, $start);
-            if ($plan->checkOnly && !$checkOnlyCall instanceof Closure) {
-                throw new RuntimeException(sprintf('Run %s is a check-only run and cannot resume.', $runUuid), 1799430201);
-            }
+            $result    = $this->loopResult($handle, $start, $loopCall, $checkOnlyCall, $ownerGuard);
+            $completed = $this->completed($handle, $result, $trace, $ownerGuard, $runUuid);
+            $settled   = true;
 
-            $loop   = $plan->checkOnly && $checkOnlyCall instanceof Closure ? $checkOnlyCall : $loopCall;
-            $result = $check instanceof RunOutputCheckInterface && $handle instanceof AgentRunHandle
-                ? ($this->deferredJudging ?? new DeferredAnswerJudging())->during($handle->runUid, $loop)
-                : $loop();
-
-            if ($check instanceof RunOutputCheckInterface && $handle instanceof AgentRunHandle) {
-                $this->checkOutput($check, $handle, $result, $ownerGuard);
-            }
-
-            if ($handle instanceof AgentRunHandle) {
-                $settledOk = $this->persister->settleCompleted($handle, $result, $ownerGuard);
-                // Ownership-guarded on the queued path: if the run was reclaimed
-                // to another worker mid-loop, this completion must not overwrite
-                // its state — stop as LEASE_LOST rather than reporting COMPLETED.
-                if ($ownerGuard !== null && !$settledOk) {
-                    $settled = true;
-
-                    return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
-                }
-            }
-
-            $settled = true;
-
-            return new AgentRunResult(
-                outcome: AgentRunOutcome::COMPLETED,
-                runUuid: $runUuid,
-                steps: $trace->getSteps(),
-                loopResult: $result,
-            );
+            return $completed;
         } catch (RunCancellationRequestedException $cancelled) {
             // ADR-103: the operator's cancel already won the guarded terminal
             // transition — the row IS CANCELLED and its late settle would be
@@ -884,6 +855,55 @@ final readonly class AgentRunExecutor
                 $this->persister->settleFailed($handle, new RuntimeException('Agent run did not complete'), $ownerGuard);
             }
         }
+    }
+
+    /**
+     * The loop of this segment, and the end-of-run check its plan asks for
+     * (ADR-302): a check-only run replaces the loop with $checkOnlyCall, the
+     * pipeline judge leaves the answer to the end check while the loop runs,
+     * and a blocking verdict throws into the guardrail arm.
+     *
+     * @param Closure(): ToolLoopResult        $loopCall
+     * @param (Closure(): ToolLoopResult)|null $checkOnlyCall
+     */
+    private function loopResult(?AgentRunHandle $handle, bool $start, Closure $loopCall, ?Closure $checkOnlyCall, ?string $ownerGuard): ToolLoopResult
+    {
+        [$check, $plan] = $this->outputCheckFor($handle, $start);
+        if ($plan->checkOnly && !$checkOnlyCall instanceof Closure) {
+            throw new RuntimeException(sprintf('Run %s is a check-only run and cannot resume.', $handle instanceof AgentRunHandle ? $handle->uuid : ''), 1799430201);
+        }
+
+        $loop = $plan->checkOnly && $checkOnlyCall instanceof Closure ? $checkOnlyCall : $loopCall;
+        if (!$check instanceof RunOutputCheckInterface || !$handle instanceof AgentRunHandle) {
+            return $loop();
+        }
+
+        $result = ($this->deferredJudging ?? new DeferredAnswerJudging())->during($handle->runUid, $loop);
+        $this->checkOutput($check, $handle, $result, $ownerGuard);
+
+        return $result;
+    }
+
+    /**
+     * Settles a completed run. Ownership-guarded on the queued path: if the
+     * run was reclaimed to another worker mid-loop, this completion must not
+     * overwrite its state — it stops as LEASE_LOST rather than COMPLETED.
+     */
+    private function completed(?AgentRunHandle $handle, ToolLoopResult $result, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    {
+        if ($handle instanceof AgentRunHandle
+            && !$this->persister->settleCompleted($handle, $result, $ownerGuard)
+            && $ownerGuard !== null
+        ) {
+            return new AgentRunResult(outcome: AgentRunOutcome::LEASE_LOST, runUuid: $runUuid, steps: $trace->getSteps());
+        }
+
+        return new AgentRunResult(
+            outcome: AgentRunOutcome::COMPLETED,
+            runUuid: $runUuid,
+            steps: $trace->getSteps(),
+            loopResult: $result,
+        );
     }
 
     /**
