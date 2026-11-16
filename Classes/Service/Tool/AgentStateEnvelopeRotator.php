@@ -81,6 +81,16 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
      */
     private const BATCH_SIZE = 200;
 
+    /**
+     * Tables whose values are too large for a page of BATCH_SIZE rows. A
+     * sealed A2A file holds up to about 15 MiB (1.81 times the 8 MiB
+     * `a2a.maxRawPartBytes` allows), so 200 of them could hold GiBs; that
+     * table is read one row at a time.
+     */
+    private const TABLE_BATCH_SIZES = [
+        'tx_nrllm_a2a_file' => 1,
+    ];
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}
@@ -213,7 +223,7 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
                 $this->sealedPredicate($queryBuilder, $column),
             )
             ->orderBy('uid', 'ASC')
-            ->setMaxResults(self::BATCH_SIZE)
+            ->setMaxResults(self::TABLE_BATCH_SIZES[$table] ?? self::BATCH_SIZE)
             ->executeQuery();
 
         $rows = [];
