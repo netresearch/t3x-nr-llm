@@ -958,7 +958,20 @@ final readonly class AgentRunPersister
     public function releaseDependencyClaim(AgentRun $run, string $claimedBy): bool
     {
         try {
-            return $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+            // Back in the wait, the A2A task view says so again (spec 059).
+            // This path runs after a store error; when the mirrored release
+            // fails as well, the plain one keeps the run for a later tick and
+            // only the task view stays behind until then.
+            try {
+                return $this->transitioned($run->uid, fn (): bool => $this->repository->releaseDependencyClaim($run->uid, $claimedBy));
+            } catch (Throwable $mirrorFailed) {
+                $released = $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+                $this->recordDiagnostic(function () use ($run, $released, $mirrorFailed): void {
+                    $this->logger?->warning('The mirrored release of a dependency claim failed; the plain release followed', ['run' => $run->uuid, 'released' => $released, 'exception' => $mirrorFailed]);
+                });
+
+                return $released;
+            }
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {

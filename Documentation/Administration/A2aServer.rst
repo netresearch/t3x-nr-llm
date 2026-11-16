@@ -112,7 +112,8 @@ May write
    to live cannot call a writing skill: the record is not saved that way, and
    a call is refused with ``-32004``. A write that needs an approval waits for
    a person of this installation, as in every run; the task stays
-   ``WORKING`` meanwhile. The result of a writing task carries a second
+   ``WORKING`` meanwhile, with the status message ``The task is waiting for
+   an approval in TYPO3.``. The result of a writing task carries a second
    artifact, ``writes``, that lists every write the run executed (table,
    record uid, workspace, kind), taken from the write events, not from the
    model's answer; a run that wrote nothing says so.
@@ -278,8 +279,14 @@ Task states
    answer, ``COMPLETED``
    with the answer, ``FAILED`` with a fixed message that names no internal
    detail, ``CANCELED``, and ``REJECTED`` when the input was refused before
-   the run started. The result is kept at the run's answer level and purged
-   with the run (:ref:`ADR-282 <adr-282>`).
+   the run started. While the run waits for an approval, a ``WORKING`` task
+   carries the status message ``The task is waiting for an approval in
+   TYPO3.``; while it waits for a remote agent, ``The task is waiting for a
+   remote agent.`` Neither names the approval, the agent or anything else of
+   this installation, and both are gone once the run goes on
+   (:ref:`ADR-310 <adr-310>`). ``GetTask``, ``ListTasks``, the stream and push
+   carry the change like any other. The result is kept at the run's answer
+   level and purged with the run (:ref:`ADR-282 <adr-282>`).
 
 Push notifications
 ==================

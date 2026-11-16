@@ -162,6 +162,131 @@ final class A2aTaskMirrorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Spec 059 WS1, WS2, WS3: a wait for an approval and a wait for a remote
+     * agent stay WORKING and say what the task waits for, in a fixed text;
+     * the resume that ends the wait clears it. Each change is exactly one
+     * revision with one event, and the event carries the text.
+     */
+    #[Test]
+    public function aWaitTheInstallationDecidesNamesWhatTheTaskWaitsFor(): void
+    {
+        $approval = $this->boundRun('task-a');
+        self::assertTrue($this->persister->suspend($approval, $this->state()));
+        self::assertSame(['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_APPROVAL, 2], $this->view('task-a'));
+        self::assertTrue($this->persister->claimResume($this->runOf($approval), 'resume:1', time() + 300));
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view('task-a'));
+
+        $dependency = $this->boundRun('task-d');
+        self::assertTrue($this->persister->suspendForDependency($dependency, $this->state(), $this->checkpoint()));
+        self::assertSame(['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_REMOTE_AGENT, 2], $this->view('task-d'));
+        self::assertSame(A2aTaskStore::TEXT_WAITING_FOR_REMOTE_AGENT, $this->messageText($this->lastEvent('task-d')['statusMessage'] ?? null), 'the event carries the text');
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($dependency), 'resume:1', time() + 300));
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view('task-d'));
+        self::assertArrayNotHasKey('statusMessage', $this->lastEvent('task-d'), 'the clearing reaches the journal');
+        // One event per change; bind()'s first revision is projected by the worker.
+        self::assertCount(2, $this->projector->events((int) $this->taskRow('task-d')['uid']));
+    }
+
+    /**
+     * Spec 059 WS1: a dependency claim given back after a read that failed
+     * for now puts the run back into its wait, and the task says so again.
+     */
+    #[Test]
+    public function aDependencyClaimGivenBackWaitsWithTheTextAgain(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForDependency($handle, $this->state(), $this->checkpoint()));
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($handle), 'resume:1', time() + 300));
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view());
+
+        self::assertTrue($this->persister->releaseDependencyClaim($this->runOf($handle), 'resume:1'));
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($handle)->statusEnum());
+        self::assertSame(['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_REMOTE_AGENT, 4], $this->view());
+    }
+
+    /**
+     * The release runs after a store error; when the task view cannot be
+     * written either, the claim is still given back and the run waits for a
+     * later tick instead of failing.
+     */
+    #[Test]
+    public function aDependencyClaimIsGivenBackEvenWhenTheTaskViewCannotBeWritten(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForDependency($handle, $this->state(), $this->checkpoint()));
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($handle), 'resume:1', time() + 300));
+        $this->failInDatabase('a2a_release_mirror', A2aTaskStore::TABLE, 'UPDATE', '1 = 1');
+
+        $released = $this->persister->releaseDependencyClaim($this->runOf($handle), 'resume:1');
+        $this->dropTrigger('a2a_release_mirror', A2aTaskStore::TABLE);
+
+        self::assertTrue($released);
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($handle)->statusEnum());
+        self::assertSame(['', 0], [$this->runOf($handle)->claimedBy, (int) $this->connection()->select(['lease_expires'], 'tx_nrllm_agentrun', ['uid' => $handle->runUid])->fetchOne()]);
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view(), 'the task view stays behind until the next transition');
+    }
+
+    /**
+     * A stored status message that cannot be opened (a damaged envelope, a
+     * key that is gone) does not stop a transition that keeps the state: it
+     * is written anew.
+     */
+    #[Test]
+    public function anUnreadableStatusMessageDoesNotStopTheWait(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForDependency($handle, $this->state(), $this->checkpoint()));
+        // The sealed wait text with one byte of its ciphertext changed.
+        $sealed = $this->taskRow()['status_message'];
+        self::assertIsString($sealed);
+        $damaged = substr($sealed, 0, -12) . ($sealed[-12] === 'A' ? 'B' : 'A') . substr($sealed, -11);
+        $this->connection()->update(A2aTaskStore::TABLE, ['status_message' => $damaged], ['task_id' => 'task-1']);
+
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($handle), 'resume:1', time() + 300));
+
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view());
+    }
+
+    /**
+     * Spec 059 WS2: a decision stored for the worker (ADR-281) ends the wait
+     * as well: the queued continuation is WORKING without the text.
+     */
+    #[Test]
+    public function aStoredDecisionEndsTheWaitText(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspend($handle, $this->state()));
+        $run = $this->runOf($handle);
+        self::assertIsString($run->suspendedState);
+
+        self::assertTrue($this->persister->queueContinuation($run, AgentRunStatus::WAITING_FOR_APPROVAL, 0, $run->suspendedState));
+
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view());
+
+        // WS3: the worker's claim keeps WORKING without a text, so nothing
+        // is written: no revision, no event.
+        $events = count($this->projector->events((int) $this->taskRow()['uid']));
+        self::assertTrue($this->persister->claimQueued($this->runOf($handle), 'worker-b:1', time() + 300));
+        self::assertSame(['TASK_STATE_WORKING', '', 3], $this->view());
+        self::assertCount($events, $this->projector->events((int) $this->taskRow()['uid']));
+    }
+
+    /**
+     * Spec 059 WS4: a wait for the client's input stays INPUT_REQUIRED with
+     * the question, never the text of a wait the installation decides.
+     */
+    #[Test]
+    public function aWaitForTheClientKeepsItsQuestion(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForInput($handle, $this->state()));
+
+        self::assertSame('TASK_STATE_INPUT_REQUIRED', $this->taskRow()['state']);
+        self::assertNotContains($this->statusText(), [A2aTaskStore::TEXT_WAITING_FOR_APPROVAL, A2aTaskStore::TEXT_WAITING_FOR_REMOTE_AGENT, '']);
+    }
+
+    /**
      * A run a policy refused before any worker took it: the task never left
      * SUBMITTED, so it is REJECTED (A2A-SV10), not FAILED.
      */
@@ -263,6 +388,37 @@ final class A2aTaskMirrorTest extends AbstractFunctionalTestCase
     private function checkpoint(): DependencyCheckpoint
     {
         return new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512);
+    }
+
+    /**
+     * @return array{string, string, int} state, status text and revision of the task
+     */
+    private function view(string $taskId = 'task-1'): array
+    {
+        $row = $this->taskRow($taskId);
+
+        return [is_string($row['state']) ? $row['state'] : '', $this->statusText($taskId), (int) $row['revision']];
+    }
+
+    private function statusText(string $taskId = 'task-1'): string
+    {
+        return $this->messageText(json_decode($this->opened('status_message', $taskId), true));
+    }
+
+    private function messageText(mixed $message): string
+    {
+        return is_array($message) && is_array($message['parts'] ?? null) && is_array($message['parts'][0] ?? null) && is_string($message['parts'][0]['text'] ?? null) ? $message['parts'][0]['text'] : '';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function lastEvent(string $taskId): array
+    {
+        $events = $this->projector->events((int) $this->taskRow($taskId)['uid']);
+        self::assertNotSame([], $events);
+
+        return $events[count($events) - 1]['payload'];
     }
 
     private function runOf(AgentRunHandle $handle): AgentRun

@@ -9,10 +9,14 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aListCursor;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcServer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskView;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -233,6 +237,34 @@ final class A2aTaskMethodsTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Spec 059 WS1, WS2, WS5: GetTask and ListTasks show a WORKING task that
+     * waits for an approval with the fixed text, and without it once the
+     * approval let the run go on. The text names no run, record or person.
+     */
+    #[Test]
+    public function getTaskAndListTasksSayWhatAWorkingTaskWaitsFor(): void
+    {
+        $task      = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $persister = $this->getService(AgentRunPersister::class);
+        $run       = $this->runOfTask($task['id']);
+        self::assertTrue($persister->claimQueued($run, 'worker-t', time() + 300));
+        self::assertTrue($persister->suspend(new AgentRunHandle($run->uid, $run->uuid), new SuspendedRunState([['role' => 'user', 'content' => 'x']], [['id' => 'c', 'type' => 'function', 'function' => ['name' => 'w', 'arguments' => '{}']]], 1, 0, 0)));
+
+        $waiting = $this->taskOf($this->call('GetTask', ['id' => $task['id']]));
+        self::assertSame(['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_APPROVAL], [self::j($waiting, 'status.state'), self::j($waiting, 'status.message.parts.0.text')]);
+        self::assertSame('ROLE_AGENT', self::j($waiting, 'status.message.role'));
+        self::assertStringNotContainsString($run->uuid, (string) json_encode($waiting['status']));
+        $listed = self::j($this->call('ListTasks', ['status' => 'TASK_STATE_WORKING']), 'result.tasks.0');
+        self::assertSame([$task['id'], A2aTaskStore::TEXT_WAITING_FOR_APPROVAL], [self::j($listed, 'id'), self::j($listed, 'status.message.parts.0.text')]);
+
+        self::assertTrue($persister->claimResume($this->runOfTask($task['id']), 'resume:1', time() + 300));
+
+        $resumed = $this->taskOf($this->call('GetTask', ['id' => $task['id']]));
+        self::assertSame('TASK_STATE_WORKING', self::j($resumed, 'status.state'));
+        self::assertArrayNotHasKey('message', self::objectOf($resumed['status'] ?? []));
+    }
+
+    /**
      * A2A-SV6: the filters, the page size range, and no `artifacts` member
      * unless includeArtifacts is true.
      */
@@ -270,6 +302,16 @@ final class A2aTaskMethodsTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
 
         return $row;
+    }
+
+    private function runOfTask(string $taskId): AgentRun
+    {
+        $uuid = $this->db('tx_nrllm_agentrun')->select(['uuid'], 'tx_nrllm_agentrun', ['uid' => self::j($this->taskRow($taskId), 'run_uid')])->fetchOne();
+        self::assertIsString($uuid);
+        $run = $this->getService(AgentRunPersister::class)->findRun($uuid);
+        self::assertInstanceOf(AgentRun::class, $run);
+
+        return $run;
     }
 
     /**
