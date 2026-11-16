@@ -18,8 +18,9 @@ worker executes; the client receives the result as an A2A task
 
 This page covers stages 3 to 5b of spec 051 (tasks, a client that answers a
 task waiting for input, streams, and push notifications to a client's
-webhook) and the inbound files of stage 5c, switched off by default. Files
-in a result (the outbound part of stage 5c) are not offered.
+webhook) and the files of stage 5c, switched off by default: files a client
+sends, and files a task registers for its result, sent inline or as a
+protected download. No producer of result files exists yet.
 
 Switch it on
 ============
