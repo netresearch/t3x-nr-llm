@@ -1,1 +1,0 @@
-- A2A skill handler `nr_llm.page_metadata.v1` (ADR-296, spec 055): a client sends `{"page", "language", "fields"}` as JSON, the request is checked before a task exists, and the run writes the named metadata of that page in that language as a draft, bound to the scope of the request (page, table `pages`, language). The first starter of a run that sets the scope of an assignment.

@@ -27,26 +27,34 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-48-0:
+.. _version-0-49-0:
 
-Version 0.48.0 (2026-11-15)
+Version 0.49.0 (2026-11-16)
 ===========================
 
-A2A streams, in both roles (spec 051 stage 5a, ADR-283). Run the TYPO3
-database schema update after updating.
+A2A push notifications and file parts, an A2A skill that writes page metadata,
+and a security fix for queue workers. Run the TYPO3 database schema update
+after updating. Push notifications and files are off by default.
 
-- **Server:** ``SendStreamingMessage`` and ``SubscribeToTask`` answer with
-  Server-Sent Events read from the task's event journal: the task first, then
-  only later stored changes. An answer leaves whole and only once the run has
-  finished. A stream closes at a terminal state or ``INPUT_REQUIRED``, ends
-  after ``a2a.server.streamMaxSeconds`` and never cancels its task.
-- **Settings:** ``a2a.server.streaming`` (on by default) switches the card's
-  ``streaming`` and both methods; streams have their own capacity per task,
-  per client and per installation. A stream holds a PHP-FPM worker while it is
-  open, and the proxies in front of it must pass ``text/event-stream`` on as it
-  is written; nginx with FastCGI buffering on is tested.
-- **Client:** ``A2aClient::sendStreamingMessage()``,
-  ``A2aClient::subscribeToTask()`` and ``nrllm:a2a:send --stream`` read the
-  stream of an agent whose card declares it. A delegating run keeps polling.
+- **Push notifications:** in the server role (``a2a.server.push``) a client
+  registers webhooks for its own tasks, and ``nrllm:a2a:poll`` delivers them;
+  in the client role (``a2a.client.push``) a delegation registers a callback
+  that brings the next ``GetTask`` forward. Schedule ``nrllm:a2a:poll`` at
+  least once a minute while push is on.
+- **Files:** with ``a2a.files.enabled`` a message may carry ``raw`` and
+  ``url`` parts of five media types, checked and kept in a private, sealed
+  store; a completed task sends the files it registered as artifacts. Check
+  the body size limit of every proxy and of PHP in front of the endpoint.
+- **Page metadata skill:** ``nr_llm.page_metadata.v1`` writes the named
+  metadata of one page in one language as a draft, bound to the scope of the
+  request (ADR-296). A write must match its request (ADR-297) and the
+  proposal a ``check_page_metadata`` call passed, on an unchanged row
+  (ADR-298). A profile of the skill grants both tools.
+- **Tools and services:** ``describe_fal_asset`` returns the metadata of a
+  file inside the acting user's file mounts (ADR-303); :php:`ExternalTextCheck`
+  checks a text for use outside TYPO3 against a configuration's rules
+  (ADR-300).
+- **Security:** a queue worker resets run-scoped state, such as the file
+  gate's per-user storages, before and after each run.
 
 Details in the repository :file:`CHANGELOG.md`.
