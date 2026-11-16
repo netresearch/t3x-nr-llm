@@ -28,7 +28,8 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * again before any file is read or fetched. A `url` part still pending is
  * fetched here, by the worker and nowhere else ({@see A2aFileFetcher}),
  * checked like a raw part (its type's validator, the size limit for the part
- * and for the message) and stored; from then on the stored copy is the input
+ * and for the message, the pixel budget the message's images share) and
+ * stored; from then on the stored copy is the input
  * and the URL is never fetched again (A2A-FILE3). A refused fetch is stored
  * as refused and fails the run. For a run bound to a task whose message
  * carried files, every file the task's manifest names must be in the store,
@@ -116,8 +117,9 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
      */
     private function fetchPending(array $manifest, array $rows, int $taskUid, int $owner): array
     {
-        $limit = $this->settings->maxRawPartBytes();
-        $total = 0;
+        $limit  = $this->settings->maxRawPartBytes();
+        $total  = 0;
+        $pixels = null;
         foreach ($rows as $row) {
             $total += ($row['check_state'] ?? null) === A2aFileStore::CHECK_PASSED && is_numeric($row['size'] ?? null) ? (int) $row['size'] : 0;
         }
@@ -131,7 +133,17 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
             $uid       = is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0;
             $mediaType = is_string($row['declared_media_type'] ?? null) ? $row['declared_media_type'] : '';
             try {
-                $bytes   = $this->fetcher->fetch($this->store->sourceUrl($uid, $owner), $mediaType, $limit - $total);
+                $bytes = $this->fetcher->fetch($this->store->sourceUrl($uid, $owner), $mediaType, $limit - $total);
+                // The images of one message share one pixel budget, counted
+                // from their headers before GD decodes any of them.
+                if (in_array(A2aFileValidator::normalise($mediaType), self::IMAGE_TYPES, true)) {
+                    $pixels ??= $this->storedPixels($rows, $owner);
+                    $pixels += $this->validator->pixels($bytes);
+                    if ($pixels > A2aFileValidator::MAX_PIXELS) {
+                        throw new RunStartRefusedException(sprintf('the images of one message hold more than %d pixels', A2aFileValidator::MAX_PIXELS), 2318407756);
+                    }
+                }
+
                 $refusal = $this->validator->refusal($mediaType, $bytes);
                 if ($refusal !== null) {
                     throw new RunStartRefusedException(sprintf('the fetched file is not %s: %s', $mediaType, $refusal), 4972092544);
@@ -150,6 +162,24 @@ final readonly class A2aFileInputPreparer implements RunStartPreparerInterface
         }
 
         return $this->store->rowsOfTask($taskUid, $owner);
+    }
+
+    /**
+     * The pixels the task's checked images name together: raw ones and those
+     * fetched on an earlier attempt.
+     *
+     * @param array<string, array<string, mixed>> $rows
+     */
+    private function storedPixels(array $rows, int $owner): int
+    {
+        $pixels = 0;
+        foreach ($rows as $row) {
+            if (($row['check_state'] ?? null) === A2aFileStore::CHECK_PASSED && in_array($row['media_type'] ?? null, self::IMAGE_TYPES, true)) {
+                $pixels += $this->validator->pixels($this->store->content(is_numeric($row['uid'] ?? null) ? (int) $row['uid'] : 0, $owner));
+            }
+        }
+
+        return $pixels;
     }
 
     /**

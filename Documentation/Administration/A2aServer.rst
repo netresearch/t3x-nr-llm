@@ -353,7 +353,9 @@ File URLs
    that carries no credential of the client or of a remote agent and no
    cookie, following no redirect and reading at most the size limit. The
    fetched bytes pass the same type check and count against the message's
-   limit together with its raw files. A refusal (a redirect, a status that
+   limit together with its raw files; a fetched image counts against the
+   message's pixel budget together with its other images, before it is
+   decoded. A refusal (a redirect, a status that
    is not 2xx, the size, the content, the guard) is stored with the file
    and fails the task; a timeout, 408, 429 or 5xx leaves the file pending
    and the run is retried like any transient failure. Once stored, the copy

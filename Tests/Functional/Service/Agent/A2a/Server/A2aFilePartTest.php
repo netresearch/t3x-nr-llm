@@ -610,6 +610,47 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function fetchedImages(): iterable
+    {
+        yield 'an image that decodes' => [true];
+        yield 'a header that does not decode' => [false];
+    }
+
+    /**
+     * A fetched image shares the message's pixel budget with the images
+     * already stored for the task, raw or fetched on an earlier attempt, and
+     * is counted before it is decoded: an image that would pass on its own
+     * is refused once the budget is spent, and a header that would not
+     * decode is refused for the budget, not for its content.
+     */
+    #[Test]
+    #[DataProvider('fetchedImages')]
+    public function aFetchedImageCountsAgainstTheMessagesPixelBudget(bool $decodes): void
+    {
+        $this->fileHosts(self::FILE_HOST);
+        $task = $this->taskOf($this->send([
+            ['url' => 'https://93.184.216.34/files/first.png', 'mediaType' => 'image/png'],
+            ['url' => 'https://93.184.216.34/files/second.png', 'mediaType' => 'image/png'],
+        ]));
+        // The first image was fetched on an earlier attempt and holds the
+        // whole budget of 4096 x 4096 pixels.
+        $first = $this->fileRows()[0];
+        self::assertTrue($this->getService(A2aFileStore::class)->recordFetched((int) $first['uid'], (int) $first['owner_client_uid'], $this->pngHeader(4096, 4096), 'image/png', time()));
+
+        $image = $decodes ? A2aFileValidatorTest::png() : $this->pngHeader(4096, 4096);
+        $this->runTask(self::text($task['id'] ?? ''), $this->preparerAnswering(new Response(200, [], $image)));
+
+        self::assertCount(1, $this->fetched);
+        self::assertSame([], $this->asked);
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
+        $second = $this->fileRows()[1];
+        self::assertSame(['failed', 'refused'], [$second['check_state'], $second['approval_state']]);
+        self::assertStringContainsString('the images of one message hold more than 16777216 pixels', self::text($second['refusal']));
+    }
+
+    /**
      * A2A-SEC4, A2A-FILE3: a host name is fetched pinned to the addresses
      * the guard resolved, and not at all by a client that cannot pin.
      */
