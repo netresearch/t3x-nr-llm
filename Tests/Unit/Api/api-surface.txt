@@ -2556,13 +2556,15 @@ Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface (interface)
   method skillAllowListForRun(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $forcedSkills = …): Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
 
 Netresearch\NrLlm\Service\Tool\ToolExecutionContext (class)
-  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $initialInvocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord $subjectRecord = …)
+  constructor(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser = …, ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference $run = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $initialInvocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\SubjectRecord $subjectRecord = …, ?array $approvedPreview = …)
   method actingBackendUser(): ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
   method isAdmin(): bool
   method static forBackendUser(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $backendUser): self
   method static fromBackendUser(TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): self
   method static none(): self
+  method withApprovedPreview(array $lines): self
   property readonly actor: Netresearch\NrLlm\Domain\ValueObject\AiActorContext
+  property readonly approvedPreview: ?array
   property readonly backendUser: ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication
   property readonly initialInvocationHistory: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory
   property readonly run: ?Netresearch\NrLlm\Domain\ValueObject\AgentRunReference
