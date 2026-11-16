@@ -9,6 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
+use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Platforms\AbstractMySQLPlatform;
+use Doctrine\DBAL\Platforms\MariaDBPlatform;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
+use Doctrine\DBAL\Platforms\SQLitePlatform;
+use Doctrine\DBAL\TransactionIsolationLevel;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\AgentStateEnvelopeRotator;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -22,6 +28,7 @@ use Netresearch\NrVault\Crypto\MasterKeyProviderInterface;
 use Netresearch\NrVault\Exception\EncryptionException;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -322,6 +329,128 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
 
         self::assertSame(10, $this->rotator->rewrapAll($context));
         self::assertLessThan(9 * $sealedLength, memory_get_peak_usage() - $before, 'the rotation holds no page of several sealed files');
+    }
+
+    /**
+     * A file a privacy scrub empties while the vault's rotation runs stays
+     * empty. The vault opens its rotation transaction in READ COMMITTED on
+     * MySQL, MariaDB and PostgreSQL and reads its own tables first; this
+     * opens the transaction the same way.
+     */
+    #[Test]
+    public function aFileScrubbedDuringTheVaultsRotationStaysEmpty(): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_a2a_file');
+        $platform   = $connection->getDatabasePlatform();
+        if ($platform instanceof SQLitePlatform) {
+            self::markTestSkipped('SQLite serialises writers: no other connection can write while the rotation holds the write lock.');
+        }
+
+        self::assertSame('', $this->rotateWhileAnotherSessionScrubs(static function (Connection $connection) use ($platform): void {
+            // VaultRotateMasterKeyCommand::beginRotationTransaction().
+            if ($platform instanceof AbstractMySQLPlatform) {
+                $connection->executeStatement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+            }
+
+            $connection->beginTransaction();
+            if ($platform instanceof PostgreSQLPlatform) {
+                $connection->executeStatement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+            }
+        }));
+    }
+
+    /**
+     * The same scrub stays empty when the caller's transaction runs in
+     * REPEATABLE READ and has read before the rotation. InnoDB then fixes
+     * the snapshot at that first read, and a plain read of the file after
+     * the row lock returns the sealed value the scrub had already removed.
+     * MySQL 8.4 restored the file before the read was a locking one. MariaDB
+     * 11.8 aborts such a transaction by itself (`innodb_snapshot_isolation`);
+     * that check is switched off here to exercise the MySQL behaviour.
+     */
+    #[Test]
+    public function aFileScrubbedDuringARepeatableReadRotationStaysEmpty(): void
+    {
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_a2a_file');
+        $platform   = $connection->getDatabasePlatform();
+        if (!$platform instanceof AbstractMySQLPlatform) {
+            self::markTestSkipped('Exercises the InnoDB REPEATABLE READ snapshot.');
+        }
+
+        $isolation = $connection->getTransactionIsolation();
+        if ($platform instanceof MariaDBPlatform) {
+            $connection->executeStatement('SET SESSION innodb_snapshot_isolation = OFF');
+        }
+
+        $connection->setTransactionIsolation(TransactionIsolationLevel::REPEATABLE_READ);
+
+        try {
+            self::assertSame('', $this->rotateWhileAnotherSessionScrubs(static function (Connection $connection): void {
+                $connection->beginTransaction();
+            }));
+        } finally {
+            $connection->setTransactionIsolation($isolation);
+            if ($platform instanceof MariaDBPlatform) {
+                $connection->executeStatement('SET SESSION innodb_snapshot_isolation = DEFAULT');
+            }
+        }
+    }
+
+    /**
+     * Seal two files, open the caller's transaction with $begin, read the
+     * file table once (as the vault reads its own tables first), and rotate.
+     * While the first file is rewrapped, a second connection empties the
+     * second file and commits. Returns the second file's content after the
+     * rotation committed.
+     *
+     * @param callable(Connection): void $begin
+     */
+    private function rotateWhileAnotherSessionScrubs(callable $begin): string
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $first  = $this->insertFile('', $codec->seal('first file', AgentStateCodec::PURPOSE_A2A_FILE));
+        $second = $this->insertFile('', $codec->seal('second file', AgentStateCodec::PURPOSE_A2A_FILE));
+
+        $connection = $this->connectionPool->getConnectionForTable('tx_nrllm_a2a_file');
+        $other      = DriverManager::getConnection($connection->getParams());
+        if ($connection->getDatabasePlatform() instanceof AbstractMySQLPlatform) {
+            $other->executeStatement('SET SESSION innodb_lock_wait_timeout = 5');
+        }
+
+        $scrubbed     = false;
+        $stubbedCodec = self::createStub(EnvelopeCodecInterface::class);
+        $stubbedCodec->method('isSealed')->willReturn(true);
+        $stubbedCodec->method('rewrap')->willReturnCallback(
+            static function (string $sealed) use ($other, $second, &$scrubbed): string {
+                if (!$scrubbed) {
+                    $scrubbed = true;
+                    $other->update('tx_nrllm_a2a_file', ['content' => ''], ['uid' => $second]);
+                }
+
+                return $sealed . '-rotated';
+            },
+        );
+
+        $begin($connection);
+
+        try {
+            $connection->executeQuery('SELECT COUNT(*) FROM ' . $connection->quoteIdentifier('tx_nrllm_a2a_file'))->fetchOne();
+            $this->rotator->rewrapAll(new EnvelopeRotationContext($stubbedCodec, 'old', 'new'));
+            $connection->commit();
+        } finally {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+
+            $other->close();
+        }
+
+        self::assertTrue($scrubbed, 'the second connection emptied the second file during the rotation');
+        self::assertStringEndsWith('-rotated', $this->storedValue($first, 'content', 'tx_nrllm_a2a_file'));
+
+        return $this->storedValue($second, 'content', 'tx_nrllm_a2a_file');
     }
 
     /**
