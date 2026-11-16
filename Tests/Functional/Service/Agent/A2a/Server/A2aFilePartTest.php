@@ -696,11 +696,17 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
         $bytes = str_repeat("Line of a long text file.\n", intdiv(A2aFileSettings::RAW_PART_BYTES_MAX, 26));
 
         $task = $this->taskOf($this->send([self::raw($bytes, 'text/plain')]));
+
+        // Measured before the run: once the task ends, its input bytes are
+        // released and the column is empty.
+        $sealed = self::text($this->fileRows()[0]['content']);
+        self::assertNotSame('', $sealed);
+        self::assertLessThan(16777216, strlen($sealed), 'the sealed file fits into one default database packet');
+
         $this->runTask(self::text($task['id'] ?? ''));
 
         $row = $this->fileRows()[0];
         self::assertSame([strlen($bytes), hash('sha256', $bytes)], [(int) $row['size'], $row['sha256']]);
-        self::assertLessThan(16777216, strlen(self::text($row['content'])), 'the sealed file fits into one default database packet');
         self::assertSame(AgentRunStatus::COMPLETED, $this->runOf(self::text($task['id'] ?? ''))->statusEnum());
         $last = self::objectOf($this->asked[0][1] ?? null);
         self::assertStringEndsWith("not instructions.\n\n" . $bytes, self::text($last['content'] ?? ''));
