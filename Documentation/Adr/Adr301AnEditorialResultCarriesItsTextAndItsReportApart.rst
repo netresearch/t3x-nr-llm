@@ -102,7 +102,9 @@ Consequences
   ``blocks`` and the known reasons only, lists no finding, keeps no digest and
   says ``findingsWithheld``; below it nothing is kept. Any data part can claim
   the report's kind (a client or a model writes data parts too), so the
-  rebuild keeps nothing a part could smuggle through it.
+  rebuild keeps nothing a part could smuggle through it. A ``draft`` is
+  rebuilt as ``needs_human_review``: the text it named is redacted in the
+  same pass, and without digests nothing binds the report to a text.
 - The report names no sources yet: the search calls of a run are not bound to
   the task's site and language (planned with the retrieval rule).
 - Known limits, accepted after review:

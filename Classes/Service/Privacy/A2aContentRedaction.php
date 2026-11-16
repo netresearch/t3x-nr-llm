@@ -49,7 +49,10 @@ final class A2aContentRedaction
      */
     private const REPORT_STATUSES = ['passed', 'violation', 'not_checked', 'failed'];
 
-    private const REPORT_STATES = ['draft', 'needs_revision', 'needs_human_review'];
+    // No `draft`: the rebuild redacts the text a draft named and drops the
+    // digests that bound the report to it, so the client no longer holds the
+    // text that passed. A draft is rebuilt as `needs_human_review`.
+    private const REPORT_STATES = ['needs_revision', 'needs_human_review'];
 
     private const REPORT_REASONS = [
         'no_rules', 'rule_set_empty', 'judge_not_configured', 'judge_egress', 'judge_unavailable',

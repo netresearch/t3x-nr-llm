@@ -167,6 +167,25 @@ final class A2aContentRedactionTest extends TestCase
     }
 
     /**
+     * The rebuild redacts the text the draft named and drops the digests that
+     * bound the report to it, so the client no longer holds the text that
+     * passed: a draft is rebuilt as needing a human review.
+     */
+    #[Test]
+    public function aDraftRebuiltAtRedactedNeedsAHumanReview(): void
+    {
+        $kept = $this->redacted(['parts' => [['data' => [
+            'kind'           => 'nr_llm.editorial_report',
+            'version'        => 1,
+            'editorialState' => 'draft',
+            'check'          => ['status' => 'passed', 'blocks' => false, 'reasons' => [], 'findings' => [], 'findingsWithheld' => false],
+        ], 'mediaType' => 'application/json']]]);
+
+        self::assertSame('needs_human_review', $kept['parts'][0]['data']['editorialState'] ?? null);
+        self::assertSame('passed', $kept['parts'][0]['data']['check']['status'] ?? null);
+    }
+
+    /**
      * Every reason a check can give survives the redaction, so a new reason
      * cannot be dropped silently.
      */
