@@ -19,8 +19,9 @@ worker executes; the client receives the result as an A2A task
 This page covers stages 3 to 5b of spec 051 (tasks, a client that answers a
 task waiting for input, streams, and push notifications to a client's
 webhook) and the files of stage 5c, switched off by default: files a client
-sends, and files from FAL a task sends, inline or as a protected download.
-Taking a file a client sent into FAL is not offered.
+sends, files from FAL a task sends, inline or as a protected download, and
+a client's file taken into the profile's FAL inbox after a person approved
+it (:ref:`Taking a client's file into FAL <administration-a2a-server-fal-adoption>`).
 
 Switch it on
 ============
