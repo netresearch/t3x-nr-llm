@@ -53,7 +53,8 @@ Decision
    with that task and context id through the send journal, as an intent that
    continues the first one; its message id is derived from the run, the
    checkpoint and the question's marker, never from the claim, so a repeated
-   execution or a replay after a crash gets the existing intent back.
+   execution gets the existing intent back, and another text under that id
+   is not sent.
    A response about another task is not followed. Every rewrite of the pause,
    such as the release after a refused answer, keeps the checkpoint. The
    checkpoint is bound to the endpoint that asked (a digest of the record's

@@ -1509,9 +1509,9 @@ final readonly class ResumeCoordinator
         // The pause it was is not the wait it becomes: no input fields.
         $waiting = SuspendedRunState::fromArray(['inputToolName' => null, 'inputSchema' => []] + array_diff_key($state->toArray(), ['inputCallId' => true]));
         $answer  = is_string($submission->data['answer'] ?? null) ? $submission->data['answer'] : '';
-        // The id names the question, never the claim: a replay after a crash
-        // (or a second answer to the same question) gets the existing intent
-        // back instead of a second send.
+        // The id names the question, never the claim: a repeated execution of
+        // the same answer gets the existing intent back instead of a second
+        // send; another text under that id is refused unsent.
         $marker    = $state->inputSchema['x-nr-llm-question'] ?? '';
         $messageId = Uuid::v5(Uuid::fromString(Uuid::NAMESPACE_OID), implode("\0", ['nr_llm.remote_answer', $claimed->uuid, (string) $question->journalUid, (string) $question->suspendedAt, (string) $question->deadline, is_string($marker) ? $marker : '']))->toRfc4122();
         $roundCap  = $this->roundCap($state);

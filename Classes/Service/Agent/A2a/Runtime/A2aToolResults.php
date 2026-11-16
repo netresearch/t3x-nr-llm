@@ -118,6 +118,19 @@ final class A2aToolResults
         ));
     }
 
+    /**
+     * The question was already answered with another text under the same
+     * message id: that answer may have reached the remote, this one is not
+     * sent (spec 060 RQ4).
+     */
+    public static function alreadyAnswered(string $agent): ToolResult
+    {
+        return self::error(sprintf(
+            'Error: outcome unknown. The question of %s was already answered with another text, which may have arrived; this answer is not sent.',
+            self::origin($agent),
+        ));
+    }
+
     public static function unavailable(string $reason): ToolResult
     {
         return self::error('Error: the remote agent cannot be used: ' . $reason . '. Nothing was sent.');

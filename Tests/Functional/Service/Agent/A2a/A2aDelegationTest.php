@@ -811,6 +811,14 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('outcome unknown', $again->content);
         self::assertInstanceOf(ToolResult::class, $unknown);
         self::assertCount(5, $this->transport->requests, 'the unknown answer left once');
+
+        // Another text for a question already answered under that id: not
+        // sent, not reported as "nothing was sent", no internal id.
+        $other = $answerer->answer($checkpoint, '1999', '01890000-0000-7000-8000-00000000a001', $run->uid);
+        self::assertInstanceOf(ToolResult::class, $other);
+        self::assertStringContainsString('outcome unknown', $other->content);
+        self::assertStringNotContainsString('01890000-0000-7000-8000-00000000a001', $other->content);
+        self::assertCount(5, $this->transport->requests);
     }
 
     /**
@@ -1139,13 +1147,14 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * Spec 060 RQ4: a worker that dies after the answer went out, before the
-     * run waited again, sends nothing twice. The replay of the stored answer
-     * is refused as stale and the run is back at the question; the same
-     * answer given again gets the existing intent back, under the same id.
+     * Spec 060 RQ4: a stored answer executed again after it went out (the run
+     * row set back to its queued state) sends nothing twice. The replay is
+     * refused as stale and the run is back at the question; the same answer
+     * given again gets the existing intent back, under the same id. In
+     * production the reaper fails such a run instead; this pins the id.
      */
     #[Test]
-    public function aReplayAfterACrashDoesNotSendTheAnswerTwice(): void
+    public function aReplayOfAStoredAnswerDoesNotSendItTwice(): void
     {
         $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
         $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
@@ -1162,7 +1171,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $this->runtime([])->runQueued($runUuid);
         self::assertSame(['SendMessage', 'GetTask', 'SendMessage'], $this->methods());
 
-        // The crash: the answer left, the run's next state was never stored.
+        // The answer left; the run's next state is taken back.
         $runs->update('tx_nrllm_agentrun', $queued, ['uuid' => $runUuid]);
         $this->runtime([])->runQueued($runUuid);
         self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());

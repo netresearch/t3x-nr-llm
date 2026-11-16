@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aSendOutcome;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
+use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aIntentConflictException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendState;
@@ -88,15 +89,21 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
         }
 
         $message = new A2aMessage($messageId, A2aRole::USER, [A2aPart::text($this->redactSecretShapes($text))], $intent->remoteContextId, $intent->remoteTaskId);
-        $outcome = $this->inScope(function () use ($agent, $intent, $message, $runUid): A2aSendOutcome|string {
+        $outcome = $this->inScope(function () use ($agent, $intent, $message, $runUid): A2aSendOutcome|string|null {
             try {
                 return $this->client->sendMessage($agent, $intent->ownerUid, $message, A2aSendMessageConfiguration::returningImmediately(), $runUid, $intent->uid);
+            } catch (A2aIntentConflictException) {
+                return null;
             } catch (A2aException $e) {
                 return $e->getMessage();
             }
         });
+        if ($outcome === null) {
+            return A2aToolResults::alreadyAnswered($agent->getTitle());
+        }
+
         if (!$outcome instanceof A2aSendOutcome) {
-            return A2aToolResults::unavailable(is_string($outcome) ? $outcome : 'the answer could not be sent');
+            return A2aToolResults::unavailable($outcome);
         }
 
         $sent = $outcome->intent;

@@ -46,8 +46,8 @@ started the run answer, and sends that answer to exactly that remote task.
   names the first one (`continues_send_uid`), the text passed through the
   shared secret redactor. Its message id is a UUIDv5 of the run, the
   checkpoint and the question's marker, never of the claim, so a repeated
-  execution, also the replay after a worker crashed between the send and the
-  next wait, gets the existing intent back and sends nothing; an existing accepted intent is read
+  execution of the same stored answer gets the existing intent back and sends
+  nothing, and another text under that id is not sent (outcome unknown); an existing accepted intent is read
   with GetTask, an intent found `intended` or `outcome_unknown` is never sent
   again. The pending call is never executed again.
 - **RQ4a Only the endpoint that asked.** When the question becomes a pause,
@@ -123,7 +123,7 @@ mutation of the behaviour it covers.
 | RQ3 | `anotherUserCannotAnswerEvenAsAdministrator`, `anAnswerToAQuestionThatWasReplacedIsRefused` (the pause changes between the checks and the claim) |
 | RQ4 | `aRepeatedExecutionSendsTheAnswerOnce`, `aRefusedAnswerKeepsTheBindingAndTwoQuestionsGetTwoAnswers` |
 | RQ4a | `anAnswerIsNotSentToAnEndpointOtherThanTheOneThatAsked` |
-| RQ4 (crash between send and wait) | `aReplayAfterACrashDoesNotSendTheAnswerTwice` |
+| RQ4 (repeated execution of a stored answer) | `aReplayOfAStoredAnswerDoesNotSendItTwice` |
 | RQ5 | `anAnswerAboutAnotherTaskIsNotFollowed` |
 | RQ6 | `anUnansweredQuestionTimesOutAtTheDeadline`, `aQuestionBehindOlderPausesStillTimesOut` |
 | RQ1, RQ2 (old form, blank answer, failed release) | `anOldFormDoesNotAnswerARepeatedQuestionAndBlankAnswersAreRefused`, `aReleaseThatCannotReadTheRunFailsClosed` |
