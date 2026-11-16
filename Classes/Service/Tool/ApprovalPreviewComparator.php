@@ -147,9 +147,9 @@ final readonly class ApprovalPreviewComparator
      * {@see ToolLoopService::invoke()}; an exception body may carry DBAL
      * credentials.
      *
-     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool} $before
+     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string} $before
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}
      */
     private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
     {
@@ -177,7 +177,32 @@ final readonly class ApprovalPreviewComparator
             'tool'   => $call->name,
             'lines'  => $lines === [] ? $this->emptyLines($user) : $lines,
             'failed' => false,
-        ];
+        ] + $this->subjectOf($tool, $call, $context);
+    }
+
+    /**
+     * The structured subject a tool stores with its preview
+     * ({@see StoredPreviewVisibilityInterface}), as the field of a stored
+     * preview; nothing for any other tool, or when it names none. Bounded like
+     * a preview line.
+     *
+     * @return array{subject?: string}
+     */
+    public function subjectOf(ToolPreviewInterface $tool, ToolCall $call, ToolExecutionContext $context): array
+    {
+        if (!$tool instanceof StoredPreviewVisibilityInterface) {
+            return [];
+        }
+
+        try {
+            $subject = $tool->previewSubject($call->arguments, $context);
+        } catch (Throwable $e) {
+            $this->logger?->warning('A preview subject could not be read; the card is withheld from viewers it would need.', ['tool' => $call->name, 'exception' => $e]);
+
+            return [];
+        }
+
+        return $subject !== null && $subject !== '' ? ['subject' => mb_substr($subject, 0, self::MAX_LINE_LENGTH)] : [];
     }
 
     /**
@@ -224,8 +249,8 @@ final readonly class ApprovalPreviewComparator
      * comparison, so a second approval against an unchanged record would find it
      * missing and bounce again, forever.
      *
-     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}> $previews
-     * @param list<int>                                                                                $stale
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}> $previews
+     * @param list<int>                                                                                                  $stale
      */
     private function restale(
         SuspendedRunState $state,

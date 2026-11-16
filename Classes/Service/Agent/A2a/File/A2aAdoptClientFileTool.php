@@ -120,9 +120,6 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
 
     private const TAKEN = 'Not adopted: the name %s that was approved for this file is taken now. Nothing was written under another name; adopt the file again to approve a new name.';
 
-    /** A combined folder identifier in a preview line (ADR-305). */
-    private const IDENTIFIER = '#(?<![0-9])([0-9]+:/[^\s;]*/)#u';
-
     public function __construct(
         private ConnectionPool $connectionPool,
         private FalStorageGate $storageGate,
@@ -270,28 +267,26 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * Only a viewer who may read the inbox folder the card names sees it: an
-     * administrator, or a user whose file mounts reach that folder. The
-     * folder is read from the stored lines, not from the profile, which may
-     * name another one by now. A card that names no folder, or more than one,
-     * is withheld.
+     * The canonical inbox folder the preview shows, stored with it as a field
+     * of its own; null when the call cannot be written.
      */
-    public function mayViewerReadStoredPreview(array $arguments, array $lines, BackendUserAuthentication $viewer): bool
+    public function previewSubject(array $arguments, ToolExecutionContext $context): ?string
     {
-        $folders = [];
-        foreach ($lines as $line) {
-            if (preg_match_all(self::IDENTIFIER, $line, $matches) > 0) {
-                foreach ($matches[1] as $identifier) {
-                    $folders[A2aFalInbox::canonical($identifier) ?? ''] = true;
-                }
-            }
-        }
+        $plan = $this->plan($arguments, $context);
 
-        if (count($folders) !== 1 || isset($folders[''])) {
-            return false;
-        }
+        return is_array($plan) ? $plan['target'] : null;
+    }
 
-        $target = A2aFalInbox::parse(array_key_first($folders));
+    /**
+     * Only a viewer who may read the inbox folder the card was taken for sees
+     * it: an administrator, or a user whose file mounts reach that folder.
+     * The folder is the stored subject, never text of the lines, which carry
+     * the client's file name; not the profile, which may name another folder
+     * by now. No subject, or one that is no folder identifier: withheld.
+     */
+    public function mayViewerReadStoredPreview(array $arguments, ?string $subject, BackendUserAuthentication $viewer): bool
+    {
+        $target = $subject !== null ? A2aFalInbox::parse($subject) : null;
 
         return $target !== null && $this->storageGate->isFolderReadableBy($viewer, $target['storage'], $target['folder']);
     }

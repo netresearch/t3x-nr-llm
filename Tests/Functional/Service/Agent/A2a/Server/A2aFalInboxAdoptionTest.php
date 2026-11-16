@@ -529,6 +529,35 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Who sees the card is decided on the inbox stored with the preview as a
+     * field of its own, never on text of the lines: a client that names its
+     * file after another folder does not choose the folder a viewer is
+     * checked against. Here the inbox's own identifier holds a space, so no
+     * pattern over the lines could even find it.
+     */
+    #[Test]
+    public function aFolderInTheClientsFileNameDoesNotDecideWhoSeesTheCard(): void
+    {
+        GeneralUtility::mkdir_deep($this->inboxRoot . '/a2a inbox');
+        GeneralUtility::mkdir_deep($this->instancePath . '/fileadmin/other');
+        $this->db('sys_filemounts')->update('sys_filemounts', ['identifier' => '2:/'], ['uid' => 3]);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['fal_inbox_folder' => '2:/a2a inbox/'], ['uid' => 1]);
+        $run = $this->suspendedForApproval('1:/other/report.txt');
+        self::assertStringContainsString('1:/other/report.txt', implode("\n", $this->card($run)->pendingCalls[0]->previewLines), 'the client name is on the card');
+
+        $this->db('sys_workspace')->update('sys_workspace', ['members' => 'be_users_7,be_users_8'], ['uid' => self::WORKSPACE]);
+        $this->db('sys_filemounts')->insert('sys_filemounts', ['uid' => 5, 'pid' => 0, 'title' => 'Other', 'identifier' => '1:/other/', 'read_only' => 1]);
+        $this->db('be_groups')->insert('be_groups', ['uid' => 72, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '5', 'file_permissions' => 'readFolder,readFile', 'workspace_perms' => 1]);
+        $this->db('be_users')->insert('be_users', ['uid' => 8, 'pid' => 0, 'username' => 'editor', 'admin' => 0, 'usergroup' => '72', 'options' => 3]);
+
+        self::assertTrue($this->cardFor($run, 8)->pendingCalls[0]->previewFailed, 'an editor of the folder the client named');
+
+        $this->db('be_groups')->update('be_groups', ['file_mountpoints' => '3'], ['uid' => 72]);
+        $this->getService(FalStorageGate::class)->reset();
+        self::assertFalse($this->cardFor($run, 8)->pendingCalls[0]->previewFailed, 'an editor of the inbox');
+    }
+
+    /**
      * Identifiers are taken in their canonical form: `.` segments and
      * repeated slashes do not hide the processing or a recycler folder, and
      * the save hook stores the canonical form.
@@ -611,6 +640,10 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
         $this->runtime()->approve(AiActorContext::backendUser(self::APPROVER, isAdmin: true), $run->uuid, new ApprovalDecision(true, self::APPROVER, $digest));
 
         self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->runOf($run->uuid)->statusEnum());
+        $again = $this->card($this->runOf($run->uuid))->pendingCalls[0];
+        self::assertTrue($again->previewStale, 'the new card says it changed');
+        self::assertFalse($again->previewFailed, 'and shows the new folder to an administrator');
+        self::assertContains('Into the inbox folder 2:/a2a-inbox/elsewhere/; nothing references the file', $again->previewLines);
         self::assertSame(['elsewhere'], $this->inboxFiles());
         self::assertSame([], array_values(array_diff(scandir($this->inboxRoot . '/a2a-inbox/elsewhere') ?: [], ['.', '..'])));
         self::assertSame(0, $this->rows('sys_file', ['storage' => 2]));

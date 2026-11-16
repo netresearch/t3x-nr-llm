@@ -109,9 +109,11 @@ the file will be stored as, its checked type, its size, the start of its
 SHA-256 digest and the inbox folder (:php:`ToolPreviewInterface`). Only a
 viewer who may read the inbox folder the card names sees them, an
 administrator or an editor whose file mount reaches it; any other gets the
-withheld card of :ref:`ADR-136 <adr-136>`. The folder is read from the stored
-lines (:php:`StoredPreviewVisibilityInterface`), not from the profile, which
-may name another folder by the time the card is shown. Those lines
+withheld card of :ref:`ADR-136 <adr-136>`. The folder is stored with the
+preview as a field of its own (:php:`StoredPreviewVisibilityInterface`), never
+read from the lines, which carry the client's file name, and not from the
+profile, which may name another folder by the time the card is shown. Those
+lines
 are the reservation of :ref:`ADR-184 <adr-184>`: they are produced again before
 the approved call runs, and when they read differently (another folder, the
 name taken meanwhile, another file, a user who lost the right to write there)

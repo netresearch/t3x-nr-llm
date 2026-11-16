@@ -205,7 +205,7 @@ final readonly class WaitingRunViewFactory
                 $previewFailed = true;
             } elseif ($preview !== null && $preview['tool'] === $call->name) {
                 if ($this->viewerStartedTheRun($run, $viewer)
-                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $preview['lines'], $viewer))
+                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $preview['subject'] ?? null, $viewer))
                 ) {
                     $previewLines  = $preview['lines'];
                     $previewFailed = $preview['failed'];
@@ -414,12 +414,12 @@ final readonly class WaitingRunViewFactory
      * wrote those lines.
      *
      * A tool whose stored preview names more than its arguments decides on
-     * the lines themselves ({@see StoredPreviewVisibilityInterface}).
+     * the structured subject stored with the preview, never on its lines
+     * ({@see StoredPreviewVisibilityInterface}).
      *
      * @param array<string, mixed> $arguments
-     * @param list<string>         $lines     the stored preview lines
      */
-    private function viewerMayRead(?ToolInterface $tool, array $arguments, array $lines, ?BackendUserAuthentication $viewer): bool
+    private function viewerMayRead(?ToolInterface $tool, array $arguments, ?string $subject, ?BackendUserAuthentication $viewer): bool
     {
         if (!$viewer instanceof BackendUserAuthentication) {
             return false;
@@ -431,7 +431,7 @@ final readonly class WaitingRunViewFactory
 
         try {
             return $tool instanceof StoredPreviewVisibilityInterface
-                ? $tool->mayViewerReadStoredPreview($arguments, $lines, $viewer)
+                ? $tool->mayViewerReadStoredPreview($arguments, $subject, $viewer)
                 : $tool->mayViewerReadPreview($arguments, $viewer);
         } catch (Throwable) {
             return false;

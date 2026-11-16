@@ -2946,7 +2946,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * @param list<ToolCall> $calls
      * @param list<string>   $allowedNames
      *
-     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}>
+     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}>
      */
     private function previewsForTurn(array $calls, array $allowedNames, ToolExecutionContext $context, ?LlmConfiguration $configuration = null, ?ToolInvocationHistory $history = null): array
     {
@@ -2997,7 +2997,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // output like any other.
                 'lines'  => $this->previewComparator()->bound($lines, $context->actingBackendUser()),
                 'failed' => $failed,
-            ];
+            ] + ($failed ? [] : $this->previewComparator()->subjectOf($tool, $call, $context));
         }
 
         return $previews;
@@ -3798,7 +3798,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * (ADR-293), or null: the rule's explanation, or a generic line where it
      * gave none, flagged as no preview to compare and tagged refused.
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}|null
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}|null
      */
     private function refusedPreview(int $index, ToolCall $call, LlmConfiguration $configuration, ToolExecutionContext $context, ToolInvocationHistory $history): ?array
     {
