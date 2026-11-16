@@ -24,11 +24,11 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\PreviewPlanInterface;
 use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
-use Netresearch\NrLlm\Service\Tool\StoredPreviewVisibilityInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInterface;
@@ -85,7 +85,7 @@ use TYPO3\CMS\Core\Utility\PathUtility;
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
-final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface, ToolPreviewInterface, StoredPreviewVisibilityInterface
+final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface, ToolPreviewInterface, PreviewPlanInterface
 {
     use SafeCastTrait;
 
@@ -116,7 +116,9 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
 
     private const PARTIAL = 'Not completed: TYPO3 failed after the file was written. A file named %s may remain in the inbox folder %s; nothing references it.';
 
-    private const NOT_APPROVED = 'Not adopted: the call was not approved on a card that named the file and its name.';
+    private const NOT_APPROVED = 'Not adopted: the call was not approved on a card that named the folder and the name.';
+
+    private const MOVED = 'Not adopted: the inbox folder of this skill is %s now, not the folder %s that was approved. Nothing was written; adopt the file again to approve the new folder.';
 
     private const TAKEN = 'Not adopted: the name %s that was approved for this file is taken now. Nothing was written under another name; adopt the file again to approve a new name.';
 
@@ -167,13 +169,21 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
             return ToolResult::error(sprintf(self::GONE, $number));
         }
 
-        // The name the approver saw. Another call of the same turn may have
-        // taken it since the card was compared (ADR-184 compares the whole
-        // turn before any call runs); the file is then not written under a
-        // name that was not on its card.
-        $name = $this->approvedName($arguments, $context, $plan);
-        if ($name === null) {
+        // The folder and the name the approver saw, carried as the plan the
+        // card was built from (never read back from its text). The profile
+        // can name another folder, and another call of the same turn can take
+        // the name, after the card was compared (ADR-184 compares the whole
+        // turn before any call runs): the file is then not written at all.
+        $approved = $context->approvedPlan;
+        $target   = $approved['target'] ?? '';
+        $name     = $approved['name'] ?? '';
+        $wanted   = $this->targetName(self::toStr($row['filename'] ?? ''), self::toStr($row['media_type'] ?? ''));
+        if ($target === '' || $name === '' || !in_array($name, $this->candidates($plan['folder'], $wanted), true)) {
             return ToolResult::error(self::NOT_APPROVED);
+        }
+
+        if ($target !== $plan['target']) {
+            return ToolResult::error(sprintf(self::MOVED, $plan['target'], $target));
         }
 
         if ($this->taken($plan['folder'], $name)) {
@@ -250,7 +260,7 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
 
         return [
             $t(ApprovalPreviewLabel::AdoptClientFileHeading),
-            $this->nameLine($user, $arguments, $row, $plan['name']),
+            $t(ApprovalPreviewLabel::AdoptClientFileName, self::toInt($arguments['file'] ?? 0), $this->withoutFormatCharacters(self::toStr($row['filename'] ?? '')), $plan['name']),
             $t(ApprovalPreviewLabel::AdoptClientFileContent, self::toStr($row['media_type'] ?? ''), self::toInt($row['size'] ?? 0), substr(self::toStr($row['sha256'] ?? ''), 0, 12)),
             $t(ApprovalPreviewLabel::AdoptClientFileTarget, $plan['target']),
         ];
@@ -267,26 +277,29 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
     }
 
     /**
-     * The canonical inbox folder the preview shows, stored with it as a field
-     * of its own; null when the call cannot be written.
+     * The canonical inbox folder and the exact stored name the card shows,
+     * stored with it as a plan of its own; null when the call cannot be
+     * written.
+     *
+     * @return array{target: string, name: string}|null
      */
-    public function previewSubject(array $arguments, ToolExecutionContext $context): ?string
+    public function previewPlan(array $arguments, ToolExecutionContext $context): ?array
     {
         $plan = $this->plan($arguments, $context);
 
-        return is_array($plan) ? $plan['target'] : null;
+        return is_array($plan) ? ['target' => $plan['target'], 'name' => $plan['name']] : null;
     }
 
     /**
      * Only a viewer who may read the inbox folder the card was taken for sees
      * it: an administrator, or a user whose file mounts reach that folder.
-     * The folder is the stored subject, never text of the lines, which carry
+     * The folder is the stored plan's, never text of the lines, which carry
      * the client's file name; not the profile, which may name another folder
-     * by now. No subject, or one that is no folder identifier: withheld.
+     * by now. No plan, or one without a folder identifier: withheld.
      */
-    public function mayViewerReadStoredPreview(array $arguments, ?string $subject, BackendUserAuthentication $viewer): bool
+    public function mayViewerReadStoredPreview(array $arguments, ?array $plan, BackendUserAuthentication $viewer): bool
     {
-        $target = $subject !== null ? A2aFalInbox::parse($subject) : null;
+        $target = isset($plan['target']) ? A2aFalInbox::parse($plan['target']) : null;
 
         return $target !== null && $this->storageGate->isFolderReadableBy($viewer, $target['storage'], $target['folder']);
     }
@@ -429,59 +442,6 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
     private function taken(Folder $folder, string $name): bool
     {
         return $folder->hasFile($name) || $folder->hasFolder($name);
-    }
-
-    /**
-     * The stored name on the card the approver saw: the candidate whose name
-     * line, rendered as the preview renders it for the same acting user, is
-     * among the approved lines. Null without an approved card, or when none
-     * matches.
-     *
-     * @param array<string, mixed>                                                                       $arguments
-     * @param array{row: array<string, mixed>, owner: int, folder: Folder, name: string, target: string} $plan
-     */
-    private function approvedName(array $arguments, ToolExecutionContext $context, array $plan): ?string
-    {
-        if ($context->approvedPreview === null) {
-            return null;
-        }
-
-        $approved = array_map($this->normalised(...), $context->approvedPreview);
-        $user     = $context->actingBackendUser();
-        $wanted   = $this->targetName(self::toStr($plan['row']['filename'] ?? ''), self::toStr($plan['row']['media_type'] ?? ''));
-        foreach ($this->candidates($plan['folder'], $wanted) as $candidate) {
-            if (in_array($this->normalised($this->nameLine($user, $arguments, $plan['row'], $candidate)), $approved, true)) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * The preview's name line for one stored name.
-     *
-     * @param array<string, mixed> $arguments
-     * @param array<string, mixed> $row
-     */
-    private function nameLine(?BackendUserAuthentication $user, array $arguments, array $row, string $name): string
-    {
-        return $this->translator->text(
-            $user,
-            ApprovalPreviewLabel::AdoptClientFileName,
-            self::toInt($arguments['file'] ?? 0),
-            $this->withoutFormatCharacters(self::toStr($row['filename'] ?? '')),
-            $name,
-        );
-    }
-
-    /**
-     * A preview line as the run state keeps it (ApprovalPreviewComparator::bound()):
-     * whitespace collapsed, at most 500 characters.
-     */
-    private function normalised(string $line): string
-    {
-        return mb_substr(trim((string) preg_replace('/\s+/u', ' ', $line)), 0, 500);
     }
 
     /**

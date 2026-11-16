@@ -2252,7 +2252,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $call,
                         $resume,
                         $remoteCalls,
-                        $this->withApprovedPreviewOf($environment, $state, $index),
+                        $this->withApprovedPlanOf($environment, $state, $index),
                         $invocationHistory,
                         $state->iterations,
                         $catalogue,
@@ -2946,7 +2946,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * @param list<ToolCall> $calls
      * @param list<string>   $allowedNames
      *
-     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}>
+     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}>
      */
     private function previewsForTurn(array $calls, array $allowedNames, ToolExecutionContext $context, ?LlmConfiguration $configuration = null, ?ToolInvocationHistory $history = null): array
     {
@@ -2997,7 +2997,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // output like any other.
                 'lines'  => $this->previewComparator()->bound($lines, $context->actingBackendUser()),
                 'failed' => $failed,
-            ] + ($failed ? [] : $this->previewComparator()->subjectOf($tool, $call, $context));
+            ] + ($failed ? [] : $this->previewComparator()->planOf($tool, $call, $context));
         }
 
         return $previews;
@@ -3529,27 +3529,21 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     }
 
     /**
-     * The ADR-184 comparator, built where it is used.
-     *
-     * Stateless and cheap, so it needs no constructor slot: this class already
-     * carries eleven collaborators, and a twelfth optional one would be a
-     * positional argument every lean test wiring has to skip past.
+     * The environment of an approved call, its context carrying the plan the
+     * approver saw for it ({@see PreviewPlanInterface}, ADR-184): a tool that
+     * must do exactly what its card showed reads it, because the comparison of
+     * the whole turn ran before any call of it changed anything. A call
+     * without a stored plan, or whose preview failed, keeps the environment as
+     * it is.
      */
-    /**
-     * The environment of an approved call, its context carrying the preview
-     * lines the approver saw for it (ADR-184): a tool that must do exactly
-     * what its card showed reads them, because the comparison of the whole
-     * turn ran before any call of it changed anything. A call without a
-     * preview, or whose preview failed, keeps the environment as it is.
-     */
-    private function withApprovedPreviewOf(ToolInvocationEnvironment $environment, SuspendedRunState $state, int $index): ToolInvocationEnvironment
+    private function withApprovedPlanOf(ToolInvocationEnvironment $environment, SuspendedRunState $state, int $index): ToolInvocationEnvironment
     {
         foreach ($state->callPreviews as $preview) {
-            if ($preview['index'] === $index && !$preview['failed']) {
+            if ($preview['index'] === $index && !$preview['failed'] && isset($preview['plan'])) {
                 return new ToolInvocationEnvironment(
                     $environment->configuration,
                     $environment->skillAllowList,
-                    $environment->execution->withApprovedPreview($preview['lines']),
+                    $environment->execution->withApprovedPlan($preview['plan']),
                     $environment->trace,
                 );
             }
@@ -3558,6 +3552,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         return $environment;
     }
 
+    /**
+     * The ADR-184 comparator, built where it is used.
+     *
+     * Stateless and cheap, so it needs no constructor slot: this class already
+     * carries eleven collaborators, and a twelfth optional one would be a
+     * positional argument every lean test wiring has to skip past.
+     */
     private function previewComparator(): ApprovalPreviewComparator
     {
         return new ApprovalPreviewComparator($this->registry, $this->logger, $this->previewTranslator);
@@ -3798,7 +3799,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * (ADR-293), or null: the rule's explanation, or a generic line where it
      * gave none, flagged as no preview to compare and tagged refused.
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}|null
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}|null
      */
     private function refusedPreview(int $index, ToolCall $call, LlmConfiguration $configuration, ToolExecutionContext $context, ToolInvocationHistory $history): ?array
     {

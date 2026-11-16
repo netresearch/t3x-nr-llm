@@ -502,8 +502,77 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
         $run     = $this->runOf($this->runUuidOf($this->accepted()));
         $context = new ToolExecutionContext(AiActorContext::backendUser(7, false, [self::GROUP], [], self::WORKSPACE), $this->technicalUser(), new AgentRunReference($run->uid, $run->uuid));
 
-        self::assertSame('Not adopted: the call was not approved on a card that named the file and its name.', $this->tool()->execute(['file' => 1], $context)->content);
+        self::assertSame('Not adopted: the call was not approved on a card that named the folder and the name.', $this->tool()->execute(['file' => 1], $context)->content);
+        self::assertSame('Not adopted: the call was not approved on a card that named the folder and the name.', $this->tool()->execute(['file' => 1], $context->withApprovedPlan(['target' => self::INBOX]))->content, 'a plan without a name');
+        self::assertSame('Not adopted: the call was not approved on a card that named the folder and the name.', $this->tool()->execute(['file' => 1], $context->withApprovedPlan(['target' => self::INBOX, 'name' => 'other.php']))->content, 'a name that is no name of this file');
         self::assertSame([], $this->inboxFiles());
+    }
+
+    /**
+     * The folder the approver saw is carried as the plan of the card. When the
+     * profile names another folder after the card was compared, the approved
+     * call writes nothing, in neither folder; with the plan of the new folder
+     * it would write there.
+     */
+    #[Test]
+    public function anInboxChangedAfterTheCardWasComparedWritesNowhere(): void
+    {
+        GeneralUtility::mkdir_deep($this->inboxRoot . '/a2a-inbox/elsewhere');
+        $run     = $this->runOf($this->runUuidOf($this->accepted()));
+        $context = new ToolExecutionContext(AiActorContext::backendUser(7, false, [self::GROUP], [], self::WORKSPACE), $this->technicalUser(), new AgentRunReference($run->uid, $run->uuid));
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['fal_inbox_folder' => '2:/a2a-inbox/elsewhere/'], ['uid' => 1]);
+
+        self::assertSame(
+            'Not adopted: the inbox folder of this skill is 2:/a2a-inbox/elsewhere/ now, not the folder 2:/a2a-inbox/ that was approved. Nothing was written; adopt the file again to approve the new folder.',
+            $this->tool()->execute(['file' => 1], $context->withApprovedPlan(['target' => self::INBOX, 'name' => 'report.txt']))->content,
+        );
+        self::assertSame(['elsewhere'], $this->inboxFiles());
+        self::assertSame([], array_values(array_diff(scandir($this->inboxRoot . '/a2a-inbox/elsewhere') ?: [], ['.', '..'])));
+
+        $this->tool()->execute(['file' => 1], $context->withApprovedPlan(['target' => '2:/a2a-inbox/elsewhere/', 'name' => 'report.txt']));
+        self::assertSame(self::CONTENT, (string) file_get_contents($this->inboxRoot . '/a2a-inbox/elsewhere/report.txt'), 'the plan of the new folder writes there');
+    }
+
+    /**
+     * The plan is compared like the lines: a name taken while the run waits
+     * changes the plan even where the cut name line reads the same, and the
+     * approval raises a new card instead of writing.
+     */
+    #[Test]
+    public function aPlanChangedWhileTheRunWaitsRaisesANewCard(): void
+    {
+        $stem = str_repeat('a', 240);
+        $run  = $this->suspendedForApproval($stem . '.txt');
+        $line = $this->card($run)->pendingCalls[0]->previewLines[1] ?? '';
+        file_put_contents($this->inboxRoot . '/a2a-inbox/' . $stem . '.txt', 'Original.');
+
+        $this->decide($run, true);
+
+        $again = $this->card($this->runOf($run->uuid))->pendingCalls[0];
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->runOf($run->uuid)->statusEnum());
+        self::assertSame($line, $again->previewLines[1] ?? null, 'the cut name line reads the same');
+        self::assertTrue($again->previewStale);
+        self::assertSame([$stem . '.txt'], $this->inboxFiles());
+    }
+
+    /**
+     * A name so long that its preview line is cut still goes where the card
+     * said: the name is carried in the plan, not read back from the line. Its
+     * unsuffixed form is taken, so the card names the `_01` form, and that is
+     * what is written.
+     */
+    #[Test]
+    public function aLongNameIsWrittenAsTheApprovedSuffixedName(): void
+    {
+        $stem = str_repeat('a', 240);
+        file_put_contents($this->inboxRoot . '/a2a-inbox/' . $stem . '.txt', 'Original.');
+
+        $run = $this->suspendedForApproval($stem . '.txt');
+        self::assertGreaterThan(450, mb_strlen($this->card($run)->pendingCalls[0]->previewLines[1] ?? ''), 'the name line is cut');
+        $this->decide($run, true);
+
+        self::assertSame('Original.', (string) file_get_contents($this->inboxRoot . '/a2a-inbox/' . $stem . '.txt'));
+        self::assertSame(self::CONTENT, (string) file_get_contents($this->inboxRoot . '/a2a-inbox/' . $stem . '_01.txt'));
     }
 
     /**

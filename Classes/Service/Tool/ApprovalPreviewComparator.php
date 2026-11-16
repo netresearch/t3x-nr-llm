@@ -127,7 +127,7 @@ final readonly class ApprovalPreviewComparator
 
             $now        = $this->recompute($call, $context, $before);
             $previews[] = $now;
-            if ($now['lines'] !== $before['lines']) {
+            if ($now['lines'] !== $before['lines'] || ($now['plan'] ?? null) !== ($before['plan'] ?? null)) {
                 $stale[] = $index;
             }
         }
@@ -147,9 +147,9 @@ final readonly class ApprovalPreviewComparator
      * {@see ToolLoopService::invoke()}; an exception body may carry DBAL
      * credentials.
      *
-     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string} $before
+     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>} $before
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}
      */
     private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
     {
@@ -177,32 +177,42 @@ final readonly class ApprovalPreviewComparator
             'tool'   => $call->name,
             'lines'  => $lines === [] ? $this->emptyLines($user) : $lines,
             'failed' => false,
-        ] + $this->subjectOf($tool, $call, $context);
+        ] + $this->planOf($tool, $call, $context);
     }
 
     /**
-     * The structured subject a tool stores with its preview
-     * ({@see StoredPreviewVisibilityInterface}), as the field of a stored
-     * preview; nothing for any other tool, or when it names none. Bounded like
-     * a preview line.
+     * The plan a tool stores with its preview ({@see PreviewPlanInterface}),
+     * as the field of a stored preview; nothing for any other tool, when it
+     * names none, or when it is not a map of strings. Never truncated like a
+     * line: a cut plan would name something else.
      *
-     * @return array{subject?: string}
+     * @return array{plan?: array<string, string>}
      */
-    public function subjectOf(ToolPreviewInterface $tool, ToolCall $call, ToolExecutionContext $context): array
+    public function planOf(ToolPreviewInterface $tool, ToolCall $call, ToolExecutionContext $context): array
     {
-        if (!$tool instanceof StoredPreviewVisibilityInterface) {
+        if (!$tool instanceof PreviewPlanInterface) {
             return [];
         }
 
         try {
-            $subject = $tool->previewSubject($call->arguments, $context);
+            $plan = $tool->previewPlan($call->arguments, $context);
         } catch (Throwable $e) {
-            $this->logger?->warning('A preview subject could not be read; the card is withheld from viewers it would need.', ['tool' => $call->name, 'exception' => $e]);
+            $this->logger?->warning('A preview plan could not be read; the call will be refused and the card withheld from viewers it would need.', ['tool' => $call->name, 'exception' => $e]);
 
             return [];
         }
 
-        return $subject !== null && $subject !== '' ? ['subject' => mb_substr($subject, 0, self::MAX_LINE_LENGTH)] : [];
+        if ($plan === null || $plan === []) {
+            return [];
+        }
+
+        foreach ($plan as $key => $value) {
+            if (!is_string($key) || !is_string($value)) {
+                return [];
+            }
+        }
+
+        return ['plan' => $plan];
     }
 
     /**
@@ -249,8 +259,8 @@ final readonly class ApprovalPreviewComparator
      * comparison, so a second approval against an unchanged record would find it
      * missing and bounce again, forever.
      *
-     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, subject?: string}> $previews
-     * @param list<int>                                                                                                  $stale
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}> $previews
+     * @param list<int>                                                                                                              $stale
      */
     private function restale(
         SuspendedRunState $state,
