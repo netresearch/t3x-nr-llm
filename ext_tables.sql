@@ -1989,3 +1989,61 @@ CREATE TABLE tx_nrllm_a2a_push_outbox (
     KEY due (state, next_attempt),
     KEY task (task_uid)
 );
+
+#
+# Table structure for table 'tx_nrllm_a2a_push_registration'
+# A push registration of the client role (spec 051 A2A-PUSH6, A2A-PUSH7,
+# ADR-285): the callback a remote agent was asked to call for one remote task
+# of a send intent. The callback credential is stored as a public prefix and
+# the sha256 of the whole credential, never in clear. The state says whether
+# the remote acknowledged the config (active), refused it (refused), or
+# whether the create has an unknown outcome (outcome_unknown, never resent);
+# pending is the time between the local row and the remote's answer.
+#
+CREATE TABLE tx_nrllm_a2a_push_registration (
+    uid int(11) NOT NULL auto_increment,
+
+    send_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    run_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    agent_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    owner_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    remote_task_id varchar(255) DEFAULT '' NOT NULL,
+    -- The config id sent with the create; the remote's id once it answered.
+    config_id varchar(191) DEFAULT '' NOT NULL,
+    remote_config_id varchar(255) DEFAULT '' NOT NULL,
+    credential_prefix varchar(16) DEFAULT '' NOT NULL,
+    credential_hash char(64) DEFAULT '' NOT NULL,
+    state varchar(16) DEFAULT 'pending' NOT NULL,
+    reason varchar(255) DEFAULT '' NOT NULL,
+    -- When the remote task was last read with GetTask; NULL = never.
+    last_look_at int(11) unsigned DEFAULT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+    tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    UNIQUE KEY credential (credential_prefix),
+    UNIQUE KEY send (send_uid),
+    KEY run (run_uid)
+);
+
+#
+# Table structure for table 'tx_nrllm_a2a_push_inbox'
+# Callbacks the push endpoint of the client role received (spec 051
+# A2A-PUSH8): stored before the endpoint answers 2xx, bounded per
+# registration and in total. A body is a signal only; the worker reads the
+# remote task with GetTask. The body is sealed (AgentStateCodec, purpose
+# nrllm:a2a:push-inbox). A look deletes the callbacks received until it
+# began; a row is a callback the worker has not handled yet.
+#
+CREATE TABLE tx_nrllm_a2a_push_inbox (
+    uid int(11) NOT NULL auto_increment,
+
+    registration_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    received int(11) unsigned DEFAULT '0' NOT NULL,
+    body mediumtext,
+    body_bytes int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY registration (registration_uid, received)
+);

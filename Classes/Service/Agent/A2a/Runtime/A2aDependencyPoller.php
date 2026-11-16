@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aPushRegistrationStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aCallFailedException;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
@@ -30,6 +31,7 @@ use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * The polling coordinator of the A2A client (spec 051 A2A-R10, ADR-281): one
@@ -46,6 +48,15 @@ use Psr\Log\LoggerInterface;
  *   for now, is "no news", not a remote failure, until the deadline.
  * - At the deadline the run resumes with a "timed out" result, and the
  *   process that won the run sends `CancelTask` once (A2A-R12).
+ *
+ * - A push callback the receiver stored (A2A-PUSH8) brings the next look
+ *   forward, to the record's minimum interval after the last look, never
+ *   closer. The look is GetTask as the owner; the callback body decides
+ *   nothing. Each look deletes the callbacks received until it began. The
+ *   registration of a delegation closes once the poller claims its run with
+ *   the remote's result or at the deadline, before the run continues, so it
+ *   is closed even when the run goes on to wait for another delegation. At
+ *   the end of each tick the registrations of runs that ended are closed.
  *
  * Every remote call runs as the intent's owner inside the worker's vault scope,
  * and so does the continued run. Polling stays the repair path when push
@@ -74,6 +85,7 @@ final readonly class A2aDependencyPoller
         private ?A2aTaskProjector $projector = null,
         private ?LoggerInterface $logger = null,
         private ?A2aPushDeliverer $pushes = null,
+        private ?A2aPushRegistrationStore $pushInbox = null,
         ?Closure $jitter = null,
     ) {
         $this->jitter = $jitter ?? static fn (int $interval): int => random_int(0, max(0, intdiv($interval, 4)));
@@ -96,6 +108,10 @@ final readonly class A2aDependencyPoller
                 }
             }
         } while (count($page) === $limit);
+
+        // Push registrations of runs that no longer run or wait, those this
+        // tick resumed included, close here (A2A-PUSH8).
+        $this->pushInbox?->closeEnded();
 
         // The worker's retry of a projection that failed after its commit
         // (A2A-R15): from the committed task view, never by running anything.
@@ -152,6 +168,12 @@ final readonly class A2aDependencyPoller
         }
 
         $due = $intent->nextPollAt ?? ($checkpoint->suspendedAt + $this->minimum($agent));
+        if ($this->pushInbox?->hasUnreconciled($intent->uid) === true) {
+            // A callback only brings the look forward, never closer than the
+            // minimum interval after the last one (A2A-PUSH8).
+            $due = min($due, ($this->pushInbox->lastLookAt($intent->uid) ?? $checkpoint->suspendedAt) + $this->minimum($agent));
+        }
+
         if ($now < $due) {
             ++$report->notDue;
 
@@ -159,6 +181,7 @@ final readonly class A2aDependencyPoller
         }
 
         $task = $this->look($agent, $intent);
+        $this->pushInbox?->looked($intent->uid, $now);
         if ($task instanceof ToolResult) {
             $report->resumed += $this->resume($run, $checkpoint, $task) instanceof AgentRunResult ? 1 : 0;
 
@@ -219,11 +242,34 @@ final readonly class A2aDependencyPoller
     }
 
     /**
+     * Once the run is claimed and before it continues, the delegation's push
+     * registration closes (A2A-PUSH8), then $onClaimed runs.
+     *
      * @param (Closure(): void)|null $onClaimed
      */
     private function resume(AgentRun $run, DependencyCheckpoint $checkpoint, ToolResult $result, ?Closure $onClaimed = null): ?AgentRunResult
     {
-        return $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->resume($run, $checkpoint, $result, $onClaimed));
+        $claimed = function () use ($checkpoint, $onClaimed): void {
+            $this->closePush($checkpoint->journalUid);
+            if ($onClaimed instanceof Closure) {
+                $onClaimed();
+            }
+        };
+
+        return $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->resume($run, $checkpoint, $result, $claimed));
+    }
+
+    /**
+     * A failure is logged and does not stop the run; the sweep at the end of
+     * a tick removes the registration once the run has ended.
+     */
+    private function closePush(int $sendUid): void
+    {
+        try {
+            $this->pushInbox?->close($sendUid);
+        } catch (Throwable $e) {
+            $this->logger?->error('The push registration of a resolved delegation could not be closed', ['intent' => $sendUid, 'exception' => $e]);
+        }
     }
 
     private function nextInterval(?A2aRemoteAgent $agent, int $previous): int

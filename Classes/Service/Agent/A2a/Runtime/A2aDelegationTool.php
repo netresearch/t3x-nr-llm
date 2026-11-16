@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
+use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendState;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aAgentSkill;
@@ -57,7 +58,10 @@ use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
  * 3. A message answer or a task already in a terminal or interrupted state is
  *    the tool result. A refusal and an unknown outcome are error results; an
  *    unknown outcome is never resent (A2A-C6).
- * 4. An accepted task in any other state suspends the run: the tool throws
+ * 4. With push on ({@see A2aPushRegistrar}), an accepted task in any other
+ *    state gets a push registration, and the task is read once more: settled
+ *    by now, it is the tool result.
+ * 5. An accepted task in any other state suspends the run: the tool throws
  *    {@see ToolDependencyPendingException} with the checkpoint, and the poller
  *    resumes the run when the task settles or the record's maximum wait
  *    passes.
@@ -76,6 +80,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         private A2aClient $client,
         private A2aSendJournal $journal,
         private A2aRemoteAgentRepository $agents,
+        private ?A2aPushRegistrar $push = null,
     ) {}
 
     /**
@@ -176,7 +181,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             A2aSendState::ANSWERED => $outcome->result?->message instanceof A2aMessage
                 ? A2aToolResults::message($agent->getTitle(), $outcome->result->message)
                 : A2aToolResults::unavailable('the answer could not be read'),
-            A2aSendState::ACCEPTED        => $this->accepted($agent, $intent->uid, $outcome->result?->task, $owner, $context, $run),
+            A2aSendState::ACCEPTED        => $this->accepted($agent, $intent, $outcome->result?->task, $owner, $context, $run),
             A2aSendState::REFUSED         => A2aToolResults::refused($agent->getTitle(), $intent),
             A2aSendState::OUTCOME_UNKNOWN => A2aToolResults::outcomeUnknown($agent->getTitle(), $intent),
             A2aSendState::INTENDED        => A2aToolResults::unavailable('the intent was not settled'),
@@ -255,16 +260,29 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
     /**
      * @throws ToolDependencyPendingException when the task has not settled
      */
-    private function accepted(A2aRemoteAgent $agent, int $journalUid, ?A2aTask $task, int $owner, ToolExecutionContext $context, AgentRunReference $run): ToolResult
+    private function accepted(A2aRemoteAgent $agent, A2aSendIntent $intent, ?A2aTask $task, int $owner, ToolExecutionContext $context, AgentRunReference $run): ToolResult
     {
         if (!$task instanceof A2aTask) {
             return A2aToolResults::unavailable('the accepted task could not be read');
         }
 
-        $state = $task->status->state;
-        if ($state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted())) {
+        if ($this->settled($task)) {
             return A2aToolResults::task($agent->getTitle(), $task);
         }
+
+        // Push (spec 051 A2A-PUSH7): register the callback, then read the
+        // task once, so a change between the send and the registration is not
+        // missed. Before the checkpoint, so its byte count includes both.
+        if ($this->push?->register($agent, $intent, time()) === true) {
+            $current = $this->taskOnce($agent, $intent);
+            if ($current instanceof A2aTask && $this->settled($current)) {
+                $this->push->close($intent->uid);
+
+                return A2aToolResults::task($agent->getTitle(), $current);
+            }
+        }
+
+        $journalUid = $intent->uid;
 
         $now    = time();
         $totals = $this->journal->runTotals($run->uid, (int) $agent->getUid());
@@ -286,6 +304,26 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             ),
             sprintf('Delegated to the remote A2A agent "%s" as task %s (%s); the run waits for its result.', $agent->getTitle(), $task->id, $task->status->rawState),
         );
+    }
+
+    private function settled(A2aTask $task): bool
+    {
+        $state = $task->status->state;
+
+        return $state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted());
+    }
+
+    /**
+     * The remote task, or null when it cannot be read now: the poller reads
+     * it again (A2A-R10).
+     */
+    private function taskOnce(A2aRemoteAgent $agent, A2aSendIntent $intent): ?A2aTask
+    {
+        try {
+            return $this->client->getTask($agent, $intent->ownerUid, $intent->remoteTaskId);
+        } catch (A2aException) {
+            return null;
+        }
     }
 
     private function description(): string
