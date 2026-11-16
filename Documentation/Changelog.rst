@@ -51,12 +51,10 @@ after updating. Push notifications and files are off by default.
   proposal a ``check_page_metadata`` call passed, on an unchanged row
   (ADR-298). A profile of the skill grants both tools.
 - **Tools and services:** ``describe_fal_asset`` returns the metadata of a
-  file inside the acting user's file mounts (ADR-303); ``ExternalTextCheck``
+  file inside the acting user's file mounts (ADR-303); :php:`ExternalTextCheck`
   checks a text for use outside TYPO3 against a configuration's rules
   (ADR-300).
-- **Security:** a queue worker resets the file gate's per-user storages
-  before and after each run, so a run no longer reaches files through a mount
-  or permission removed after an earlier run, nor lists another user's
-  storages.
+- **Security:** a queue worker resets run-scoped state, such as the file
+  gate's per-user storages, before and after each run.
 
 Details in the repository :file:`CHANGELOG.md`.
