@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Netresearch\NrVault\Crypto\EnvelopeRotationContext;
@@ -40,7 +41,7 @@ use function is_string;
  * A value is written back only if it is still the one read: most tables
  * compare the old value in the UPDATE. The A2A file store holds values of
  * up to about 15 MiB, too large to send twice in one statement, so its rows
- * are rewrapped one at a time under a row lock, read again under the lock
+ * are rewrapped one at a time under a row lock, read again by a locking read
  * and written by uid alone.
  */
 final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotatorInterface
@@ -235,14 +236,17 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
                 [Connection::PARAM_INT],
             );
 
-            $queryBuilder = $connection->createQueryBuilder();
-            $queryBuilder->getRestrictions()->removeAll();
-            $value = $queryBuilder
-                ->select($column)
-                ->from($table)
-                ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, Connection::PARAM_INT)))
-                ->executeQuery()
-                ->fetchOne();
+            // A locking read. Called inside a REPEATABLE READ transaction
+            // that has read before, a plain read returns that transaction's
+            // snapshot, which can still hold a value a scrub emptied and
+            // committed since; writing it back would restore the file. A
+            // locking read returns the latest committed value. SQLite has no
+            // FOR UPDATE and serialises writers.
+            $value = $connection->executeQuery(
+                'SELECT ' . $connection->quoteIdentifier($column) . ' FROM ' . $connection->quoteIdentifier($table) . ' WHERE uid = ?' . $this->lockingRead($connection),
+                [$uid],
+                [Connection::PARAM_INT],
+            )->fetchOne();
 
             $sealed = is_string($value) ? AgentStateEnvelopeMarker::normalise($value) : null;
             if ($sealed === null || !$context->isSealed($sealed)) {
@@ -253,6 +257,11 @@ final readonly class AgentStateEnvelopeRotator implements ForeignEnvelopeRotator
 
             return 1;
         });
+    }
+
+    private function lockingRead(Connection $connection): string
+    {
+        return $connection->getDatabasePlatform() instanceof SQLitePlatform ? '' : ' FOR UPDATE';
     }
 
     /**
