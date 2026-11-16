@@ -27,34 +27,24 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-49-0:
+.. _version-0-49-1:
 
-Version 0.49.0 (2026-11-16)
+Version 0.49.1 (2026-11-16)
 ===========================
 
-A2A push notifications and file parts, an A2A skill that writes page metadata,
-and a security fix for queue workers. Run the TYPO3 database schema update
-after updating. Push notifications and files are off by default.
+An A2A task can send a file from FAL, and three fixes. Run the TYPO3 database
+schema update after updating.
 
-- **Push notifications:** in the server role (``a2a.server.push``) a client
-  registers webhooks for its own tasks, and ``nrllm:a2a:poll`` delivers them;
-  in the client role (``a2a.client.push``) a delegation registers a callback
-  that brings the next ``GetTask`` forward. Schedule ``nrllm:a2a:poll`` at
-  least once a minute while push is on.
-- **Files:** with ``a2a.files.enabled`` a message may carry ``raw`` and
-  ``url`` parts of five media types, checked and kept in a private, sealed
-  store; a completed task sends the files it registered as artifacts. Check
-  the body size limit of every proxy and of PHP in front of the endpoint.
-- **Page metadata skill:** ``nr_llm.page_metadata.v1`` writes the named
-  metadata of one page in one language as a draft, bound to the scope of the
-  request (ADR-296). A write must match its request (ADR-297) and the
-  proposal a ``check_page_metadata`` call passed, on an unchanged row
-  (ADR-298). A profile of the skill grants both tools.
-- **Tools and services:** ``describe_fal_asset`` returns the metadata of a
-  file inside the acting user's file mounts (ADR-303); :php:`ExternalTextCheck`
-  checks a text for use outside TYPO3 against a configuration's rules
-  (ADR-300).
-- **Security:** a queue worker resets run-scoped state, such as the file
-  gate's per-user storages, before and after each run.
+- **FAL files for A2A clients:** the tool ``send_fal_file`` (ships disabled)
+  sends a file from FAL with a task's result, behind ``a2a.files.enabled``.
+  A publication profile must approve its clients as recipients (new field,
+  off by default), and the client's technical backend user must reach the
+  file through its file mounts and permissions.
+- **Workspace mounts:** FAL tools limit a backend user's file mounts to those
+  its draft workspace names, as core does.
+- **Key rotation:** a master-key rotation reads an A2A file again with a
+  locking read before it rewraps it.
+- **Push:** a delegating run that registers a push callback takes its first
+  look and its suspension at one instant.
 
 Details in the repository :file:`CHANGELOG.md`.

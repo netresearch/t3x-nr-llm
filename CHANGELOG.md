@@ -8,6 +8,26 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.49.1] - 2026-11-16
+
+### Upgrading from 0.49
+
+- Run the database analyzer: the recipient approval of the FAL export adds the column `tx_nrllm_a2a_profile.send_fal_files` (default off). Existing publication profiles send no FAL file until an administrator switches it on, lists `send_fal_file` among the profile's tools and enables the tool in the tool management.
+
+### Added
+
+- A2A server role: a run sends a file from FAL with its task's result (spec 051 A2A-FILE6, ADR-284), behind `a2a.files.enabled`. The tool `send_fal_file` (group `files`, ships disabled) takes a `sys_file` uid and sends the file only when the task's publication profile approves its clients as recipients (the new field "Send FAL files to clients", read at each call) and the client's technical backend user reaches the file through its file mounts and file permissions (`FalStorageGate::isFileAccessible()`). A task kept below the `full` answer level sends no file, and the tool refuses instead of registering one. A file outside those mounts, an unknown uid and a run without a user get the same answer. The file must be at most `a2a.maxRawPartBytes`, of one of the five types and pass that type's check; it goes out like every file a task sends, inline or as a protected download, and the model reads its id, never its content. Sending the same file again in a task adds nothing. While files are on, a skill that lists the tool and approves its clients lists the five file types among its output modes on the agent card. Taking a file a client sent into FAL is not offered.
+
+### Changed
+
+- A master-key rotation reads an A2A file again with a locking read before it rewraps it, so a file a privacy scrub emptied during the rotation stays empty also when a caller runs the rotation in a REPEATABLE READ transaction that has read before. `vault:rotate-master-key` runs in READ COMMITTED and was not affected.
+
+### Fixed
+
+- FAL tools limit a backend user's file mounts to those its draft workspace names, as core does: the storage gate took the mounts of the user and its groups only, so a file of a group mount the workspace leaves out was reachable, through `send_fal_file` also for an A2A client pinned to such a workspace.
+
+- A delegating run that registers a push callback takes its first look and its suspension at one instant. They were taken one call apart, so the poller's first look could be due one second later than a callback's rule assumed (spec 051 A2A-PUSH8).
+
 ## [0.49.0] - 2026-11-16
 
 ### Upgrading from 0.48
@@ -5383,7 +5403,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.1...HEAD
+[0.49.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.46.1...v0.47.0

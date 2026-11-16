@@ -1,1 +1,0 @@
-- A master-key rotation reads an A2A file again with a locking read before it rewraps it, so a file a privacy scrub emptied during the rotation stays empty also when a caller runs the rotation in a REPEATABLE READ transaction that has read before. `vault:rotate-master-key` runs in READ COMMITTED and was not affected.

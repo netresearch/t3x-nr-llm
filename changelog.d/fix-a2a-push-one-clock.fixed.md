@@ -1,1 +1,0 @@
-- A delegating run that registers a push callback takes its first look and its suspension at one instant. They were taken one call apart, so the poller's first look could be due one second later than a callback's rule assumed (spec 051 A2A-PUSH8).
