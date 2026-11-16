@@ -464,6 +464,33 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The preview names the client's file and the inbox folder, so only a
+     * viewer who may read the inbox sees it: an administrator, or an editor
+     * whose file mount reaches the folder. An editor without such a mount
+     * gets the withheld card.
+     */
+    #[Test]
+    public function onlyAViewerWhoMayReadTheInboxSeesThePreview(): void
+    {
+        $run = $this->suspendedForApproval();
+        $this->db('sys_workspace')->update('sys_workspace', ['members' => 'be_users_7,be_users_8'], ['uid' => self::WORKSPACE]);
+        $this->db('be_groups')->insert('be_groups', ['uid' => 72, 'pid' => 0, 'title' => 'Editors', 'file_mountpoints' => '', 'file_permissions' => 'readFolder,readFile', 'workspace_perms' => 1]);
+        $this->db('be_users')->insert('be_users', ['uid' => 8, 'pid' => 0, 'username' => 'editor', 'admin' => 0, 'usergroup' => '72', 'options' => 3]);
+
+        $without = $this->cardFor($run, 8)->pendingCalls[0];
+        self::assertTrue($without->previewFailed, 'an editor without a mount on the inbox');
+        self::assertStringNotContainsString('report.txt', implode("\n", $without->previewLines));
+
+        $this->db('be_groups')->update('be_groups', ['file_mountpoints' => '3'], ['uid' => 72]);
+        $this->getService(FalStorageGate::class)->reset();
+        $with = $this->cardFor($run, 8)->pendingCalls[0];
+        self::assertFalse($with->previewFailed, 'an editor with a mount on the inbox');
+        self::assertContains('Into the inbox folder 2:/a2a-inbox/; nothing references the file', $with->previewLines);
+
+        self::assertFalse($this->cardFor($run, self::APPROVER)->pendingCalls[0]->previewFailed, 'an administrator');
+    }
+
+    /**
      * The preview is the reservation (ADR-184): the inbox folder changed
      * after the approver saw the card, so the approved call does not write
      * to the new folder; the run waits for a new approval instead.
@@ -700,7 +727,15 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
      */
     private function card(AgentRun $run): WaitingRunView
     {
-        $this->setUpBackendUser(self::APPROVER);
+        return $this->cardFor($run, self::APPROVER);
+    }
+
+    /**
+     * The card of a waiting run as one backend user sees it.
+     */
+    private function cardFor(AgentRun $run, int $viewer): WaitingRunView
+    {
+        $this->setUpBackendUser($viewer);
         $views = (new WaitingRunViewFactory(
             $this->getService(ToolRegistry::class),
             new SchemaPropertyClassifier(),

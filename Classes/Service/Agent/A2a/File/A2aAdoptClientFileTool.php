@@ -231,11 +231,33 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
         ];
     }
 
+    /**
+     * The preview names the client's file and the inbox folder, so only a
+     * viewer who may read the inbox sees it; any other gets the withheld card.
+     * The arguments name no run, so the viewer must be able to read the inbox
+     * of every profile that names one: the run's is among them. No inbox at
+     * all shows nothing.
+     */
     public function mayViewerReadPreview(array $arguments, BackendUserAuthentication $viewer): bool
     {
-        // The preview names the client's file and the inbox folder, both of
-        // which an approver of the run must see to decide.
-        return true;
+        $inboxes = $this->connectionPool->getConnectionForTable(A2aSkillProfileRepository::TABLE)
+            ->select(['fal_inbox_folder'], A2aSkillProfileRepository::TABLE, ['deleted' => 0])
+            ->fetchFirstColumn();
+        $any = false;
+        foreach ($inboxes as $inbox) {
+            $target = A2aFalInbox::parse(is_string($inbox) ? $inbox : '');
+            if ($target === null) {
+                continue;
+            }
+
+            if (!$this->storageGate->isFolderReadableBy($viewer, $target['storage'], $target['folder'])) {
+                return false;
+            }
+
+            $any = true;
+        }
+
+        return $any;
     }
 
     public function getEffect(): ToolEffect

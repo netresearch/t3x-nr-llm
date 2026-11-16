@@ -521,7 +521,10 @@ Taking a client's file into FAL
      no such file, a file the task no longer holds, a technical user who may
      not add a file to the folder, or files switched off. The card shows the
      client's file name, the name it will be stored as, its type, size and
-     the start of its SHA-256 digest, and the inbox folder. If any of that
+     the start of its SHA-256 digest, and the inbox folder, to an
+     administrator and to an editor whose file mounts reach the inbox folder
+     of every skill that names one; anyone else sees that the preview is
+     withheld. If any of that
      reads differently when the approved call runs (the folder was changed,
      the name was taken, the user lost the right), the file is not stored and
      the run asks for a new approval.

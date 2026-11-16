@@ -97,7 +97,10 @@ the folder, A2A files switched off.
 
 The card shows what the approver decides on: the client's file name, the name
 the file will be stored as, its checked type, its size, the start of its
-SHA-256 digest and the inbox folder (:php:`ToolPreviewInterface`). Those lines
+SHA-256 digest and the inbox folder (:php:`ToolPreviewInterface`). Only a
+viewer who may read the inbox sees them, an administrator or an editor whose
+file mount reaches it (of every profile's inbox, since the card names no
+profile); any other gets the withheld card of :ref:`ADR-136 <adr-136>`. Those lines
 are the reservation of :ref:`ADR-184 <adr-184>`: they are produced again before
 the approved call runs, and when they read differently (another folder, the
 name taken meanwhile, another file, a user who lost the right to write there)

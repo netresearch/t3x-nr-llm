@@ -206,6 +206,32 @@ final class FalStorageGate implements RunScopedStateInterface
         }
     }
 
+    /**
+     * Whether `$user` may read one folder, asked of a storage built for that
+     * user like {@see self::folderToAddFilesTo()} and, like it, not limited by
+     * the allow-list: the approval card of the adoption of A2A-FILE6 shows
+     * the inbox folder only to a viewer who may read it (ADR-305). An
+     * administrator may read every folder in the backend.
+     */
+    public function isFolderReadableBy(?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
+    {
+        if (!$user instanceof BackendUserAuthentication || $identifier === '') {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        try {
+            $storage = $this->storageFor($user, $storageUid);
+
+            return $storage instanceof ResourceStorage && $storage->checkFolderActionPermission('read', $storage->getFolder($identifier));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
     private function permits(string $action, ?BackendUserAuthentication $user, int $storageUid, string $identifier): bool
     {
         if (!$this->isAllowed($user, $storageUid) || !$user instanceof BackendUserAuthentication || $identifier === '') {
