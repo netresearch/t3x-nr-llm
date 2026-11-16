@@ -62,6 +62,8 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
 
     private const PRIVATE_EDITOR = 3;
 
+    private const NO_MOUNT_EDITOR = 4;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -133,6 +135,61 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
     /**
      * A mount for reading: the file is reached, and nobody can write its text.
      */
+    /**
+     * A queue worker keeps the gate for its whole life. A mount taken from the
+     * user between two runs must not stay reachable through the storage the
+     * first run built.
+     */
+    #[Test]
+    public function aMountTakenAwayBetweenTwoRunsIsNotReachableInTheSecond(): void
+    {
+        $gate = $this->gate();
+        self::assertTrue($gate->isFileAccessible($this->userWithoutLogin(self::DOCS_EDITOR), 1, self::DOCS_FILE));
+
+        $this->getService(ConnectionPool::class)->getConnectionForTable('be_groups')
+            ->update('be_groups', ['file_mountpoints' => ''], ['uid' => 9]);
+        $gate->reset();
+
+        self::assertFalse($gate->isFileAccessible($this->userWithoutLogin(self::DOCS_EDITOR), 1, self::DOCS_FILE));
+    }
+
+    /**
+     * The storage list comes from the user's mounts as they are now: core
+     * keeps the mount records in the runtime cache, which a worker never
+     * flushes, so a mount removed after a first check must not keep its
+     * storage listed.
+     */
+    #[Test]
+    public function aStorageWhoseMountWasRemovedIsNoLongerListed(): void
+    {
+        $gate = $this->gate();
+        self::assertSame([1], $gate->effectiveStorages($this->userWithoutLogin(self::DOCS_EDITOR)));
+
+        $this->getService(ConnectionPool::class)->getConnectionForTable('be_groups')
+            ->update('be_groups', ['file_mountpoints' => ''], ['uid' => 9]);
+
+        self::assertSame([], $gate->effectiveStorages($this->userWithoutLogin(self::DOCS_EDITOR)));
+    }
+
+    /**
+     * Core caches the mount records under one key for every user up to
+     * TYPO3 14.3.10: a user without mounts must not get the storages of the
+     * user asked before.
+     */
+    #[Test]
+    public function aUserWithoutMountsDoesNotInheritTheStoragesOfTheUserAskedBefore(): void
+    {
+        $this->getService(ConnectionPool::class)->getConnectionForTable('be_users')->insert('be_users', [
+            'uid'      => self::NO_MOUNT_EDITOR, 'pid' => 0, 'username' => 'no-mount-editor',
+            'password' => '$2y$12$RJxT/2Y6d3oRm5d5ohJi9.CmZlVW.7N4vMHXiQ/D6xJBPfqfNMpBm',
+            'admin'    => 0, 'usergroup' => '', 'options' => 3, 'disable' => 0, 'deleted' => 0,
+        ]);
+        $gate = $this->gate();
+
+        self::assertSame([1], $gate->effectiveStorages($this->userWithoutLogin(self::PRIVATE_EDITOR)));
+        self::assertSame([], $gate->effectiveStorages($this->userWithoutLogin(self::NO_MOUNT_EDITOR)));
+    }
+
     #[Test]
     public function aFileThatCanBeReadNeedNotBeEditable(): void
     {

@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
+use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -553,8 +554,19 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $checkpoint = $this->checkpointOf($this->runOf($suspended->runUuid));
         $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
 
-        $report = $this->poller()->tick($checkpoint->deadline);
+        $state = new class implements RunScopedStateInterface {
+            public int $resets = 0;
 
+            public function reset(): void
+            {
+                ++$this->resets;
+            }
+        };
+        $report = $this->poller([$state])->tick($checkpoint->deadline);
+
+        // A tick resumes runs in one process: each resume starts and ends
+        // with the run-scoped state reset.
+        self::assertSame(2, $state->resets);
         self::assertSame(1, $report->timedOut);
         self::assertSame(['SendMessage', 'CancelTask'], $this->methods());
         $run = $this->runOf($suspended->runUuid);
@@ -729,7 +741,10 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         );
     }
 
-    private function poller(): A2aDependencyPoller
+    /**
+     * @param list<RunScopedStateInterface> $runScopedStates
+     */
+    private function poller(array $runScopedStates = []): A2aDependencyPoller
     {
         return new A2aDependencyPoller(
             $this->coordinator(),
@@ -739,6 +754,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
             $this->canceller(),
             $this->vaultScope(),
             jitter: static fn (int $interval): int => 0,
+            runScopedStates: $runScopedStates,
         );
     }
 

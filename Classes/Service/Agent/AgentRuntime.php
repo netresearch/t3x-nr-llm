@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
+use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Service\Agent\Exception\RunLineageUnreadableException;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
@@ -36,6 +37,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
 use Netresearch\NrVault\Exception\TechnicalActorException;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Throwable;
 
@@ -169,6 +171,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
         // task (ADR-281, spec 051 A2A-R12). Without it such a run is cancelled
         // locally only.
         private ?DependencyCancellerInterface $dependencyCanceller = null,
+        // State shared services keep for one run only (a worker keeps its
+        // services between runs): reset before and after each queued run.
+        /** @var iterable<RunScopedStateInterface> */
+        #[AutowireIterator(RunScopedStateInterface::TAG)]
+        private iterable $runScopedStates = [],
     ) {}
 
     /**
@@ -280,6 +287,31 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
     }
 
     public function runQueued(string $runUuid, ?Closure $onStep = null): ?AgentRunResult
+    {
+        // A queue worker keeps its services for its whole life: what a
+        // previous run memoised (a user's storages and mounts) must not answer
+        // for this one, so it is reset before the first check and when the
+        // run ends, whatever its outcome.
+        $this->resetRunScopedState();
+
+        try {
+            return $this->runQueuedNow($runUuid, $onStep);
+        } finally {
+            $this->resetRunScopedState();
+        }
+    }
+
+    private function resetRunScopedState(): void
+    {
+        foreach ($this->runScopedStates as $state) {
+            $state->reset();
+        }
+    }
+
+    /**
+     * @param (Closure(RunStep): void)|null $onStep as in {@see AgentRuntimeInterface::run()}
+     */
+    private function runQueuedNow(string $runUuid, ?Closure $onStep): ?AgentRunResult
     {
         // A run QUEUED with a stored decision is a continuation, not a request
         // (ADR-281): the worker carries the decision out, as the provider-key

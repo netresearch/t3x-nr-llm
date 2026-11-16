@@ -72,6 +72,7 @@ use Netresearch\NrLlm\Service\Agent\Queue\AgentRunQueuedMessage;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\QueuedRunFailureRecovery;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Option\ToolOptions;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
@@ -1333,6 +1334,56 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         self::assertNotNull($this->repository->finished);
     }
 
+    /**
+     * A queue worker keeps its services between runs: state one run left
+     * behind is reset before the next run's first check and again when the
+     * run ends.
+     */
+    #[Test]
+    public function aQueuedRunStartsAndEndsWithItsRunScopedStateReset(): void
+    {
+        $this->repository->findResult = $this->queuedRun('run-uuid-q', '{"messages":[]}');
+        $state                        = new class implements RunScopedStateInterface {
+            public int $resets = 0;
+
+            public function reset(): void
+            {
+                ++$this->resets;
+            }
+        };
+        $resetsWhenTheLoopRan = [];
+        $loop                 = self::createStub(ToolLoopServiceInterface::class);
+        $loop->method('runLoop')->willReturnCallback(function () use ($state, &$resetsWhenTheLoopRan): ToolLoopResult {
+            $resetsWhenTheLoopRan[] = $state->resets;
+
+            return $this->loopResult('done');
+        });
+
+        $this->runtime($loop, runScopedStates: [$state])->runQueued('run-uuid-q');
+
+        self::assertSame([1], $resetsWhenTheLoopRan);
+        self::assertSame(2, $state->resets);
+    }
+
+    /**
+     * Also a run that is not claimed leaves nothing behind.
+     */
+    #[Test]
+    public function aQueuedRunThatIsNotClaimedStillResetsItsRunScopedState(): void
+    {
+        $state = new class implements RunScopedStateInterface {
+            public int $resets = 0;
+
+            public function reset(): void
+            {
+                ++$this->resets;
+            }
+        };
+
+        self::assertNull($this->runtime($this->loopReturning($this->loopResult('x')), runScopedStates: [$state])->runQueued('unknown'));
+        self::assertSame(2, $state->resets);
+    }
+
     #[Test]
     public function aQueuedRunRenewsItsLeaseAtEachStepBoundary(): void
     {
@@ -2159,6 +2210,9 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
 
     // ------------------------------------------------------------------ //
 
+    /**
+     * @param list<RunScopedStateInterface> $runScopedStates
+     */
     private function runtime(
         ToolLoopServiceInterface $loop,
         ?LlmConfiguration $configuration = new LlmConfiguration(),
@@ -2170,6 +2224,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
         ?ActingBackendUserResolverInterface $actingBackendUserResolver = null,
         ?ProcessPinProbe $processPinProbe = null,
         ?AgentRoundLimitsInterface $roundLimits = null,
+        array $runScopedStates = [],
     ): AgentRuntime {
         $configurationRepository = self::createStub(LlmConfigurationRepository::class);
         $configurationRepository->method('findByUid')->willReturn($configuration);
@@ -2189,6 +2244,7 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
             toolPolicy: $toolPolicy,
             processPinProbe: $processPinProbe,
             roundLimits: $roundLimits,
+            runScopedStates: $runScopedStates,
         );
     }
 

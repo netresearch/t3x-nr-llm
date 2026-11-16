@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\Vision\VisionActionBuilder;
@@ -60,6 +61,23 @@ final class AgentRuntimeWiringTest extends AbstractFunctionalTestCase
             $resolver->getValue($runtime),
             'Without this collaborator the write fence and the fail-closed write audit both degrade to no-ops.',
         );
+    }
+
+    /**
+     * The worker's runtime resets the gate's storages at each run boundary:
+     * the gate it resets is the one the tools use.
+     */
+    #[Test]
+    public function theAutowiredRuntimeResetsTheFileGateTheToolsUse(): void
+    {
+        $runtime = $this->getService(AgentRuntimeInterface::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+
+        $states = (new ReflectionProperty(AgentRuntime::class, 'runScopedStates'))->getValue($runtime);
+        self::assertIsIterable($states);
+
+        $gate = $this->getService(FalStorageGate::class);
+        self::assertContains($gate, is_array($states) ? $states : iterator_to_array($states, false));
     }
 
     /**
