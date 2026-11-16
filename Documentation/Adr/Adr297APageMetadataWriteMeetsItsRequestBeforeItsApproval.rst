@@ -102,23 +102,27 @@ Consequences
   governance log.
 - ◑ A write without a read reaches the approval card and is refused after
   the editor approved it; nothing is written, and the model reads the
-  reason.
+  reason. Since ADR-298 this holds for a write without a passed check.
 - ● A row changed by an editor after the task was accepted is not written
   over by a proposal built on the older state; the client sends the task
-  again.
+  again. Amended by ADR-298: the comparison is with the state the check
+  observed, not with the acceptance time, and the model checks again.
 - ◑ "Read before write" means a ``get_page_content`` call with the outcome
   ``ok``, which includes its answer that a page was not found or not
   permitted; it is a call of any page
   earlier in the run, not a read of this row with this state: the invocation
   history records neither arguments nor results. Binding a check to the exact
   proposal and data state needs the history to carry them, which is a
-  separate decision.
+  separate decision. That decision is ADR-298: the history carries keyed
+  digests of a call's arguments and of the state it observed, and the rule
+  ``page_metadata_binding`` replaces ``page_metadata_read_first``.
 - ◑ "Unchanged" is second-granular and compares with the acceptance time,
   not with the time of the read; a second write of the same run to the same
   row is refused as changed. A record's ``tstamp`` is the ``EXEC_TIME`` of
   the request that wrote it, its start: a writer that started before the task
   was accepted and saved after it is not seen. Only changes in the live
-  workspace and the client's workspace are compared.
+  workspace and the client's workspace are compared. Expired with ADR-298:
+  no clock is compared any more; the checked fields are.
 - ◑ The request is read from the first history entry. A task keeps at most
   100 history entries and then drops the oldest, so a full history is not
   read as the request and every further write of that task is refused. A
@@ -131,7 +135,9 @@ Consequences
   its approval switches the contract off for that task.
 - ✕ Database reads per ``update_page_metadata`` call of every run: the task
   lookup in both rules, which is where a run without an A2A task stops; for
-  the skill's runs the profile, the rows and the scope's own lookups.
+  the skill's runs the profile, the rows and the scope's own lookups. Since
+  ADR-298 the binding rule also repeats the contract's lookups and reads the
+  checked fields of the row once more.
 
 Net Score: 0
 

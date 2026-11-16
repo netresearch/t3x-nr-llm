@@ -13,6 +13,7 @@ use Netresearch\NrLlm\Domain\Enum\ArtifactType;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedState;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -271,6 +272,43 @@ final class ToolResultTest extends TestCase
     }
 
     /**
+     * The observed state (ADR-298) is carried by every wither and by the
+     * bounding on success, and every other member survives setting it; an
+     * error result neither takes one nor carries one through the bounding.
+     */
+    #[Test]
+    public function anObservedStateIsCarriedOnSuccessAndRefusedOnFailure(): void
+    {
+        $state    = new ObservedState('v1:' . str_repeat('a', 64), ['description' => 'Old']);
+        $artifact = new ToolArtifact(ArtifactType::TEXT, 'label', ['text' => 'x']);
+        $observed = ToolResult::text('Checked.', $artifact)
+            ->withHighlightTarget(new RecordReference('pages', 42))
+            ->withObservedState($state);
+
+        self::assertSame($state, $observed->observedState);
+        self::assertSame('Checked.', $observed->content);
+        self::assertSame([$artifact], $observed->artifacts);
+        self::assertSame('pages:42', (string) $observed->highlightTarget);
+        self::assertSame($state, $observed->withBoundedChannels('bounded', [])->observedState);
+        self::assertSame($state, $observed->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED)->observedState);
+        self::assertSame($state, $observed->withHighlightTarget(new RecordReference('pages', 43))->observedState);
+        self::assertSame($state, $observed->withHookFailedAfterWrite()->observedState);
+
+        $written = ToolResult::text('Written.')
+            ->withWriteTarget(new RecordReference('pages', 42), WriteKind::UPDATED, WriteCompleteness::PARTIAL)
+            ->withHookFailedAfterWrite()
+            ->withObservedState($state);
+        self::assertSame('pages:42', (string) $written->writeTarget);
+        self::assertSame(WriteKind::UPDATED, $written->writeKind);
+        self::assertSame(WriteCompleteness::PARTIAL, $written->writeCompleteness);
+        self::assertTrue($written->hookFailedAfterWrite);
+
+        self::assertNull(ToolResult::text('read something')->observedState);
+        self::assertNull(ToolResult::error('nope')->withObservedState($state)->observedState);
+        self::assertNull(ToolResult::cancelled('stopped')->withObservedState($state)->withBoundedChannels('bounded', [])->observedState);
+    }
+
+    /**
      * Every property of the value object is either bounded or carried. A new one
      * added without a decision fails here rather than silently vanishing on the
      * way through the loop.
@@ -285,7 +323,7 @@ final class ToolResultTest extends TestCase
         sort($properties);
 
         self::assertSame(
-            ['artifacts', 'content', 'highlightTarget', 'hookFailedAfterWrite', 'isError', 'outcome', 'writeCompleteness', 'writeKind', 'writeTarget'],
+            ['artifacts', 'content', 'highlightTarget', 'hookFailedAfterWrite', 'isError', 'observedState', 'outcome', 'writeCompleteness', 'writeKind', 'writeTarget'],
             $properties,
             'ToolResult gained a property. Decide in withBoundedChannels() whether it is bounded or carried '
             . 'forward — ADR-182 names three values already lost to a rebuild that answered for neither.',

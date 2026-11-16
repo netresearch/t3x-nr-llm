@@ -71,15 +71,16 @@ What the run may do
   ``pages`` and the requested language. A write to another page, another
   table or another language is refused before it reaches an approval, also
   after a question to the client and the client's answer.
-- It is offered ``get_page_content`` and ``update_page_metadata``, and
-  ``ask_choice`` when the profile grants it. Other tools of the profile are
-  not offered to this skill.
+- It is offered ``get_page_content``, ``check_page_metadata`` and
+  ``update_page_metadata``, and ``ask_choice`` when the profile grants it.
+  Other tools of the profile are not offered to this skill.
 - Its user message is written by the handler from the checked values and
   names the record to update and the requested fields. The client's text
   does not reach the model; after an ``ask_choice`` question, the client's
   answer does, as one of the options the model offered.
-- A write must meet the request before it reaches an approval, and follow
-  a read of the page when it runs (see below).
+- A write must meet the request before it reaches an approval, and be the
+  proposal of a passed check on the record as that check saw it when it
+  runs (see below).
 - A write waits for an approval in the backend like every A2A write. A
   configuration that requires a second approver applies as to every run.
 
@@ -105,25 +106,27 @@ identifier and one of these reasons:
    abstract; 300 for the description and the Open Graph and X
    descriptions; 100 for the SEO, Open Graph and X titles.
 
-``page_not_read`` (rule ``page_metadata_read_first``)
-   The run has no ``get_page_content`` call with the outcome ``ok`` yet.
-   Such a call counts for any page, also when it answered that a page was
-   not found; the rule does not know which
-   page was read. This rule is asked
-   when the call runs, after its approval, so an editor can approve a write
-   that is then refused.
+``proposal_not_checked`` (rule ``page_metadata_binding``)
+   No passed ``check_page_metadata`` precedes the write, or the latest
+   passed check was of other arguments. A failed check does not count, and a
+   later passed check of another variant replaces an earlier one.
 
-``history_incomplete`` (rule ``page_metadata_read_first``)
+``changed_since_check`` (rule ``page_metadata_binding``)
+   The checked fields of the requested row, as the client's workspace shows
+   them (its draft version when one exists, else the live row), are no longer
+   what the check saw, or the row can no longer be read. The model checks the
+   proposal again. Only the proposed fields count; a moved ``tstamp`` is no
+   change, and no clock is compared.
+
+``history_incomplete`` (rule ``page_metadata_binding``)
    The run's history is incomplete, for example after a requeue, and holds
-   no read since. Writes of this skill are refused, after their approval,
-   until the run reads the page again; other calls are not affected.
+   no passed check since. Writes of this skill are refused until the run
+   checks again; other calls are not affected.
 
-``changed_since_accepted``
-   The row's ``tstamp`` as the client's workspace shows it (its draft
-   version when one exists, else the live row) is later than the task's
-   acceptance. The client sends the task again. ``tstamp`` is the
-   start of the request that wrote the row, so a save that started before
-   the task was accepted is not seen.
+The rule ``page_metadata_binding`` depends on the run's history, so it is
+asked when the call runs, after its approval: a check and a write in one
+turn both reach the approval, and an editor can approve a write that is then
+refused. Nothing is written then.
 
 ``not_the_requested_row``
    The call aims at another row of the requested page and language, at a
@@ -135,6 +138,24 @@ identifier and one of these reasons:
    The task's request cannot be read: its profile is gone, its history is
    full (100 messages), or the configuration's privacy level stores no
    message content. Such a configuration cannot run this skill.
+
+..  _a2a-page-metadata-skill-check:
+
+The check before the write
+--------------------------
+
+The tool ``check_page_metadata`` takes exactly the arguments of
+``update_page_metadata`` and judges them with the conditions above
+(``not_the_requested_row``, ``field_not_requested``, ``value_not_allowed``).
+A passed check reports the state of the proposed fields of the requested
+row, as the client's workspace shows them. The run's invocation history keeps
+a keyed digest of the check's arguments and of that state, never the values
+(ADR-298). The write runs only when its arguments have the digest of the
+latest passed check and the record's state has the digest that check
+observed. The tool changes nothing; outside a run of this skill it fails.
+
+Rotating the installation's encryption key invalidates the digests of
+waiting runs: their writes are refused until the model checks again.
 
 A call aimed at a row the scope refuses (another page, table or language, a
 uid without a row) is refused by the scope with its own reason
@@ -149,10 +170,10 @@ Setting it up
    switch on :guilabel:`Require a draft workspace for changes` and
    :guilabel:`Require the scope of an assignment for changes`. The skill
    refuses to run on a configuration without both.
-#. Enable the tools ``get_page_content`` and ``update_page_metadata`` in the
-   Tools module.
+#. Enable the tools ``get_page_content``, ``check_page_metadata`` and
+   ``update_page_metadata`` in the Tools module.
 #. Create a publication profile with the handler
-   ``nr_llm.page_metadata.v1``, that configuration, the two tools (and
+   ``nr_llm.page_metadata.v1``, that configuration, the three tools (and
    ``ask_choice`` if the run may ask the client), and :guilabel:`May write`.
 #. Pin the client that may call it to a draft workspace its technical user
    is a member of, and give that user edit access to the rows and the

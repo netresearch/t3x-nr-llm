@@ -3,7 +3,7 @@
 # A2A skill: the metadata of one page in one language, as a draft
 
 Governing decisions: ADR-296 (amends ADR-295) and ADR-297 (amends
-ADR-296). Builds on spec 051 (A2A server
+ADR-296), PC4 and PC5 as amended by ADR-298 (spec 056). Builds on spec 051 (A2A server
 role, stage 4: the first write capability) and ADR-295 (the scope of an
 assignment). Baseline: `main` at 485306afe.
 
@@ -45,11 +45,12 @@ to what the request names.
   client's answer (spec 051 A2A-MT1 to A2A-MT3).
 - **PM4 Message and tools.** The run's user message is built from the checked
   values and names the row to write (`pages:<uid>`). The run is offered
-  `get_page_content` and `update_page_metadata`, and `ask_choice` when the
-  profile grants it; no other tool.
+  `get_page_content`, `check_page_metadata` and `update_page_metadata`, and
+  `ask_choice` when the profile grants it; no other tool.
 - **PM5 Setup.** The handler refuses with `-32004` "This skill is not
   available." and logs the reason when the profile does not write or does not
-  grant `get_page_content` and `update_page_metadata`, or when the LLM
+  grant `get_page_content`, `check_page_metadata` and `update_page_metadata`,
+  or when the LLM
   configuration does not require a draft workspace (ADR-293) and the scope of
   an assignment (ADR-295). A client not pinned to a draft workspace is refused
   before the handler, as for every writing profile (spec 051 A2A-MT5).
@@ -85,18 +86,23 @@ rule's identifier.
   subtitle, nav_title, keywords, twitter_card 255; abstract 1000;
   description, og_description, twitter_description 300; seo_title, og_title,
   twitter_title 100 characters): `value_not_allowed`.
-- **PC4 Read first.** A `get_page_content` call with the outcome `ok`
-  earlier in the run, of any page and including its answer that a page was
-  not found: `page_not_read`, by the rule `page_metadata_read_first`. It
-  depends on the history and is asked when the call runs, after its
-  approval (ADR-293); a read and a write in one turn reach the approval. A
-  run with an incomplete history and no read since has its writes of this
-  skill refused (`history_incomplete`); other calls are not affected.
-- **PC5 Unchanged.** The row's `tstamp` as the client's workspace shows it
-  (its draft version when one exists, else the live row) is not later than
-  the task's creation: `changed_since_accepted`. `tstamp`
-  is the writer's `EXEC_TIME`, the start of its request, so a writer that
-  started before the task was accepted and saved after it is not seen.
+- **PC4 Checked proposal** (ADR-298, spec 056 PB7). The latest
+  `check_page_metadata` call with the outcome `ok` earlier in the run was of
+  exactly the write's arguments (their keyed digest in the invocation
+  history); a failed check does not count: `proposal_not_checked`, by the
+  rule `page_metadata_binding`. It depends on the history and is asked when
+  the call runs, after its approval (ADR-293); a check and a write in one
+  turn, in that order, reach the approval and the write runs. A run with an
+  incomplete history and no passed check since has its writes of this skill
+  refused (`history_incomplete`); other calls are not affected. A write the
+  contract refuses (PC1 to PC3) keeps the contract's reason, and a row the
+  scope refuses keeps the scope's.
+- **PC5 Unchanged since the check** (ADR-298, spec 056 PB7). The proposed
+  fields of the requested row as the client's workspace shows them (its draft
+  version when one exists, else the live row) are still what the check
+  observed (their keyed digest): `changed_since_check`, also when the row can
+  no longer be read. No clock is compared; a moved `tstamp` alone is no
+  change, and a field outside the proposal is not compared.
 - **PC6 Only this skill.** A run without an A2A task, or whose task belongs to
   another handler, is not held.
 
@@ -107,9 +113,8 @@ rule's identifier.
 - Creating a missing translation.
 - A second approver specific to this skill; a configuration that requires one
   applies as to every A2A run.
-- A check bound to the exact proposal and the data state it read: the
-  invocation history records no arguments and no results. PC4 is therefore
-  satisfied by a read of any page, and PC5 by the writer's start time.
+- A change of the row between the binding rule's comparison and the write
+  itself (ADR-298).
 - A task with a full history (100 entries, after which the oldest is
   dropped), or a configuration whose privacy level stores no message
   content: the request is not read, and every write of the skill is refused
@@ -122,12 +127,12 @@ rule's identifier.
 | PM1 | `A2aPageMetadataRequestTest` (unit): every refused shape and type, the description without the client's value |
 | PM2 | `A2aPageMetadataSkillTest::aKeyOutsideTheContractOrAWrongTypeIsRefusedBeforeATaskExists`, `::aMissingPageOrAMissingTranslationIsRefusedBeforeATaskExists`, `::aPageTheUserMayNotReadIsRefusedLikeOneThatDoesNotExist` (functional): no task and no run row |
 | PM3 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` (the stored actor), `::aWriteToAnotherPageIsRefusedAsOutsideTheScope`, `::theTranslationRowReachesTheApprovalAndTheDefaultLanguageRowIsRefused`, `::theScopeHoldsAfterAQuestionAndTheClientsAnswer` (scripted model, the container's policies) |
-| PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` |
+| PM4 | `A2aPageMetadataSkillTest::aRequestBecomesARunBoundToThePageTheTableAndTheLanguage` (the tools, the instruction to check and write the same arguments) |
 | PM5 | `A2aPageMetadataSkillTest::aConfigurationWithoutTheDraftAndScopeRequirementsMakesTheSkillUnavailable` |
 | PM6 | existing `A2aWriteProfileTest` (the artifacts of a writing task do not depend on the handler); `A2aPageMetadataContractRuleTest::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` end to end |
 | PC1 | `A2aPageMetadataContractRuleTest::aCallAimedAtAnotherRowIsTheScopesToRefuse`, `::aRowTheScopeAdmitsThroughATranslationIsHeldToTheContract`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (the version uid and a second translation, refused before the approval), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (a version of another workspace) |
 | PC2 | `A2aPageMetadataContractRuleTest::aFieldTheRequestDidNotNameIsRefused` |
 | PC3 | `A2aPageMetadataContractRuleTest::aValueOverItsLengthIsRefusedAndLogged` (governance log), `::aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult` (approved, written as a draft, listed in `writes`), `::anInvisibleValueAndAVersionOfAnotherWorkspaceAreRefused` (only whitespace and format characters) |
-| PC4 | `A2aPageMetadataContractRuleTest::aWriteBeforeThePageWasReadIsRefused` (refused after the approval, no draft), `::aReadAndAWriteInOneTurnReachTheApproval`, `::anIncompleteHistoryRefusesOnlyAWriteOfThisSkill` |
-| PC5 | `A2aPageMetadataContractRuleTest::aRowChangedAfterTheTaskWasAcceptedIsRefused` |
+| PC4 | `A2aPageMetadataContractRuleTest::aWriteWithoutACheckIsRefused` (refused after the approval, no draft), `::aWriteOfAnotherVariantThanTheCheckedOneIsRefused`, `::aFailedCheckDoesNotCount`, `::aCheckAndAWriteInOneTurnReachTheApprovalAndWrite`, `::anIncompleteHistoryRefusesOnlyAWriteOfThisSkill` |
+| PC5 | `A2aPageMetadataContractRuleTest::aRecordChangedAfterTheCheckIsRefused`, `::aMovedTimestampAloneIsNoChange`, `::aUidTheScopeAlsoAdmitsIsHeldToTheContract` (a changed version row) |
 | PC6 | `A2aPageMetadataContractRuleTest::aTaskOfAnotherSkillIsNotHeldToTheContract`, `::aHiddenProfileDoesNotSwitchTheContractOff` (a hidden profile is still held; a missing one refuses), `::aHistoryPastItsCapIsNotReadAsTheRequest` |

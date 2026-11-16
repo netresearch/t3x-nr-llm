@@ -22,16 +22,19 @@ use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataBindingRule;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataContractRule;
-use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataReadFirstRule;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aPageMetadataRows;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
+use Netresearch\NrLlm\Service\Tool\Builtin\CheckPageMetadataTool;
+use Netresearch\NrLlm\Service\Tool\InvocationDigests;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface;
+use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -39,12 +42,16 @@ use TYPO3\CMS\Core\Type\Bitmask\Permission;
 
 /**
  * The deterministic conditions a write of the page metadata skill meets
- * before it reaches an approval (spec 055 PC1 to PC6, ADR-297), with the
- * installation and runtime of {@see A2aPageMetadataSkillFixture}.
+ * before it reaches an approval (spec 055 PC1 to PC3 and PC6, ADR-297), and
+ * the binding of a write to a passed check of exactly its proposal on the
+ * record as the check saw it (spec 055 PC4 and PC5, spec 056, ADR-298), with
+ * the installation and runtime of {@see A2aPageMetadataSkillFixture}.
  */
 #[CoversClass(A2aPageMetadataContractRule::class)]
 #[CoversClass(A2aPageMetadataRows::class)]
-#[CoversClass(A2aPageMetadataReadFirstRule::class)]
+#[CoversClass(A2aPageMetadataBindingRule::class)]
+#[CoversClass(CheckPageMetadataTool::class)]
+#[CoversClass(InvocationDigests::class)]
 final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 {
     use A2aPageMetadataSkillFixture;
@@ -91,8 +98,10 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 
     /**
      * PC3, the other direction, end to end: the same call with a value
-     * within its limit reaches the approval, is approved, writes a draft in
-     * the client's workspace, and the task's `writes` artifact lists it.
+     * within its limit, checked first with exactly its arguments, reaches the
+     * approval, is approved, writes a draft in the client's workspace, and
+     * the task's `writes` artifact lists it. The check's digests survive the
+     * suspended state the approval resumes from.
      */
     #[Test]
     public function aValueWithinItsLengthIsWrittenAsADraftAndListedInTheResult(): void
@@ -103,6 +112,7 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 
         $this->responses = [
             $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Eine kurze Beschreibung.']),
             $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Eine kurze Beschreibung.']),
         ];
         $runtime = $this->runtime();
@@ -144,90 +154,219 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * PC4: a write before the page was read is refused when it runs, after
+     * PC4: a write no passed check preceded is refused when it runs, after
      * its approval (the rule depends on the history, ADR-293), and nothing
-     * is written.
+     * is written. A read of the page is no check.
      */
     #[Test]
-    public function aWriteBeforeThePageWasReadIsRefused(): void
+    public function aWriteWithoutACheckIsRefused(): void
     {
         $run = $this->ranWith([
+            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
             $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
         ]);
         $this->approved($run);
 
-        self::assertStringContainsString('rule: page_metadata_read_first, reason: page_not_read', $this->toolResultOf($run));
+        self::assertStringContainsString('rule: page_metadata_binding, reason: proposal_not_checked', $this->toolResultOf($run));
         self::assertSame(0, $this->rows('pages', ['t3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE]), 'no draft');
     }
 
     /**
-     * PC4 is asked when the call runs, not before its card (ADR-293): a read
-     * and a write in the same turn reach the approval, because the read has
-     * run by the time the write does.
+     * PC4: a check of one variant does not admit the write of another; the
+     * write is refused after its approval and nothing is written.
      */
     #[Test]
-    public function aReadAndAWriteInOneTurnReachTheApproval(): void
+    public function aWriteOfAnotherVariantThanTheCheckedOneIsRefused(): void
     {
         $run = $this->ranWith([
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Besser.']),
+        ]);
+        self::assertStringContainsString('The check passed for description.', $this->toolResultOf($run, 'check_page_metadata'));
+        $this->approved($run);
+
+        self::assertStringContainsString('rule: page_metadata_binding, reason: proposal_not_checked', $this->toolResultOf($run));
+        self::assertSame(0, $this->rows('pages', ['t3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE]), 'no draft');
+    }
+
+    /**
+     * PC4: the latest passed check counts. A later check of another variant
+     * replaces an earlier one, so the first variant is no longer admitted.
+     */
+    #[Test]
+    public function aLaterCheckOfAnotherVariantReplacesAnEarlierOne(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Besser.']),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+        ]);
+        $this->approved($run);
+
+        self::assertStringContainsString('rule: page_metadata_binding, reason: proposal_not_checked', $this->toolResultOf($run));
+    }
+
+    /**
+     * PC4: a failed check counts for nothing, also when it carries the
+     * digest of exactly the write's arguments; the model reads why the check
+     * failed. A later passed check of the write's arguments admits it.
+     */
+    #[Test]
+    public function aFailedCheckDoesNotCount(): void
+    {
+        $failed = $this->ranWith([
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => str_repeat('a', 400)]),
+            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+        ]);
+        self::assertStringContainsString('The check failed (value_not_allowed)', $this->toolResultOf($failed, 'check_page_metadata'));
+        $this->approved($failed);
+        self::assertStringContainsString('rule: page_metadata_binding, reason: proposal_not_checked', $this->toolResultOf($failed));
+
+        $run       = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']], 'f-2')['id'] ?? ''));
+        $arguments = ['uid' => self::TRANSLATION, 'description' => 'Gut.'];
+        $execution = new ToolExecutionContext(AiActorContext::anonymous(), run: new AgentRunReference($run->uid, $run->uuid));
+        $digests   = $this->getService(InvocationDigests::class);
+        $state     = $digests->observe('pages', self::TRANSLATION, ['description'], $execution);
+        self::assertNotNull($state);
+        $decide = fn (ToolInvocationHistory $history): ToolInvocationDecision => $this->getService(ToolInvocationPolicyInterface::class)->decide(
+            new ToolInvocationContext('update_page_metadata', $arguments, null, new LlmConfiguration(), $execution, $history),
+        );
+
+        $failedCheck = (new ToolInvocationHistory())->append('check_page_metadata', 'failed', null, $digests->arguments($arguments));
+        self::assertSame(A2aPageMetadataBindingRule::REASON_NOT_CHECKED, $decide($failedCheck)->reason, 'a failed check with the same arguments');
+        self::assertTrue($decide($failedCheck->append('check_page_metadata', 'ok', null, $digests->arguments($arguments), $state->digest))->allowed, 'a passed check since');
+    }
+
+    /**
+     * PC4 is asked when the call runs, not before its card (ADR-293): a check
+     * and a write in the same turn, in that order, reach the approval, and the
+     * approved write runs after the check and writes the draft.
+     */
+    #[Test]
+    public function aCheckAndAWriteInOneTurnReachTheApprovalAndWrite(): void
+    {
+        $this->db('be_groups')->update('be_groups', ['tables_select' => 'pages', 'tables_modify' => 'pages', 'non_exclude_fields' => 'pages:description'], ['uid' => self::GROUP]);
+        $run = $this->ranWith([
             new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [
-                new ToolCall('c-read', 'get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
+                new ToolCall('c-check', 'check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
                 new ToolCall('c-write', 'update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
             ]),
         ]);
 
         self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $this->stored($run)->statusEnum(), $this->toolResultOf($run));
+        $this->approved($run);
+
+        self::assertStringNotContainsString('invocation denied', $this->toolResultOf($run));
+        self::assertSame('Gut.', $this->db('pages')->select(['description'], 'pages', ['t3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE])->fetchOne());
     }
 
     /**
      * An incomplete invocation history (a requeued run, an old suspended
-     * state) refuses a write of this skill, whose read check needs the whole
-     * history, and nothing else: another tool, or the same tool in a run
-     * without an A2A task, is not this rule's business.
+     * state) refuses a write of this skill that has no check since, and
+     * nothing else: another tool, or the same tool in a run without an A2A
+     * task, is not this rule's business, and a check made since counts.
      */
     #[Test]
     public function anIncompleteHistoryRefusesOnlyAWriteOfThisSkill(): void
     {
-        $run    = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? ''));
-        $policy = $this->getService(ToolInvocationPolicyInterface::class);
-        $decide = static fn (string $tool, ?AgentRunReference $reference, ?ToolInvocationHistory $history = null): ToolInvocationDecision => $policy->decide(new ToolInvocationContext(
+        $run       = $this->runOf(self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? ''));
+        $policy    = $this->getService(ToolInvocationPolicyInterface::class);
+        $arguments = ['uid' => self::TRANSLATION, 'description' => 'Gut.'];
+        $decide    = static fn (string $tool, ?AgentRunReference $reference, ?ToolInvocationHistory $history = null): ToolInvocationDecision => $policy->decide(new ToolInvocationContext(
             $tool,
-            ['uid' => self::TRANSLATION, 'description' => 'Gut.'],
+            $arguments,
             null,
             new LlmConfiguration(),
             new ToolExecutionContext(AiActorContext::anonymous(), run: $reference),
             $history ?? ToolInvocationHistory::fromStored(null),
         ));
 
-        self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $decide('get_page_content', new AgentRunReference($run->uid, $run->uuid))->ruleIdentifier, 'another tool');
-        self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $decide('update_page_metadata', null)->ruleIdentifier, 'a run without an A2A task');
+        self::assertNotSame(A2aPageMetadataBindingRule::IDENTIFIER, $decide('get_page_content', new AgentRunReference($run->uid, $run->uuid))->ruleIdentifier, 'another tool');
+        self::assertNotSame(A2aPageMetadataBindingRule::IDENTIFIER, $decide('update_page_metadata', null)->ruleIdentifier, 'a run without an A2A task');
 
-        $write = $decide('update_page_metadata', new AgentRunReference($run->uid, $run->uuid));
+        $reference = new AgentRunReference($run->uid, $run->uuid);
+        $write     = $decide('update_page_metadata', $reference);
         self::assertFalse($write->allowed);
         self::assertSame('history_incomplete', $write->reason);
-        self::assertSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $write->ruleIdentifier);
+        self::assertSame(A2aPageMetadataBindingRule::IDENTIFIER, $write->ruleIdentifier);
 
-        $readSince = $decide('update_page_metadata', new AgentRunReference($run->uid, $run->uuid), ToolInvocationHistory::fromStored(null)->append('get_page_content', 'ok', null));
-        self::assertNotSame(A2aPageMetadataReadFirstRule::IDENTIFIER, $readSince->ruleIdentifier, 'a read made since the history became incomplete counts');
+        $digests    = $this->getService(InvocationDigests::class);
+        $state      = $digests->observe('pages', self::TRANSLATION, ['description'], new ToolExecutionContext(AiActorContext::anonymous(), run: $reference));
+        $checkSince = ToolInvocationHistory::fromStored(null)->append('check_page_metadata', 'ok', null, $digests->arguments($arguments), $state?->digest);
+        self::assertTrue($decide('update_page_metadata', $reference, $checkSince)->allowed, 'a check made since the history became incomplete counts');
+
+        // A check stored without digests (before this change, or with an
+        // empty encryption key) never matches a write whose arguments have
+        // no digest either: no digest is not a match.
+        $undigested = (new ToolInvocationHistory())->append('check_page_metadata', 'ok', null);
+        $key        = $this->encryptionKey('');
+        try {
+            $noKey = $decide('update_page_metadata', $reference, $undigested);
+        } finally {
+            $this->encryptionKey($key);
+        }
+
+        self::assertFalse($noKey->allowed);
+        self::assertSame(A2aPageMetadataBindingRule::REASON_NOT_CHECKED, $noKey->reason);
     }
 
     /**
-     * PC5: a row changed after the task was accepted is not written over.
+     * PC5: a record an editor changed after the check, before the write's
+     * card, is not written over: the card and its approval show the changed
+     * record (so ADR-184 has nothing to re-ask), and the write is refused
+     * when it runs because the record is not what the check judged.
      */
     #[Test]
-    public function aRowChangedAfterTheTaskWasAcceptedIsRefused(): void
+    public function aRecordChangedAfterTheCheckIsRefused(): void
     {
-        $taskId = self::text($this->send(['page' => self::PAGE, 'language' => self::GERMAN, 'fields' => ['description']])['id'] ?? '');
-        $run    = $this->runOf($taskId);
-        $this->db('pages')->update('pages', ['tstamp' => time() + 60], ['uid' => self::TRANSLATION]);
+        $run = $this->ranWith([
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            function (): CompletionResponse {
+                $this->db('pages')->update('pages', ['description' => 'Changed by an editor'], ['uid' => self::TRANSLATION]);
 
-        $this->responses = [
-            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
-            $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
-            $this->answer(),
-        ];
-        $this->runtime()->runQueued($run->uuid);
+                return $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']);
+            },
+        ]);
+        $this->approved($run);
 
-        self::assertStringContainsString('rule: page_metadata_contract, reason: changed_since_accepted', $this->toolResultOf($run));
+        self::assertStringContainsString('rule: page_metadata_binding, reason: changed_since_check', $this->toolResultOf($run));
+        self::assertSame(0, $this->rows('pages', ['t3ver_oid' => self::TRANSLATION, 't3ver_wsid' => self::WORKSPACE]), 'no draft');
+    }
+
+    /**
+     * PC5 does not compare clocks: a moved `tstamp` with unchanged fields is
+     * not a change, so the checked proposal still reaches the approval.
+     */
+    #[Test]
+    public function aMovedTimestampAloneIsNoChange(): void
+    {
+        $run = $this->ranWith([
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            function (): CompletionResponse {
+                $this->db('pages')->update('pages', ['tstamp' => time() + 60], ['uid' => self::TRANSLATION]);
+
+                return $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']);
+            },
+        ]);
+        $this->approved($run);
+
+        self::assertStringNotContainsString('invocation denied', $this->toolResultOf($run));
+    }
+
+    /**
+     * The check holds the page metadata skill only: in a run without such a
+     * task it has no request to judge against and fails.
+     */
+    #[Test]
+    public function theCheckFailsOutsideAPageMetadataTask(): void
+    {
+        $tool = $this->getService(ToolRegistry::class)->get('check_page_metadata');
+        self::assertNotNull($tool);
+
+        $result = $tool->execute(['uid' => self::TRANSLATION, 'description' => 'Gut.'], new ToolExecutionContext(AiActorContext::anonymous()));
+
+        self::assertTrue($result->isError);
+        self::assertNull($result->observedState);
     }
 
     /**
@@ -268,6 +407,20 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         ]);
         self::assertStringContainsString('rule: page_metadata_contract, reason: not_the_requested_row', $this->toolResultOf($version), 'the version uid of the requested row');
         self::assertSame(AgentRunStatus::COMPLETED, $this->stored($version)->statusEnum(), 'no approval was asked');
+
+        // Checked and written under the live uid, the proposal is bound to
+        // the requested row as the workspace shows it: its version. An
+        // editor changing the version row after the check is a change.
+        $changed = $this->ranWith([
+            $this->callOf('check_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']),
+            function (): CompletionResponse {
+                $this->db('pages')->update('pages', ['description' => 'Draft changed by an editor'], ['uid' => 960]);
+
+                return $this->callOf('update_page_metadata', ['uid' => self::TRANSLATION, 'description' => 'Gut.']);
+            },
+        ], 'u-5');
+        $this->approved($changed);
+        self::assertStringContainsString('rule: page_metadata_binding, reason: changed_since_check', $this->toolResultOf($changed), 'a change of the version row is a change of the record');
 
         $sibling = $this->ranWith([
             $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => self::GERMAN]),
@@ -385,7 +538,7 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
 
     /**
      * The rule holds the page metadata skill only: a write of a task of the
-     * text skill is not asked for a read first and reaches its approval.
+     * text skill is not asked for a check first and reaches its approval.
      */
     #[Test]
     public function aTaskOfAnotherSkillIsNotHeldToTheContract(): void
@@ -427,6 +580,22 @@ final class A2aPageMetadataContractRuleTest extends AbstractFunctionalTestCase
         $this->responses = [$this->answer()];
         $state           = SuspendedRunState::fromArray(self::objectOf(json_decode($waiting->suspendedState ?? '', true)));
         $this->runtime()->approve(AiActorContext::backendUser(1, isAdmin: true), $run->uuid, new ApprovalDecision(true, 1, (new PendingTurnDigest())->forState($state)));
+    }
+
+    /**
+     * Set the installation's encryption key and return the previous one.
+     */
+    private function encryptionKey(string $key): string
+    {
+        $configuration = is_array($GLOBALS['TYPO3_CONF_VARS'] ?? null) ? $GLOBALS['TYPO3_CONF_VARS'] : [];
+        $system        = is_array($configuration['SYS'] ?? null) ? $configuration['SYS'] : [];
+        $previous      = is_string($system['encryptionKey'] ?? null) ? $system['encryptionKey'] : '';
+
+        $system['encryptionKey']    = $key;
+        $configuration['SYS']       = $system;
+        $GLOBALS['TYPO3_CONF_VARS'] = $configuration;
+
+        return $previous;
     }
 
     private function answer(): CompletionResponse

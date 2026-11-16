@@ -44,7 +44,12 @@ use Netresearch\NrLlm\Domain\Enum\WriteKind;
  * DataHandler hook of the installation failed after the last write of the call
  * (ADR-206). It is reported beside the completeness and does not change it.
  *
- * Fail-closed: {@see self::error()} carries NO artifacts and NO write target.
+ * `$observedState` is the record state a successful call observed (ADR-298),
+ * identity and field values the tool read; the loop copies its digest into
+ * the invocation history and never sends it to the wire.
+ *
+ * Fail-closed: {@see self::error()} carries NO artifacts, NO write target and
+ * NO observed state.
  *
  * @api
  */
@@ -63,6 +68,7 @@ final readonly class ToolResult
         public ?WriteCompleteness $writeCompleteness = null,
         public bool $hookFailedAfterWrite = false,
         public ?RecordReference $highlightTarget = null,
+        public ?ObservedState $observedState = null,
     ) {}
 
     /**
@@ -125,7 +131,7 @@ final readonly class ToolResult
             return $this;
         }
 
-        return new self($this->content, false, $this->artifacts, $this->outcome, $target, $kind, $completeness, $this->hookFailedAfterWrite, $this->highlightTarget);
+        return new self($this->content, false, $this->artifacts, $this->outcome, $target, $kind, $completeness, $this->hookFailedAfterWrite, $this->highlightTarget, $this->observedState);
     }
 
     /**
@@ -153,6 +159,36 @@ final readonly class ToolResult
             $this->writeCompleteness,
             $this->hookFailedAfterWrite,
             $target,
+            $this->observedState,
+        );
+    }
+
+    /**
+     * The same result, naming the record state this successful call observed
+     * (ADR-298): the runtime copies its digest into the invocation history,
+     * where a rule compares it with the record as it is when a later call
+     * runs.
+     *
+     * Ignored on an error result, as a write target is: only a call that
+     * succeeded observed anything a rule may rely on.
+     */
+    public function withObservedState(ObservedState $state): self
+    {
+        if ($this->isError) {
+            return $this;
+        }
+
+        return new self(
+            $this->content,
+            false,
+            $this->artifacts,
+            $this->outcome,
+            $this->writeTarget,
+            $this->writeKind,
+            $this->writeCompleteness,
+            $this->hookFailedAfterWrite,
+            $this->highlightTarget,
+            $state,
         );
     }
 
@@ -184,6 +220,7 @@ final readonly class ToolResult
             $this->writeCompleteness,
             true,
             $this->highlightTarget,
+            $this->observedState,
         );
     }
 
@@ -233,6 +270,7 @@ final readonly class ToolResult
             $this->writeCompleteness,
             $this->hookFailedAfterWrite,
             $this->highlightTarget,
+            $this->observedState,
         );
     }
 }

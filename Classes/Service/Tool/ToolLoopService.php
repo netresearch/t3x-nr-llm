@@ -244,6 +244,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // scope (ADR-295). Optional for the lean test wiring; absent it the
         // layer reads the database itself.
         private ?AssignmentScopeChecker $scopeChecker = null,
+        // Computes the digests a history entry carries (ADR-298): of a call's
+        // final arguments, and of the record state an ok result observed.
+        // Optional for the lean test wiring; absent it no entry carries a
+        // digest, and a rule that binds a call to a check refuses it.
+        private ?InvocationDigests $invocationDigests = null,
     ) {}
 
     /**
@@ -1248,7 +1253,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         $environment->trace?->beforeToolExecution($call->name);
         [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
-        $history                    = $history->append($call->name, $result->outcome->value, $target);
+        $history                    = $this->recorded($history, $call, $result->outcome->value, $target, $result);
 
         return [$messages, $pins, $result];
     }
@@ -1959,7 +1964,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         if ($refusal !== null) {
             // Not executed, so it enters the history as denied, like a call
             // the invocation policy refuses.
-            $history = $history->append($call->name, 'denied', null);
+            $history = $this->recorded($history, $call, 'denied', null);
             $environment->trace?->recordToolExecution($iterations, 0.0, $call->name, $call->arguments, $refusal, true);
 
             return $refusal;
@@ -2284,7 +2289,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             }
 
             if (!isset($tr)) {
-                $invocationHistory = $invocationHistory->append($call->name, 'denied', null);
+                $invocationHistory = $this->recorded($invocationHistory, $call, 'denied', null);
             }
 
             unset($tr);
@@ -2415,7 +2420,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         );
         $runTrace?->recordToolResult($state->iterations, 0.0, $call->name, $call->arguments, $bounded);
 
-        $history  = ($state->invocationHistory ?? new ToolInvocationHistory([], false))->append($call->name, $bounded->outcome->value, null);
+        $history  = $this->recorded($state->invocationHistory ?? new ToolInvocationHistory([], false), $call, $bounded->outcome->value, null, $bounded);
         $messages = $state->messages;
         // WIRE: content ONLY, as for any tool result.
         $messages[] = ChatMessage::toolResult($call->id, $bounded->content);
@@ -2578,7 +2583,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             }
 
             if (!isset($tr)) {
-                $invocationHistory = $invocationHistory->append($call->name, 'denied', null);
+                $invocationHistory = $this->recorded($invocationHistory, $call, 'denied', null);
             }
 
             unset($tr);
@@ -3686,7 +3691,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             ),
             true,
         )) {
-            $history = $history->append($call->name, 'denied', null);
+            $history = $this->recorded($history, $call, 'denied', null);
             $message = $tool instanceof ToolInterface ? 'Error: tool "%s" not permitted' : 'Error: unknown tool "%s"';
 
             return ToolResult::error(sprintf($message, $call->name));
@@ -3711,7 +3716,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         }
 
         if (!$decision->allowed) {
-            $history = $history->append($call->name, 'denied', $target);
+            $history = $this->recorded($history, $call, 'denied', $target);
             // What the scope of the assignment refused, for the run's changes
             // view (ADR-295): the call changed nothing, and that is the entry.
             if ($decision->refusals !== []) {
@@ -3814,7 +3819,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             return $denied;
         }
 
-        $history = $history->append($call->name, 'denied', $target);
+        $history = $this->recorded($history, $call, 'denied', $target);
         $this->governanceEvents?->record(
             new GovernanceEvent(
                 correlationId: $environment->execution->run?->correlationId() ?? '',
@@ -3861,13 +3866,39 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $environment->trace,
             $executed,
         );
-        $history = $history->append(
-            $call->name,
+        $history = $this->recorded(
+            $history,
+            $call,
             $executed ? $result->outcome->value : 'denied',
             $target,
+            $executed ? $result : null,
         );
 
         return $result;
+    }
+
+    /**
+     * The history with the call appended, carrying the digest of its final
+     * arguments where they can be encoded and, for a result that observed a
+     * record state, the digest of that state (ADR-298). Every append of the
+     * loop goes through here, so no entry misses a digest it could carry.
+     */
+    private function recorded(
+        ToolInvocationHistory $history,
+        ToolCall $call,
+        string $outcome,
+        ?ToolInvocationTarget $target,
+        ?ToolResult $result = null,
+    ): ToolInvocationHistory {
+        $state = $outcome === 'ok' ? $result?->observedState : null;
+
+        return $history->append(
+            $call->name,
+            $outcome,
+            $target,
+            $this->invocationDigests?->arguments($call->arguments),
+            $state?->digest,
+        );
     }
 
     /**

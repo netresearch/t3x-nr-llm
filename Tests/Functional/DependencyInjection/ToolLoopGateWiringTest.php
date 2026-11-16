@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
 use Netresearch\NrLlm\Service\Skill\SkillRecordLookupInterface;
 use Netresearch\NrLlm\Service\Skill\SkillSourceLookupInterface;
 use Netresearch\NrLlm\Service\Tool\Builtin\HighlightRecordTool;
+use Netresearch\NrLlm\Service\Tool\InvocationDigests;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\ConfiguredMcpSubjectResolver;
 use Netresearch\NrLlm\Service\Tool\Mcp\Auth\McpAuthenticationSessionFactory;
 use Netresearch\NrLlm\Service\Tool\Mcp\McpClient;
@@ -202,6 +203,20 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         self::assertInstanceOf(ToolLoopService::class, $loop);
 
         self::assertInstanceOf(WorkerWriteEnvironment::class, (new ReflectionProperty(ToolLoopService::class, 'writeEnvironment'))->getValue($loop));
+    }
+
+    /**
+     * The history digests are optional on the loop (ADR-298), so a container
+     * that left them null would compile, record no digest, and have every
+     * write of the A2A page metadata skill refused as unchecked; pinned here.
+     */
+    #[Test]
+    public function productionWiresTheHistoryDigestsIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(InvocationDigests::class, (new ReflectionProperty(ToolLoopService::class, 'invocationDigests'))->getValue($loop));
     }
 
     /**

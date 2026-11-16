@@ -118,8 +118,10 @@ Group              Tools
                    ``replace_file_reference``,
                    ``set_file_reference_alternative_text``,
                    ``create_redirect``, ``update_redirect``,
-                   ``disable_redirect``, ``clear_cache``
-                   — the only WRITING group
+                   ``disable_redirect``, ``clear_cache``, and the read-only
+                   ``check_page_metadata``, which checks a proposal of the
+                   A2A page metadata skill before it is written
+                   — the only group with WRITING tools
 =================  ============================================================
 
 ``load_skill`` loads an approved skill into an agent run's system message

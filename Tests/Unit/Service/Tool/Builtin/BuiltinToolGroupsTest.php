@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\AskChoiceTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToContentElementTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\AttachFileToRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\BrowseFalFolderTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\CheckPageMetadataTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CheckTypoScriptTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ClearCacheTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\CopyRecordTool;
@@ -148,6 +149,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'get_fal_references'                  => [GetFalReferencesTool::class, 'files'],
             'find_missing_files'                  => [FindMissingFilesTool::class, 'files'],
             'update_page_metadata'                => [UpdatePageMetadataTool::class, 'editing'],
+            'check_page_metadata'                 => [CheckPageMetadataTool::class, 'editing'],
             'set_file_alternative_text'           => [SetFileAlternativeTextTool::class, 'editing'],
             'update_fal_asset_meta'               => [UpdateFalAssetMetaTool::class, 'editing'],
             'set_file_categories'                 => [SetFileCategoriesTool::class, 'editing'],
@@ -192,6 +194,19 @@ final class BuiltinToolGroupsTest extends TestCase
             ToolGroup::tryFrom($expectedGroup),
             'ToolGroup has no case for the group ' . $expectedGroup . ' declared by ' . $class,
         );
+    }
+
+    /**
+     * The check tool of the A2A page metadata skill ships disabled: it is
+     * offered only where an administrator enables it for that skill (spec 056
+     * PB6), not in every editing run.
+     */
+    #[Test]
+    public function theCheckToolOfThePageMetadataSkillShipsDisabled(): void
+    {
+        $tool = (new ReflectionClass(CheckPageMetadataTool::class))->newInstanceWithoutConstructor();
+
+        self::assertFalse($tool->isEnabledByDefault());
     }
 
     /**
