@@ -273,6 +273,29 @@ final class AgentStateEnvelopeRotatorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A file of the largest size (8 MiB, about 15 MiB sealed) is rewrapped
+     * by a statement that carries the new sealed value only: one that also
+     * named the old value in its WHERE would exceed the 16 MiB a MariaDB
+     * packet holds by default (`max_allowed_packet`).
+     */
+    #[Test]
+    public function aFileOfTheLargestSizeIsRewrapped(): void
+    {
+        $codec = $this->get(EnvelopeCodecInterface::class);
+        self::assertInstanceOf(EnvelopeCodecInterface::class, $codec);
+
+        $bytes  = str_repeat("Line of a long text file.\n", intdiv(8388608, 26));
+        $sealed = $codec->seal($bytes, AgentStateCodec::PURPOSE_A2A_FILE);
+        self::assertGreaterThan(8388608, strlen($sealed));
+        $uid = $this->insertFile('', $sealed);
+        unset($sealed);
+
+        $newKey = random_bytes(SODIUM_CRYPTO_AEAD_AES256GCM_KEYBYTES);
+        self::assertSame(1, $this->rotator->rewrapAll($this->contextTo($newKey)));
+        self::assertSame($bytes, $this->codecFor($newKey)->open($this->storedValue($uid, 'content', 'tx_nrllm_a2a_file'), AgentStateCodec::PURPOSE_A2A_FILE));
+    }
+
+    /**
      * A sealed A2A file holds up to about 15 MiB, so the file table is read
      * one row at a time: rotating ten files of 2 MiB peaks at a few times one
      * sealed file (about 4 times on SQLite, 6 on MariaDB, measured), while a
