@@ -270,10 +270,15 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             return A2aToolResults::task($agent->getTitle(), $task);
         }
 
+        // One instant for the registration's first look and the checkpoint's
+        // suspension: the poller's first look is due a minimum interval after
+        // the suspension, and the callback rule measures from the last look.
+        $now = time();
+
         // Push (spec 051 A2A-PUSH7): register the callback, then read the
         // task once, so a change between the send and the registration is not
         // missed. Before the checkpoint, so its byte count includes both.
-        if ($this->push?->register($agent, $intent, time()) === true) {
+        if ($this->push?->register($agent, $intent, $now) === true) {
             $current = $this->taskOnce($agent, $intent);
             if ($current instanceof A2aTask && $this->settled($current)) {
                 $this->push->close($intent->uid);
@@ -284,7 +289,6 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
 
         $journalUid = $intent->uid;
 
-        $now    = time();
         $totals = $this->journal->runTotals($run->uid, (int) $agent->getUid());
 
         throw new ToolDependencyPendingException(

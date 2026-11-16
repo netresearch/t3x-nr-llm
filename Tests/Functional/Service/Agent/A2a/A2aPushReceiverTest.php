@@ -345,6 +345,37 @@ final class A2aPushReceiverTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-PUSH8: the registration's first look and the checkpoint's suspension
+     * are one instant. The poller's first look is due a minimum interval after
+     * the suspension, and a callback brings it forward from the last look; two
+     * clocks one second apart made the first tick of a run not due.
+     *
+     * The read after the registration ends only in the next second, so the
+     * two instants differ whenever the tool takes them separately.
+     */
+    #[Test]
+    public function theFirstLookAndTheSuspensionAreOneInstant(): void
+    {
+        $this->agent();
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_SUBMITTED')]]);
+        $this->transport->thenJson(['result' => ['id' => 'remote-config-1', 'taskId' => 'task-1', 'url' => self::PUSH_URL]]);
+
+        $working = $this->task('task-1', 'TASK_STATE_WORKING');
+        $this->transport->then(static function (A2aHttpRequest $request) use ($working): A2aTransportResult {
+            $second = time();
+            while (time() === $second) {
+                usleep(20000);
+            }
+
+            return A2aTransportResult::response(200, 'application/json', '', json_encode(['jsonrpc' => '2.0', 'id' => ScriptedA2aTransport::idOf($request), 'result' => $working], JSON_THROW_ON_ERROR), false);
+        });
+
+        [, $checkpoint] = $this->suspendedRun(true);
+
+        self::assertSame($checkpoint->suspendedAt, $this->lastLookAt());
+    }
+
+    /**
      * A2A-PUSH8: a stored callback is a signal. It brings the next GetTask
      * forward, never closer than the record's minimum interval after the
      * last look; GetTask as the owner decides the state, not the body. A
