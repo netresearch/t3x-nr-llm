@@ -130,7 +130,7 @@ trait A2aServerFixture
         $finder   = new A2aOneSiteFinder($site);
         $settings = new A2aServerSettings($this->getService(ExtensionConfiguration::class), $finder);
 
-        return new A2aServerMiddleware($settings, $finder, $this->getService(A2aAgentCardBuilder::class), $this->getService(A2aRpcServer::class), $this->getService(A2aFileDownload::class), $this->getService(A2aFileSettings::class));
+        return new A2aServerMiddleware($settings, $finder, $this->getService(A2aAgentCardBuilder::class), $this->getService(A2aRpcServer::class), download: $this->getService(A2aFileDownload::class), fileSettings: $this->getService(A2aFileSettings::class));
     }
 
     /**
