@@ -1,1 +1,0 @@
-- Invocation rule `page_metadata_contract` (ADR-297, spec 055 PC1 to PC3 and PC6): a write of the A2A page metadata skill must aim at the requested row and set only the requested fields, within fixed lengths, or it is refused before its approval. The refusal is logged as `invocation_denied`.

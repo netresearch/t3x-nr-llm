@@ -11,6 +11,28 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-48-0:
+
+Version 0.48.0 (2026-11-15)
+===========================
+
+A2A streams, in both roles (spec 051 stage 5a, ADR-283). Run the TYPO3
+database schema update after updating.
+
+- **Server:** ``SendStreamingMessage`` and ``SubscribeToTask`` answer with
+  Server-Sent Events read from the task's event journal: the task first, then
+  only later stored changes. An answer leaves whole and only once the run has
+  finished. A stream closes at a terminal state or ``INPUT_REQUIRED``, ends
+  after ``a2a.server.streamMaxSeconds`` and never cancels its task.
+- **Settings:** ``a2a.server.streaming`` (on by default) switches the card's
+  ``streaming`` and both methods; streams have their own capacity per task,
+  per client and per installation. A stream holds a PHP-FPM worker while it is
+  open, and the proxies in front of it must pass ``text/event-stream`` on as it
+  is written; nginx with FastCGI buffering on is tested.
+- **Client:** ``A2aClient::sendStreamingMessage()``,
+  ``A2aClient::subscribeToTask()`` and ``nrllm:a2a:send --stream`` read the
+  stream of an agent whose card declares it. A delegating run keeps polling.
+
 .. _version-0-47-0:
 
 Version 0.47.0 (2026-11-14)
