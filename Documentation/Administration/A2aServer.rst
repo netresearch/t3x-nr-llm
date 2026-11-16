@@ -19,8 +19,8 @@ worker executes; the client receives the result as an A2A task
 This page covers stages 3 to 5b of spec 051 (tasks, a client that answers a
 task waiting for input, streams, and push notifications to a client's
 webhook) and the files of stage 5c, switched off by default: files a client
-sends, and files a task registers for its result, sent inline or as a
-protected download. No producer of result files exists yet.
+sends, and files from FAL a task sends, inline or as a protected download.
+Taking a file a client sent into FAL is not offered.
 
 Switch it on
 ============
@@ -99,6 +99,13 @@ May write
    record uid, workspace, kind), taken from the write events, not from the
    model's answer; a run that wrote nothing says so.
 
+Send FAL files to clients
+   The recipient approval for ``send_fal_file``: the clients of this skill
+   may receive files from FAL that their technical user may read (see
+   :ref:`Files from FAL <administration-a2a-server-fal-export>`). Off by
+   default; off, the tool refuses every file. It is read at each call, so
+   clearing it while a run is under way stops the next file.
+
 Active task quota
    How many tasks of this skill, from all clients together, may be queued or
    running at once. ``0``: no limit of its own.
@@ -114,7 +121,9 @@ Input modes
    ``image/jpeg``. While files are off the card lists ``text/plain`` for
    every skill, whatever is ticked here.
 
-Results are ``text/plain`` only.
+Results are ``text/plain``, and the files a skill sends from FAL. While files
+are on, a skill that lists ``send_fal_file`` and approves its clients as
+recipients lists the five file types among its output modes on the card.
 
 Register a client
 =================
@@ -406,8 +415,47 @@ Files a task sends
    the installation's own storage. The part's ``metadata`` names the file
    id, SHA-256 and size as for an inbound file. A run kept at the
    ``redacted`` level sends no file, because a file cannot be redacted; one
-   text artifact says how many files were withheld. No producer uses this
-   yet: the export of a FAL file into an artifact is not built.
+   text artifact says how many files were withheld. The files of FAL are
+   the one source of such files (next section).
+
+..  _administration-a2a-server-fal-export:
+
+Files from FAL
+   A run puts a file from FAL into its task's result with the tool
+   ``send_fal_file`` (group ``files``), naming the file's ``sys_file`` uid.
+   It ships disabled. A skill offers it when all three hold: the tool is
+   switched on in the tool management, the skill lists it under
+   :guilabel:`Tools`, and :guilabel:`Send FAL files to clients` is on. The
+   tool changes no record, so a skill without :guilabel:`May write` can
+   offer it.
+
+   At each call the tool checks, in this order: the run is a task of the
+   server role; files are on; the skill approves its clients as recipients.
+   Then the file: the client's technical user must reach it through its
+   file mounts and file permissions, read for this run
+   (:php:`FalStorageGate::isFileAccessible()`). A file outside those mounts,
+   a uid that no file carries and a run without a user get the same answer,
+   ``Asset not found or not permitted.``, so a run cannot find out which
+   files exist. A file the user may read is sent only when it is at most
+   :guilabel:`Largest A2A file` large, is of one of the five types (by the
+   type FAL recorded for it) and passes that type's check. The model reads
+   the file's name, type, size and id, never its content. A second call for
+   the same file adds nothing; a retried run does not send a file twice.
+   The file goes out as described above: inline or as a download, never as a
+   URL of the installation's own storage.
+
+   The file mounts and file permissions are read anew for every execution
+   of a run, also by a long-running worker (``messenger:consume``): a mount
+   taken away from the technical user stops the next run from sending a
+   file in it. Which storages a user reaches at all comes from TYPO3, which
+   keeps the mount records it read for the life of the worker process: per
+   user and workspace in TYPO3 14.3.11, one entry for all users in 13.4.30
+   and 14.3.0. Each file is still checked against the mounts read for the
+   run. Restart the worker after giving a technical user its first mount in
+   a storage.
+
+   A file a client sends is never taken into FAL: that needs a decision that
+   is not made yet.
 
 Downloading a file
    ``GET <endpoint>/files/<file id>`` with the client's bearer token returns
@@ -454,7 +502,8 @@ Cleanup
    ``nrllm:privacy:purge`` also deletes every file older than
    :guilabel:`Hours an A2A file is kept` (``a2a.files.retentionHours``,
    default 168); a queued task whose file is gone fails rather than running
-   without it.
+   without it. Cleanup deletes rows of the store only: a file sent from FAL
+   is a copy in the store, and the FAL file itself stays.
 
 Limits and protection
 =====================

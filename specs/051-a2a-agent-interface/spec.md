@@ -82,7 +82,7 @@ depends on.
 | 4 | Multi-turn: INPUT_REQUIRED and AUTH_REQUIRED, durable decision intake, the first write capability | 3 | merged (#1349); the write artifact of A2A-MT6 names no changed field (see `specs/README.md`) |
 | 5a | SSE: `SendStreamingMessage`, `SubscribeToTask` (both roles) | 3 | merged (#1378), released in 0.48.0; a delegating run polls rather than streams (the client stream is the PHP API and `nrllm:a2a:send --stream`) |
 | 5b | Push notifications: sender outbox (server role), receiver inbox (client role) | 3 | sender (server role, A2A-PUSH1 to A2A-PUSH5) implemented, off by default (`a2a.server.push`); receiver (client role, A2A-PUSH6 to A2A-PUSH8) implemented, off by default (`a2a.client.push`, endpoint on the site named by `a2a.client.pushSite`); the client registers without an embedded config only |
-| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | partly built, behind `a2a.files.enabled` (off by default): inbound `raw` and `url` parts in the server role (A2A-FILE1 to A2A-FILE4); outbound files of the server role, inline or as a protected download with a capability URL (A2A-FILE5), with no producer yet; FAL export and adoption (A2A-FILE6, A2A-FILE7) and files in the client role are not built |
+| 5c | Files: `raw` and `url` parts, private file store, protected download, FAL export and adoption | 3 | partly built, behind `a2a.files.enabled` (off by default): inbound `raw` and `url` parts in the server role (A2A-FILE1 to A2A-FILE4); outbound files of the server role, inline or as a protected download with a capability URL (A2A-FILE5); the FAL export of A2A-FILE6 (`send_fal_file`) and fresh file mounts per run execution (A2A-FILE7); the adoption of an inbound file into FAL (A2A-FILE6) and files in the client role are not built: adoption writes live, which A2A-MT5 forbids a profile, and needs a decision first |
 
 Each stage is released only with its own gates (see "Verification") and the
 rollout order of A2A-OPS1.
@@ -672,7 +672,11 @@ Client role (receiver):
   Importing an inbound file into FAL is a separate, authorised write of its
   own (target storage, folder, naming, collision rule), by an actor allowed to
   write there. Cleanup deletes only temporary A2A objects, never an adopted FAL
-  file.
+  file. The recipient approval is a field of the profile ("Send FAL files to
+  clients", `send_fal_files`), read at each call of `send_fal_file`. Adoption
+  is not built: a FAL file has no workspace version, so adopting one writes
+  live, which A2A-MT5 forbids a writing profile; which actor writes, where,
+  and under which approval needs a decision before it is built.
 - **A2A-FILE7 Fresh permissions in long-running workers [B21].**
   `FalStorageGate` caches the storage it builds per user in `$userStorages`,
   keyed by user and storage, with no invalidation. A gate shared across the

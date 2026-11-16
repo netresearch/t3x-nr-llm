@@ -15,8 +15,14 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileInputPreparer;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFileStore;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aInboundFilePolicy;
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aSendFalFileTool;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAgentCardBuilder;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aResumeGuard;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
@@ -28,12 +34,14 @@ use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -42,14 +50,21 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *
  * The technical user 7 reads storage 1 through the file mounts of group 70:
  * mount 1 is `/docs/`, mount 2 is `/other/`. File 101 lies in `/docs/`, file
- * 102 in `/other/`. The group starts with mount 1 only.
+ * 102 in `/other/`. The group starts with mount 1 only. Profile 1 offers
+ * `send_fal_file` and approves its clients as recipients of FAL files; files
+ * are on, with a limit of 1024 bytes per file.
  *
  * Every run here runs in this one PHP process with the container's tool
  * registry, and so with the container's {@see FalStorageGate}: the process is
  * the long-running worker of A2A-FILE7.
+ *
+ * Adopting an inbound file into FAL is not built (see spec 051, stage 5c).
  */
 #[CoversClass(FalStorageGate::class)]
 #[CoversClass(AgentRuntime::class)]
+#[CoversClass(A2aSendFalFileTool::class)]
+#[CoversClass(A2aFileStore::class)]
+#[CoversClass(A2aAgentCardBuilder::class)]
 final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
 {
     use A2aServerFixture;
@@ -104,12 +119,19 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
 
         $this->indexFile(self::IN_DOCS, '/docs/report.txt', 'The report.');
         $this->indexFile(self::IN_OTHER, '/other/notes.txt', 'The notes.');
+
+        // Profile 1 (`summary`, called by client 1) offers the export and
+        // approves its clients as recipients; the tool is switched on.
+        $this->fileSettings(true);
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => A2aSendFalFileTool::NAME, 'send_fal_files' => 1], ['uid' => 1]);
+        $this->db('tx_nrllm_tool_state')->insert('tx_nrllm_tool_state', ['tool_name' => A2aSendFalFileTool::NAME, 'enabled' => 1]);
     }
 
     protected function tearDown(): void
     {
         $this->serverSettings(null);
         $this->privacyLevel(null);
+        $this->fileSettings(null);
         $this->getService(CacheManager::class)->getCache('ratelimiter')->flush();
         parent::tearDown();
     }
@@ -137,7 +159,161 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
         self::assertStringStartsWith('File [' . self::IN_OTHER . ']', $second[1], 'run 2 reads the file of the mount that was added');
     }
 
-    // ------------------------------------------------------------------
+    /**
+     * A2A-FILE6: a run puts a file inside its technical user's mounts into
+     * its result; the client receives it as an artifact, and the model reads
+     * the file's id, never its content.
+     */
+    #[Test]
+    public function aFileInsideTheTechnicalUsersMountGoesToTheClient(): void
+    {
+        $taskId          = $this->accepted();
+        $this->responses = [$this->callOf(self::IN_DOCS), new CompletionResponse('Done.', 'fake', UsageStatistics::fromTokens(1, 1))];
+        $this->runTask($taskId);
+        $run = $this->runOf($taskId);
+        self::assertSame(AgentRunStatus::COMPLETED, $run->statusEnum());
+
+        $result = $this->toolResultsOf($run, A2aSendFalFileTool::NAME)[0] ?? '';
+        self::assertSame(1, preg_match('/^The file report\.txt \(text\/plain, 11 bytes\) goes to the client with the result of this task, as file ([0-9a-f-]{36})\.$/', $result, $matches), $result);
+        self::assertStringNotContainsString('The report.', $result);
+
+        $part = $this->filePart($taskId, $matches[1]);
+        self::assertSame([base64_encode('The report.'), 'text/plain', 'report.txt'], [$part['raw'] ?? null, $part['mediaType'] ?? null, $part['filename'] ?? null]);
+        self::assertSame(1, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT, 'origin' => A2aSendFalFileTool::ORIGIN]));
+    }
+
+    /**
+     * A2A-FILE6: a file outside the technical user's mounts, a uid no file
+     * carries and a run without a user get the same answer, and nothing is
+     * registered.
+     */
+    #[Test]
+    public function outsideTheMountUnknownAndWithoutAUserGiveOneAnswer(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+
+        $outside = $this->send(self::IN_OTHER, $run);
+        $unknown = $this->send(999, $run);
+        $noUser  = $this->send(self::IN_DOCS, $run, false);
+
+        self::assertSame(self::NOT_PERMITTED, $outside);
+        self::assertSame([$outside, $outside], [$unknown, $noUser]);
+        self::assertSame(0, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT]));
+    }
+
+    /**
+     * A2A-FILE6: without the profile's recipient approval no file leaves, and
+     * the refusal is the same for a file the user reaches and an unknown one.
+     */
+    #[Test]
+    public function withoutTheRecipientApprovalNoFileLeaves(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['send_fal_files' => 0], ['uid' => 1]);
+
+        $inside  = $this->send(self::IN_DOCS, $run);
+        $unknown = $this->send(999, $run);
+
+        self::assertSame('Not sent: this skill sends no files from FAL to its clients.', $inside);
+        self::assertSame($inside, $unknown);
+        self::assertSame(0, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT]));
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['send_fal_files' => 1], ['uid' => 1]);
+        self::assertStringStartsWith('The file report.txt', $this->send(self::IN_DOCS, $run), 'the approval is read at the call');
+    }
+
+    /**
+     * A2A-FILE6, A2A-OPS2: a run that is no A2A task has no client to send
+     * to, and with files switched off nothing is sent.
+     */
+    #[Test]
+    public function noTaskAndFilesOffSendNothing(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+
+        $noTask = 'Not sent: this run is no task of the A2A server role, so it has no client to send a file to.';
+        self::assertSame($noTask, $this->tool()->execute(['uid' => self::IN_DOCS], new ToolExecutionContext(AiActorContext::backendUser(7, false, [self::GROUP]), $this->technicalUser()))->content, 'no run');
+        self::assertSame($noTask, $this->send(self::IN_DOCS, new AgentRunReference($run->uid + 1000, 'not-an-a2a-run')), 'a run without a task');
+
+        $this->fileSettings(false);
+        self::assertSame('Not sent: this installation sends no A2A files.', $this->send(self::IN_DOCS, $run));
+        self::assertSame(0, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT]));
+    }
+
+    /**
+     * A2A-FILE1, A2A-FILE6: a file the user may read is sent only when it is
+     * one of the five types, within the size limit and passes its type's
+     * check.
+     */
+    #[Test]
+    public function onlyACheckedFileOfTheFiveTypesWithinTheLimitIsSent(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+        $this->indexFile(103, '/docs/page.html', '<p>Hello</p>', 'text/html');
+        $this->indexFile(104, '/docs/big.txt', str_repeat('x', 2000));
+        $this->indexFile(105, '/docs/broken.json', '{"open": ', 'application/json');
+
+        self::assertSame('Not sent: the file page.html is of the type text/html, and only text/plain, application/json, application/pdf, image/png, image/jpeg are sent.', $this->send(103, $run));
+        self::assertSame('Not sent: the file big.txt holds 2000 bytes, more than the 1024 an A2A file may hold.', $this->send(104, $run));
+        self::assertStringStartsWith('The file is not sent: ', $this->send(105, $run));
+        self::assertSame(0, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT]));
+    }
+
+    /**
+     * A2A-FILE6: a call repeated for the same file, as a retried segment
+     * makes it, adds the file once.
+     */
+    #[Test]
+    public function sendingTheSameFileTwiceAddsItOnce(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+
+        $first  = $this->send(self::IN_DOCS, $run);
+        $second = $this->send(self::IN_DOCS, $run);
+
+        self::assertStringStartsWith('The file report.txt', $first);
+        self::assertSame($first, $second);
+        self::assertSame(1, $this->rows(A2aFileStore::TABLE, ['direction' => A2aFileStore::DIRECTION_OUT]));
+    }
+
+    /**
+     * A2A-FILE1, A2A-SV3: a skill that sends FAL files lists the five types
+     * among its output modes while files are on; otherwise text/plain only.
+     */
+    #[Test]
+    public function aSkillThatSendsFalFilesListsTheFileTypesAsOutputModes(): void
+    {
+        self::assertSame(['text/plain', 'application/json', 'application/pdf', 'image/png', 'image/jpeg'], $this->outputModesOf('summary'));
+        self::assertSame(['text/plain'], $this->outputModesOf('check'), 'a skill that neither offers the tool nor approves');
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['send_fal_files' => 0], ['uid' => 1]);
+        self::assertSame(['text/plain'], $this->outputModesOf('summary'), 'a skill that offers the tool without the approval');
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => '', 'send_fal_files' => 1], ['uid' => 1]);
+        self::assertSame(['text/plain'], $this->outputModesOf('summary'), 'a skill that does not offer the tool');
+
+        $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['tools' => A2aSendFalFileTool::NAME], ['uid' => 1]);
+        $this->fileSettings(false);
+        self::assertSame(['text/plain'], $this->outputModesOf('summary'), 'files switched off');
+    }
+
+    /**
+     * A2A-FILE6: cleanup deletes only the private store's rows. The FAL file
+     * a task sent stays, with its record and its bytes, after the store's
+     * expiry purge.
+     */
+    #[Test]
+    public function cleanupDeletesOnlyTheStoresRowsNeverAFalFile(): void
+    {
+        $run = $this->runReferenceOf($this->accepted());
+        self::assertStringStartsWith('The file report.txt', $this->send(self::IN_DOCS, $run));
+
+        self::assertGreaterThan(0, $this->getService(A2aFileStore::class)->purgeExpired(time() + 3600 * 24 * 365));
+
+        self::assertSame(0, $this->rows(A2aFileStore::TABLE));
+        self::assertSame(1, $this->rows('sys_file', ['uid' => self::IN_DOCS]));
+        self::assertSame('The report.', file_get_contents($this->instancePath . '/fileadmin/docs/report.txt'));
+    }
 
     /**
      * Accept a task, run it with a model that describes each file in turn,
@@ -162,7 +338,116 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
         return $this->toolResultsOf($run, 'describe_fal_asset');
     }
 
-    private function indexFile(int $uid, string $identifier, string $content): void
+    /**
+     * A task of client 1 for profile 1 whose run waits in the queue.
+     */
+    private function accepted(): string
+    {
+        return self::text($this->taskOf($this->call('SendMessage', ['message' => $this->message('Send the report.'), 'configuration' => ['returnImmediately' => true]]))['id'] ?? '');
+    }
+
+    private function callOf(int $file): CompletionResponse
+    {
+        return new CompletionResponse('', 'fake', UsageStatistics::fromTokens(1, 1), toolCalls: [new ToolCall('c-' . $file, A2aSendFalFileTool::NAME, ['uid' => $file])]);
+    }
+
+    /**
+     * What `send_fal_file` answers for one file, called for the task's run as
+     * the technical user, or without a user.
+     */
+    private function send(int $file, AgentRunReference $run, bool $withUser = true): string
+    {
+        $actor = AiActorContext::backendUser(7, false, [self::GROUP], [], 0);
+
+        return $this->tool()->execute(['uid' => $file], new ToolExecutionContext($actor, $withUser ? $this->technicalUser() : null, $run))->content;
+    }
+
+    private function tool(): A2aSendFalFileTool
+    {
+        $tool = $this->getService(ToolRegistry::class)->get(A2aSendFalFileTool::NAME);
+        self::assertInstanceOf(A2aSendFalFileTool::class, $tool);
+
+        return $tool;
+    }
+
+    private function technicalUser(): BackendUserAuthentication
+    {
+        $user = (new ActingBackendUserResolver())->resolve(AiActorContext::backendUser(7, false, [self::GROUP], [], 0));
+        self::assertInstanceOf(BackendUserAuthentication::class, $user);
+
+        return $user;
+    }
+
+    private function runReferenceOf(string $taskId): AgentRunReference
+    {
+        $run = $this->runOf($taskId);
+
+        return new AgentRunReference($run->uid, $run->uuid);
+    }
+
+    /**
+     * The part of the task's artifacts that carries a file.
+     *
+     * @return array<string, mixed>
+     */
+    private function filePart(string $taskId, string $fileId): array
+    {
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        foreach (self::rowsOf($task['artifacts'] ?? null) as $artifact) {
+            foreach (self::rowsOf($artifact['parts'] ?? null) as $part) {
+                $metadata  = is_array($part['metadata'] ?? null) ? $part['metadata'] : [];
+                $reference = is_array($metadata[A2aInboundFilePolicy::FILE_EXTENSION] ?? null) ? $metadata[A2aInboundFilePolicy::FILE_EXTENSION] : [];
+                if (($reference['fileId'] ?? null) === $fileId) {
+                    return $part;
+                }
+            }
+        }
+
+        self::fail('No artifact part carries the file ' . $fileId);
+    }
+
+    /**
+     * The output modes the agent card lists for one skill.
+     *
+     * @return list<mixed>
+     */
+    private function outputModesOf(string $skillId): array
+    {
+        $response = $this->middleware()->process($this->request('GET', self::BASE . '/.well-known/agent-card.json', []), $this->passThrough());
+        $card     = self::objectOf(json_decode((string) $response->getBody(), true));
+        foreach (self::rowsOf($card['skills'] ?? null) as $skill) {
+            if (($skill['id'] ?? null) === $skillId) {
+                self::assertIsArray($skill['outputModes'] ?? null);
+
+                return array_values($skill['outputModes']);
+            }
+        }
+
+        self::fail('The card lists no skill ' . $skillId);
+    }
+
+    /**
+     * `a2a.files` on or off, with an inline and a file limit of 1024 bytes;
+     * null removes them.
+     */
+    private function fileSettings(?bool $enabled): void
+    {
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $a2a = $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a'] ?? [];
+        $a2a = is_array($a2a) ? $a2a : [];
+        if ($enabled === null) {
+            unset($a2a['files'], $a2a['maxInlineArtifactBytes'], $a2a['maxRawPartBytes']);
+        } else {
+            $a2a['files']                  = ['enabled' => $enabled ? '1' : '0', 'retentionHours' => '1'];
+            $a2a['maxInlineArtifactBytes'] = '1024';
+            $a2a['maxRawPartBytes']        = '1024';
+        }
+
+        // @phpstan-ignore-next-line $GLOBALS access returns mixed at each nesting level
+        $GLOBALS['TYPO3_CONF_VARS']['EXTENSIONS']['nr_llm']['a2a'] = $a2a;
+    }
+
+    private function indexFile(int $uid, string $identifier, string $content, string $mimeType = 'text/plain'): void
     {
         file_put_contents($this->instancePath . '/fileadmin' . $identifier, $content);
         $this->db('sys_file')->insert('sys_file', [
@@ -173,8 +458,8 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
             'identifier_hash' => sha1($identifier),
             'folder_hash'     => sha1(dirname($identifier) . '/'),
             'name'            => basename($identifier),
-            'extension'       => 'txt',
-            'mime_type'       => 'text/plain',
+            'extension'       => pathinfo($identifier, PATHINFO_EXTENSION),
+            'mime_type'       => $mimeType,
             'size'            => strlen($content),
             'type'            => 1,
             'missing'         => 0,

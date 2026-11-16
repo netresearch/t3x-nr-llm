@@ -175,9 +175,13 @@ final readonly class A2aFileStore
      * most `a2a.maxRawPartBytes` large, so its sealed row fits one database
      * packet. It expires with the files of the store.
      *
+     * A file the task already sends, with the same bytes under the same name,
+     * is not registered again: a retried segment repeats the call that
+     * registered it, and the client would receive it twice.
+     *
      * @param string $origin what produced the file, at most 8 characters
      *
-     * @return string the file's id
+     * @return string the file's id, the existing one for a repeated file
      *
      * @throws A2aException when the run has no A2A task, or the file is refused
      */
@@ -202,7 +206,28 @@ final readonly class A2aFileStore
         $taskUid    = (int) $task['uid'];
         $owner      = (int) $task['owner_client_uid'];
         $connection = $this->connection();
-        $fileId     = Uuid::v4()->toRfc4122();
+        $filename   = self::safeFilename($filename);
+        $sha256     = hash('sha256', $bytes);
+        $builder    = $connection->createQueryBuilder();
+        $existing   = $builder
+            ->select('file_id')
+            ->from(self::TABLE)
+            ->where(
+                $builder->expr()->eq('task_uid', $builder->createNamedParameter($taskUid, Connection::PARAM_INT)),
+                $builder->expr()->eq('owner_client_uid', $builder->createNamedParameter($owner, Connection::PARAM_INT)),
+                $builder->expr()->eq('direction', $builder->createNamedParameter(self::DIRECTION_OUT)),
+                $builder->expr()->eq('sha256', $builder->createNamedParameter($sha256)),
+                $builder->expr()->eq('filename', $builder->createNamedParameter($filename)),
+                $builder->expr()->gt('expires', $builder->createNamedParameter($now, Connection::PARAM_INT)),
+            )
+            ->setMaxResults(1)
+            ->executeQuery()
+            ->fetchOne();
+        if (is_string($existing) && $existing !== '') {
+            return $existing;
+        }
+
+        $fileId = Uuid::v4()->toRfc4122();
         $connection->insert(self::TABLE, [
             'file_id'             => $fileId,
             'owner_client_uid'    => $owner,
@@ -211,11 +236,11 @@ final readonly class A2aFileStore
             'direction'           => self::DIRECTION_OUT,
             'origin'              => mb_substr($origin, 0, 8),
             'source_url'          => '',
-            'filename'            => self::safeFilename($filename),
+            'filename'            => $filename,
             'declared_media_type' => $mediaType,
             'media_type'          => $mediaType,
             'size'                => strlen($bytes),
-            'sha256'              => hash('sha256', $bytes),
+            'sha256'              => $sha256,
             'check_state'         => self::CHECK_PASSED,
             'approval_state'      => self::APPROVAL_APPROVED,
             'content'             => $this->codec->encode($bytes, AgentStateCodec::PURPOSE_A2A_FILE),

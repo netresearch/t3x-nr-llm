@@ -1845,6 +1845,9 @@ CREATE TABLE tx_nrllm_a2a_profile (
     -- Stage 4 and 5a; a stage-3 profile is read-only.
     may_write tinyint(1) unsigned DEFAULT '0' NOT NULL,
     full_text_check tinyint(1) unsigned DEFAULT '1' NOT NULL,
+    -- The recipient approval of A2A-FILE6: the clients of the profile may
+    -- receive files from FAL that send_fal_file puts into a result.
+    send_fal_files tinyint(1) unsigned DEFAULT '0' NOT NULL,
 
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
