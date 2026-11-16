@@ -56,7 +56,7 @@ and when the level tightens later) the event keeps status and reasons only. A
 run event ``rule_state`` keeps the rule-state digest at the start of the run.
 A blocking report (a broken term, a rule broken under a judge in block mode, a
 check that could not run) stops the run through the guardrail arm, as a
-policy stop with a reason that names rules and terms and no passage. The task
+policy stop with a reason that names lists and rules, never a term or a passage. The task
 ends ``FAILED``.
 
 **One judge call per text.** While the loop of such a run runs, the pipeline

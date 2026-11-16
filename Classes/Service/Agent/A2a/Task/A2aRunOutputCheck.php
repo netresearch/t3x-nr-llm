@@ -207,9 +207,12 @@ final readonly class A2aRunOutputCheck implements RunOutputCheckInterface
     {
         $parts = array_map(
             static fn (ExternalTextFinding $finding): string => match ($finding->kind) {
-                ExternalTextFinding::KIND_FORBIDDEN_TERM => sprintf('forbidden term "%s" (list "%s")', $finding->subject, $finding->source),
-                ExternalTextFinding::KIND_MISSING_TERM   => sprintf('required term "%s" missing (list "%s")', $finding->subject, $finding->source),
-                default                                  => sprintf('rule %d "%s" (snippet "%s")', $finding->ruleNumber, $finding->subject, $finding->source),
+                // The reason goes into the exception and the log at every
+                // privacy level: it names the list or rule, never the matched
+                // term, which only the report carries where the level allows.
+                ExternalTextFinding::KIND_FORBIDDEN_TERM => sprintf('forbidden term (list "%s")', $finding->source),
+                ExternalTextFinding::KIND_MISSING_TERM   => sprintf('required term missing (list "%s")', $finding->source),
+                default                                  => sprintf('rule %d (snippet "%s")', $finding->ruleNumber, $finding->source),
             },
             $report->findings,
         );

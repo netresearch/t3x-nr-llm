@@ -336,6 +336,29 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The reason a stopped run carries goes into its exception and the log at
+     * any privacy level: it names the kind of finding and the list or rule,
+     * never the matched term.
+     */
+    #[Test]
+    public function theStopReasonNamesTheListAndNotTheTerm(): void
+    {
+        $this->eventLevel('metadata');
+        $this->profile(A2aEditorialCheckHandler::IDENTIFIER, '');
+        $this->db('tx_nrllm_term_list')->update('tx_nrllm_term_list', ['forbidden_terms' => 'max.mustermann@example.org'], ['uid' => 1]);
+
+        $taskId = $this->send('Schreiben Sie an max.mustermann@example.org.');
+        $run    = $this->runOf($taskId);
+        $this->runtime()->runQueued($run->uuid);
+
+        $verdict = $this->outputCheck()->check(new AgentRunHandle($run->uid, $run->uuid), 'Schreiben Sie an max.mustermann@example.org.');
+
+        self::assertTrue($verdict->blocks);
+        self::assertStringNotContainsString('max.mustermann', $verdict->reason);
+        self::assertStringContainsString('forbidden term', $verdict->reason);
+    }
+
+    /**
      * A run whose events are kept below `redacted` writes the check record
      * without a term or a digest in the first place.
      */

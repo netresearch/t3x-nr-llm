@@ -938,8 +938,8 @@ final readonly class AgentRunExecutor
     /**
      * Check the final answer outside every transaction (ADR-302). The lease is
      * renewed first: the check may call a judge. A blocking verdict stops the
-     * run through the guardrail arm, with a reason that names rules and terms
-     * and no passage.
+     * run through the guardrail arm, with a reason that names lists and rules,
+     * never a term or a passage.
      */
     private function checkOutput(RunOutputCheckInterface $check, AgentRunHandle $handle, ToolLoopResult $result, ?string $ownerGuard): void
     {

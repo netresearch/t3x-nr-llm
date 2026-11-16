@@ -11,7 +11,7 @@ namespace Netresearch\NrLlm\Service\Agent;
 
 /**
  * What the end-of-run check decided (ADR-302): deliver, or stop with a
- * reason. The stored reason names rules and terms, never a passage.
+ * reason. The reason names lists and rules, never a term or a passage.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
