@@ -467,7 +467,7 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
         });
 
         // A pass that started an hour ago, its slow sends still running.
-        self::assertSame(1, $this->deliverer()->deliverDue(time() - 3600));
+        self::assertSame(1, $this->deliverer(null, time(...))->deliverDue(time() - 3600));
         self::assertCount(1, $this->transport->requests);
     }
 
@@ -866,7 +866,10 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
             $this->getService(A2aAuthenticator::class),
             null,
             $jitter ?? static fn (int $delay): int => 0,
-            $clock,
+            // Without a clock of its own a test runs on the `$now` it passes:
+            // the deliverer takes max($now, clock), and a wall clock that moves
+            // on during an attempt made the assertions against `$now` flaky.
+            $clock ?? static fn (): int => 0,
         );
     }
 
