@@ -1,0 +1,1 @@
+A queue worker no longer lets a run reach files through a mount or permission an administrator removed after an earlier run of the same user: the file gate's per-user storages are reset before and after each queued run.

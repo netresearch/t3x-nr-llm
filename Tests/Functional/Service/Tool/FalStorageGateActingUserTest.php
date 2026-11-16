@@ -133,6 +133,24 @@ final class FalStorageGateActingUserTest extends AbstractFunctionalTestCase
     /**
      * A mount for reading: the file is reached, and nobody can write its text.
      */
+    /**
+     * A queue worker keeps the gate for its whole life. A mount taken from the
+     * user between two runs must not stay reachable through the storage the
+     * first run built.
+     */
+    #[Test]
+    public function aMountTakenAwayBetweenTwoRunsIsNotReachableInTheSecond(): void
+    {
+        $gate = $this->gate();
+        self::assertTrue($gate->isFileAccessible($this->userWithoutLogin(self::DOCS_EDITOR), 1, self::DOCS_FILE));
+
+        $this->getService(ConnectionPool::class)->getConnectionForTable('be_groups')
+            ->update('be_groups', ['file_mountpoints' => ''], ['uid' => 9]);
+        $gate->reset();
+
+        self::assertFalse($gate->isFileAccessible($this->userWithoutLogin(self::DOCS_EDITOR), 1, self::DOCS_FILE));
+    }
+
     #[Test]
     public function aFileThatCanBeReadNeedNotBeEditable(): void
     {

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool;
 
 use Doctrine\DBAL\Exception as DbalException;
+use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\Connection;
@@ -36,7 +37,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * each file with {@see self::isFileAccessible()}, which enforces the acting
  * user's file-mount boundaries via the storage API.
  */
-final class FalStorageGate
+final class FalStorageGate implements RunScopedStateInterface
 {
     /**
      * Storages built for one acting user, keyed `<userUid>:<storageUid>`. Two
@@ -59,6 +60,16 @@ final class FalStorageGate
         private readonly ?StorageRepository $storageRepository = null,
         private readonly ?ConnectionPool $connectionPool = null,
     ) {}
+
+    /**
+     * The storages are built from the user's mounts and permissions as they
+     * were when first asked; a queue worker keeps this gate between runs, so
+     * the runtime forgets them at each run boundary.
+     */
+    public function reset(): void
+    {
+        $this->userStorages = [];
+    }
 
     /**
      * The storage uids the acting user may touch, in allow-list order.

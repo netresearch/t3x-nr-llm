@@ -106,3 +106,10 @@ same as a record with empty fields. Nothing creates a record.
 
 ◑ The tool reads the default language only. A translated title or alternative
 text is not reported.
+
+◑ The gate keeps the storages it built for a user, keyed by user and storage,
+so a run that checks many files builds each storage once. A queue worker keeps
+the gate between runs; without a reset, a mount or permission an administrator
+took from a user stayed reachable until the worker restarted. The runtime
+therefore resets every ``nr_llm.run_scoped_state`` service, the gate among
+them, before a queued run starts and again when it ends (amended 2026-11-16).
