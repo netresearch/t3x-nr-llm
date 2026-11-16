@@ -10,6 +10,8 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
 use Closure;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushConfigStore;
@@ -18,9 +20,12 @@ use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aRpcServer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aTaskView;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskProjector;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aHttpRequest;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aTransportResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Transport\A2aUrlGuardFactory;
+use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
+use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\ScriptedA2aTransport;
@@ -230,6 +235,29 @@ final class A2aPushSenderTest extends AbstractFunctionalTestCase
         self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'delivered']));
         self::assertSame(1, $this->rows(A2aPushConfigStore::OUTBOX_TABLE, ['state' => 'superseded']));
         self::assertSame(0, $this->deliverer()->deliverDue(time() + 10), 'nothing is left to send');
+    }
+
+    /**
+     * Spec 059 WS1, WS7: the change to a wait for an approval is a change of
+     * the task, so it is pushed, and the pushed task carries the fixed text.
+     */
+    #[Test]
+    public function aWaitIsPushedWithItsText(): void
+    {
+        $task = $this->newTask();
+        $this->resultOf($this->call('CreateTaskPushNotificationConfig', $this->config($task, 'c-1')));
+        $persister = $this->getService(AgentRunPersister::class);
+        $runUid    = (int) $this->db('tx_nrllm_a2a_task')->select(['run_uid'], 'tx_nrllm_a2a_task', ['task_id' => $task])->fetchOne();
+        $run       = $persister->findRun(self::text($this->db('tx_nrllm_agentrun')->select(['uuid'], 'tx_nrllm_agentrun', ['uid' => $runUid])->fetchOne()));
+        self::assertInstanceOf(AgentRun::class, $run);
+        self::assertTrue($persister->claimQueued($run, 'worker-t', time() + 300));
+        self::assertTrue($persister->suspend(new AgentRunHandle($run->uid, $run->uuid), new SuspendedRunState([['role' => 'user', 'content' => 'x']], [['id' => 'c', 'type' => 'function', 'function' => ['name' => 'w', 'arguments' => '{}']]], 1, 0, 0)));
+
+        $this->transport->then(static fn (): A2aTransportResult => A2aTransportResult::response(204, '', '', '', false));
+        self::assertSame(1, $this->deliverer()->deliverDue(time()));
+
+        $body = ScriptedA2aTransport::envelopeOf($this->transport->requests[0]);
+        self::assertSame(['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_APPROVAL], [self::j($body, 'task.status.state'), self::j($body, 'task.status.message.parts.0.text')]);
     }
 
     /**

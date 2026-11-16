@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 use Closure;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
+use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAgentCardBuilder;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator;
@@ -30,6 +31,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -114,6 +116,55 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         self::assertSame(3, $events['ticks'], 'closed right after the completing event');
         self::assertSame(0, $this->heldWaitSlots(), 'a stream takes no waiting slot');
         self::assertSame(0, $this->heldStreamSlots(), 'the slot is released when the stream ends');
+    }
+
+    /**
+     * Spec 059 WS1, WS2, WS6: the stream says when the run starts to wait for
+     * a remote agent, in a WORKING update with the fixed text, and says it no
+     * longer waits in the next WORKING update, without a text.
+     */
+    #[Test]
+    public function aStreamSaysWhatAWorkingTaskWaitsFor(): void
+    {
+        $persister = $this->getService(AgentRunPersister::class);
+        $run       = null;
+        $events    = $this->stream('SendStreamingMessage', ['message' => $this->message()], 1, function (int $tick, string $taskId) use ($persister, &$run): void {
+            $run ??= $this->runOf($taskId);
+            match ($tick) {
+                1       => self::assertTrue($persister->claimQueued($run, 'worker-t', time() + 300)),
+                2       => self::assertTrue($persister->suspendForDependency(new AgentRunHandle($run->uid, $run->uuid), $this->suspended(), new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'c', 'w', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512))),
+                3       => self::assertTrue($persister->claimResumeFromDependency($this->runOf($taskId), 'resume:1', time() + 300)),
+                4       => self::assertTrue($persister->settleCompleted(new AgentRunHandle($run->uid, $run->uuid), new ToolLoopResult('the summary', [], 1, false, UsageStatistics::fromTokens(1, 1)), 'resume:1')),
+                default => null,
+            };
+        });
+
+        self::assertSame(['task', 'statusUpdate', 'statusUpdate', 'statusUpdate', 'artifactUpdate', 'statusUpdate'], $this->kinds($events['frames']));
+        $updates = array_map(static fn (array $frame): array => [self::j($frame, 'result.statusUpdate.status.state'), self::j($frame, 'result.statusUpdate.status.message.parts.0.text')], [$events['frames'][1], $events['frames'][2], $events['frames'][3]]);
+        self::assertSame([['TASK_STATE_WORKING', null], ['TASK_STATE_WORKING', A2aTaskStore::TEXT_WAITING_FOR_REMOTE_AGENT], ['TASK_STATE_WORKING', null]], $updates);
+        self::assertStringNotContainsString('remote-1', $events['raw'], 'the remote task id stays inside');
+    }
+
+    /**
+     * Spec 059 WS6: a subscription that starts during the wait gets the text
+     * in its snapshot.
+     */
+    #[Test]
+    public function aSubscriptionDuringAWaitStartsWithTheText(): void
+    {
+        $task = $this->taskOf($this->call('SendMessage', ['message' => $this->message(), 'configuration' => ['returnImmediately' => true]]));
+        $run  = $this->runOf($task['id']);
+        self::assertTrue($this->getService(AgentRunPersister::class)->claimQueued($run, 'worker-t', time() + 300));
+        self::assertTrue($this->getService(AgentRunPersister::class)->suspend(new AgentRunHandle($run->uid, $run->uuid), $this->suspended()));
+
+        $events = $this->stream('SubscribeToTask', ['id' => $task['id']], 1, function (int $tick, string $taskId) use ($task): void {
+            if ($tick === 1) {
+                $this->getService(AgentRunPersister::class)->cancel($this->runOf($task['id'])->uuid);
+            }
+        });
+
+        self::assertSame('TASK_STATE_WORKING', self::j($events['frames'][0], 'result.task.status.state'));
+        self::assertSame(A2aTaskStore::TEXT_WAITING_FOR_APPROVAL, self::j($events['frames'][0], 'result.task.status.message.parts.0.text'));
     }
 
     /**
@@ -717,6 +768,11 @@ final class A2aSseTest extends AbstractFunctionalTestCase
         self::assertInstanceOf(AgentRun::class, $run);
 
         return $run;
+    }
+
+    private function suspended(): SuspendedRunState
+    {
+        return new SuspendedRunState([['role' => 'user', 'content' => 'x']], [['id' => 'c', 'type' => 'function', 'function' => ['name' => 'w', 'arguments' => '{}']]], 1, 0, 0);
     }
 
     private function heldStreamSlots(): int

@@ -307,3 +307,4 @@ All decision records
    Adr302TheFinalAnswerOfAnEditorialRunIsCheckedBeforeItIsStored
    Adr303ANonAdminRunReadsTheMetadataOfAFileItMayAccess
    Adr305AClientFileIsAdoptedIntoTheProfilesInboxAfterApproval
+   Adr310AWorkingA2aTaskSaysWhatItWaitsFor

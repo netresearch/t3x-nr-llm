@@ -64,6 +64,12 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
     /** The messages a task's history keeps (spec 051 A2A-SEC6). */
     public const MAX_HISTORY = 100;
 
+    /** The status text of a WORKING task whose run waits for an approval (spec 059 WS1). */
+    public const TEXT_WAITING_FOR_APPROVAL = 'The task is waiting for an approval in TYPO3.';
+
+    /** The status text of a WORKING task whose run waits for a remote agent (spec 059 WS1). */
+    public const TEXT_WAITING_FOR_REMOTE_AGENT = 'The task is waiting for a remote agent.';
+
     public function __construct(
         private ConnectionPool $connectionPool,
         private RunContentPrivacyGuard $privacy,
@@ -198,7 +204,9 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * run before any worker took it, so the task never left SUBMITTED),
      * CANCELLED is CANCELED. A terminal task
      * never changes again, and COMPLETED is written by {@see self::complete()}
-     * only, with its result.
+     * only, with its result. A WORKING task whose run waits for an approval or
+     * a remote agent says so in a fixed status text, and loses it when the run
+     * goes on (spec 059).
      *
      * A terminal mirror keeps the history at the answer ceiling read under
      * the lock, as the completion does; a failure carries a fixed status text
@@ -250,7 +258,19 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             // decision (ADR-281): the task was answered and goes on.
             $status === AgentRunStatus::QUEUED && $suspended !== '',
         );
-        if (!$target instanceof A2aTaskState || $target === $current) {
+        if (!$target instanceof A2aTaskState) {
+            return;
+        }
+
+        $statusText = match ($target) {
+            A2aTaskState::FAILED         => 'The task failed.',
+            A2aTaskState::REJECTED       => 'The task was refused before it started.',
+            A2aTaskState::INPUT_REQUIRED => $this->question($suspended, $ceiling),
+            default                      => $this->waitText($status),
+        };
+        // A wait the installation decides is WORKING like the run before it
+        // (spec 059): only the text changes, and only a change is written.
+        if ($target === $current && $statusText === $this->statusTextOf($runUid)) {
             return;
         }
 
@@ -260,12 +280,6 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $this->releaseInputFiles($runUid);
         }
 
-        $statusText = match ($target) {
-            A2aTaskState::FAILED         => 'The task failed.',
-            A2aTaskState::REJECTED       => 'The task was refused before it started.',
-            A2aTaskState::INPUT_REQUIRED => $this->question($suspended, $ceiling),
-            default                      => '',
-        };
         $fields['status_message'] = $statusText === '' ? '' : $this->seal($this->json([
             'messageId' => Uuid::v7()->toRfc4122(),
             'role'      => 'ROLE_AGENT',
@@ -273,6 +287,38 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         ]));
 
         $this->update($runUid, $fields);
+    }
+
+    /**
+     * The status text of a WORKING task (spec 059): what a run waits for when
+     * a person of this installation or a remote agent decides when it goes
+     * on, and nothing otherwise. A fixed text: no run, record, person, agent
+     * or remote task is named.
+     */
+    private function waitText(?AgentRunStatus $status): string
+    {
+        return match ($status) {
+            AgentRunStatus::WAITING_FOR_APPROVAL   => self::TEXT_WAITING_FOR_APPROVAL,
+            AgentRunStatus::WAITING_FOR_DEPENDENCY => self::TEXT_WAITING_FOR_REMOTE_AGENT,
+            default                                => '',
+        };
+    }
+
+    /**
+     * The text of the task's current status message; empty when it has none
+     * or when a tightened answer level removed it.
+     */
+    private function statusTextOf(int $runUid): string
+    {
+        $stored = $this->connection()->select(['status_message'], self::TABLE, ['run_uid' => $runUid])->fetchOne();
+        if (!is_string($stored) || $stored === '') {
+            return '';
+        }
+
+        $message = json_decode($this->codec->decode($stored, AgentStateCodec::PURPOSE_A2A_TASK_CONTENT), true);
+        $text    = is_array($message) && is_array($message['parts'] ?? null) && is_array($message['parts'][0] ?? null) ? ($message['parts'][0]['text'] ?? '') : '';
+
+        return is_string($text) ? $text : '';
     }
 
     /**
