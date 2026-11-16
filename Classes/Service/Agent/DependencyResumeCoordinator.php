@@ -123,23 +123,17 @@ final readonly class DependencyResumeCoordinator
     }
 
     /**
-     * The runs that wait for their initiator's answer to a remote question
-     * (spec 060), with their checkpoint: input pauses whose sealed state
-     * carries one.
+     * A run that waits for its initiator's answer to a remote question
+     * (spec 060), with its checkpoint; null for any other run.
      *
-     * @return list<array{AgentRun, DependencyCheckpoint}>
+     * @return array{AgentRun, DependencyCheckpoint}|null
      */
-    public function questionRuns(int $limit = 100): array
+    public function questionRun(string $runUuid): ?array
     {
-        $questions = [];
-        foreach ($this->persister->findAwaitingRuns($limit) ?? [] as $run) {
-            $checkpoint = $run->statusEnum() === AgentRunStatus::WAITING_FOR_INPUT ? self::checkpointOf($run) : null;
-            if ($checkpoint instanceof DependencyCheckpoint) {
-                $questions[] = [$run, $checkpoint];
-            }
-        }
+        $run        = $this->persister->findRun($runUuid);
+        $checkpoint = $run instanceof AgentRun && $run->statusEnum() === AgentRunStatus::WAITING_FOR_INPUT ? self::checkpointOf($run) : null;
 
-        return $questions;
+        return $run instanceof AgentRun && $checkpoint instanceof DependencyCheckpoint ? [$run, $checkpoint] : null;
     }
 
     /**
@@ -189,7 +183,8 @@ final readonly class DependencyResumeCoordinator
         $paused = SuspendedRunState::fromArray([
             'inputToolName' => $checkpoint->toolName,
             'inputCallId'   => $checkpoint->toolCallId,
-            'inputSchema'   => self::answerSchema($question),
+            // A new marker for every question, even one asked twice.
+            'inputSchema' => self::answerSchema($question, bin2hex(random_bytes(16))),
         ] + $state->toArray());
         if ($this->persister->suspendForRemoteQuestion($handle, $paused, $checkpoint->withEndpoint($endpoint))) {
             return true;
@@ -201,19 +196,24 @@ final readonly class DependencyResumeCoordinator
     }
 
     /**
-     * The input a remote question asks of the initiator: one text, the
-     * question as its title.
+     * The input a remote question asks of the initiator: one text that is
+     * not only whitespace, the question as its title, and a marker of which
+     * question it is.
      *
      * @return array<string, mixed>
      */
-    public static function answerSchema(string $question): array
+    public static function answerSchema(string $question, string $marker = ''): array
     {
         return [
             'type'       => 'object',
             'required'   => ['answer'],
             'properties' => [
-                'answer' => ['type' => 'string', 'title' => $question, 'minLength' => 1, 'maxLength' => self::MAX_ANSWER],
+                'answer' => ['type' => 'string', 'title' => $question, 'minLength' => 1, 'maxLength' => self::MAX_ANSWER, 'pattern' => '\\S'],
             ],
+            // Which question this is: the turn digest covers the schema, so
+            // an answer given for an earlier question with the same wording
+            // does not match a later one.
+            'x-nr-llm-question' => $marker,
         ];
     }
 

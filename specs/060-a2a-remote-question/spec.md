@@ -15,9 +15,13 @@ started the run answer, and sends that answer to exactly that remote task.
   remote task in `INPUT_REQUIRED`, the run is claimed like a dependency resume
   and suspended in `waiting_for_input`: the delegation call is the pending
   call and the input target, the input is one required string `answer` (1 to
-  4000 characters) whose title is the remote's status text marked as the
-  remote agent's, and the dependency checkpoint stays beside it in the sealed
-  state. No model call is made. The delegation tool treats only a terminal
+  4000 characters, not only whitespace) whose title is the remote's status
+  text marked as the remote agent's, with a marker of the question, so the
+  turn digest of an earlier question with the same text does not match, and the dependency checkpoint stays beside it in the sealed
+  state. No model call is made. The answer's limits (not only whitespace, at
+  most 4000 characters) are checked by the coordinator before anything is
+  claimed or stored, since the input path validates only types and required
+  fields. The delegation tool treats only a terminal
   task as its result; an interrupted one waits, so the poller is the one
   place that converts.
 - **RQ2 The binding is durable and local.** The remote task id, context id,
@@ -25,7 +29,8 @@ started the run answer, and sends that answer to exactly that remote task.
   never from the remote's later answers or from the person answering. The
   binding is kept in the sealed `suspended_state`, by every rewrite of the
   pause (the release after a refused answer included), and survives a restart
-  of every process. An answer is bound to the pause its checks read: when the
+  of every process. A rewrite that cannot read the run again fails it rather
+  than write an ordinary input pause. An answer is bound to the pause its checks read: when the
   run was answered and asked again before the answer's claim, even with the
   same question, the answer is refused and the run released unchanged.
 - **RQ3 Who answers.** Only the run's initiator (`AiActorContext::isInitiatorOf()`:
@@ -61,7 +66,9 @@ started the run answer, and sends that answer to exactly that remote task.
   deadline of the record's maximum wait from the send, and push is registered
   again when it is on; a further question becomes a further pause. While
   nobody answers, the delegation's deadline holds: the poller resumes the run
-  with the timeout result and cancels the remote task once.
+  with the timeout result and cancels the remote task once. It finds such runs
+  through the journal, paged, so older pauses of any kind cannot keep a
+  question from its deadline.
 - **RQ7 Counting.** An answer is not a delegation: the record's delegations
   per run count first sends only. Its bytes count towards the run's total.
 - **RQ8 AUTH_REQUIRED sends nothing.** A remote task in
@@ -94,6 +101,12 @@ started the run answer, and sends that answer to exactly that remote task.
   cannot delegate. The A2A half of RQ10 follows from the existing input path
   and is not covered by a test of its own.
 - The cancel of RQ9 waits for the next poller tick.
+- An answer given in a backend request is sent in that request, and nr-vault
+  reads the record's credential as the initiator. Where only the worker's
+  technical user may read it, the send fails and the run goes on with that
+  error; an answer stored for the worker is sent in its vault scope.
+- For a run started by an A2A client, the question shown to that client names
+  the remote agent record's title.
 - A remote task that stays in AUTH_REQUIRED holds the run until the deadline;
   the initiator learns of it from the timeout result.
 
@@ -110,7 +123,8 @@ mutation of the behaviour it covers.
 | RQ4 | `aRepeatedExecutionSendsTheAnswerOnce`, `aRefusedAnswerKeepsTheBindingAndTwoQuestionsGetTwoAnswers` |
 | RQ4a | `anAnswerIsNotSentToAnEndpointOtherThanTheOneThatAsked` |
 | RQ5 | `anAnswerAboutAnotherTaskIsNotFollowed` |
-| RQ6 | `anUnansweredQuestionTimesOutAtTheDeadline` |
+| RQ6 | `anUnansweredQuestionTimesOutAtTheDeadline`, `aQuestionBehindOlderPausesStillTimesOut` |
+| RQ1, RQ2 (old form, blank answer, failed release) | `anOldFormDoesNotAnswerARepeatedQuestionAndBlankAnswersAreRefused`, `aReleaseThatCannotReadTheRunFailsClosed` |
 | RQ7 | `anAnswerIsNotADelegation` |
 | RQ8 | `authRequiredSendsNothingButGetTask` |
 | RQ9 | `cancellingTheQuestionCancelsTheRemoteTask` |

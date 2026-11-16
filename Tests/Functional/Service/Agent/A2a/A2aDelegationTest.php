@@ -49,6 +49,7 @@ use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
 use Netresearch\NrLlm\Service\Agent\DecisionReceipt;
 use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\Exception\InvalidInputSubmissionException;
 use Netresearch\NrLlm\Service\Agent\Exception\RunAccessDeniedException;
 use Netresearch\NrLlm\Service\Agent\Exception\StaleInputTurnException;
 use Netresearch\NrLlm\Service\Agent\InputSubmission;
@@ -1039,6 +1040,96 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(['SendMessage', 'GetTask'], $this->methods());
         self::assertStringNotContainsString('my private answer', implode("\n", array_map(static fn (A2aHttpRequest $request): string => $request->body, $this->transport->requests)));
         self::assertStringContainsString('the remote agent record points elsewhere', $this->lastResultOf($this->runOf($runUuid)));
+    }
+
+    /**
+     * Spec 060 RQ6: the deadline of a question holds however many older
+     * pauses the installation has; a tick that pages one run at a time still
+     * reaches it.
+     */
+    #[Test]
+    public function aQuestionBehindOlderPausesStillTimesOut(): void
+    {
+        $this->agent(['identifier' => 'remote', 'min_poll_interval_seconds' => 10, 'max_wait_seconds' => 60]);
+        $older = $this->runtime([$this->toolTurn([new ToolCall('d0', $this->skillTool(), ['message' => 'waits for approval'])])])->run($this->request());
+        self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $older->outcome);
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_agent')->update('tx_nrllm_a2a_agent', ['requires_approval' => 0], ['identifier' => 'remote']);
+        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('nobody answered')]);
+        $runUuid    = $this->delegatedAndAsked($runtime, 'Which year?');
+        $checkpoint = $this->checkpointOf($this->runOf($runUuid));
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        self::assertSame(1, $this->poller()->tick($checkpoint->deadline, 1)->timedOut);
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($runUuid)->statusEnum());
+    }
+
+    /**
+     * Spec 060 RQ2: a refused answer whose run cannot be read again is not
+     * put back as an ordinary input pause, whose next answer would run the
+     * delegation again: the run fails, and nothing more is sent.
+     */
+    #[Test]
+    public function aReleaseThatCannotReadTheRunFailsClosed(): void
+    {
+        $repository      = new FenceRecordingRunRepository(AgentRunRepositoryFactory::create($this->getService(ConnectionPool::class), $this->getService(AgentStateCodec::class)));
+        $this->persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+
+        // The third read of the submission is the release's own: it fails.
+        $reads                        = 0;
+        $repository->beforeFindByUuid = static function () use (&$reads): void {
+            if (++$reads === 3) {
+                throw new RuntimeException('database gone for a moment', 1799431201);
+            }
+        };
+
+        try {
+            $runtime->submitInput(AiActorContext::backendUser(self::OWNER), $runUuid, new InputSubmission(['answer' => '2025'], self::OWNER, 'another-turn'));
+            self::fail('a stale digest was accepted');
+        } catch (StaleInputTurnException) {
+        }
+
+        $repository->beforeFindByUuid = null;
+        self::assertSame(AgentRunStatus::FAILED, $this->runOf($runUuid)->statusEnum());
+        self::assertSame(['SendMessage', 'GetTask'], $this->methods());
+    }
+
+    /**
+     * Spec 060 RQ1, RQ2: a form left open for a question that was answered
+     * does not answer the next one, even when the remote asks the same thing
+     * again; an answer of whitespace only is refused before anything runs.
+     */
+    #[Test]
+    public function anOldFormDoesNotAnswerARepeatedQuestionAndBlankAnswersAreRefused(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid = $this->delegatedAndAsked($runtime, 'Which year?');
+        $owner   = AiActorContext::backendUser(self::OWNER);
+        $first   = $runtime->pendingPause($owner, $runUuid);
+        self::assertInstanceOf(PendingPause::class, $first);
+
+        try {
+            $runtime->submitInput($owner, $runUuid, new InputSubmission(['answer' => " \n\t "], self::OWNER, $first->turnDigest));
+            self::fail('a blank answer was accepted');
+        } catch (InvalidInputSubmissionException) {
+        }
+
+        $this->transport->thenJson(['result' => ['task' => $this->asking('task-1', 'Which year?')]]);
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, 'the first answer')->outcome);
+        $this->transport->thenJson(['result' => $this->asking('task-1', 'Which year?')]);
+        self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($runUuid))->suspendedAt + 10)->asked);
+
+        try {
+            $runtime->submitInput($owner, $runUuid, new InputSubmission(['answer' => 'from the old form'], self::OWNER, $first->turnDigest));
+            self::fail('an answer from the old form was accepted');
+        } catch (StaleInputTurnException) {
+        }
+
+        self::assertSame(AgentRunStatus::WAITING_FOR_INPUT, $this->runOf($runUuid)->statusEnum());
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask'], $this->methods());
     }
 
     /**

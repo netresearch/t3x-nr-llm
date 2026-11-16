@@ -489,11 +489,16 @@ final readonly class ResumeCoordinator
     {
         // A remote question keeps its binding (spec 060 RQ2): the pause is
         // written back with the checkpoint the claimed row still holds.
-        $question = $state->isInputPause() ? $this->remoteQuestionOf($this->persister->findRun($handle->uuid)) : null;
+        // A row that cannot be read is not written back as an ordinary input
+        // pause: it may be a remote question, whose answer would then run the
+        // delegation again. It is failed below instead.
+        $claimed  = $state->isInputPause() ? $this->persister->findRun($handle->uuid) : null;
+        $question = $this->remoteQuestionOf($claimed);
         $restored = match (true) {
-            $question instanceof DependencyCheckpoint => $this->persister->suspendForRemoteQuestion($handle, $state, $question),
-            $state->isInputPause()                    => $this->persister->suspendForInput($handle, $state),
-            default                                   => $this->persister->suspend($handle, $state),
+            $state->isInputPause() && !$claimed instanceof AgentRun => false,
+            $question instanceof DependencyCheckpoint               => $this->persister->suspendForRemoteQuestion($handle, $state, $question),
+            $state->isInputPause()                                  => $this->persister->suspendForInput($handle, $state),
+            default                                                 => $this->persister->suspend($handle, $state),
         };
 
         if ($restored) {
@@ -790,6 +795,7 @@ final readonly class ResumeCoordinator
         }
 
         $this->assertMayAnswerRemoteQuestion($actor, $run);
+        $this->assertRemoteAnswer($run, $submission);
 
         // approve()'s first process check (ADR-214 item 6): an answer to a
         // guided process comes from its initiator, in the chat.
@@ -983,6 +989,7 @@ final readonly class ResumeCoordinator
         }
 
         $this->assertMayAnswerRemoteQuestion($actor, $run);
+        $this->assertRemoteAnswer($run, $submission);
 
         $verdict    = $this->processVerdict($run);
         $processRun = $verdict ?? true;
@@ -1502,7 +1509,7 @@ final readonly class ResumeCoordinator
         // The pause it was is not the wait it becomes: no input fields.
         $waiting   = SuspendedRunState::fromArray(['inputToolName' => null, 'inputSchema' => []] + array_diff_key($state->toArray(), ['inputCallId' => true]));
         $answer    = is_string($submission->data['answer'] ?? null) ? $submission->data['answer'] : '';
-        $messageId = Uuid::v5(Uuid::fromString(Uuid::NAMESPACE_OID), implode("\0", ['nr_llm.remote_answer', $claimed->uuid, (string) $question->journalUid, (string) $handle->sequence]))->toRfc4122();
+        $messageId = Uuid::v5(Uuid::fromString(Uuid::NAMESPACE_OID), implode("\0", ['nr_llm.remote_answer', $claimed->uuid, (string) $question->journalUid, (string) $question->suspendedAt, (string) $question->deadline, (string) $handle->sequence]))->toRfc4122();
         $roundCap  = $this->roundCap($state);
 
         return $this->executor->executeResume(
@@ -1539,6 +1546,24 @@ final readonly class ResumeCoordinator
 
         if (!$this->remoteQuestions instanceof RemoteQuestionAnswererInterface || !$this->toolLoop instanceof DependencyResumingToolLoopInterface) {
             throw RunStateUnavailableException::forRun($run->uuid);
+        }
+    }
+
+    /**
+     * The answer to a remote question is one text with something in it, at
+     * most {@see DependencyResumeCoordinator::MAX_ANSWER} characters. The
+     * input path validates types and required fields only, so the limits of
+     * the answer's schema are checked here, before anything is claimed.
+     */
+    private function assertRemoteAnswer(AgentRun $run, InputSubmission $submission): void
+    {
+        if (!$this->remoteQuestionOf($run) instanceof DependencyCheckpoint) {
+            return;
+        }
+
+        $answer = $submission->data['answer'] ?? null;
+        if (!is_string($answer) || trim($answer) === '' || mb_strlen($answer) > DependencyResumeCoordinator::MAX_ANSWER) {
+            throw InvalidInputSubmissionException::forRun($run->uuid);
         }
     }
 

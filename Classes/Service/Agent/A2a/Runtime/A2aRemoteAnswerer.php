@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Runtime;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgent;
 use Netresearch\NrLlm\Service\Agent\A2a\Agent\A2aRemoteAgentRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aClient;
+use Netresearch\NrLlm\Service\Agent\A2a\Client\A2aSendOutcome;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendIntent;
 use Netresearch\NrLlm\Service\Agent\A2a\Journal\A2aSendJournal;
@@ -23,6 +25,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aRole;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aSendMessageConfiguration;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTask;
 use Netresearch\NrLlm\Service\Agent\A2a\Protocol\A2aTaskState;
+use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Agent\RemoteQuestionAnswererInterface;
 use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
 use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
@@ -59,6 +62,11 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
         private A2aRemoteAgentRepository $agents,
         private A2aClient $client,
         private ?A2aPushRegistrar $push = null,
+        // On the command line every call to the remote runs inside the
+        // worker's vault scope, as the poller's do. In a backend request
+        // the scope changes nothing: the request's user reads the record's
+        // credential, as for a delegation made in the request.
+        private ?WorkerVaultScope $vaultScope = null,
     ) {}
 
     public function answer(DependencyCheckpoint $checkpoint, string $answer, string $messageId, int $runUid): ToolResult|DependencyCheckpoint
@@ -79,17 +87,16 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
             return A2aToolResults::unavailable('the answer is empty');
         }
 
-        try {
-            $outcome = $this->client->sendMessage(
-                $agent,
-                $intent->ownerUid,
-                new A2aMessage($messageId, A2aRole::USER, [A2aPart::text($this->redactSecretShapes($text))], $intent->remoteContextId, $intent->remoteTaskId),
-                A2aSendMessageConfiguration::returningImmediately(),
-                $runUid,
-                $intent->uid,
-            );
-        } catch (A2aException $e) {
-            return A2aToolResults::unavailable($e->getMessage());
+        $message = new A2aMessage($messageId, A2aRole::USER, [A2aPart::text($this->redactSecretShapes($text))], $intent->remoteContextId, $intent->remoteTaskId);
+        $outcome = $this->inScope(function () use ($agent, $intent, $message, $runUid): A2aSendOutcome|string {
+            try {
+                return $this->client->sendMessage($agent, $intent->ownerUid, $message, A2aSendMessageConfiguration::returningImmediately(), $runUid, $intent->uid);
+            } catch (A2aException $e) {
+                return $e->getMessage();
+            }
+        });
+        if (!$outcome instanceof A2aSendOutcome) {
+            return A2aToolResults::unavailable(is_string($outcome) ? $outcome : 'the answer could not be sent');
         }
 
         $sent = $outcome->intent;
@@ -174,10 +181,26 @@ final readonly class A2aRemoteAnswerer implements RemoteQuestionAnswererInterfac
 
     private function taskOnce(A2aRemoteAgent $agent, A2aSendIntent $intent): ?A2aTask
     {
-        try {
-            return $this->client->getTask($agent, $intent->ownerUid, $intent->remoteTaskId);
-        } catch (A2aException) {
-            return null;
-        }
+        $task = $this->inScope(function () use ($agent, $intent): ?A2aTask {
+            try {
+                return $this->client->getTask($agent, $intent->ownerUid, $intent->remoteTaskId);
+            } catch (A2aException) {
+                return null;
+            }
+        });
+
+        return $task instanceof A2aTask ? $task : null;
+    }
+
+    /**
+     * @template T
+     *
+     * @param Closure(): T $work
+     *
+     * @return T
+     */
+    private function inScope(Closure $work): mixed
+    {
+        return $this->vaultScope instanceof WorkerVaultScope ? $this->vaultScope->call($work) : $work();
     }
 }

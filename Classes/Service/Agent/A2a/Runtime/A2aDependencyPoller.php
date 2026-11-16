@@ -116,11 +116,17 @@ final readonly class A2aDependencyPoller
 
         // Runs that wait for their initiator's answer to a remote question
         // keep the delegation's deadline (spec 060 RQ6).
-        foreach ($this->resumes->questionRuns($limit) as [$run, $checkpoint]) {
-            if ($now >= $checkpoint->deadline) {
-                $this->expire($run, $checkpoint, $report);
+        $afterIntent = 0;
+        do {
+            $questions = $this->journal->questionsAwaitingAnswer($limit, $afterIntent);
+            foreach ($questions as $question) {
+                $afterIntent        = $question['intentUid'];
+                [$run, $checkpoint] = $this->resumes->questionRun($question['runUuid']) ?? [null, null];
+                if ($run instanceof AgentRun && $checkpoint instanceof DependencyCheckpoint && $now >= $checkpoint->deadline) {
+                    $this->expire($run, $checkpoint, $report);
+                }
             }
-        }
+        } while (count($questions) === $limit);
 
         // A remote task whose question nobody answers any more, because its
         // run ended another way, is cancelled once (spec 060 RQ9).
