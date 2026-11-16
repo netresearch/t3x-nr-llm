@@ -71,6 +71,11 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
 
     private const GROUP = 70;
 
+    private const WORKSPACE = 3;
+
+    /** The workspace record carries the file mount restriction (A2A-FILE6). */
+    protected array $coreExtensionsToLoad = ['extbase', 'fluid', 'workspaces'];
+
     private const IN_DOCS = 101;
 
     private const IN_OTHER = 102;
@@ -113,6 +118,9 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
         $this->db('be_groups')->insert('be_groups', [
             'uid'              => self::GROUP, 'pid' => 0, 'title' => 'A2A readers', 'file_mountpoints' => '1',
             'file_permissions' => 'readFolder,readFile',
+            // Live access: with EXT:workspaces loaded a user works in live
+            // only with this grant.
+            'workspace_perms' => 1,
         ]);
         // options=3: the user takes the db and file mounts of its groups.
         $this->db('be_users')->update('be_users', ['usergroup' => (string) self::GROUP, 'options' => 3], ['uid' => 7]);
@@ -256,6 +264,29 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A2A-FILE6: in a draft workspace whose record names file mounts, the
+     * technical user reaches only its own mounts that the workspace names too,
+     * as core intersects them. A file of a group mount the workspace leaves
+     * out is refused like a file outside every mount.
+     */
+    #[Test]
+    public function aDraftWorkspaceNarrowsTheFileMounts(): void
+    {
+        $this->db('be_groups')->update('be_groups', ['file_mountpoints' => '1,2'], ['uid' => self::GROUP]);
+        $this->db('sys_workspace')->insert('sys_workspace', ['uid' => self::WORKSPACE, 'pid' => 0, 'title' => 'Draft', 'members' => 'be_users_7', 'file_mountpoints' => '1']);
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['workspace' => self::WORKSPACE], ['uid' => 1]);
+        $run = $this->runReferenceOf($this->accepted());
+        self::assertSame(self::WORKSPACE, $this->technicalUser(self::WORKSPACE)->workspace);
+
+        self::assertSame(self::NOT_PERMITTED, $this->send(self::IN_OTHER, $run, true, self::WORKSPACE), 'a group mount the workspace leaves out');
+        self::assertStringStartsWith('The file report.txt', $this->send(self::IN_DOCS, $run, true, self::WORKSPACE), 'a group mount the workspace names');
+
+        $this->db('sys_workspace')->update('sys_workspace', ['file_mountpoints' => '1,2'], ['uid' => self::WORKSPACE]);
+        $this->getService(FalStorageGate::class)->reset();
+        self::assertStringStartsWith('The file notes.txt', $this->send(self::IN_OTHER, $run, true, self::WORKSPACE), 'once the workspace names it too');
+    }
+
+    /**
      * A2A-FILE1, A2A-FILE6: a file the user may read is sent only when it is
      * one of the five types, within the size limit and passes its type's
      * check.
@@ -370,11 +401,11 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
      * What `send_fal_file` answers for one file, called for the task's run as
      * the technical user, or without a user.
      */
-    private function send(int $file, AgentRunReference $run, bool $withUser = true): string
+    private function send(int $file, AgentRunReference $run, bool $withUser = true, int $workspace = 0): string
     {
-        $actor = AiActorContext::backendUser(7, false, [self::GROUP], [], 0);
+        $actor = AiActorContext::backendUser(7, false, [self::GROUP], [], $workspace);
 
-        return $this->tool()->execute(['uid' => $file], new ToolExecutionContext($actor, $withUser ? $this->technicalUser() : null, $run))->content;
+        return $this->tool()->execute(['uid' => $file], new ToolExecutionContext($actor, $withUser ? $this->technicalUser($workspace) : null, $run))->content;
     }
 
     private function tool(): A2aSendFalFileTool
@@ -385,9 +416,9 @@ final class A2aFalAdoptionTest extends AbstractFunctionalTestCase
         return $tool;
     }
 
-    private function technicalUser(): BackendUserAuthentication
+    private function technicalUser(int $workspace = 0): BackendUserAuthentication
     {
-        $user = (new ActingBackendUserResolver())->resolve(AiActorContext::backendUser(7, false, [self::GROUP], [], 0));
+        $user = (new ActingBackendUserResolver())->resolve(AiActorContext::backendUser(7, false, [self::GROUP], [], $workspace));
         self::assertInstanceOf(BackendUserAuthentication::class, $user);
 
         return $user;

@@ -1,0 +1,1 @@
+- FAL tools limit a backend user's file mounts to those its draft workspace names, as core does: the storage gate took the mounts of the user and its groups only, so a file of a group mount the workspace leaves out was reachable, through `send_fal_file` also for an A2A client pinned to such a workspace.
