@@ -181,6 +181,9 @@ final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffect
                 : 'Not adopted: TYPO3 refused to add the file to the inbox folder.');
         } finally {
             if (is_file($local)) {
+                // $local is the temporary file tempnam() created above; no
+                // client or model input reaches the path.
+                // nosemgrep: php.lang.security.unlink-use.unlink-use
                 unlink($local);
             }
         }
