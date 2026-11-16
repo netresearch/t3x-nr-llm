@@ -19,6 +19,7 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
 use TYPO3\CMS\Core\Resource\Exception\FolderDoesNotExistException;
+use TYPO3\CMS\Core\Resource\Folder;
 use TYPO3\CMS\Core\Resource\ResourceStorage;
 use TYPO3\CMS\Core\Resource\StorageRepository;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -165,6 +166,41 @@ final class FalStorageGate implements RunScopedStateInterface
                 && $storage->checkFolderActionPermission('read', $storage->getFolder($identifier));
         } catch (Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * The folder `$user` may add a file to, taken from a storage built for
+     * that user like {@see self::isFileAccessible()}: its own file mounts
+     * (a read-only mount grants no write) and its own file permissions
+     * (`addFile`, `writeFolder`), whoever the ambient user is. Null for no
+     * user, a folder that does not exist and a folder the user may not write
+     * to alike. A file added through the returned folder is written by that
+     * storage, which asks core's checks again for `$user`.
+     *
+     * Not limited by the allow-list: the allow-list bounds the storages a
+     * model may name, and the adoption of A2A-FILE6 writes only to the one
+     * folder an administrator named in a publication profile (ADR-305).
+     * Unlike the read checks above, no user skips the mount check here, an
+     * administrator included: the storage asks the mounts this gate attached.
+     */
+    public function folderToAddFilesTo(?BackendUserAuthentication $user, int $storageUid, string $identifier): ?Folder
+    {
+        if (!$user instanceof BackendUserAuthentication || $identifier === '') {
+            return null;
+        }
+
+        try {
+            $storage = $this->storageFor($user, $storageUid);
+            if (!$storage instanceof ResourceStorage) {
+                return null;
+            }
+
+            $folder = $storage->getFolder($identifier, true);
+
+            return $storage->checkUserActionPermission('add', 'File') && $storage->checkFolderActionPermission('write', $folder) ? $folder : null;
+        } catch (Throwable) {
+            return null;
         }
     }
 

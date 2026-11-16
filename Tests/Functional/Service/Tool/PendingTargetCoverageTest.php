@@ -35,6 +35,7 @@ final class PendingTargetCoverageTest extends AbstractFunctionalTestCase
      * @var array<string, array{array<string, mixed>, array{table: string, uid: int, fields: list<string>}|null}>
      */
     private const EXPECTED = [
+        'adopt_client_file'                   => [['file' => 1], null],
         'attach_file_to_content_element'      => [['content_element' => 12, 'file' => 3, 'field' => 'assets'], ['table' => 'tt_content', 'uid' => 12, 'fields' => ['assets']]],
         'attach_file_to_record'               => [['table' => 'tx_news_domain_model_news', 'record' => 5, 'file' => 3, 'field' => 'fal_media'], ['table' => 'tx_news_domain_model_news', 'uid' => 5, 'fields' => ['fal_media']]],
         'copy_record'                         => [['table' => 'tt_content', 'uid' => 12, 'target_page' => 4], null],

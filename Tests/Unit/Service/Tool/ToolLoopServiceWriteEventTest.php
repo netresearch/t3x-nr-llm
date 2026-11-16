@@ -84,6 +84,9 @@ final class ToolLoopServiceWriteEventTest extends TestCase
     #[Test]
     public function aWriteInADraftWorkspaceIsAnnouncedWithThatWorkspace(): void
     {
+        // `pages` keeps workspace versions; only such a table is announced
+        // in the workspace of the write (ADR-305).
+        $GLOBALS['TCA']['pages']['ctrl']['versioningWS'] = true;
         foreach ([4 => 4, 0 => 0] as $workspace => $expected) {
             $dispatcher      = new RecordingEventDispatcher();
             $user            = self::createStub(BackendUserAuthentication::class);
@@ -107,6 +110,27 @@ final class ToolLoopServiceWriteEventTest extends TestCase
                 'a generic record creation does not prove generated content',
             );
         }
+
+        unset($GLOBALS['TCA']['pages']);
+    }
+
+    /**
+     * A table without workspace versions, such as `sys_file`, has only its
+     * live row: a write to it from a draft workspace is announced as live
+     * (ADR-305).
+     */
+    #[Test]
+    public function aWriteToATableWithoutVersionsIsAnnouncedAsLive(): void
+    {
+        unset($GLOBALS['TCA']['pages']);
+        $dispatcher      = new RecordingEventDispatcher();
+        $user            = self::createStub(BackendUserAuthentication::class);
+        $user->workspace = 4;
+        $this->runWriteOf($this->writingTool(), $dispatcher, new AgentRunReference(91, self::RUN_UUID), $user);
+
+        $event = $dispatcher->dispatched[0] ?? null;
+        self::assertInstanceOf(AfterAiRecordWrittenEvent::class, $event);
+        self::assertSame(0, $event->workspace);
     }
 
     /**

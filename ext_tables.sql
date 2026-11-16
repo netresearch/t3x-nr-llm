@@ -1848,6 +1848,9 @@ CREATE TABLE tx_nrllm_a2a_profile (
     -- The recipient approval of A2A-FILE6: the clients of the profile may
     -- receive files from FAL that send_fal_file puts into a result.
     send_fal_files tinyint(1) unsigned DEFAULT '0' NOT NULL,
+    -- The inbox of A2A-FILE6's adoption (ADR-305): the combined identifier of
+    -- one non-public folder adopt_client_file writes into; empty is off.
+    fal_inbox_folder varchar(255) DEFAULT '' NOT NULL,
 
     tstamp int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,

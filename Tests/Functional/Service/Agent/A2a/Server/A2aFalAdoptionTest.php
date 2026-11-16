@@ -58,7 +58,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * registry, and so with the container's {@see FalStorageGate}: the process is
  * the long-running worker of A2A-FILE7.
  *
- * Adopting an inbound file into FAL is not built (see spec 051, stage 5c).
+ * Adopting an inbound file into FAL is tested in A2aFalInboxAdoptionTest
+ * (ADR-305).
  */
 #[CoversClass(FalStorageGate::class)]
 #[CoversClass(AgentRuntime::class)]

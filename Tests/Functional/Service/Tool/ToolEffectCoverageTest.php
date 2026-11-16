@@ -71,6 +71,10 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
      * `sys_file_metadata` record to a named set, which converges on repeat,
      * hence IDEMPOTENT_WRITE.
      *
+     * `adopt_client_file` (ADR-305) stores a file an A2A client sent as a new
+     * `sys_file` and renames it on a collision, so a repeat brings a second
+     * file into being (NON_IDEMPOTENT_WRITE).
+     *
      * @var list<string>
      */
     private const WRITERS_WITHOUT_A_RECORD = [
@@ -80,6 +84,7 @@ final class ToolEffectCoverageTest extends AbstractFunctionalTestCase
     ];
 
     private const DECLARED_WRITERS = [
+        'adopt_client_file',
         'create_content_element_draft',
         'create_page_draft',
         'create_record_draft',

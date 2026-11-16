@@ -3457,6 +3457,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * same reason (ADR-206).
      * Swallows, not hides: the full Throwable goes to the log.
      */
+    /**
+     * Whether the loaded TCA gives the table workspace versions
+     * (`ctrl.versioningWS`), walked one level at a time: `$GLOBALS['TCA']` is
+     * mixed to the analyser.
+     */
+    private function keepsVersions(string $table): bool
+    {
+        $tca   = $GLOBALS['TCA'] ?? null;
+        $entry = is_array($tca) ? ($tca[$table] ?? null) : null;
+        $ctrl  = is_array($entry) ? ($entry['ctrl'] ?? null) : null;
+
+        return is_array($ctrl) && (bool) ($ctrl['versioningWS'] ?? false);
+    }
+
     private function announceWrite(ToolResult $result, ToolExecutionContext $context, bool $generated = false): void
     {
         if (!$this->eventDispatcher instanceof EventDispatcherInterface) {
@@ -3474,11 +3488,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // The workspace the acting user wrote in (ADR-260): a write in a draft
         // workspace changed a workspace version, not the live row it names.
-        $event = new AfterAiRecordWrittenEvent(
+        // A table that keeps no versions, such as `sys_file` (ADR-305), has
+        // only its live row, whatever workspace the user wrote from.
+        $versioned = $this->keepsVersions($result->writeTarget->table);
+        $event     = new AfterAiRecordWrittenEvent(
             $correlationId,
             $result->writeTarget,
             $result->writeKind,
-            max(0, $context->actingBackendUser()->workspace ?? 0),
+            $versioned ? max(0, $context->actingBackendUser()->workspace ?? 0) : 0,
         );
 
         try {

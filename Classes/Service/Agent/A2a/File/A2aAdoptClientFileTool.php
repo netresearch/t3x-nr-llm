@@ -1,0 +1,345 @@
+<?php
+
+/*
+ * Copyright (c) 2025-2026 Netresearch DTT GmbH
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
+declare(strict_types=1);
+
+namespace Netresearch\NrLlm\Service\Agent\A2a\File;
+
+use Netresearch\NrLlm\Domain\Enum\ToolEffect;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
+use Netresearch\NrLlm\Domain\ValueObject\AgentRunReference;
+use Netresearch\NrLlm\Domain\ValueObject\PendingWriteTarget;
+use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfile;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
+use Netresearch\NrLlm\Service\Tool\FalStorageGate;
+use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\RefusesBeforeApprovalInterface;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface;
+use Netresearch\NrLlm\Service\Tool\ToolEffectInterface;
+use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
+use Netresearch\NrLlm\Service\Tool\ToolInterface;
+use Netresearch\NrLlm\Utility\SafeCastTrait;
+use Throwable;
+use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Resource\Enum\DuplicationBehavior;
+use TYPO3\CMS\Core\Resource\Folder;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
+
+/**
+ * `adopt_client_file`: a run in the A2A server role stores ONE file its
+ * client sent with the task in FAL (spec 051 A2A-FILE6, ADR-305).
+ *
+ * Built as the owner decided, and restricted to that:
+ *
+ * 1. The target is the inbox folder of the task's publication profile
+ *    (`tx_nrllm_a2a_profile.fal_inbox_folder`), never one the client or the
+ *    model names. No folder: adoption is off. A public target is refused
+ *    ({@see A2aFalInbox}).
+ * 2. The file is written as the run's acting user, the client's technical
+ *    backend user, through a storage that carries that user's file mounts
+ *    and permissions ({@see FalStorageGate::folderToAddFilesTo()}).
+ * 3. The tool declares a write, so every call waits for the approval of a
+ *    person of this installation, as every writing tool does
+ *    ({@see \Netresearch\NrLlm\Service\Tool\ToolApprovalRule}).
+ * 4. A name that is taken is never overwritten: core gives the new file
+ *    another name ({@see DuplicationBehavior::RENAME}).
+ * 5. Nothing references the file. It changes no published content until an
+ *    editor uses it in a workspace record.
+ *
+ * The model names the file by its number, the N of the "File N of M" line
+ * the run was given ({@see A2aFileInputPreparer}); the file keeps the name
+ * the client gave it, with the extension of its checked type. The bytes are
+ * the stored copy, checked again against their digest: they exist only
+ * until the task ends or the file expires.
+ *
+ * Every refusal the configuration or the user's rights decide comes before
+ * the approval ({@see RefusesBeforeApprovalInterface}), so no card asks a
+ * person to decide a call that cannot be written; `execute()` asks the same
+ * first.
+ *
+ * @internal not part of the @api surface; may change without notice (ADR-127)
+ */
+final readonly class A2aAdoptClientFileTool implements ToolInterface, ToolEffectInterface, RefusesBeforeApprovalInterface, PendingTargetInterface, ScopedWriteInterface
+{
+    use SafeCastTrait;
+
+    public const NAME = 'adopt_client_file';
+
+    /** The extension each of the five types is stored with. */
+    private const EXTENSIONS = [
+        'text/plain'       => ['txt'],
+        'application/json' => ['json'],
+        'application/pdf'  => ['pdf'],
+        'image/png'        => ['png'],
+        'image/jpeg'       => ['jpg', 'jpeg'],
+    ];
+
+    private const NO_TASK = 'Not adopted: this run is no task of the A2A server role, so it holds no file from a client.';
+
+    private const FILES_OFF = 'Not adopted: this installation takes no A2A files.';
+
+    private const NO_INBOX = 'Not adopted: this skill names no inbox folder, so it adopts no file.';
+
+    private const NO_FILE = 'Not adopted: this task holds no checked file %d from the client.';
+
+    private const NOT_WRITABLE = 'Not adopted: the technical user of this client may not add a file to the inbox folder, or the folder does not exist.';
+
+    private const GONE = 'Not adopted: the file %d is no longer held; it expired, or its bytes changed.';
+
+    public function __construct(
+        private ConnectionPool $connectionPool,
+        private FalStorageGate $storageGate,
+        private A2aFileStore $fileStore,
+        private A2aFileSettings $fileSettings,
+        private A2aSkillProfileRepository $profiles,
+        private A2aFalInbox $inbox,
+    ) {}
+
+    public function getSpec(): ToolSpec
+    {
+        return ToolSpec::function(
+            self::NAME,
+            "Store ONE file the client sent with this A2A task in this installation's file storage (FAL), in the "
+            . "inbox folder this skill names. Name the file by its number: the N of the line 'File N of M from the "
+            . "client'. A person of this installation approves the call first. An existing file of the same name is "
+            . 'kept and the new one is renamed. Nothing uses the stored file until an editor references it.',
+            [
+                'type'       => 'object',
+                'properties' => [
+                    'file' => [
+                        'type'        => 'integer',
+                        'description' => 'The number of the client file, starting at 1.',
+                    ],
+                ],
+                'required' => ['file'],
+            ],
+        );
+    }
+
+    public function execute(array $arguments, ToolExecutionContext $context): ToolResult
+    {
+        // The refusal before the approval, asked again: the plan it is made of.
+        $plan = $this->plan($arguments, $context);
+        if (is_string($plan)) {
+            return ToolResult::error($plan);
+        }
+
+        $number = self::toInt($arguments['file'] ?? 0);
+        $row    = $plan['row'];
+        $bytes  = $this->fileStore->content(self::toInt($row['uid'] ?? 0), $plan['owner']);
+        if (self::toInt($row['expires'] ?? 0) <= time()
+            || strlen($bytes) !== self::toInt($row['size'] ?? -1)
+            || !hash_equals(self::toStr($row['sha256'] ?? ''), hash('sha256', $bytes))) {
+            return ToolResult::error(sprintf(self::GONE, $number));
+        }
+
+        $mediaType = self::toStr($row['media_type'] ?? '');
+        $local     = GeneralUtility::tempnam('nrllm_a2a_adopt_');
+
+        try {
+            if (file_put_contents($local, $bytes) !== strlen($bytes)) {
+                return ToolResult::error('Not adopted: the file could not be written.');
+            }
+
+            $file = $plan['folder']->addFile($local, $this->targetName(self::toStr($row['filename'] ?? ''), $mediaType), DuplicationBehavior::RENAME);
+        } catch (Throwable) {
+            // Core's message can name server paths; the model and the client
+            // read this answer.
+            return ToolResult::error('Not adopted: TYPO3 refused to add the file to the inbox folder.');
+        } finally {
+            if (is_file($local)) {
+                unlink($local);
+            }
+        }
+
+        return ToolResult::text(sprintf(
+            "The client's file %d was adopted as %d:%s (sys_file %d, %s, %d bytes). Nothing references it: it takes effect only when an editor uses it in a workspace record.",
+            $number,
+            $file->getStorage()->getUid(),
+            $file->getIdentifier(),
+            $file->getUid(),
+            $mediaType,
+            strlen($bytes),
+        ))->withWriteTarget(new RecordReference('sys_file', $file->getUid()), WriteKind::CREATED, WriteCompleteness::COMPLETE);
+    }
+
+    /**
+     * The refusals the configuration and the user's rights decide, asked
+     * before the approval and again by `execute()`. Reads only, no clock.
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        $plan = $this->plan($arguments, $context);
+
+        return is_string($plan) ? ToolResult::error($plan) : null;
+    }
+
+    public function getEffect(): ToolEffect
+    {
+        // A second call stores a second file under another name.
+        return ToolEffect::NON_IDEMPOTENT_WRITE;
+    }
+
+    /**
+     * An adoption creates its record, so a pending call names none (ADR-214).
+     */
+    public function pendingTarget(array $arguments): ?PendingWriteTarget
+    {
+        return null;
+    }
+
+    /**
+     * What the call touches, for the scope of a run's assignment (ADR-295): a
+     * new `sys_file` outside the page tree, and a file in a storage, which a
+     * rollback cannot take back, so a scoped run refuses it.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function scopedWrite(array $arguments): ScopedWrite
+    {
+        return new ScopedWrite('create', [], [new ScopedDestination('sys_file', 0)], writesFiles: true);
+    }
+
+    public function isEnabledByDefault(): bool
+    {
+        // Off until an administrator switches it on: a file of a remote
+        // party becomes a managed file of this installation.
+        return false;
+    }
+
+    public function requiresAdmin(): bool
+    {
+        // The technical user of an A2A client is never an administrator
+        // (A2A-SEC3); its own file mounts decide.
+        return false;
+    }
+
+    public function getGroup(): string
+    {
+        return 'files';
+    }
+
+    /**
+     * Everything the write needs, or why it cannot happen.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{row: array<string, mixed>, owner: int, folder: Folder}|string
+     */
+    private function plan(array $arguments, ToolExecutionContext $context): array|string
+    {
+        $run  = $context->run;
+        $task = $run instanceof AgentRunReference ? $this->taskOfRun($run) : null;
+        if ($task === null) {
+            return self::NO_TASK;
+        }
+
+        if (!$this->fileSettings->enabled()) {
+            return self::FILES_OFF;
+        }
+
+        $profile = $task['profile'];
+        if ($profile->falInboxFolder === '') {
+            return self::NO_INBOX;
+        }
+
+        $refusal = $this->inbox->refusal($profile->falInboxFolder);
+        $target  = A2aFalInbox::parse($profile->falInboxFolder);
+        if ($refusal !== null || $target === null) {
+            return 'Not adopted: the inbox folder of this skill cannot be written to: ' . ($refusal ?? 'it is not a combined folder identifier.');
+        }
+
+        $number = self::toInt($arguments['file'] ?? 0);
+        $row    = $this->clientFile($task, $number);
+        if ($row === null) {
+            return sprintf(self::NO_FILE, $number);
+        }
+
+        $folder = $this->storageGate->folderToAddFilesTo($context->actingBackendUser(), $target['storage'], $target['folder']);
+        if (!$folder instanceof Folder) {
+            return self::NOT_WRITABLE;
+        }
+
+        return ['row' => $row, 'owner' => $task['owner'], 'folder' => $folder];
+    }
+
+    /**
+     * The checked file N of the task while its bytes are held. N counts as
+     * the run was told: in the order of the task's manifest, which
+     * {@see A2aFileInputPreparer} numbers the files by.
+     *
+     * @param array{uid: int, owner: int, manifest: string, profile: A2aSkillProfile} $task
+     *
+     * @return array<string, mixed>|null
+     */
+    private function clientFile(array $task, int $number): ?array
+    {
+        $entry = $number > 0 ? ($this->fileStore->manifest($task['manifest'])[$number - 1] ?? null) : null;
+        $row   = is_array($entry) ? ($this->fileStore->rowsOfTask($task['uid'], $task['owner'])[$entry['fileId']] ?? null) : null;
+        $owner = $task['owner'];
+        if (!is_array($row)
+            || ($row['check_state'] ?? null) !== A2aFileStore::CHECK_PASSED
+            || ($row['approval_state'] ?? null) !== A2aFileStore::APPROVAL_APPROVED
+            || !isset(self::EXTENSIONS[self::toStr($row['media_type'] ?? '')])) {
+            return null;
+        }
+
+        // The task ended: its input files gave up their bytes (A2A-FILE4).
+        return $this->fileStore->content(self::toInt($row['uid'] ?? 0), $owner) !== '' ? $row : null;
+    }
+
+    /**
+     * The client's name without any path, with an extension of the file's
+     * checked type; core sanitises the rest.
+     */
+    private function targetName(string $clientName, string $mediaType): string
+    {
+        $extensions = self::EXTENSIONS[$mediaType] ?? ['bin'];
+        $base       = basename(str_replace('\\', '/', $clientName));
+        $extension  = strtolower(pathinfo($base, PATHINFO_EXTENSION));
+        if (in_array($extension, $extensions, true)) {
+            return $base;
+        }
+
+        $stem = pathinfo($base, PATHINFO_FILENAME);
+
+        return ($stem !== '' && $stem !== '.' ? $stem : 'client-file') . '.' . $extensions[0];
+    }
+
+    /**
+     * The task the run executes, with its owner and its profile read now:
+     * a profile changed while the run waits counts at the next call.
+     *
+     * @return array{uid: int, owner: int, manifest: string, profile: A2aSkillProfile}|null
+     */
+    private function taskOfRun(AgentRunReference $run): ?array
+    {
+        if ($run->uid < 1) {
+            return null;
+        }
+
+        $task = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE)
+            ->select(['uid', 'owner_client_uid', 'profile_uid', 'input_manifest'], A2aTaskStore::TABLE, ['run_uid' => $run->uid])
+            ->fetchAssociative();
+        if (!is_array($task) || self::toInt($task['owner_client_uid'] ?? 0) < 1) {
+            return null;
+        }
+
+        $profile = $this->profiles->findByUid(self::toInt($task['profile_uid'] ?? 0));
+
+        return $profile instanceof A2aSkillProfile
+            ? ['uid' => self::toInt($task['uid'] ?? 0), 'owner' => self::toInt($task['owner_client_uid'] ?? 0), 'manifest' => self::toStr($task['input_manifest'] ?? ''), 'profile' => $profile]
+            : null;
+    }
+}
