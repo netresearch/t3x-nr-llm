@@ -42,7 +42,9 @@ client that joins text parts takes nothing from it. It holds:
   snippet, term or rule line, and the passage of a broken rule;
 - ``checkedTextDigest`` and ``deliveredTextDigest``: the SHA-256 of the text the
   check judged and of the text in the content artifact. When they differ, the
-  status is ``not_checked``; a text never inherits the result of another one;
+  status is ``not_checked``; a text never inherits the result of another one.
+  A report that withholds its findings names no checked digest either: a
+  digest lets a client confirm a guessed text the answer level withholds;
 - ``ruleState``: the rule-state digest at the start of the run and at the
   check, and whether it changed;
 - ``editorialState``: ``draft`` only for a text that passed, is the delivered

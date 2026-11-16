@@ -157,7 +157,9 @@ final readonly class A2aEditorialReporter implements A2aResultReporterInterface
                 'findings'         => $withheld ? [] : $this->findings($stored, $full, $ceiling),
                 'findingsWithheld' => $withheld,
             ],
-            'checkedTextDigest'   => $checkedDigest,
+            // A digest of a text the report withholds lets a client confirm
+            // a guessed text, which the answer level must not allow.
+            'checkedTextDigest'   => $withheld ? '' : $checkedDigest,
             'deliveredTextDigest' => $deliveredDigest,
             'contentArtifactId'   => $contentArtifactId,
             'ruleState'           => ['atStart' => $atStart, 'atCheck' => $atCheck, 'changed' => $changed],

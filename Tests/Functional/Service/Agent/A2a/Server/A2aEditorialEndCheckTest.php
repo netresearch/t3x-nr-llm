@@ -33,6 +33,7 @@ use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextCheck;
+use Netresearch\NrLlm\Service\Editorial\ExternalTextReport;
 use Netresearch\NrLlm\Service\Editorial\RuleStateDigest;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\Judge\DeferredAnswerJudging;
@@ -439,6 +440,7 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
         self::assertSame('passed', self::j($task, 'artifacts.1.parts.0.data.check.status'));
         self::assertSame(A2aEditorialReporter::STATE_DRAFT, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
         self::assertSame('sha256:' . hash('sha256', "A\n\nB"), self::j($task, 'artifacts.1.parts.0.data.deliveredTextDigest'));
+        self::assertSame('sha256:' . hash('sha256', "A\n\nB"), self::j($task, 'artifacts.1.parts.0.data.checkedTextDigest'));
         self::assertSame(self::j($task, 'artifacts.0.artifactId'), self::j($task, 'artifacts.1.parts.0.data.contentArtifactId'));
     }
 
@@ -580,6 +582,29 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('max.mustermann', self::text(json_encode($task)));
         self::assertSame([], self::j($task, 'artifacts.1.parts.0.data.check.findings'));
         self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.check.findingsWithheld'));
+    }
+
+    /**
+     * The check read the text at `full`; the level tightened before the
+     * completion. A digest of that text would let a client confirm a guessed
+     * text the answer level withholds, so a withheld report names none.
+     */
+    #[Test]
+    public function aWithheldReportCarriesNoDigestOfTheCheckedText(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $answer          = 'Schreiben Sie an max.mustermann@example.org, wir antworten gern.';
+        $this->responses = [new CompletionResponse($answer, 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId        = $this->send('Antworte.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.check.findingsWithheld'));
+        self::assertSame('', self::j($task, 'artifacts.1.parts.0.data.checkedTextDigest'));
+        self::assertStringNotContainsString(substr(ExternalTextReport::digestOf($answer), 7), (string) json_encode($task));
     }
 
     /**
