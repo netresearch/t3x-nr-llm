@@ -700,6 +700,19 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Bytes without a PNG or JPEG signature are refused for their type
+     * before any header is read for its size: a compressed SWF declared as
+     * a PNG, naming 25 M pixels, is refused for the signature, not for the
+     * pixel budget.
+     */
+    #[Test]
+    public function anImageWithoutItsSignatureIsRefusedBeforeItsSizeIsRead(): void
+    {
+        $this->assertRefused([self::raw(A2aFileValidatorTest::compressedSwf(5000, 5000), 'image/png')], -32005, 'does not start with the signature of its type');
+        $this->assertNothingStored();
+    }
+
+    /**
      * The start of a PNG up to its header: enough for the dimensions, not an
      * image that decodes.
      */

@@ -99,6 +99,21 @@ final class A2aFileValidatorTest extends TestCase
         self::assertStringContainsString($reason, $refusal);
     }
 
+    /**
+     * Only bytes with a PNG or JPEG signature are read for their size:
+     * getimagesize() inflates a compressed SWF to find its size, which a
+     * small upload can make cost hundreds of MiB.
+     */
+    #[Test]
+    public function onlyPngAndJpegBytesAreReadForTheirPixels(): void
+    {
+        $validator = new A2aFileValidator();
+
+        self::assertSame(0, $validator->pixels(self::compressedSwf(5000, 5000)));
+        self::assertSame(12, $validator->pixels(self::png()));
+        self::assertSame(12, $validator->pixels(self::jpeg()));
+    }
+
     #[Test]
     public function theTypeIsReadWithoutParametersAndCase(): void
     {
@@ -129,6 +144,29 @@ final class A2aFileValidatorTest extends TestCase
         imagejpeg($image);
 
         return (string) ob_get_clean();
+    }
+
+    /**
+     * A zlib-compressed SWF (`CWS`) whose frame names the given size;
+     * getimagesize() reads that size only after inflating the body.
+     */
+    public static function compressedSwf(int $width, int $height): string
+    {
+        // The frame is a RECT in twips (1/20 pixel): 5 bits for the field
+        // width, then x min, x max, y min, y max in 20 bits each.
+        $bits = sprintf('%05b', 20);
+        foreach ([0, $width * 20, 0, $height * 20] as $value) {
+            $bits .= sprintf('%020b', $value);
+        }
+
+        $frame = '';
+        foreach (str_split(str_pad($bits, 88, '0'), 8) as $byte) {
+            $frame .= chr((int) bindec($byte));
+        }
+
+        $body = $frame . str_repeat("\x00", 60);
+
+        return 'CWS' . chr(10) . pack('V', 8 + strlen($body)) . (string) gzcompress($body, 0);
     }
 
     /**

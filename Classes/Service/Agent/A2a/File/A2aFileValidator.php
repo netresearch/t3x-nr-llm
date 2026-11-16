@@ -64,11 +64,16 @@ final readonly class A2aFileValidator
     }
 
     /**
-     * The pixels an image's header names, read without decoding it; 0 for
-     * bytes that name none.
+     * The pixels a PNG or JPEG header names, read without decoding it; 0 for
+     * bytes that name none. Bytes without either signature are not read:
+     * getimagesize() inflates a compressed SWF to find its size.
      */
     public function pixels(string $bytes): int
     {
+        if (!str_starts_with($bytes, self::PNG_SIGNATURE) && !str_starts_with($bytes, self::JPEG_SIGNATURE)) {
+            return 0;
+        }
+
         $size = $this->quietly(static fn (): array|false => getimagesizefromstring($bytes));
 
         return is_array($size) && is_int($size[0] ?? null) && is_int($size[1] ?? null) ? $size[0] * $size[1] : 0;
