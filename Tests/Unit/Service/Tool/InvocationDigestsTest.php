@@ -175,6 +175,25 @@ final class InvocationDigestsTest extends TestCase
         yield 'a key starting with NUL' => [["\0x" => 1]];
     }
 
+    /**
+     * A cyclic array and one nested deeper than JSON allows have no canonical
+     * form; the digest ends with null instead of recursing without end.
+     */
+    #[Test]
+    public function aCyclicOrTooDeepArrayHasNoDigest(): void
+    {
+        $cyclic         = [];
+        $cyclic['self'] = &$cyclic;
+        self::assertNull($this->digests()->arguments($cyclic));
+
+        $deep = ['n' => 'leaf'];
+        for ($i = 0; $i < 600; ++$i) {
+            $deep = ['n' => $deep];
+        }
+
+        self::assertNull($this->digests()->arguments($deep));
+    }
+
     #[Test]
     public function anEmptyEncryptionKeyGivesNoDigest(): void
     {

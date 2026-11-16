@@ -60,6 +60,9 @@ final readonly class InvocationDigests
     /** Floats without a fraction below this magnitude are written as integers. */
     private const EXACT_INTEGER_LIMIT = 9007199254740992.0;
 
+    /** The deepest nesting JSON encodes (json_encode's default depth). */
+    private const MAX_DEPTH = 512;
+
     public function __construct(
         private ConnectionPool $connectionPool,
     ) {}
@@ -190,8 +193,14 @@ final readonly class InvocationDigests
      *
      * @throws InvalidArgumentException for a value that has no canonical form
      */
-    private static function canonical(mixed $value): mixed
+    private static function canonical(mixed $value, int $depth = 0): mixed
     {
+        // JSON nests 512 levels at most; deeper, or cyclic, has no canonical
+        // form and gets no digest instead of recursing without end.
+        if ($depth > self::MAX_DEPTH) {
+            throw new InvalidArgumentException('A value nested this deep has no canonical form.', 1794060005);
+        }
+
         if (is_float($value)) {
             return is_finite($value) && floor($value) === $value && abs($value) < self::EXACT_INTEGER_LIMIT ? (int) $value : $value;
         }
@@ -207,7 +216,7 @@ final readonly class InvocationDigests
         $isList = array_is_list($value);
         $items  = [];
         foreach ($value as $key => $item) {
-            $items[$key] = self::canonical($item);
+            $items[$key] = self::canonical($item, $depth + 1);
         }
 
         if ($isList) {
