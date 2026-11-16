@@ -2252,7 +2252,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $call,
                         $resume,
                         $remoteCalls,
-                        $environment,
+                        $this->withApprovedPlanOf($environment, $state, $index),
                         $invocationHistory,
                         $state->iterations,
                         $catalogue,
@@ -2946,7 +2946,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * @param list<ToolCall> $calls
      * @param list<string>   $allowedNames
      *
-     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}>
+     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}>
      */
     private function previewsForTurn(array $calls, array $allowedNames, ToolExecutionContext $context, ?LlmConfiguration $configuration = null, ?ToolInvocationHistory $history = null): array
     {
@@ -2997,7 +2997,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // output like any other.
                 'lines'  => $this->previewComparator()->bound($lines, $context->actingBackendUser()),
                 'failed' => $failed,
-            ];
+            ] + ($failed ? [] : $this->previewComparator()->planOf($tool, $call, $context));
         }
 
         return $previews;
@@ -3430,6 +3430,22 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     }
 
     /**
+     * Whether the table is known to keep no workspace versions: its TCA is
+     * loaded and names no `ctrl.versioningWS`. A table whose TCA is not
+     * loaded is not known to be live-only, so its write keeps the acting
+     * user's workspace. Walked one level at a time: `$GLOBALS['TCA']` is
+     * mixed to the analyser.
+     */
+    private function keepsOnlyALiveRow(string $table): bool
+    {
+        $tca   = $GLOBALS['TCA'] ?? null;
+        $entry = is_array($tca) ? ($tca[$table] ?? null) : null;
+        $ctrl  = is_array($entry) ? ($entry['ctrl'] ?? null) : null;
+
+        return is_array($ctrl) && !(bool) ($ctrl['versioningWS'] ?? false);
+    }
+
+    /**
      * Tell consumers a record was written by an AI run (ADR-187).
      *
      * Dispatched here rather than in the seven writers, because here is the one
@@ -3474,11 +3490,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // The workspace the acting user wrote in (ADR-260): a write in a draft
         // workspace changed a workspace version, not the live row it names.
-        $event = new AfterAiRecordWrittenEvent(
+        // A table that keeps no versions, such as `sys_file` (ADR-305), has
+        // only its live row, whatever workspace the user wrote from.
+        $liveOnly = $this->keepsOnlyALiveRow($result->writeTarget->table);
+        $event    = new AfterAiRecordWrittenEvent(
             $correlationId,
             $result->writeTarget,
             $result->writeKind,
-            max(0, $context->actingBackendUser()->workspace ?? 0),
+            $liveOnly ? 0 : max(0, $context->actingBackendUser()->workspace ?? 0),
         );
 
         try {
@@ -3507,6 +3526,30 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 );
             }
         }
+    }
+
+    /**
+     * The environment of an approved call, its context carrying the plan the
+     * approver saw for it ({@see PreviewPlanInterface}, ADR-184): a tool that
+     * must do exactly what its card showed reads it, because the comparison of
+     * the whole turn ran before any call of it changed anything. A call
+     * without a stored plan, or whose preview failed, keeps the environment as
+     * it is.
+     */
+    private function withApprovedPlanOf(ToolInvocationEnvironment $environment, SuspendedRunState $state, int $index): ToolInvocationEnvironment
+    {
+        foreach ($state->callPreviews as $preview) {
+            if ($preview['index'] === $index && !$preview['failed'] && isset($preview['plan'])) {
+                return new ToolInvocationEnvironment(
+                    $environment->configuration,
+                    $environment->skillAllowList,
+                    $environment->execution->withApprovedPlan($preview['plan']),
+                    $environment->trace,
+                );
+            }
+        }
+
+        return $environment;
     }
 
     /**
@@ -3756,7 +3799,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * (ADR-293), or null: the rule's explanation, or a generic line where it
      * gave none, flagged as no preview to compare and tagged refused.
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool}|null
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}|null
      */
     private function refusedPreview(int $index, ToolCall $call, LlmConfiguration $configuration, ToolExecutionContext $context, ToolInvocationHistory $history): ?array
     {

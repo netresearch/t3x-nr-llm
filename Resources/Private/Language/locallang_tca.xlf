@@ -1832,13 +1832,19 @@
                 <source>May write</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.may_write.description">
-                <source>Runs of this skill may use its writing tools too. They write drafts only, into the pinned workspace of the calling client; a client pinned to live cannot call a writing skill. The task's result lists the writes that were executed.</source>
+                <source>Runs of this skill may use its writing tools too. They write drafts only, into the pinned workspace of the calling client; a client pinned to live cannot call a writing skill. The one exception is adopt_client_file, which stores a client's file in this skill's inbox folder as a new FAL file: a FAL file has no draft, and nothing uses it until an editor references it. The task's result lists the writes that were executed.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.send_fal_files">
                 <source>Send FAL files to clients</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.send_fal_files.description">
                 <source>The clients of this skill may receive files from FAL: send_fal_file puts a file into the task's result when the client's technical user may read it through its file mounts. List the tool under Tools and switch it on in the tool management as well. Off: no FAL file leaves through this skill.</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.fal_inbox_folder">
+                <source>Inbox folder for client files</source>
+            </trans-unit>
+            <trans-unit id="tx_nrllm_a2a_profile.fal_inbox_folder.description">
+                <source>adopt_client_file stores a file the client sent with a task in this folder, after a person of this installation approved the call. A combined identifier such as 2:/a2a-inbox/; the folder must exist, its storage must not be public, and its base path must lie outside the web root. The client's technical user writes the file and needs a file mount with write access to the folder. A name already taken is kept: the new file is renamed. Nothing references the file; it takes effect only when an editor uses it in a workspace record. Empty: no file is adopted.</source>
             </trans-unit>
             <trans-unit id="tx_nrllm_a2a_profile.public">
                 <source>Public</source>

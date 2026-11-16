@@ -290,6 +290,12 @@ enum ApprovalPreviewLabel: string
     case DeleteRecoverable         = 'approvalPreview.deleteRecord.recoverable';
     case DeleteInWorkspace         = 'approvalPreview.deleteRecord.inWorkspace';
 
+    // --- adopt_client_file (ADR-305) ---
+    case AdoptClientFileHeading = 'approvalPreview.adoptClientFile.heading';
+    case AdoptClientFileName    = 'approvalPreview.adoptClientFile.name';
+    case AdoptClientFileContent = 'approvalPreview.adoptClientFile.content';
+    case AdoptClientFileTarget  = 'approvalPreview.adoptClientFile.target';
+
     // --- create_redirect, update_redirect, disable_redirect ---
     case RedirectCreateHeading   = 'approvalPreview.redirect.createHeading';
     case RedirectUpdateHeading   = 'approvalPreview.redirect.updateHeading';
@@ -362,6 +368,7 @@ enum ApprovalPreviewLabel: string
             self::MovePageHeading,
             self::DeletePageHeading,
             self::DeleteContentHeading,
+            self::AdoptClientFileHeading,
             self::RedirectCreateHeading,
             self::RedirectUpdateHeading,
             self::RedirectDisableHeading,

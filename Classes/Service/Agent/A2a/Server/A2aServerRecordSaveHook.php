@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Service\Agent\A2a\File\A2aFalInbox;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
@@ -44,6 +45,9 @@ use TYPO3\CMS\Core\SysLog\Error as SystemLogErrorClassification;
  * - Every tool of a profile that may not write declares that it only reads;
  *   otherwise the tool list is not stored. The run would leave such a tool
  *   out anyway; the refusal says so where the list is entered.
+ * - The inbox folder of A2A-FILE6's adoption is stored only when it is a
+ *   combined identifier of a folder that is not public ({@see A2aFalInbox},
+ *   ADR-305); the tool asks again at each call.
  *
  * Client:
  * - A client pinned to live (workspace 0) cannot be allowed a writing
@@ -66,6 +70,7 @@ final readonly class A2aServerRecordSaveHook
         private RunPrivacyLevelResolver $privacy,
         private ConnectionPool $connectionPool,
         private ToolEffectResolver $effects,
+        private A2aFalInbox $inbox,
     ) {}
 
     /**
@@ -181,6 +186,7 @@ final readonly class A2aServerRecordSaveHook
 
         $this->checkMayWrite($id, $fieldArray, $dataHandler);
         $this->checkHandler($id, $fieldArray, $dataHandler);
+        $this->checkInbox($id, $fieldArray, $dataHandler);
 
         // A writing profile offers its tools as they are (A2A-MT5); the check
         // is for a profile that stays or becomes one that may not write.
@@ -234,6 +240,31 @@ final readonly class A2aServerRecordSaveHook
             unset($fieldArray['handler']);
             $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The domain handler is not registered in this installation; it was not stored.');
         }
+    }
+
+    /**
+     * An inbox folder that is public, or no folder identifier, is not stored
+     * (ADR-305). Empty is stored: it turns adoption off.
+     *
+     * @param array<string, mixed> $fieldArray
+     */
+    private function checkInbox(int|string $id, array &$fieldArray, DataHandler $dataHandler): void
+    {
+        $folder = is_string($fieldArray['fal_inbox_folder'] ?? null) ? trim($fieldArray['fal_inbox_folder']) : '';
+        if ($folder === '') {
+            return;
+        }
+
+        $refusal = $this->inbox->refusal($folder);
+        if ($refusal !== null) {
+            unset($fieldArray['fal_inbox_folder']);
+            $this->refuse($dataHandler, self::PROFILE_TABLE, $id, 'The inbox folder for client files was not stored: ' . $refusal);
+
+            return;
+        }
+
+        // Stored as every check reads it: repeated slashes and `.` dropped.
+        $fieldArray['fal_inbox_folder'] = A2aFalInbox::canonical($folder) ?? $folder;
     }
 
     /**

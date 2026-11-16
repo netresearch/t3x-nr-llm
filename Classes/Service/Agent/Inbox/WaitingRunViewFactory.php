@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\ApprovalPreviewLabel;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\PendingLanguageInterface;
 use Netresearch\NrLlm\Service\Tool\PendingTargetInterface;
+use Netresearch\NrLlm\Service\Tool\PreviewPlanInterface;
 use Netresearch\NrLlm\Service\Tool\SchemaPropertyClassifier;
 use Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
@@ -204,7 +205,7 @@ final readonly class WaitingRunViewFactory
                 $previewFailed = true;
             } elseif ($preview !== null && $preview['tool'] === $call->name) {
                 if ($this->viewerStartedTheRun($run, $viewer)
-                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $viewer))
+                    || ($this->viewerMayWorkIn($runWorkspace, $viewer) && $this->viewerMayRead($tool, $call->arguments, $preview['plan'] ?? null, $viewer))
                 ) {
                     $previewLines  = $preview['lines'];
                     $previewFailed = $preview['failed'];
@@ -412,9 +413,14 @@ final readonly class WaitingRunViewFactory
      * produced it, so the tool under this name may no longer be the one that
      * wrote those lines.
      *
-     * @param array<string, mixed> $arguments
+     * A tool whose stored preview names more than its arguments decides on
+     * the plan stored with the preview, never on its lines
+     * ({@see PreviewPlanInterface}).
+     *
+     * @param array<string, mixed>       $arguments
+     * @param array<string, string>|null $plan
      */
-    private function viewerMayRead(?ToolInterface $tool, array $arguments, ?BackendUserAuthentication $viewer): bool
+    private function viewerMayRead(?ToolInterface $tool, array $arguments, ?array $plan, ?BackendUserAuthentication $viewer): bool
     {
         if (!$viewer instanceof BackendUserAuthentication) {
             return false;
@@ -425,7 +431,9 @@ final readonly class WaitingRunViewFactory
         }
 
         try {
-            return $tool->mayViewerReadPreview($arguments, $viewer);
+            return $tool instanceof PreviewPlanInterface
+                ? $tool->mayViewerReadStoredPreview($arguments, $plan, $viewer)
+                : $tool->mayViewerReadPreview($arguments, $viewer);
         } catch (Throwable) {
             return false;
         }

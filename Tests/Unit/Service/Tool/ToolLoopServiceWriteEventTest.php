@@ -84,6 +84,9 @@ final class ToolLoopServiceWriteEventTest extends TestCase
     #[Test]
     public function aWriteInADraftWorkspaceIsAnnouncedWithThatWorkspace(): void
     {
+        // `pages` keeps workspace versions; only such a table is announced
+        // in the workspace of the write (ADR-305).
+        $GLOBALS['TCA']['pages']['ctrl']['versioningWS'] = true;
         foreach ([4 => 4, 0 => 0] as $workspace => $expected) {
             $dispatcher      = new RecordingEventDispatcher();
             $user            = self::createStub(BackendUserAuthentication::class);
@@ -107,6 +110,47 @@ final class ToolLoopServiceWriteEventTest extends TestCase
                 'a generic record creation does not prove generated content',
             );
         }
+
+        unset($GLOBALS['TCA']['pages']);
+    }
+
+    /**
+     * A table without workspace versions, such as `sys_file`, has only its
+     * live row: a write to it from a draft workspace is announced as live
+     * (ADR-305).
+     */
+    #[Test]
+    public function aWriteToATableWithoutVersionsIsAnnouncedAsLive(): void
+    {
+        // The written table's TCA is loaded and keeps no versions, as for
+        // sys_file.
+        $GLOBALS['TCA']['pages']['ctrl']['versioningWS'] = false;
+        self::assertSame(0, $this->workspaceAnnouncedFrom(4));
+        unset($GLOBALS['TCA']['pages']);
+    }
+
+    /**
+     * A table whose TCA is not loaded is not known to keep no versions: the
+     * write keeps the acting user's workspace.
+     */
+    #[Test]
+    public function aWriteToATableWithoutLoadedTcaKeepsTheWorkspace(): void
+    {
+        unset($GLOBALS['TCA']['pages']);
+        self::assertSame(4, $this->workspaceAnnouncedFrom(4));
+    }
+
+    private function workspaceAnnouncedFrom(int $workspace): int
+    {
+        $dispatcher      = new RecordingEventDispatcher();
+        $user            = self::createStub(BackendUserAuthentication::class);
+        $user->workspace = $workspace;
+        $this->runWriteOf($this->writingTool(), $dispatcher, new AgentRunReference(91, self::RUN_UUID), $user);
+
+        $event = $dispatcher->dispatched[0] ?? null;
+        self::assertInstanceOf(AfterAiRecordWrittenEvent::class, $event);
+
+        return $event->workspace;
     }
 
     /**

@@ -55,6 +55,7 @@ return [
                     max_active_tasks,
                     may_write,
                     send_fal_files,
+                    fal_inbox_folder,
                 --div--;LLL:EXT:core/Resources/Private/Language/Form/locallang_tabs.xlf:access,
                     public,
                     hidden,
@@ -152,6 +153,14 @@ return [
             'label'       => $ll . '.send_fal_files',
             'description' => $ll . '.send_fal_files.description',
             'config'      => ['type' => 'check', 'default' => 0],
+        ],
+        // The inbox of A2A-FILE6's adoption (ADR-305): one non-public folder,
+        // as a combined identifier. A2aServerRecordSaveHook refuses a public
+        // one; empty turns adoption off.
+        'fal_inbox_folder' => [
+            'label'       => $ll . '.fal_inbox_folder',
+            'description' => $ll . '.fal_inbox_folder.description',
+            'config'      => ['type' => 'input', 'size' => 40, 'max' => 255, 'eval' => 'trim', 'placeholder' => '2:/a2a-inbox/', 'default' => '', 'searchable' => false],
         ],
         'public' => [
             'label'       => $ll . '.public',

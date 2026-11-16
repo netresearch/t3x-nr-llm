@@ -38,22 +38,27 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 final readonly class ToolExecutionContext
 {
     /**
-     * @param ?AgentRunReference     $run                      the persisted run this execution belongs to (ADR-153).
-     *                                                         Carried here because it is built once per run, exactly
-     *                                                         like the actor, and reaches the loop through the same
-     *                                                         parameter — the loop stamps it onto the provider calls it
-     *                                                         makes and onto the governance rows it writes. Null for a
-     *                                                         bare {@see ToolLoopServiceInterface} consumer that drives
-     *                                                         the loop without a persisted run.
-     * @param ?ToolInvocationHistory $initialInvocationHistory Authoritative observations before this
-     *                                                         segment; a retry without prior observations
-     *                                                         carries an incomplete history. Null proves a fresh history only
-     *                                                         without continuation markers; assembled
-     *                                                         or seeded continuations remain incomplete.
-     * @param ?SubjectRecord         $subjectRecord            the record the run's process is about (ADR-228), which the
-     *                                                         runtime checked the acting user may read. Null for a run
-     *                                                         without a process subject; the highlight builtin then
-     *                                                         accepts no target.
+     * @param ?AgentRunReference         $run                      the persisted run this execution belongs to (ADR-153).
+     *                                                             Carried here because it is built once per run, exactly
+     *                                                             like the actor, and reaches the loop through the same
+     *                                                             parameter — the loop stamps it onto the provider calls it
+     *                                                             makes and onto the governance rows it writes. Null for a
+     *                                                             bare {@see ToolLoopServiceInterface} consumer that drives
+     *                                                             the loop without a persisted run.
+     * @param ?ToolInvocationHistory     $initialInvocationHistory Authoritative observations before this
+     *                                                             segment; a retry without prior observations
+     *                                                             carries an incomplete history. Null proves a fresh history only
+     *                                                             without continuation markers; assembled
+     *                                                             or seeded continuations remain incomplete.
+     * @param ?SubjectRecord             $subjectRecord            the record the run's process is about (ADR-228), which the
+     *                                                             runtime checked the acting user may read. Null for a run
+     *                                                             without a process subject; the highlight builtin then
+     *                                                             accepts no target.
+     * @param array<string, string>|null $approvedPlan             the plan the approver saw for the call that runs now, as
+     *                                                             the tool named it ({@see PreviewPlanInterface}), set by the
+     *                                                             loop only while it carries out an approved call whose
+     *                                                             preview did not fail (ADR-184). A tool that must do exactly
+     *                                                             what its card showed reads it; null for any other execution.
      */
     public function __construct(
         public AiActorContext $actor,
@@ -61,7 +66,19 @@ final readonly class ToolExecutionContext
         public ?AgentRunReference $run = null,
         public ?ToolInvocationHistory $initialInvocationHistory = null,
         public ?SubjectRecord $subjectRecord = null,
+        public ?array $approvedPlan = null,
     ) {}
+
+    /**
+     * The same context, carrying the plan the approver saw for the call about
+     * to run.
+     *
+     * @param array<string, string> $plan
+     */
+    public function withApprovedPlan(array $plan): self
+    {
+        return new self($this->actor, $this->backendUser, $this->run, $this->initialInvocationHistory, $this->subjectRecord, $plan);
+    }
 
     /**
      * A tool run with a resolved live backend user (production + tests that need

@@ -6254,6 +6254,22 @@
                 <source>language codes %s to %s</source>
                 <target>Sprachcodes %s nach %s</target>
             </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.heading">
+                <source>Store a file the client sent in FAL</source>
+                <target>Eine vom Client gesendete Datei in FAL ablegen</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.name">
+                <source>File %d of the client, named %s, is stored as %s</source>
+                <target>Datei %d des Clients mit dem Namen %s wird als %s abgelegt</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.content">
+                <source>Type %s, %d bytes, SHA-256 %s</source>
+                <target>Typ %s, %d Bytes, SHA-256 %s</target>
+            </trans-unit>
+            <trans-unit id="approvalPreview.adoptClientFile.target">
+                <source>Into the inbox folder %s; nothing references the file</source>
+                <target>In den Eingangsordner %s; nichts verweist auf die Datei</target>
+            </trans-unit>
             <trans-unit id="approvalPreview.redirect.createHeading">
                 <source>Create a redirect</source>
                 <target>Weiterleitung anlegen</target>
