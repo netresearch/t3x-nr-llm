@@ -166,7 +166,7 @@ final class A2aFileValidatorTest extends TestCase
 
         $body = $frame . str_repeat("\x00", 60);
 
-        return 'CWS' . chr(10) . pack('V', 8 + strlen($body)) . (string) gzcompress($body, 0);
+        return 'CWS' . chr(10) . pack('V', 8 + strlen($body)) . gzcompress($body, 0);
     }
 
     /**
