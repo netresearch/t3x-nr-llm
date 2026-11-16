@@ -61,14 +61,23 @@ A target is public when any of these holds:
   into the web root as well;
 - the folder itself, resolved, lies inside the web root: a folder of the
   storage that links there;
-- the folder is or lies below the storage's processing folder, where core
-  skips the file mount check, or is a ``_recycler_`` folder;
+- the folder is or lies below a processing folder of the storage, where core
+  skips the file mount check, or is a ``_recycler_`` folder. Processing
+  folders count as core counts them (``ResourceStorage::getProcessingFolders()``
+  and ``isWithinProcessingFolder()``, the same in TYPO3 13.4.39 and 14.3.11):
+  the storage's own ``processingfolder`` (default ``_processed_``), whose
+  path core compares here even when the field names another storage, and the
+  folder any storage's ``processingfolder`` assigns into this storage
+  (``<uid>:<path>``);
 - its storage has no record, storage 0 (core's fallback for the web root)
   included.
 
 A storage of another driver is taken as its record declares it, because it
-has no path in the web root to compare. :php:`A2aFalInbox::refusal()` decides
-this. :php:`A2aServerRecordSaveHook` asks it when a profile is saved and does
+has no path in the web root to compare. Every check reads the identifier in
+its canonical form, as the Local driver resolves it: repeated slashes and
+``.`` segments dropped (``2://a2a-inbox/./`` is ``2:/a2a-inbox/``), a ``..``
+segment refused; the save hook stores that form. :php:`A2aFalInbox::refusal()`
+decides this. :php:`A2aServerRecordSaveHook` asks it when a profile is saved and does
 not store a refused folder; the tool asks it again at every call, because the
 storage record can change without the profile being saved.
 
@@ -98,9 +107,11 @@ the folder, A2A files switched off.
 The card shows what the approver decides on: the client's file name, the name
 the file will be stored as, its checked type, its size, the start of its
 SHA-256 digest and the inbox folder (:php:`ToolPreviewInterface`). Only a
-viewer who may read the inbox sees them, an administrator or an editor whose
-file mount reaches it (of every profile's inbox, since the card names no
-profile); any other gets the withheld card of :ref:`ADR-136 <adr-136>`. Those lines
+viewer who may read the inbox folder the card names sees them, an
+administrator or an editor whose file mount reaches it; any other gets the
+withheld card of :ref:`ADR-136 <adr-136>`. The folder is read from the stored
+lines (:php:`StoredPreviewVisibilityInterface`), not from the profile, which
+may name another folder by the time the card is shown. Those lines
 are the reservation of :ref:`ADR-184 <adr-184>`: they are produced again before
 the approved call runs, and when they read differently (another folder, the
 name taken meanwhile, another file, a user who lost the right to write there)
@@ -108,10 +119,15 @@ the call is not carried out and the run waits for a new approval.
 
 **4. Nothing is overwritten.** A name that is taken gives the new file another
 name, chosen when the card is built with core's suffix (``report.txt``
-becomes ``report_01.txt``) and shown on it; core's
-``DuplicationBehavior::RENAME`` still applies when the file is added, should
-the name be taken in between. The existing file keeps its bytes and its
-record. The file is named after the client's file name without any path and
+becomes ``report_01.txt``) and shown on it. The approved call writes under
+exactly that name: the loop hands the tool the lines the approver saw
+(:php:`ToolExecutionContext::$approvedPreview`), and the file is added with
+``DuplicationBehavior::CANCEL``. The cards of one turn are compared before any
+call of it runs, so two files of the same name adopted in one turn can both
+show ``report.txt``; the second finds the name taken, is not written under
+another one, and answers so, and adopting it again raises a new card. A call
+carried out without an approved card writes nothing. The existing file keeps
+its bytes and its record. The file is named after the client's file name without any path and
 without Unicode format characters, with an extension of the type the store
 checked (``.txt``, ``.json``, ``.pdf``, ``.png``, ``.jpg`` or ``.jpeg``); core
 sanitises the rest.

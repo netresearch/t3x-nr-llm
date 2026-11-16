@@ -692,8 +692,10 @@ Client role (receiver):
   backend approval of a writing tool, so only a writing profile offers it,
   and the card's preview (names, type, size, digest, folder) is the
   reservation of ADR-184;
-  (4) a name already taken is never overwritten: the new file is renamed
-  (`DuplicationBehavior::RENAME`) and the existing file and record stay;
+  (4) a name already taken is never overwritten: the card shows the new
+  file under a free name with core's suffix, the approved call writes under
+  exactly that name (`DuplicationBehavior::CANCEL`; a name taken by then is
+  refused, not replaced by another), and the existing file and record stay;
   (5) nothing references the adopted file, which takes effect only when an
   editor references it in a workspace record. A2A-MT5 and ADR-265 hold: a
   `sys_file` row has no workspace version, but an unreferenced file in a

@@ -503,7 +503,10 @@ Taking a client's file into FAL
      public: not in a storage marked public, not in a ``Local`` storage with
      a relative base path or with an absolute one inside the web root (as
      written or through a link), not linked into the web root itself, and not
-     the processing folder or a ``_recycler_`` folder. Give the inbox its own
+     a processing folder (the storage's own, or one any storage assigns
+     into it) or a ``_recycler_`` folder. Repeated slashes and ``.``
+     segments are dropped before the check, and the folder is stored in
+     that form. Give the inbox its own
      ``Local`` storage with an absolute base path outside the web root. The
      tool asks this again at each call, so a storage made public later stops
      the next adoption.
@@ -523,8 +526,7 @@ Taking a client's file into FAL
      client's file name, the name it will be stored as, its type, size and
      the start of its SHA-256 digest, and the inbox folder, to an
      administrator and to an editor whose file mounts reach the inbox folder
-     of every skill that names one; anyone else sees that the preview is
-     withheld. If any of that
+     the card names; anyone else sees that the preview is withheld. If any of that
      reads differently when the approved call runs (the folder was changed,
      the name was taken, the user lost the right), the file is not stored and
      the run asks for a new approval.
@@ -533,7 +535,10 @@ Taking a client's file into FAL
      checked type (``.txt``, ``.json``, ``.pdf``, ``.png``, ``.jpg``). A name
      already taken in the folder is kept: the new file gets another one
      (``report_01.txt``), and the existing file and its record stay as they
-     are. If TYPO3 fails after it wrote the file, the answer says that a file
+     are. The approved call writes under the name the card showed and no
+     other: if two files of one name are adopted in one turn, the second
+     finds the name taken, is not written, and has to be adopted again with
+     a new card. If TYPO3 fails after it wrote the file, the answer says that a file
      of that name may remain in the inbox; it is not deleted.
    - **Effect:** nothing references the stored file. It takes effect only
      when an editor uses it in a record of a workspace, which is published
