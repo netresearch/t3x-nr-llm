@@ -206,6 +206,26 @@ final class A2aTaskMirrorTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The release runs after a store error; when the task view cannot be
+     * written either, the claim is still given back and the run waits for a
+     * later tick instead of failing.
+     */
+    #[Test]
+    public function aDependencyClaimIsGivenBackEvenWhenTheTaskViewCannotBeWritten(): void
+    {
+        $handle = $this->boundRun();
+        self::assertTrue($this->persister->suspendForDependency($handle, $this->state(), $this->checkpoint()));
+        self::assertTrue($this->persister->claimResumeFromDependency($this->runOf($handle), 'resume:1', time() + 300));
+        $this->failInDatabase('a2a_release_mirror', A2aTaskStore::TABLE, 'UPDATE', '1 = 1');
+
+        $released = $this->persister->releaseDependencyClaim($this->runOf($handle), 'resume:1');
+        $this->dropTrigger('a2a_release_mirror', A2aTaskStore::TABLE);
+
+        self::assertTrue($released);
+        self::assertSame(AgentRunStatus::WAITING_FOR_DEPENDENCY, $this->runOf($handle)->statusEnum());
+    }
+
+    /**
      * Spec 059 WS2: a decision stored for the worker (ADR-281) ends the wait
      * as well: the queued continuation is WORKING without the text.
      */

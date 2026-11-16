@@ -69,5 +69,11 @@ agent is asked.
 during the wait removes the text from the task and its events, as it removes
 the fixed ``FAILED`` text. The next transition writes it again.
 
-◑ Deciding whether to write reads and opens the task's sealed status message
-once per transition of a bound run.
+◑ A transition that keeps the state reads and opens the task's sealed status
+message once to decide whether to write.
+
+◑ A decision refused after its claim (a stale turn digest, an approver who may
+not run the write, an approval that could not be recorded) ends the wait and
+puts it back: the client sees one update without the text and one with it.
+The decision paths claim before these checks on purpose (ADR-084, ADR-132); an input
+pause shows the same two updates through its state.

@@ -49,6 +49,12 @@ text for those two waits and removes it when the run goes on.
   and its events (ADR-282), this text included, as it removes the fixed
   `FAILED` text. The next transition writes it again.
 
+## Limits
+
+- A decision refused after its claim (stale digest, approver without the
+  permission, approval not recorded) clears the text and writes it back: two
+  updates on every channel for one refused click.
+
 ## Verification
 
 | Requirement | Evidence |

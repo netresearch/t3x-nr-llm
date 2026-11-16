@@ -959,7 +959,16 @@ final readonly class AgentRunPersister
     {
         try {
             // Back in the wait, the A2A task view says so again (spec 059).
-            return $this->transitioned($run->uid, fn (): bool => $this->repository->releaseDependencyClaim($run->uid, $claimedBy));
+            // This path runs after a store error; when the mirrored release
+            // fails as well, the plain one keeps the run for a later tick and
+            // only the task view stays behind until then.
+            try {
+                return $this->transitioned($run->uid, fn (): bool => $this->repository->releaseDependencyClaim($run->uid, $claimedBy));
+            } catch (Throwable $mirrorFailed) {
+                $this->logger?->warning('A dependency claim was given back without its A2A task view', ['run' => $run->uuid, 'exception' => $mirrorFailed]);
+
+                return $this->repository->releaseDependencyClaim($run->uid, $claimedBy);
+            }
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception): void {
