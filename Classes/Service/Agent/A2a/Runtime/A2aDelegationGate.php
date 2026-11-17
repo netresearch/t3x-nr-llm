@@ -82,7 +82,8 @@ final readonly class A2aDelegationGate
             return null;
         }
 
-        if ($firstCompatible !== null && $loadedMcpAgentVersion !== '' && version_compare($loadedMcpAgentVersion, $firstCompatible, '>=')) {
+        $release = self::releaseOf($loadedMcpAgentVersion);
+        if ($firstCompatible !== null && $release !== null && version_compare($release, $firstCompatible, '>=')) {
             return null;
         }
 
@@ -93,5 +94,19 @@ final readonly class A2aDelegationGate
                 ? sprintf('delegation tools are offered from nr_mcp_agent %s on', $firstCompatible)
                 : 'no nr_mcp_agent release does yet, so delegation tools are not offered on this installation',
         );
+    }
+
+    /**
+     * The release a reported version names, or null when it names none.
+     *
+     * TYPO3 reports one release in several shapes: 13.4 with Composer keeps
+     * Composer's pretty version (`v0.39.0`), 14.3 in classic mode appends the
+     * state of ext_emconf.php (`0.39.0-alpha`), and version_compare() would
+     * rank both below `0.39.0`. A branch checkout (`dev-main`) names no
+     * release and keeps the gate closed, like an unreadable version.
+     */
+    private static function releaseOf(string $version): ?string
+    {
+        return preg_match('/^v?(\d+(?:\.\d+){0,2})(?:[-+].*)?$/i', $version, $match) === 1 ? $match[1] : null;
     }
 }
