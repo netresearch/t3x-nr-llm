@@ -48,6 +48,7 @@ final class ToolController extends ActionController
     use DefensiveLocalizationTrait;
     use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
+
     private const AUDIT_TABLE = 'tx_nrllm_tool_audit';
 
     private const TOOL_STATE_TABLE = 'tx_nrllm_tool_state';
