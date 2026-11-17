@@ -211,6 +211,10 @@ interface AgentRuntimeInterface
      * skill (`holdsProcess`, `processSkill`, ADR-228), so a chat can restore
      * the tour after a reload; `holdsProcess` is null when that could not be
      * read.
+     *
+     * `answer` holds the kept final answer of a run that completed in the
+     * background or after a pause, under the privacy level (ADR-234 and its
+     * amendment); null for any other run.
      */
     public function status(AiActorContext $actor, string $runUuid): ?AgentRun;
 }

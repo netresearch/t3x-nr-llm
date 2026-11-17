@@ -18,7 +18,9 @@ ADR-234: Background work is a stored run and a sweep
     2026-11-10 by :ref:`ADR-282 <adr-282>` (an A2A task's result is written in the
     completing transaction and kept after an approval, from A2A stage 2); 2026-11-10 by
     :ref:`ADR-283 <adr-283>` (from A2A stage 3 a sweep-only installation has a
-    heartbeat; until then it still needs ``--minimum-workers=0``)
+    heartbeat; until then it still needs ``--minimum-workers=0``); 2026-11-16 by the
+    amendment below (a run that completes in a resume, and a run without an origin,
+    keep their answer)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-234-context:
@@ -120,13 +122,37 @@ command line before as well, for lack of any actor.
 **A background run keeps its answer.** The event stream follows
 ``privacy.level`` and keeps no content at the default ``metadata``. An answer
 nobody watched arrive is different: dropping it leaves a run nobody can use, so
-a task would be queued and its result discarded. A run with an origin therefore
+a task would be queued and its result discarded. A queued run therefore
 stores its answer in ``tx_nrllm_agentrun.answer``, sealed like ``queued_request``
 and rotated with it. ``none`` keeps nothing, ``redacted`` keeps the redacted
 text, and the purge removes the column with the row
 (``privacy.retention.agentRun``). The detail page renders it for those who may
-read the run; every other run stays metadata only. A run that goes through an
-approval ends in the approver's request and keeps none: what it did is the write.
+read the run.
+
+**Amendment of 2026-11-16: every run that completes where nobody watched keeps
+its answer.** The rule above first required an origin, and a run that went
+through an approval kept none, "because what it did is the write". Both are
+reversed. A run that completes in a resume ends in a process its initiator
+does not watch: the poller's after a remote agent's answer, the worker's after
+a stored decision, the approver's request after an approval. Its answer is lost
+the same way a background run's would be, origin or not, and a backend chat
+continued after an approval or a delegation has no other copy. The queue path
+and both resume paths (:php:`ResumeCoordinator` for approvals and inputs,
+:php:`DependencyResumeCoordinator` for dependencies) therefore keep it through
+one service, :php:`RunAnswerKeeper`, under the same rules: completed runs only,
+the privacy level (``none`` keeps nothing, ``redacted`` the redacted text, a
+tightened level means what it says, ADR-242), sealed, purged with the row. Who
+may read it does not change: the run's initiator, administrators, and service
+accounts holding ``agent:read``, the same as the rest of the run's data
+(:php:`AiActorContext::mayActOnRun()`). The approval grant does not open it.
+The detail page shows a kept answer for every run, with the origin line only
+where there is one. A resume writes the answer before the run's completion
+commits, so a reader that sees the run COMPLETED also finds its answer, and
+writes it only while it still holds the run (RUNNING, claimed by it): a resume
+that lost the run to a cancel or another worker keeps nothing. The queue path
+still writes it right after the completion, as before. A resume is the line,
+not who watches it: a backend chat its initiator approves in their own session
+also keeps its answer, while the same chat without a pause keeps none.
 
 **History.** The module lists runs with an ``origin`` in every status, including
 queued, restricted like the other lists. A service-account run carries

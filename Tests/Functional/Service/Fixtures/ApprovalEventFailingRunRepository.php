@@ -124,9 +124,9 @@ final readonly class ApprovalEventFailingRunRepository implements AgentRunReposi
         $this->inner->recordOutcome($runUid, $outcome);
     }
 
-    public function recordAnswer(int $runUid, string $answer): void
+    public function recordAnswer(int $runUid, string $answer, ?string $whileClaimedBy = null): void
     {
-        $this->inner->recordAnswer($runUid, $answer);
+        $this->inner->recordAnswer($runUid, $answer, $whileClaimedBy);
     }
 
     public function findDecidedOrigins(string $prefix): array

@@ -5034,8 +5034,8 @@
                 <target>Antwort</target>
             </trans-unit>
             <trans-unit id="runs.detail.noAnswer">
-                <source>No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none.</source>
-                <target>Es wurde keine Antwort behalten. Ein Lauf behält eine, wenn er ohne Freigabe dazwischen endet, und nicht bei der Datenschutzstufe „none“.</target>
+                <source>No answer was kept. A run keeps one when it finishes in the background or after an approval, an answer or a remote agent, and not at the privacy level none.</source>
+                <target>Es wurde keine Antwort behalten. Ein Lauf behält eine, wenn er im Hintergrund oder nach einer Freigabe, einer Antwort oder einem entfernten Agenten endet, und nicht bei der Datenschutzstufe „none“.</target>
             </trans-unit>
             <trans-unit id="runs.empty">
                 <source>No runs are waiting for a decision.</source>

@@ -60,7 +60,9 @@ item of the cross-check against a second plan they come from in brackets
   keeps an answer only for a queued run with an origin that COMPLETED, writes it
   after the run settled (a failure is only logged), and keeps none for a run
   that went through an approval. A remote client that polls `GetTask` needs the
-  result whenever the task says COMPLETED.
+  result whenever the task says COMPLETED. (Since the ADR-234 amendment of
+  2026-11-16 every resumed run keeps its answer, through `RunAnswerKeeper`; the
+  A2A task store stays the A2A client's source.)
 - **Decisions run in the request.** An approval or an input continues the run
   inside the deciding request (ADR-276). A decision that arrives over A2A has no
   such request to continue in.

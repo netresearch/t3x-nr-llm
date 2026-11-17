@@ -13,9 +13,11 @@ use Netresearch\NrLlm\Service\Agent\AgentRoundLimitsInterface;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface;
+use Netresearch\NrLlm\Service\Agent\DependencyResumeCoordinator;
 use Netresearch\NrLlm\Service\Agent\FieldFill\FieldFillWriterInterface;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\RunAnswerKeeper;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\FalStorageGate;
@@ -148,5 +150,32 @@ final class AgentRuntimeWiringTest extends AbstractFunctionalTestCase
 
         $loop = $this->getService(ToolLoopService::class);
         self::assertInstanceOf(AgentRoundLimitsInterface::class, (new ReflectionProperty(ToolLoopService::class, 'roundLimits'))->getValue($loop));
+    }
+
+    /**
+     * Every executor a resume runs on keeps the answer under the privacy
+     * policy (ADR-234, amendment): the queue's, the approval or input resume
+     * and the dependency resume. A hand-wired test would not notice a missing
+     * keeper.
+     */
+    #[Test]
+    public function everyResumeKeepsItsAnswerThroughTheContainer(): void
+    {
+        $runtime = $this->getService(AgentRuntimeInterface::class);
+        self::assertInstanceOf(AgentRuntime::class, $runtime);
+        $resume = (new ReflectionProperty(AgentRuntime::class, 'resumeCoordinator'))->getValue($runtime);
+        self::assertInstanceOf(ResumeCoordinator::class, $resume);
+
+        $executors = [
+            'runtime'    => (new ReflectionProperty(AgentRuntime::class, 'runExecutor'))->getValue($runtime),
+            'resume'     => (new ReflectionProperty(ResumeCoordinator::class, 'executor'))->getValue($resume),
+            'dependency' => (new ReflectionProperty(DependencyResumeCoordinator::class, 'executor'))->getValue($this->getService(DependencyResumeCoordinator::class)),
+        ];
+        foreach ($executors as $where => $executor) {
+            self::assertInstanceOf(AgentRunExecutor::class, $executor, $where);
+            $keeper = (new ReflectionProperty(AgentRunExecutor::class, 'answers'))->getValue($executor);
+            self::assertInstanceOf(RunAnswerKeeper::class, $keeper, $where);
+            self::assertInstanceOf(PrivacyPolicyInterface::class, (new ReflectionProperty(RunAnswerKeeper::class, 'privacyPolicy'))->getValue($keeper), $where);
+        }
     }
 }

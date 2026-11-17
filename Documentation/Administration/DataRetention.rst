@@ -25,7 +25,7 @@ A provider and a task can tighten this level with their own
 also apply the resolved provider's ceiling before dispatch, including criteria
 selection, failed attempts and fallback. The run keeps the strictest ceiling
 across resumes and refilters earlier event payloads before a stricter attempt.
-An explicit ``metadata`` ceiling suppresses background answers even at the global
+An explicit ``metadata`` ceiling suppresses kept answers even at the global
 ``metadata`` default. See :ref:`ADR-270 <adr-270>` for the decision and limits.
 
 Apply the TYPO3 database schema update before starting workers with this change.
@@ -53,10 +53,14 @@ Conversation messages are the exception: their content is the feature. A session
 replays its own history on every turn, so the transcript is always stored — and
 therefore governed by retention rather than by the level.
 
-The answer of a background run is a second exception, for the same reason: it is
-the result nobody watched arrive (:ref:`ADR-234 <adr-234>`). It is kept encrypted
-at ``metadata`` too, redacted at ``redacted``, not at all at ``none``, and it goes
-with the run row under ``privacy.retention.agentRun``.
+The final answer of a run that completes where nobody watches it arrive is a
+second exception, for the same reason (:ref:`ADR-234 <adr-234>`): a queued run,
+and any run that completes after an approval, an answered question or a remote
+agent's answer, including a backend chat. It is kept encrypted at ``metadata``
+too, redacted at ``redacted``, not at all at ``none``, and it goes with the run
+row under ``privacy.retention.agentRun``. The run's initiator, administrators and
+service accounts holding ``agent:read`` can read it, as they can the rest of
+the run.
 
 .. _administration-data-retention-how-long:
 

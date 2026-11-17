@@ -152,8 +152,9 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
         // resume coordinator this runtime builds when none was injected, so
         // the process guards hold on that path too. Held only to pass down.
         private ?ProcessPinProbe $processPinProbe = null,
-        // Decides what a background run keeps of its answer (ADR-234). Held only
-        // to pass down to the queue coordinator this runtime builds.
+        // Decides what a run kept where nobody watched keeps of its answer
+        // (ADR-234). Held only to pass down to the queue coordinator and the
+        // executor this runtime builds.
         private ?PrivacyPolicyInterface $privacyPolicy = null,
         // Reads the image of a queued vision action (ADR-236). Held only to pass
         // down to the queue coordinator this runtime builds.
@@ -234,6 +235,7 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
             $this->actingBackendUserResolver,
             $this->toolEffectResolver,
             roundLimits: $this->roundLimits,
+            answers: new RunAnswerKeeper($this->persister, $this->privacyPolicy),
         );
     }
 

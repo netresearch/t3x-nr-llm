@@ -262,9 +262,8 @@ final readonly class AgentRunPersister
     }
 
     /**
-     * Keep the answer of a finished background run (ADR-234). Best effort: the
-     * run has already settled, so a store failure costs the answer and never
-     * the outcome.
+     * Record what became of a fill run's answer (ADR-237). Best effort: a
+     * store failure is logged and never changes the run's outcome.
      */
     public function recordOutcome(AgentRunHandle $handle, string $outcome): void
     {
@@ -282,10 +281,16 @@ final readonly class AgentRunPersister
         }
     }
 
-    public function recordAnswer(AgentRunHandle $handle, string $answer): void
+    /**
+     * Keep the final answer of a run completed in the background or after a
+     * pause (ADR-234 and its amendment). With $whileClaimedBy only while that
+     * owner still holds the run. Best effort: a store failure costs the answer
+     * and never the outcome.
+     */
+    public function recordAnswer(AgentRunHandle $handle, string $answer, ?string $whileClaimedBy = null): void
     {
         try {
-            $this->repository->recordAnswer($handle->runUid, $answer);
+            $this->repository->recordAnswer($handle->runUid, $answer, $whileClaimedBy);
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception, $handle): void {

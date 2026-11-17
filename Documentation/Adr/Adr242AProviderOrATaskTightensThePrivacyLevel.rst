@@ -41,7 +41,7 @@ offers no ``full`` for that reason.
 answers for each:
 
 - the events of a run, through :php:`RunStepPrivacyFilter`;
-- the answer a queued run keeps, in :php:`QueuedRunCoordinator`;
+- the answer a queued or resumed run keeps, in :php:`RunAnswerKeeper`;
 - evaluation details, where the result names its generator's provider.
 
 The audit rows of :php:`SkillAuditRepository` keep the global level: they belong to

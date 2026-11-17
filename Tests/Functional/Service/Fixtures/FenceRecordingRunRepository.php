@@ -46,6 +46,12 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     /** @var (Closure(): void)|null runs once before the next claimForResumeFromDependency() */
     public ?Closure $beforeClaimFromDependency = null;
 
+    /** @var (Closure(): void)|null runs once before the next recordAnswer(), so a test can change the run in between */
+    public ?Closure $beforeRecordAnswer = null;
+
+    /** @var (Closure(int, string): void)|null runs before every finishRun(), with the run uid and the status written */
+    public ?Closure $beforeFinish = null;
+
     public function __construct(private readonly AgentRunRepositoryInterface $inner) {}
 
     public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
@@ -104,6 +110,10 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         string $terminationReason = '',
         ?string $ownedBy = null,
     ): bool {
+        if ($this->beforeFinish instanceof Closure) {
+            ($this->beforeFinish)($runUid, $status);
+        }
+
         return $this->inner->finishRun($runUid, $status, $iterations, $truncated, $promptTokens, $completionTokens, $totalTokens, $estimatedCost, $errorClass, $terminationReason, $ownedBy);
     }
 
@@ -142,9 +152,15 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         $this->inner->recordOutcome($runUid, $outcome);
     }
 
-    public function recordAnswer(int $runUid, string $answer): void
+    public function recordAnswer(int $runUid, string $answer, ?string $whileClaimedBy = null): void
     {
-        $this->inner->recordAnswer($runUid, $answer);
+        $before                   = $this->beforeRecordAnswer;
+        $this->beforeRecordAnswer = null;
+        if ($before instanceof Closure) {
+            $before();
+        }
+
+        $this->inner->recordAnswer($runUid, $answer, $whileClaimedBy);
     }
 
     public function findDecidedOrigins(string $prefix): array

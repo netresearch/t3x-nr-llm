@@ -25,8 +25,8 @@ facts and rejected:
 
 - The playground shows the full trace and the answer. At the default
   privacy level `metadata`, `RunStepPrivacyFilter` strips every content
-  field from the stored steps, and `QueuedRunCoordinator::keepAnswer()`
-  keeps no answer for a run that went through an approval. A run continued
+  field from the stored steps, and the queue kept no answer for a run that went through an approval
+  (reversed by the ADR-234 amendment of 2026-11-16). A run continued
   in a worker could not show the playground what it did.
 - An installation that works the queue with `nrllm:agent:work` alone has no
   worker heartbeat (ADR-234), so a request cannot tell whether a decision it

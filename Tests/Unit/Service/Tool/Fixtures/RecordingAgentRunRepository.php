@@ -494,7 +494,7 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         $this->outcomes[$runUid] = $outcome;
     }
 
-    public function recordAnswer(int $runUid, string $answer): void
+    public function recordAnswer(int $runUid, string $answer, ?string $whileClaimedBy = null): void
     {
         $this->answers[$runUid] = $answer;
     }

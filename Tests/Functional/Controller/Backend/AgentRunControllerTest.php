@@ -242,6 +242,32 @@ final class AgentRunControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-234 (amendment): a run without an origin that kept its answer after a
+     * resume shows it on the detail page too, escaped, without an origin line.
+     */
+    #[Test]
+    public function showActionRendersTheKeptAnswerOfARunWithoutAnOrigin(): void
+    {
+        $handle = $this->persister->enqueue(null, 1, '{}', '');
+        self::assertNotNull($handle);
+        $this->persister->recordAnswer($handle, '<i>resumed</i> answer');
+
+        $runtime = self::createStub(AgentRuntimeInterface::class);
+        $runtime->method('status')->willReturn($this->persister->findRun($handle->uuid));
+        $runtime->method('events')->willReturn([]);
+
+        $controller = $this->makeController(new ToolRegistry([]), $runtime);
+        $this->setRequest($controller, 'show');
+
+        $body = (string) $controller->showAction($handle->uuid)->getBody();
+
+        self::assertStringContainsString('run-answer-heading', $body);
+        self::assertStringContainsString('&lt;i&gt;resumed&lt;/i&gt; answer', $body);
+        self::assertSame(1, preg_match('~<section aria-labelledby="run-answer-heading".*?</section>~s', $body, $section));
+        self::assertStringNotContainsString('<code', $section[0], 'no origin line');
+    }
+
+    /**
      * A background run has no one waiting for the exception: the reason a guardrail
      * gave survives on the governance row, and the detail page has to show it.
      */

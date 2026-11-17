@@ -3935,7 +3935,7 @@
                 <source>Answer</source>
             </trans-unit>
             <trans-unit id="runs.detail.noAnswer">
-                <source>No answer was kept. A run keeps one when it finishes without an approval in between, and not at the privacy level none.</source>
+                <source>No answer was kept. A run keeps one when it finishes in the background or after an approval, an answer or a remote agent, and not at the privacy level none.</source>
             </trans-unit>
             <trans-unit id="runs.outcome.written">
                 <source>The answer was written into the field.</source>

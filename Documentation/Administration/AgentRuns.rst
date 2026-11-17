@@ -129,7 +129,8 @@ the list.
    ``privacy.level`` is set to, and neither is the verbatim resumable state of a
    waiting run. What you see are counts, sizes, names, timings and token
    figures. For live prompt and answer inspection use the playground. The
-   one answer the page shows, above the timeline, is that of a background run
+   one answer the page shows, above the timeline, is the kept final answer of a
+   background run or of a run that completed after a pause
    (:ref:`administration-agent-runs-background`).
 
 A run started before this extension version has steps but no provider calls:

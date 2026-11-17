@@ -126,6 +126,9 @@ final readonly class AgentRunExecutor
         // The runs whose answer the pipeline's judge leaves to the end-of-run
         // check, so a text is judged once (ADR-302).
         private ?DeferredAnswerJudging $deferredJudging = null,
+        // Keeps the answer of a run that completes in a resume (ADR-234,
+        // amendment): nobody watched it arrive, whoever's process ran it.
+        private ?RunAnswerKeeper $answers = null,
     ) {}
 
     /**
@@ -753,7 +756,7 @@ final readonly class AgentRunExecutor
 
         try {
             $result    = $this->loopResult($handle, $start, $loopCall, $checkOnlyCall, $ownerGuard);
-            $completed = $this->completed($handle, $result, $trace, $ownerGuard, $runUuid);
+            $completed = $this->completed($handle, $result, $trace, $ownerGuard, $runUuid, !$start);
             $settled   = true;
 
             return $completed;
@@ -889,8 +892,15 @@ final readonly class AgentRunExecutor
      * run was reclaimed to another worker mid-loop, this completion must not
      * overwrite its state — it stops as LEASE_LOST rather than COMPLETED.
      */
-    private function completed(?AgentRunHandle $handle, ToolLoopResult $result, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    private function completed(?AgentRunHandle $handle, ToolLoopResult $result, RunTrace $trace, ?string $ownerGuard, string $runUuid, bool $keepAnswer = false): AgentRunResult
     {
+        // A resume keeps its answer (ADR-234, amendment) before the run is
+        // COMPLETED, so a reader that sees the completion also sees the
+        // answer; a chat that reads once would otherwise miss it.
+        if ($keepAnswer && $handle instanceof AgentRunHandle) {
+            $this->answers?->keepContent($handle, $result->finalContent, $ownerGuard);
+        }
+
         if ($handle instanceof AgentRunHandle
             && !$this->persister->settleCompleted($handle, $result, $ownerGuard)
             && $ownerGuard !== null

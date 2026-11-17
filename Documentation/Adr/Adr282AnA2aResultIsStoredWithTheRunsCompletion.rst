@@ -96,7 +96,8 @@ state.
 
 **An A2A run keeps its result after an approval.** ADR-234's "a run that goes
 through an approval keeps none" does not apply to a run that belongs to an A2A
-task: the remote client has no other way to learn what was done.
+task: the remote client has no other way to learn what was done. (The ADR-234 amendment of 2026-11-16 has since dropped that
+rule for every resumed run.)
 
 **The task's history follows the same rule.** ``Task.history`` holds the
 client's messages and the agent's status messages; a later turn in the same
