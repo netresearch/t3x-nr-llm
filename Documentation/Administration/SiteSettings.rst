@@ -20,9 +20,9 @@ Setting it up
 =============
 
 #.  Add the set :guilabel:`LLM Foundation` (``netresearch/nr-llm``) to the
-    site's dependencies. Without it the settings editor does not show the two
-    settings, but a value in ``config/sites/<site>/settings.yaml`` still
-    applies.
+    site's dependencies. Without it the settings editor does not show the
+    settings, and a value in ``config/sites/<site>/settings.yaml`` applies
+    only in the nested form shown below.
 #.  Open :guilabel:`Site Management > Sites`, edit the site's settings and fill
     the category :guilabel:`AI (LLM Foundation)`.
 
