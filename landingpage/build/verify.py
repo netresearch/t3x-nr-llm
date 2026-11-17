@@ -46,6 +46,7 @@ REQUIRED_META = (
 )
 
 LANDING_PAGES = ("en/index.html", "de/index.html")
+READINESS_PAGES = ("en/agent-readiness/index.html", "de/agent-readiness/index.html")
 
 # A Python object's repr in the output means a template looked up a name that
 # resolved to something other than the intended value. Jinja's `s.copy` on a
@@ -145,6 +146,25 @@ def main() -> int:
 
     if not (PUBLIC / "404.html").is_file():
         errors.append("404.html: missing project recovery page")
+
+    # The agent readiness page is mostly tables and external links, so it gets
+    # the markup checks the landing pages get: table names and scopes, one h1,
+    # no heading jumps, valid JSON-LD, no unresolved placeholder.
+    for relative in READINESS_PAGES:
+        page = PUBLIC / relative
+        if not page.exists():
+            errors.append(f"{relative} was not built")
+            continue
+        html = page.read_text(encoding="utf-8")
+        unresolved = UNRESOLVED.search(html)
+        if unresolved:
+            errors.append(f"{relative}: unresolved content placeholder {unresolved.group(0)}")
+        for block in re.findall(r'<script type="application/ld\+json"[^>]*>([\s\S]*?)</script>', html):
+            try:
+                json.loads(block)
+            except json.JSONDecodeError as exc:
+                errors.append(f"{relative}: invalid JSON-LD: {exc}")
+        errors.extend(f"{relative}: {problem}" for problem in check_accessibility(html))
 
     for relative in LANDING_PAGES:
         page = PUBLIC / relative

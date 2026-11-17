@@ -626,3 +626,43 @@ h1, h2, h3, h4, p, li, dt, dd, a, summary, .stack__layer, .breadcrumb { overflow
   :root[data-theme] .provider-row img,
   :root:not([data-theme]) .provider-row img { filter: none; opacity: 1; }
 }
+
+/* ---- Agent readiness page ---- */
+/* The origin of a capability is a word first; the tint only repeats it. */
+.origin { display: inline-block; margin: 0 .35rem .35rem 0; padding: .1rem .55rem; border: 1px solid var(--nr-border-strong); border-radius: 999px; font-family: var(--font-head); font-size: 0.875rem; font-weight: 600; line-height: 1.5; color: var(--ink-strong); background: var(--surface); max-width: 100%; overflow-wrap: anywhere; }
+.origin--nr, .origin--nr-integration { border-color: var(--teal); background: var(--nr-primary-tint); }
+.readiness-component { display: block; font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
+.readiness-asof { font-size: 0.9rem; color: var(--muted); margin-top: 1rem; }
+.origin-legend { display: grid; gap: 0; margin: 1.5rem 0 0; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.origin-legend > div { display: grid; grid-template-columns: minmax(14rem, 1fr) 3fr; gap: 1rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-light); }
+.origin-legend > div:last-child { border-bottom: 0; }
+.origin-legend dd { margin: 0; }
+.readiness-table .data-table { min-width: 40rem; }
+.readiness-table .data-table tbody th { width: 22%; }
+.readiness-table .data-table td:nth-child(2) { width: 22%; }
+.readiness-table th, .readiness-table td { overflow-wrap: anywhere; }
+.readiness-table td p { margin: 0 0 .5rem; }
+.readiness-table td p:last-child { margin-bottom: 0; }
+.readiness-limit { color: var(--ink); }
+.readiness-sources { font-size: 0.875rem; }
+.readiness-sources span { color: var(--muted); }
+.readiness-notes { margin-top: 1.5rem; max-width: var(--maxw-prose); }
+@media (max-width: 640px) {
+  .origin-legend > div { grid-template-columns: 1fr; gap: .35rem; }
+  /* Narrow screens: each row becomes a card instead of a sideways scroll.
+     The template sets explicit table roles, so assistive technology keeps the
+     table semantics that a changed display value would otherwise drop. */
+  .readiness-table { overflow: visible; border: 0; border-radius: 0; }
+  .readiness-table .data-table { min-width: 0; }
+  .readiness-table .data-table,
+  .readiness-table .data-table tbody,
+  .readiness-table .data-table tr,
+  .readiness-table .data-table th,
+  .readiness-table .data-table td { display: block; width: auto; }
+  .readiness-table .data-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .readiness-table .data-table tbody tr { margin-bottom: 1rem; border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--surface); }
+  .readiness-table .data-table tbody th { width: auto; padding: .9rem 1rem .25rem; border-bottom: 0; font-size: 1rem; }
+  .readiness-table .data-table td { padding: .25rem 1rem .9rem; border-bottom: 0; }
+  .readiness-table .data-table td:nth-child(2) { width: auto; padding-bottom: .5rem; }
+  .readiness-table th, .readiness-table td { hyphens: auto; }
+}

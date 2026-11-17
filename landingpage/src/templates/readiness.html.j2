@@ -1,0 +1,114 @@
+{# SPDX-License-Identifier: GPL-2.0-or-later #}
+{# SPDX-FileCopyrightText: Netresearch DTT GmbH #}
+{% extends "base.html.j2" %}
+{#- One origin category, as text. Colour is a second cue, never the only one. -#}
+{% macro origin_badge(key) -%}
+<span class="origin origin--{{ key }}">{{ r.origins['labels'][key] }}</span>
+{%- endmacro %}
+{% block main %}
+<section class="section">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="{{ url(lang + '/') }}">nr-llm</a> ›
+      <span aria-current="page">{{ r.hero.eyebrow }}</span>
+    </nav>
+    <p class="eyebrow">{{ r.hero.eyebrow }}</p>
+    <h1 class="hero__headline" style="font-size:clamp(1.9rem,4.4vw,2.8rem)">{{ r.hero.headline }}</h1>
+    <p class="hero__sub">{{ r.hero.tagline }}</p>
+    {% for p in r.intro %}<p class="section__intro">{{ p }}</p>{% endfor %}
+    <p class="readiness-asof">{{ r.asOfLabel }} <time datetime="{{ r.asOf }}">{{ r.asOfText }}</time></p>
+  </div>
+</section>
+
+<section class="section section--alt" id="origins" aria-labelledby="origins-h">
+  <div class="container">
+    <h2 id="origins-h">{{ r.origins.heading }}</h2>
+    <p class="section__intro">{{ r.origins.intro }}</p>
+    <dl class="origin-legend">
+      {% for o in r.origins['items'] %}
+      <div>
+        <dt>{{ origin_badge(o.key) }}</dt>
+        <dd>{{ o.body }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </div>
+</section>
+
+<nav class="toc" aria-labelledby="readiness-toc-h">
+  <div class="container">
+    <span class="toc__label" id="readiness-toc-h">{{ s.onThisPage }}</span>
+    <ol class="toc__list">
+      {% for sec in r.sections %}<li><a href="#{{ sec.id }}">{{ sec.navLabel }}</a></li>{% endfor %}
+      <li><a href="#limits">{{ r.limits.navLabel }}</a></li>
+    </ol>
+  </div>
+</nav>
+
+{% for sec in r.sections %}
+<section class="section{{ ' section--alt' if loop.index0 % 2 == 1 else '' }}" id="{{ sec.id }}" aria-labelledby="{{ sec.id }}-h">
+  <div class="container">
+    <h2 id="{{ sec.id }}-h">{{ sec.heading }}</h2>
+    <p class="section__intro">{{ sec.intro }}</p>
+    <div class="table-scroll readiness-table" tabindex="0" role="region" aria-labelledby="{{ sec.id }}-h">
+      <table class="data-table" role="table" aria-labelledby="{{ sec.id }}-h">
+        <thead role="rowgroup">
+          <tr role="row">
+            <th scope="col" role="columnheader">{{ r.columns.capability }}</th>
+            <th scope="col" role="columnheader">{{ r.columns.origin }}</th>
+            <th scope="col" role="columnheader">{{ r.columns.detail }}</th>
+          </tr>
+        </thead>
+        <tbody role="rowgroup">
+          {% for row in sec.rows %}
+          <tr role="row">
+            <th scope="row" role="rowheader">{{ row.capability }}</th>
+            <td role="cell">
+              {% for key in row.origin %}{{ origin_badge(key) }}{% endfor %}
+              <span class="readiness-component">{{ row.component }}</span>
+            </td>
+            <td role="cell">
+              <p>{{ row.detail }}</p>
+              {% if row.limit %}<p class="readiness-limit"><strong>{{ r.limitLabel }}:</strong> {{ row.limit }}</p>{% endif %}
+              {% if row.sources %}
+              <p class="readiness-sources"><span>{{ r.sourcesLabel }}:</span>
+                {% for l in row.sources %}<a href="{{ l.href }}"{% if lang != 'en' %} hreflang="en"{% endif %}>{{ l.label }}</a>{{ ' · ' if not loop.last }}{% endfor %}
+              </p>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if sec.notes %}
+    <ul class="bullets readiness-notes">
+      {% for note in sec.notes %}<li>{{ note }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</section>
+{% endfor %}
+
+<section class="section{{ ' section--alt' if r.sections|length % 2 == 1 else '' }}" id="limits" aria-labelledby="limits-h">
+  <div class="container">
+    <h2 id="limits-h">{{ r.limits.heading }}</h2>
+    <p class="section__intro">{{ r.limits.intro }}</p>
+    <ul class="bullets">
+      {% for item in r.limits['items'] %}<li>{{ item }}</li>{% endfor %}
+    </ul>
+  </div>
+</section>
+
+<section class="section{{ ' section--alt' if r.sections|length % 2 == 0 else '' }}" aria-labelledby="readiness-more-h">
+  <div class="container">
+    <h2 id="readiness-more-h">{{ s.learnMoreHeading }}</h2>
+    <ul class="linklist">
+      {% for l in r.links %}
+      <li><a href="{{ url(l.href) if l.internal else l.href }}"><b>{{ l.label }}</b>{% if l.desc %}<span>{{ l.desc }}</span>{% endif %}</a></li>
+      {% endfor %}
+    </ul>
+    <p style="margin-top:2rem"><a class="btn btn--secondary" href="{{ url(lang + '/') }}">← nr-llm</a></p>
+  </div>
+</section>
+{% endblock %}
