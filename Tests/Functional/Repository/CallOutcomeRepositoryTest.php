@@ -14,6 +14,7 @@ use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\CallOutcome;
 use Netresearch\NrLlm\Domain\Enum\CallOutcomeSource;
 use Netresearch\NrLlm\Service\Outcome\CallOutcomeRepository;
+use Netresearch\NrLlm\Tests\Fixtures\Database\TestTrigger;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -138,27 +139,18 @@ final class CallOutcomeRepositoryTest extends AbstractFunctionalTestCase
     public function aFailedReplacementPreservesBothPreviousSources(): void
     {
         $connection = $this->connection();
-        if (!$connection->getDatabasePlatform() instanceof SQLitePlatform) {
-            self::markTestSkipped(
-                'The injected database failure uses a SQLite trigger.',
-            );
-        }
 
         $this->repository->record(self::CALL, CallOutcome::HELPFUL);
         $this->repository->record(self::CALL, CallOutcome::EDITED);
 
-        $connection->executeStatement(
-            "CREATE TRIGGER reject_outcome_replacement BEFORE INSERT ON tx_nrllm_call_outcome WHEN NEW.outcome = 'not_helpful' BEGIN SELECT RAISE(ABORT, 'injected storage failure'); END",
-        );
+        TestTrigger::refuse($connection, 'reject_outcome_replacement', 'BEFORE', 'INSERT', 'tx_nrllm_call_outcome', "NEW.outcome = 'not_helpful'", 'injected storage failure');
         $failed = false;
         try {
             $this->repository->record(self::CALL, CallOutcome::NOT_HELPFUL);
         } catch (Exception) {
             $failed = true;
         } finally {
-            $connection->executeStatement(
-                'DROP TRIGGER reject_outcome_replacement',
-            );
+            TestTrigger::drop($connection, 'reject_outcome_replacement', 'tx_nrllm_call_outcome');
         }
 
         self::assertTrue(

@@ -9,13 +9,13 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
-use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSendMessageHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
+use Netresearch\NrLlm\Tests\Fixtures\Database\TestTrigger;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -402,11 +402,8 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
 
     private function concurrentTaskOn(string $table, string $trigger): void
     {
-        $insert     = "INSERT INTO tx_nrllm_a2a_task (task_id, owner_client_uid, profile_uid, run_uid, state) VALUES ('concurrent', 1, 1, 999999, 'TASK_STATE_SUBMITTED')";
-        $connection = $this->db($table);
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform
-            ? sprintf('CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW BEGIN %s; END', $trigger, $table, $insert)
-            : sprintf('CREATE TRIGGER %s AFTER UPDATE ON %s FOR EACH ROW %s', $trigger, $table, $insert));
+        $insert = "INSERT INTO tx_nrllm_a2a_task (task_id, owner_client_uid, profile_uid, run_uid, state) VALUES ('concurrent', 1, 1, 999999, 'TASK_STATE_SUBMITTED')";
+        TestTrigger::run($this->db($table), $trigger, 'AFTER', 'UPDATE', $table, $insert);
     }
 
     /**
@@ -498,19 +495,11 @@ final class A2aSendMessageTest extends AbstractFunctionalTestCase
 
     private function failInDatabase(string $name, string $table, string $event, string $condition): void
     {
-        $connection = $this->db($table);
-        if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
-            $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW WHEN %s BEGIN SELECT RAISE(ABORT, 'forced'); END", $name, $event, $table, $condition));
-
-            return;
-        }
-
-        $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW BEGIN IF %s THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced'; END IF; END", $name, $event, $table, $condition));
+        TestTrigger::refuse($this->db($table), $name, 'BEFORE', $event, $table, $condition);
     }
 
     private function dropTrigger(string $name, string $table): void
     {
-        $connection = $this->db($table);
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform ? 'DROP TRIGGER ' . $name : 'DROP TRIGGER IF EXISTS ' . $name);
+        TestTrigger::drop($this->db($table), $name, $table);
     }
 }

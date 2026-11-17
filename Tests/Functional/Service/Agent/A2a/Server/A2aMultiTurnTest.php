@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
-use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
@@ -50,6 +49,7 @@ use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\Database\TestTrigger;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -304,12 +304,10 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
         $this->db('tx_nrllm_a2a_profile')->update('tx_nrllm_a2a_profile', ['max_active_tasks' => 1], ['uid' => 1]);
         $insert     = "INSERT INTO tx_nrllm_a2a_task (task_id, owner_client_uid, profile_uid, run_uid, state) VALUES ('concurrent', 2, 1, 999999, 'TASK_STATE_SUBMITTED')";
         $connection = $this->db('tx_nrllm_a2a_profile');
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform
-            ? sprintf('CREATE TRIGGER a2a_mt_quota AFTER UPDATE ON tx_nrllm_a2a_profile FOR EACH ROW BEGIN %s; END', $insert)
-            : sprintf('CREATE TRIGGER a2a_mt_quota AFTER UPDATE ON tx_nrllm_a2a_profile FOR EACH ROW %s', $insert));
+        TestTrigger::run($connection, 'a2a_mt_quota', 'AFTER', 'UPDATE', 'tx_nrllm_a2a_profile', $insert);
 
         $reply = $this->call('SendMessage', ['message' => $this->message('Home', 'm-quota', ['taskId' => $taskId]), 'configuration' => ['returnImmediately' => true]]);
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform ? 'DROP TRIGGER a2a_mt_quota' : 'DROP TRIGGER IF EXISTS a2a_mt_quota');
+        TestTrigger::drop($connection, 'a2a_mt_quota', 'tx_nrllm_a2a_profile');
 
         self::assertSame('PROFILE_CAPACITY_EXHAUSTED', $this->errorOf($reply)['reason']);
         self::assertSame(0, $this->rows('tx_nrllm_a2a_dedup', ['message_id' => 'm-quota']));
@@ -342,7 +340,8 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
             ['tx_nrllm_a2a_profile', ['may_write' => 1]],
             ['be_users', ['disable' => 1]],
             ['be_users', ['endtime' => 1]],
-            ['be_users', ['starttime' => 4102444800]],
+            // 2038-01-19, the largest start a signed 32-bit column (PostgreSQL) holds.
+            ['be_users', ['starttime' => 2147483647]],
         ];
         foreach ($changes as [$table, $values]) {
             $uid    = $table === 'be_users' ? 7 : 1;
@@ -872,15 +871,11 @@ final class A2aMultiTurnTest extends AbstractFunctionalTestCase
 
     private function onClientLock(string $statement): void
     {
-        $connection = $this->db('tx_nrllm_a2a_client');
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform
-            ? sprintf('CREATE TRIGGER a2a_mt_race AFTER UPDATE ON tx_nrllm_a2a_client FOR EACH ROW BEGIN %s; END', $statement)
-            : sprintf('CREATE TRIGGER a2a_mt_race AFTER UPDATE ON tx_nrllm_a2a_client FOR EACH ROW %s', $statement));
+        TestTrigger::run($this->db('tx_nrllm_a2a_client'), 'a2a_mt_race', 'AFTER', 'UPDATE', 'tx_nrllm_a2a_client', $statement);
     }
 
     private function dropClientTrigger(): void
     {
-        $connection = $this->db('tx_nrllm_a2a_client');
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform ? 'DROP TRIGGER a2a_mt_race' : 'DROP TRIGGER IF EXISTS a2a_mt_race');
+        TestTrigger::drop($this->db('tx_nrllm_a2a_client'), 'a2a_mt_race', 'tx_nrllm_a2a_client');
     }
 }

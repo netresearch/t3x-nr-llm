@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a;
 
-use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
@@ -24,6 +23,7 @@ use Netresearch\NrLlm\Service\Tool\AgentRunRepository;
 use Netresearch\NrLlm\Service\Tool\AgentStateCodec;
 use Netresearch\NrLlm\Service\Tool\RunContentPrivacyGuard;
 use Netresearch\NrLlm\Tests\Fixture\FixedPrivacyPolicy;
+use Netresearch\NrLlm\Tests\Fixtures\Database\TestTrigger;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -102,20 +102,12 @@ trait A2aTaskStoreFixture
      */
     private function failInDatabase(string $name, string $table, string $event, string $condition): void
     {
-        $connection = $this->connection();
-        if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
-            $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW WHEN %s BEGIN SELECT RAISE(ABORT, 'forced'); END", $name, $event, $table, $condition));
-
-            return;
-        }
-
-        $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW BEGIN IF %s THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced'; END IF; END", $name, $event, $table, $condition));
+        TestTrigger::refuse($this->connection(), $name, 'BEFORE', $event, $table, $condition);
     }
 
     private function dropTrigger(string $name, string $table): void
     {
-        $connection = $this->connection();
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform ? 'DROP TRIGGER ' . $name : 'DROP TRIGGER IF EXISTS ' . $name);
+        TestTrigger::drop($this->connection(), $name, $table);
     }
 
     private function connection(): Connection

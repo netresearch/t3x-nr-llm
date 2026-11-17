@@ -9,7 +9,6 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
-use Doctrine\DBAL\Platforms\SQLitePlatform;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Handler\MockHandler;
@@ -55,6 +54,7 @@ use Netresearch\NrLlm\Service\Tool\Web\AddressClassifierInterface;
 use Netresearch\NrLlm\Service\Tool\Web\ExternalFetchClientFactoryInterface;
 use Netresearch\NrLlm\Service\Tool\Web\HostResolverInterface;
 use Netresearch\NrLlm\Service\Tool\Web\ProxyDetector;
+use Netresearch\NrLlm\Tests\Fixtures\Database\TestTrigger;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Agent\A2a\File\A2aFileValidatorTest;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -1092,19 +1092,11 @@ final class A2aFilePartTest extends AbstractFunctionalTestCase
 
     private function failInDatabase(string $name, string $table, string $event, string $condition): void
     {
-        $connection = $this->db($table);
-        if ($connection->getDatabasePlatform() instanceof SQLitePlatform) {
-            $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW WHEN %s BEGIN SELECT RAISE(ABORT, 'forced'); END", $name, $event, $table, $condition));
-
-            return;
-        }
-
-        $connection->executeStatement(sprintf("CREATE TRIGGER %s BEFORE %s ON %s FOR EACH ROW BEGIN IF %s THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'forced'; END IF; END", $name, $event, $table, $condition));
+        TestTrigger::refuse($this->db($table), $name, 'BEFORE', $event, $table, $condition);
     }
 
     private function dropTrigger(string $name, string $table): void
     {
-        $connection = $this->db($table);
-        $connection->executeStatement($connection->getDatabasePlatform() instanceof SQLitePlatform ? 'DROP TRIGGER ' . $name : 'DROP TRIGGER IF EXISTS ' . $name);
+        TestTrigger::drop($this->db($table), $name, $table);
     }
 }

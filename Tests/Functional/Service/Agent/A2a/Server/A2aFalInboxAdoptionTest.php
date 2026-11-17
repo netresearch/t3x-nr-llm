@@ -43,6 +43,7 @@ use Netresearch\NrLlm\Service\Tool\ToolEffectResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Tests\Fixtures\Database\TestTrigger;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -877,16 +878,13 @@ final class A2aFalInboxAdoptionTest extends AbstractFunctionalTestCase
     private function failSysFileInserts(bool $fail): void
     {
         $connection = $this->db('sys_file');
-        $sqlite     = str_contains(strtolower($connection->getDatabasePlatform()::class), 'sqlite');
         if (!$fail) {
-            $connection->executeStatement('DROP TRIGGER IF EXISTS nrllm_fail_sys_file');
+            TestTrigger::drop($connection, 'nrllm_fail_sys_file', 'sys_file');
 
             return;
         }
 
-        $connection->executeStatement($sqlite
-            ? "CREATE TRIGGER nrllm_fail_sys_file BEFORE INSERT ON sys_file BEGIN SELECT RAISE(ABORT, 'refused by the test'); END"
-            : "CREATE TRIGGER nrllm_fail_sys_file BEFORE INSERT ON sys_file FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'refused by the test'");
+        TestTrigger::refuse($connection, 'nrllm_fail_sys_file', 'BEFORE', 'INSERT', 'sys_file', '1 = 1', 'refused by the test');
     }
 
     private function taskUidOf(AgentRun $run): int
