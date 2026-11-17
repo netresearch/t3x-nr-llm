@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\Model\Model;
 use Netresearch\NrLlm\Domain\Model\Provider;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
+use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
@@ -538,6 +539,36 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
     }
 
     /**
+     * A skill forced onto the run is not one of the configuration's; after a
+     * pause its identifier comes from the forced set the resume re-reads, so
+     * the carried entry still names it.
+     */
+    #[Test]
+    public function aForcedSkillKeepsItsIdentifierAfterTheResume(): void
+    {
+        $forced        = $this->skills[self::INSTRUCTION];
+        $configuration = $this->configuration();
+        $this->turns   = [[new ToolCall('c1', 'write', [])]];
+
+        try {
+            $this->service()->runLoop([ChatMessage::user('go')], $configuration, ToolExecutionContext::none(), null, null, 5, new RunTrace(), new RunAugmentation(forcedSkills: [$forced]));
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $skills = self::createStub(SkillRepository::class);
+        $skills->method('findExistingByUids')->willReturn([$forced]);
+        $resumed = new RunTrace();
+        $this->service(skillRepository: $skills)->resume($state, true, $configuration, ToolExecutionContext::none(), null, $resumed);
+
+        [$carried] = $this->entries($resumed);
+        self::assertSame(self::INSTRUCTION, $carried->skillUid);
+        self::assertSame(SkillInclusion::CARRIED, $carried->inclusion);
+        self::assertSame('house-rules', $carried->identifier);
+    }
+
+    /**
      * A version whose approval was revoked by the time its usage is recorded
      * names no approval: `unknown`, never the revoked uid. The approval is
      * read at the record, not when the version entered.
@@ -597,7 +628,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         return $entries;
     }
 
-    private function service(?ProcessPinProbe $probe = null): ToolLoopService
+    private function service(?ProcessPinProbe $probe = null, ?SkillRepository $skillRepository = null): ToolLoopService
     {
         $manager = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
@@ -636,6 +667,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
                 new DataClassEnforcementResolver(),
             ),
             skillInjection: new SkillInjectionService($composer, new NullLogger()),
+            skillRepository: $skillRepository,
             previewTranslator: $this->englishTranslator(),
             skillPinCheck: new SkillPinCheck(
                 $this->approvals,

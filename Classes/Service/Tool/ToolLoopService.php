@@ -594,7 +594,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // Which skill versions this segment passes to a model call (ADR-321):
         // what assembly composed, what a load appends, what a resume carries.
         // Reported at the send that first carries them, never earlier.
-        $skillUsage ??= $this->skillUsageLedger($composedUses, $configuration);
+        $skillUsage ??= $this->skillUsageLedger($composedUses, $configuration, $augmentation);
 
         if ($dryRun) {
             $runTrace?->recordAssembledMessages($messages);
@@ -1748,10 +1748,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      *
      * @param list<SkillUse> $composed
      */
-    private function skillUsageLedger(array $composed, LlmConfiguration $configuration): SkillUsageLedger
+    private function skillUsageLedger(array $composed, LlmConfiguration $configuration, ?RunAugmentation $augmentation = null): SkillUsageLedger
     {
+        // A skill forced onto the run (ADR-165) is not one of the
+        // configuration's: its identifier comes from the forced set, which a
+        // resume re-reads by its stored uids.
         $identifiers = [];
-        foreach ([...SkillInjectionService::toList($configuration->getSkills()), ...SkillInjectionService::toList($configuration->getSkillsOnDemand())] as $skill) {
+        foreach ([...SkillInjectionService::toList($configuration->getSkills()), ...SkillInjectionService::toList($configuration->getSkillsOnDemand()), ...($augmentation->forcedSkills ?? [])] as $skill) {
             $uid = $skill->getUid();
             if ($uid !== null) {
                 $identifiers[$uid] = $skill->getIdentifier();
@@ -2193,7 +2196,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         $this->assertPinsHeld($state);
         // This segment's skill usage (ADR-321): a load the turn holds is
         // recorded as loaded here, and as passed at the segment's first send.
-        $skillUsage = $this->skillUsageLedger([], $configuration);
+        $skillUsage = $this->skillUsageLedger([], $configuration, $resume->augmentation);
 
         // ADR-184: an approval is a decision about the state the preview showed.
         // Checked for the WHOLE turn before any call runs — a turn is approved as
@@ -2533,7 +2536,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
         $this->assertPinsHeld($state);
-        $skillUsage = $this->skillUsageLedger([], $configuration);
+        $skillUsage = $this->skillUsageLedger([], $configuration, $resume->augmentation);
 
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $resume->offered, true)) {
