@@ -122,8 +122,9 @@ Alternatives considered
 **Hand the decision to the queue worker.** Rejected for three measured reasons.
 The playground shows the full trace and the answer, and at the default privacy
 level ``metadata`` the stored steps carry no content
-(:php:`RunStepPrivacyFilter`) and a run that went through an approval keeps no
-answer (:php:`QueuedRunCoordinator::keepAnswer()`), so a worker could not show
+(:php:`RunStepPrivacyFilter`) and a run that went through an approval kept no answer (then
+:php:`QueuedRunCoordinator::keepAnswer()`; since the ADR-234 amendment of
+2026-11-16 it does), so a worker could not show
 the playground what it did. An installation that works the queue with
 ``nrllm:agent:work`` alone has no worker heartbeat (:ref:`ADR-234 <adr-234>`),
 so the request cannot tell whether a recorded decision will ever be carried out;

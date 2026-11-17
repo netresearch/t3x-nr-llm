@@ -21,6 +21,8 @@ use Netresearch\NrLlm\Exception\InvalidArgumentException;
  * A UI-less append-and-update log, mirroring {@see \Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface}:
  * raw Doctrine access, no Extbase. Split out as an interface so the persister
  * can be unit-tested against a double.
+ *
+ * @internal not part of the @api surface; may change without notice (ADR-127)
  */
 interface AgentRunRepositoryInterface
 {

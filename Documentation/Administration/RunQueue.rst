@@ -108,5 +108,6 @@ removes the row. Unlike the step log, this does not follow the default
 arrive: ``none`` keeps nothing and ``redacted`` keeps the redacted text. See
 :ref:`administration-data-retention`. A run that completes after an approval,
 an answered question or a remote agent's answer keeps its answer the same way,
-with or without an origin, readable by the run's initiator, administrators and
+and so does a queued run without an
+origin, readable by the run's initiator, administrators and
 service accounts holding ``agent:read``.
