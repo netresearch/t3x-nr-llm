@@ -35,6 +35,10 @@ final class FlushesADatabaseCacheHook
             return;
         }
 
-        GeneralUtility::makeInstance(CacheManager::class)->getCache(self::CACHE)->flush();
+        // The DataHandler builds a hook without arguments, so the cache
+        // manager is taken from the container here.
+        $cacheManager = GeneralUtility::getContainer()->get(CacheManager::class);
+        assert($cacheManager instanceof CacheManager);
+        $cacheManager->getCache(self::CACHE)->flush();
     }
 }

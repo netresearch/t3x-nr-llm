@@ -11,7 +11,6 @@ namespace Netresearch\NrLlm\Tests\Fixtures\DataHandler;
 
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * A `processDatamap_afterAllOperations` hook that ends the open transaction
@@ -32,6 +31,8 @@ final class RollsTheTransactionBackHook
             return;
         }
 
-        GeneralUtility::makeInstance(ConnectionPool::class)->getConnectionForTable('pages')->executeStatement('ROLLBACK');
+        // The DataHandler builds a hook without arguments; a new pool hands
+        // out the connections every pool shares.
+        (new ConnectionPool())->getConnectionForTable('pages')->executeStatement('ROLLBACK');
     }
 }
