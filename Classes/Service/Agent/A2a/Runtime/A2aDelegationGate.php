@@ -17,16 +17,16 @@ use TYPO3\CMS\Core\Package\PackageManager;
  * Whether this installation may offer delegation tools at all (spec 051
  * A2A-R2, ADR-281).
  *
- * nr_mcp_agent reads the run status, sets no `origin` on the runs of its chat
- * and, at its `main` 8e301436, marks a conversation failed for any status it
- * does not know. Its chat runs cannot be told apart from other runs, so the
- * rule is per installation: while nr_mcp_agent is loaded in a version below
- * {@see self::FIRST_COMPATIBLE_MCP_AGENT}, no run is offered a delegation
- * tool.
+ * nr_mcp_agent reads the run status and sets no `origin` on the runs of its
+ * chat. Before 0.39.0 it marked a conversation failed when its run returned
+ * AWAITING_DEPENDENCY. Its chat runs cannot be told apart from other runs, so
+ * the rule is per installation: while nr_mcp_agent is loaded in a version
+ * below {@see self::FIRST_COMPATIBLE_MCP_AGENT}, no run is offered a
+ * delegation tool.
  *
- * No nr_mcp_agent release handles WAITING_FOR_DEPENDENCY yet, so the constant
- * is null and every loaded version withholds the tools. The release that
- * ships the handling sets it.
+ * nr_mcp_agent 0.39.0 is the first release that handles the status: the
+ * conversation waits, follows the run, and shows the answer the run kept
+ * after its resume (`AgentRun::$answer`, ADR-234 amendment).
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */
@@ -35,10 +35,10 @@ final readonly class A2aDelegationGate
     public const MCP_AGENT_EXTENSION = 'nr_mcp_agent';
 
     /**
-     * The first nr_mcp_agent version that understands WAITING_FOR_DEPENDENCY;
-     * null while no such release exists.
+     * The first nr_mcp_agent version that understands WAITING_FOR_DEPENDENCY.
+     * refusalFor() still takes null for "no such release".
      */
-    public const FIRST_COMPATIBLE_MCP_AGENT = null;
+    public const FIRST_COMPATIBLE_MCP_AGENT = '0.39.0';
 
     /** @var Closure(): ?string */
     private Closure $mcpAgentVersion;
@@ -82,7 +82,8 @@ final readonly class A2aDelegationGate
             return null;
         }
 
-        if ($firstCompatible !== null && $loadedMcpAgentVersion !== '' && version_compare($loadedMcpAgentVersion, $firstCompatible, '>=')) {
+        $release = self::releaseOf($loadedMcpAgentVersion);
+        if ($firstCompatible !== null && $release !== null && version_compare($release, $firstCompatible, '>=')) {
             return null;
         }
 
@@ -93,5 +94,19 @@ final readonly class A2aDelegationGate
                 ? sprintf('delegation tools are offered from nr_mcp_agent %s on', $firstCompatible)
                 : 'no nr_mcp_agent release does yet, so delegation tools are not offered on this installation',
         );
+    }
+
+    /**
+     * The release a reported version names, or null when it names none.
+     *
+     * TYPO3 reports one release in several shapes: 13.4 with Composer keeps
+     * Composer's pretty version (`v0.39.0`), 14.3 in classic mode appends the
+     * state of ext_emconf.php (`0.39.0-alpha`), and version_compare() would
+     * rank both below `0.39.0`. A branch checkout (`dev-main`) names no
+     * release and keeps the gate closed, like an unreadable version.
+     */
+    private static function releaseOf(string $version): ?string
+    {
+        return preg_match('/^v?(\d+(?:\.\d+){0,2})(?:[-+].*)?$/i', $version, $match) === 1 ? $match[1] : null;
     }
 }

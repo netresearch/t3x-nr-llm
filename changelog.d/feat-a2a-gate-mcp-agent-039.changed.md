@@ -1,0 +1,1 @@
+- Outbound A2A delegation tools are offered on an installation with nr-mcp-agent 0.39.0 or later: that release follows a chat run that waits for a remote agent and shows the answer the run keeps after its resume. With an older nr-mcp-agent they stay withheld.

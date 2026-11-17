@@ -308,10 +308,13 @@ nr-llm's control.
 
 ..  important::
 
-    While nr_mcp_agent is installed, no delegation tool is offered to any run.
-    nr_mcp_agent's chat cannot be told apart from other runs and does not yet
-    understand a run that waits for a remote agent; no nr_mcp_agent release
-    does so far.
+    While nr_mcp_agent is installed in a version below 0.39.0, no delegation
+    tool is offered to any run. nr_mcp_agent's chat cannot be told apart from
+    other runs, and before 0.39.0 it marks a conversation failed when its run
+    waits for a remote agent. From 0.39.0 on, the chat waits, follows the run
+    and shows its answer. The version is read as TYPO3 reports it (``v0.39.0``
+    and ``0.39.0-alpha`` count as 0.39.0); a checkout of a branch named like
+    ``dev-main`` names no release and keeps the tools withheld.
 
 ..  _administration-a2a-remote-agents-push:
 
