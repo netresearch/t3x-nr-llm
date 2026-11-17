@@ -223,10 +223,12 @@ interface AgentRunRepositoryInterface
     public function findDecidedOrigins(string $prefix): array;
 
     /**
-     * Keep the answer of a finished background run (ADR-234), sealed like the
-     * queued request.
+     * Keep the answer of a finished run (ADR-234), sealed like the queued
+     * request. With $whileClaimedBy the answer is written only while the run
+     * is RUNNING and claimed by that owner: a resume writes it before its
+     * completion, and a segment that lost the run writes nothing.
      */
-    public function recordAnswer(int $runUid, string $answer): void;
+    public function recordAnswer(int $runUid, string $answer, ?string $whileClaimedBy = null): void;
 
     /**
      * Keep what became of that answer (ADR-237).

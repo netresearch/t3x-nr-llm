@@ -147,8 +147,12 @@ accounts holding ``agent:read``, the same as the rest of the run's data
 (:php:`AiActorContext::mayActOnRun()`). The approval grant does not open it.
 The detail page shows a kept answer for every run, with the origin line only
 where there is one. A resume writes the answer before the run's completion
-commits, so a reader that sees the run COMPLETED also finds its answer; the
-queue path still writes it right after the completion, as before.
+commits, so a reader that sees the run COMPLETED also finds its answer, and
+writes it only while it still holds the run (RUNNING, claimed by it): a resume
+that lost the run to a cancel or another worker keeps nothing. The queue path
+still writes it right after the completion, as before. A resume is the line,
+not who watches it: a backend chat its initiator approves in their own session
+also keeps its answer, while the same chat without a pause keeps none.
 
 **History.** The module lists runs with an ``origin`` in every status, including
 queued, restricted like the other lists. A service-account run carries

@@ -898,7 +898,7 @@ final readonly class AgentRunExecutor
         // COMPLETED, so a reader that sees the completion also sees the
         // answer; a chat that reads once would otherwise miss it.
         if ($keepAnswer && $handle instanceof AgentRunHandle) {
-            $this->answers?->keepContent($handle, $result->finalContent);
+            $this->answers?->keepContent($handle, $result->finalContent, $ownerGuard);
         }
 
         if ($handle instanceof AgentRunHandle

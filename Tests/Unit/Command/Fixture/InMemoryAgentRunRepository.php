@@ -127,7 +127,7 @@ final class InMemoryAgentRunRepository implements AgentRunRepositoryInterface
         // the outcome has no reader here
     }
 
-    public function recordAnswer(int $runUid, string $answer): void
+    public function recordAnswer(int $runUid, string $answer, ?string $whileClaimedBy = null): void
     {
         // Not needed by the command tests.
     }

@@ -42,9 +42,10 @@ final readonly class RunAnswerKeeper
 
     /**
      * Keep the final content of a run that is about to complete: a resume
-     * writes it before its completion commits, so the two are seen together.
+     * writes it before its completion commits, so the two are seen together,
+     * and only while $whileClaimedBy still holds the run.
      */
-    public function keepContent(AgentRunHandle $handle, ?string $answer): void
+    public function keepContent(AgentRunHandle $handle, ?string $answer, ?string $whileClaimedBy = null): void
     {
         if ($answer === null || $answer === '') {
             return;
@@ -67,6 +68,6 @@ final readonly class RunAnswerKeeper
             $answer = $this->privacyPolicy?->filterContentAt($answer, $level) ?? '';
         }
 
-        $this->persister->recordAnswer($handle, $answer);
+        $this->persister->recordAnswer($handle, $answer, $whileClaimedBy);
     }
 }

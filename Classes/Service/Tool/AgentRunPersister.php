@@ -282,10 +282,10 @@ final readonly class AgentRunPersister
         }
     }
 
-    public function recordAnswer(AgentRunHandle $handle, string $answer): void
+    public function recordAnswer(AgentRunHandle $handle, string $answer, ?string $whileClaimedBy = null): void
     {
         try {
-            $this->repository->recordAnswer($handle->runUid, $answer);
+            $this->repository->recordAnswer($handle->runUid, $answer, $whileClaimedBy);
         } catch (Throwable $exception) {
             $this->recordDiagnostic(
                 function () use ($exception, $handle): void {

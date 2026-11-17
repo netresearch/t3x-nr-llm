@@ -1393,6 +1393,32 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-234 (amendment): a resume that loses its run before the answer is
+     * written keeps none. An operator's cancel won between the last turn and
+     * the completion: the run stays CANCELLED, without the answer.
+     */
+    #[Test]
+    public function aResumeThatLostItsRunKeepsNoAnswer(): void
+    {
+        $repository      = new FenceRecordingRunRepository(AgentRunRepositoryFactory::create($this->getService(ConnectionPool::class), $this->getService(AgentStateCodec::class)));
+        $this->persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('the final answer')]);
+        $suspended = $runtime->run($this->request());
+
+        $repository->beforeRecordAnswer = function () use ($suspended): void {
+            self::assertTrue($this->persister->cancel($suspended->runUuid));
+        };
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'done')]);
+        $this->poller()->tick($this->checkpointOf($this->runOf($suspended->runUuid))->suspendedAt + 10);
+
+        $run = $this->runOf($suspended->runUuid);
+        self::assertSame(AgentRunStatus::CANCELLED, $run->statusEnum());
+        self::assertNull($run->answer);
+    }
+
+    /**
      * ADR-234 (amendment): a run that completes in the approver's request
      * keeps its answer; the initiator did not watch it arrive there.
      */

@@ -333,12 +333,17 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
         );
     }
 
-    public function recordAnswer(int $runUid, string $answer): void
+    public function recordAnswer(int $runUid, string $answer, ?string $whileClaimedBy = null): void
     {
         $this->privacy->writeAnswer(
             $runUid,
             $answer,
-            function (string $answer) use ($runUid): void {
+            function (string $answer) use ($runUid, $whileClaimedBy): void {
+                // A resume writes before its completion: only while it still
+                // holds the run, so a segment that lost it writes nothing.
+                $where = $whileClaimedBy === null
+                    ? ['uid' => $runUid]
+                    : ['uid' => $runUid, 'status' => AgentRunStatus::RUNNING->value, 'claimed_by' => $whileClaimedBy];
                 $this->connectionPool
                     ->getConnectionForTable(self::TABLE_RUN)
                     ->update(
@@ -350,7 +355,7 @@ final readonly class AgentRunRepository implements AgentRunRepositoryInterface, 
                             ),
                             'tstamp' => time(),
                         ],
-                        ['uid' => $runUid],
+                        $where,
                     );
             },
         );
