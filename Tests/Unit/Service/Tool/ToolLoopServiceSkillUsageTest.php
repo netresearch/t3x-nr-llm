@@ -72,6 +72,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
+use RuntimeException;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 /**
@@ -616,7 +617,9 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         $lookup = new InMemorySkillEvidenceLookup();
         $lookup->add(self::INSTRUCTION, $this->skills[self::INSTRUCTION]->getVersionDigest(), $this->evidence(12, 'test-model'));
 
-        $trace = new RunTrace();
+        // Two calls: the second carries nothing new and records no evidence.
+        $this->turns = [[new ToolCall('c1', 'noop', [])]];
+        $trace       = new RunTrace();
 
         $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(always: [self::INSTRUCTION, self::CONTEXT]), ToolExecutionContext::none(), null, null, 5, $trace);
 
@@ -633,7 +636,51 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         self::assertSame(12, $entries[0]->evidence[0]->evaluationUid);
         self::assertSame(SkillEvidenceFit::MATCH, $entries[0]->evidence[0]->fit);
         self::assertSame([], $entries[1]->evidence, 'no evaluation measured the context version: none, stated');
+        self::assertCount(2, array_keys($kinds, RunStep::KIND_LLM, true));
         self::assertCount(1, array_keys($kinds, RunStep::KIND_SKILL_EVIDENCE, true), 'later calls carry nothing new');
+    }
+
+    /**
+     * A version loaded during a run is not what an evaluation measured, even
+     * at the same digest: its evidence is none. The closing call at the
+     * iteration cap is the first to carry the load, so it records it.
+     */
+    #[Test]
+    public function aLoadedVersionHasNoEvidenceAndTheClosingCallRecordsIt(): void
+    {
+        $lookup = new InMemorySkillEvidenceLookup();
+        $lookup->add(self::ON_DEMAND, $this->skills[self::ON_DEMAND]->getVersionDigest(), $this->evidence(14, 'test-model'));
+
+        $this->turns = [[$this->loadCall('c1')], [new ToolCall('c2', 'noop', [])]];
+        $trace       = new RunTrace();
+
+        $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(onDemand: true), ToolExecutionContext::none(), null, null, 1, $trace);
+
+        $evidenceSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_SKILL_EVIDENCE));
+        self::assertCount(1, $evidenceSteps);
+        [$entry] = SkillEvidenceEntry::listFrom($evidenceSteps[0]->toArray()['skillEvidence'] ?? null);
+        self::assertSame(self::ON_DEMAND, $entry->skillUid);
+        self::assertSame([], $entry->evidence);
+    }
+
+    /**
+     * Evidence is information about a run, not a condition of it: a lookup
+     * that fails (an unreadable table) leaves the run to finish and records
+     * no evidence step, which reads apart from an empty list (none).
+     */
+    #[Test]
+    public function aFailedEvidenceLookupRecordsNoStepAndTheRunFinishes(): void
+    {
+        $lookup          = new InMemorySkillEvidenceLookup();
+        $lookup->failure = new RuntimeException('table missing');
+
+        $trace = new RunTrace();
+
+        $result = $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(always: [self::INSTRUCTION]), ToolExecutionContext::none(), null, null, 5, $trace);
+
+        self::assertSame('done', $result->finalContent);
+        self::assertSame([], array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_SKILL_EVIDENCE)));
+        self::assertNotSame([], $this->usageSteps($trace));
     }
 
     /**

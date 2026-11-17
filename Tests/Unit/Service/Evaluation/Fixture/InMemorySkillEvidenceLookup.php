@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture;
 
 use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
 use Netresearch\NrLlm\Service\Evaluation\SkillEvidenceLookupInterface;
+use RuntimeException;
 
 /**
  * The evaluations of skill versions as a test sets them up (ADR-322).
@@ -29,13 +30,24 @@ final class InMemorySkillEvidenceLookup implements SkillEvidenceLookupInterface
         $this->stored[]                                        = $evidence->evaluationUid;
     }
 
+    /** Set to make every lookup fail, as an unreadable table does. */
+    public ?RuntimeException $failure = null;
+
     public function evidenceFor(int $skillUid, string $versionDigest): array
     {
+        if ($this->failure instanceof RuntimeException) {
+            throw $this->failure;
+        }
+
         return array_slice($this->evidence[$skillUid . "\x00" . $versionDigest] ?? [], 0, self::LIMIT);
     }
 
     public function isAvailable(SkillEvidence $evidence): bool
     {
+        if ($this->failure instanceof RuntimeException) {
+            throw $this->failure;
+        }
+
         return in_array($evidence->evaluationUid, $this->stored, true);
     }
 }

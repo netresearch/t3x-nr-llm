@@ -500,6 +500,11 @@ final class RunTimelineFactoryTest extends TestCase
         $lookup->stored = [13];
         $purged         = $factory->build($this->agentRun(), [$event]);
         self::assertSame('evidence=#3@1:abababababab: eval#12 nr_llm.smoke gpt-5-2025-08-07 pass=1.00 fit=match report=gone, #5@-: none', $purged[0]->detail);
+
+        // The evaluation tables cannot be read: the snapshot still shows.
+        $lookup->failure = new RuntimeException('table missing');
+        $unreadable      = $factory->build($this->agentRun(), [$event]);
+        self::assertSame('evidence=#3@1:abababababab: eval#12 nr_llm.smoke gpt-5-2025-08-07 pass=1.00 fit=match report=unknown, #5@-: none', $unreadable[0]->detail);
     }
 
     /**

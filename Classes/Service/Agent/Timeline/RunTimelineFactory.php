@@ -23,6 +23,7 @@ use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
+use Throwable;
 
 /**
  * Assembles one agent run's three record streams into a single ordered timeline
@@ -352,7 +353,13 @@ final readonly class RunTimelineFactory
             return ' report=unknown';
         }
 
-        return $this->skillEvidence->isAvailable($evidence) ? '' : ' report=gone';
+        try {
+            return $this->skillEvidence->isAvailable($evidence) ? '' : ' report=gone';
+        } catch (Throwable) {
+            // The evaluation tables cannot be read: the snapshot still shows,
+            // without a claim about whether its evaluation is still stored.
+            return ' report=unknown';
+        }
     }
 
     /**

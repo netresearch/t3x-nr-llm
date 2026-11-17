@@ -16,7 +16,7 @@ measured on the model that answered.
   versions, plus the configuration identifier and the grading protocol
   version. Otherwise it stores no version.
 - **TE2 Fixed at execution time.** After the answer step of the model call
-  that first carried a version, the run records a `skill_evidence` step: per
+  that first carried a version in its segment, the run records a `skill_evidence` step: per
   version, the evaluations stored at that moment that measured exactly its
   digest, newest first, at most three. An empty list states that none
   applied. Nothing is looked up later to fill in or replace a recorded entry.
@@ -31,8 +31,11 @@ measured on the model that answered.
   evidence is a separate step.
 - **TE6 Retention.** The measured versions are purged with their evaluation.
   The run keeps its snapshot; the timeline marks a snapshot whose evaluation
-  is no longer stored (same uid, run date, fingerprint and set) as
-  `report=gone` and never shows a newer evaluation in its place.
+  is no longer stored (same uid, run date, fingerprint and set) as  `report=gone` (`report=unknown` when that cannot be checked) and never
+  shows a newer evaluation in its place.
+- **TE7 Loaded and failed.** A version loaded during the run has an empty
+  evidence list. A lookup that fails is logged and records no evidence step
+  for that call; the run continues.
 
 ## Out of scope
 
@@ -56,5 +59,6 @@ measured on the model that answered.
 | --- | --- |
 | TE1 | `SkillConfigInjectionTest::chatNamesTheSkillVersionsItsRequestCarried`, `EvaluationServiceTest::anEvaluationNamesTheSkillVersionsEveryPromptCarried`, `anEvaluationWhosePromptsDisagreeNamesNoSkillVersion`, functional `SkillEvidenceRepositoryTest` |
 | TE2, TE3 | `ToolLoopServiceSkillUsageTest::theEvidenceOfAVersionIsRecordedAfterTheAnswerAndJudgedAgainstItsModel`, functional `SkillEvidenceRepositoryTest::anEvaluationIsFoundForTheVersionItMeasuredWithWhatItTested`, `theNewestEvaluationsComeFirstAndAtMostThree` |
-| TE4 | `ToolLoopServiceSkillUsageTest::evidenceFromAnotherModelIsMarkedAsSuchAfterAFallback` |
+| TE4 | `ToolLoopServiceSkillUsageTest::evidenceFromAnotherModelIsMarkedAsSuchAfterAFallback`, `SkillEvidenceTest::evidenceIsJudgedAgainstTheModelThatAnswered` |
 | TE6 | `RunTimelineFactoryTest::aSkillEvidenceStepShowsTheRecordedEvaluationAndWhetherItIsStillStored`, functional `SkillEvidenceRepositoryTest::retentionPurgesTheEvaluationAndTheVersionsItMeasured`, `RetentionCoverageTest` |
+| TE7 | `ToolLoopServiceSkillUsageTest::aLoadedVersionHasNoEvidenceAndTheClosingCallRecordsIt`, `aFailedEvidenceLookupRecordsNoStepAndTheRunFinishes` |

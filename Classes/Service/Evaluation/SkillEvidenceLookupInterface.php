@@ -31,7 +31,7 @@ interface SkillEvidenceLookupInterface
 
     /**
      * Whether the evaluation a snapshot was taken from is still stored: the
-     * same uid with the same run date and benchmark fingerprint. False once
+     * same uid with the same run date, benchmark fingerprint and set. False once
      * retention purged it, and for a row that reuses the uid.
      */
     public function isAvailable(SkillEvidence $evidence): bool;

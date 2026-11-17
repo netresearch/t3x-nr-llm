@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
 use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\GovernanceDecision;
+use Netresearch\NrLlm\Domain\Enum\SkillInclusion;
 use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -1776,13 +1777,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         $entries = [];
         foreach ($passed as $entry) {
+            // An evaluation measures a version composed into a one-shot
+            // completion; a version loaded during a run is never covered by
+            // it, even at the same digest (ADR-322).
+            $found = [];
+            if ($entry->inclusion !== SkillInclusion::LOADED) {
+                try {
+                    $found = $this->skillEvidence->evidenceFor($entry->skillUid, $entry->versionDigest);
+                } catch (Throwable $e) {
+                    // Evidence is information about the run, not a condition
+                    // of it: a failed lookup records no evidence step at all,
+                    // which a reader tells apart from an empty list (none).
+                    $this->logger?->warning('Skill evidence lookup failed; the run records none for this call.', ['exception' => $e]);
+
+                    return [];
+                }
+            }
+
             $entries[] = new SkillEvidenceEntry(
                 $entry->skillUid,
                 $entry->versionDigest,
-                array_map(
-                    static fn (SkillEvidence $evidence): SkillEvidence => $evidence->judgedAgainst($answer->model),
-                    $this->skillEvidence->evidenceFor($entry->skillUid, $entry->versionDigest),
-                ),
+                array_map(static fn (SkillEvidence $evidence): SkillEvidence => $evidence->judgedAgainst($answer->model), $found),
             );
         }
 

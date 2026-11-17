@@ -77,6 +77,13 @@ final class SkillEvidenceRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(1.0, $evidence->passRate);
         self::assertSame(SkillEvidenceFit::UNKNOWN, $evidence->fit);
         self::assertTrue($this->evidence->isAvailable($evidence));
+        // A snapshot names its evaluation by uid with run date, benchmark and
+        // set: a row that reuses the uid for another evaluation is not it.
+        foreach (['runDate' => 1_700_000_001, 'benchmark' => 'v1:' . str_repeat('e', 64), 'set' => 'nr_llm.other'] as $key => $other) {
+            $snapshot = SkillEvidence::fromArray([$key => $other] + $evidence->toArray());
+            self::assertInstanceOf(SkillEvidence::class, $snapshot);
+            self::assertFalse($this->evidence->isAvailable($snapshot), $key);
+        }
 
         self::assertSame([], $this->evidence->evidenceFor(3, '1:' . str_repeat('c', 64)), 'another digest of the skill was not measured');
         self::assertSame([], $this->evidence->evidenceFor(4, self::DIGEST), 'another skill was not measured');

@@ -17,7 +17,7 @@ use Netresearch\NrLlm\Domain\Enum\SkillEvidenceFit;
  *
  * A snapshot, not a pointer: the run keeps these facts even after retention
  * purged the evaluation, so a later evaluation never takes its place. The
- * evaluation uid, run date and benchmark fingerprint together identify the
+ * evaluation uid, run date, benchmark fingerprint and set together identify the
  * row the snapshot came from; a reader asks whether that row still exists.
  *
  * Identifiers, figures and codes only. The set, configuration, provider and
