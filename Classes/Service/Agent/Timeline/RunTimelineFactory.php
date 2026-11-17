@@ -170,9 +170,20 @@ final readonly class RunTimelineFactory
 
         // Only when a fallback actually swapped: repeating the requested pair as
         // the served one on every row would bury the rescues that matter.
-        if ($call->servedProvider !== '' && ($call->servedProvider !== $call->provider || $call->servedModel !== $call->model)) {
+        $swapped = $call->servedProvider !== '' && ($call->servedProvider !== $call->provider || $call->servedModel !== $call->model);
+        if ($swapped) {
             $facts['servedProvider'] = $call->servedProvider;
             $facts['servedModel']    = $call->servedModel;
+        }
+
+        // The model the provider named on its answer (ADR-320), compared with
+        // the model that call was sent to: after a swap that is the serving
+        // one. Shown only where it differs, by the same rule as the serving
+        // pair: an alias resolved to a dated snapshot is the fact worth seeing,
+        // a repetition of the requested name is not.
+        $sentTo = $swapped ? $call->servedModel : $call->model;
+        if ($call->responseModel !== '' && $call->responseModel !== $sentTo) {
+            $facts['reportedModel'] = $call->responseModel;
         }
 
         $facts['latencyMs'] = (string) $call->latencyMs;

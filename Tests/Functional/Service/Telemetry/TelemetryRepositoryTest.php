@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Telemetry;
 
+use Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepository;
@@ -99,6 +100,41 @@ final class TelemetryRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame(900, $calls[0]->latencyMs);
         self::assertTrue($calls[0]->success);
         self::assertNull($calls[0]->timeToFirstTokenMs, 'A non-streamed call has no first-token milestone.');
+    }
+
+    /**
+     * ADR-320: the model the provider named on its response is read back with
+     * the run's calls, as written by the usage columns of the same row.
+     */
+    #[Test]
+    public function findByCorrelationReturnsTheModelTheProviderReported(): void
+    {
+        $runUuid  = 'c0ffee00-0000-4000-8000-000000000043';
+        $reported = new TelemetryRecord(
+            correlationId: $runUuid,
+            operation: 'tools',
+            provider: 'openai',
+            model: 'gpt-4o',
+            configurationIdentifier: 'agent',
+            beUser: 1,
+            success: true,
+            errorClass: '',
+            latencyMs: 400,
+            cacheHit: false,
+            fallbackAttempts: 0,
+            servedConfigurationIdentifier: '',
+            servedProvider: '',
+            servedModel: '',
+            callUsage: new ProviderCallUsage(10, 5, null, 'gpt-4o-2024-08-06'),
+        );
+        $this->repository->record($reported);
+        $this->repository->record($this->record($runUuid, 'chat', latencyMs: 300));
+
+        $calls = $this->repository->findByCorrelation($runUuid);
+
+        self::assertCount(2, $calls);
+        self::assertSame('gpt-4o-2024-08-06', $calls[0]->responseModel);
+        self::assertSame('', $calls[1]->responseModel, 'A call without a usage block names no model.');
     }
 
     #[Test]
