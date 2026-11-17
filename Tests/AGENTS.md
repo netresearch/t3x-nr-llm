@@ -17,6 +17,7 @@ Comprehensive test suite: PHPUnit 11/12/13 (cross-compatible), TYPO3 Testing Fra
 ./Build/Scripts/runTests.sh -s integration       # Integration tests
 ./Build/Scripts/runTests.sh -s functional        # Functional tests
 ./Build/Scripts/runTests.sh -s functional -d mariadb  # With MariaDB
+./Build/Scripts/runTests.sh -s functional -d postgres -i 17  # With PostgreSQL
 ./Build/Scripts/runTests.sh -s fuzzy             # Property-based tests
 ./Build/Scripts/runTests.sh -s mutation          # Mutation testing
 ./Build/Scripts/runTests.sh -s architecture      # PHPat layer tests
@@ -70,6 +71,7 @@ The full `./Build/Scripts/runTests.sh -s functional` run includes ~34 provider-c
 - An Extbase backend controller fetched from the container needs `$GLOBALS['TYPO3_REQUEST']` with the backend application type plus `setUpBackendUser()`; a hand-built `BackendUserAuthentication` does not work.
 - A PSR-18 test double should record the raw request body and tests should assert on that string: decoding turns JSON `{}` into PHP `[]`. The MCP fixture server is `Fixtures/Mcp/McpTestServer.php`.
 - New admin-only AJAX routes get their guard case in `Functional/Controller/Backend/BackendAjaxAdminGuardTest.php`, the central file for those route guards.
+- The suite runs on SQLite, MariaDB and PostgreSQL. A trigger that plays a database failure or a concurrent write goes through `Tests/Fixtures/Database/TestTrigger.php`, never through hand-written SQLite/MySQL trigger SQL. A row inserted with a fixed `uid` is fine: on PostgreSQL `ExplicitUidSequenceMiddleware` moves the uid sequence after it, as MySQL's AUTO_INCREMENT does; `lastInsertId()` after such an insert has no value on PostgreSQL, so use the uid you inserted.
 - A uid taken from a request body is validated with `FILTER_VALIDATE_INT`, never cast: `is_numeric('1.9')` is true and `(int) '1.9'` is 1, which addresses a record nobody named. A test for that needs a real row at the coerced uid, or the case fails for the wrong reason (404).
 <!-- AGENTS-GENERATED:END filemap -->
 
