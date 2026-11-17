@@ -55,8 +55,8 @@ use Netresearch\NrLlm\Utility\SecretShapeRedactorTrait;
  * 2. The message passes the shared secret redactor, because it leaves for a
  *    third party, and is sent with `return_immediately` true, through the
  *    send-intent journal (A2A-C4).
- * 3. A message answer or a task already in a terminal or interrupted state is
- *    the tool result. A refusal and an unknown outcome are error results; an
+ * 3. A message answer or a task already in a terminal state is the tool
+ *    result; a task that asks a question waits like a running one (spec 060). A refusal and an unknown outcome are error results; an
  *    unknown outcome is never resent (A2A-C6).
  * 4. With push on ({@see A2aPushRegistrar}), an accepted task in any other
  *    state gets a push registration, and the task is read once more: settled
@@ -142,7 +142,7 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
             return A2aToolResults::unavailable('the record is gone');
         }
 
-        $refusal = $this->cardRefusal($trust['card'], $agent) ?? $agent->useRefusal();
+        $refusal = A2aRemoteAgentCard::refusal($trust['card'], $agent) ?? $agent->useRefusal();
         if ($refusal !== null) {
             return A2aToolResults::unavailable($refusal);
         }
@@ -231,27 +231,6 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         return $this->agents->currentTrust((int) $this->agent->getUid())['requiresApproval'] ?? true;
     }
 
-    /**
-     * The card as stored now against the record object the send would use:
-     * a card waiting for confirmation, or one an import changed since the
-     * object was read, sends nothing.
-     *
-     * @param array{cardUrl: string, interfaceUrl: string, interfaceTenant: string, cardChanged: bool, confirmedInterface: string} $card
-     */
-    private function cardRefusal(array $card, A2aRemoteAgent $agent): ?string
-    {
-        if ($card['cardChanged']) {
-            return 'the card changed and waits for an administrator to confirm it';
-        }
-
-        $read = [$agent->getCardUrl(), $agent->getInterfaceUrl(), $agent->getInterfaceTenant(), $agent->getConfirmedInterface()];
-        if ($read !== [$card['cardUrl'], $card['interfaceUrl'], $card['interfaceTenant'], $card['confirmedInterface']]) {
-            return 'the card changed since this worker read the record; nothing was sent';
-        }
-
-        return null;
-    }
-
     private function strictest(): ToolDataClass
     {
         return array_reduce(ToolDataClass::cases(), ToolDataClass::strictest(...), ToolDataClass::PUBLIC_CONTENT);
@@ -311,11 +290,16 @@ final readonly class A2aDelegationTool implements DependencyToolInterface, Remot
         );
     }
 
+    /**
+     * A terminal task is the tool's result at once. An interrupted one is
+     * not: the run waits, and the poller turns a question into a pause for
+     * the run's initiator (spec 060 RQ1), the one place that does it.
+     */
     private function settled(A2aTask $task): bool
     {
         $state = $task->status->state;
 
-        return $state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted());
+        return $state instanceof A2aTaskState && $state->isTerminal();
     }
 
     /**

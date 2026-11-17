@@ -62,10 +62,13 @@ final readonly class A2aSendJournal
      * The intent for this owner and message id: a new committed row, or the
      * existing one when the same request was journalled before.
      *
+     * $continuesSendUid names the intent whose remote task this send answers
+     * (spec 060): such a send is not a delegation of its own.
+     *
      * @throws A2aIntentConflictException when the message id was used for another request
      * @throws A2aJournalException        when no owner is given or a transaction is open
      */
-    public function begin(int $ownerUid, int $agentUid, int $runUid, string $messageId, string $requestSha256): A2aSendBegin
+    public function begin(int $ownerUid, int $agentUid, int $runUid, string $messageId, string $requestSha256, int $continuesSendUid = 0): A2aSendBegin
     {
         if ($ownerUid < 1) {
             throw A2aJournalException::noOwner();
@@ -79,14 +82,15 @@ final readonly class A2aSendJournal
         $now = time();
         try {
             $connection->insert(self::TABLE, [
-                'owner_uid'      => $ownerUid,
-                'agent_uid'      => $agentUid,
-                'run_uid'        => $runUid,
-                'message_id'     => $messageId,
-                'request_sha256' => $requestSha256,
-                'state'          => A2aSendState::INTENDED->value,
-                'crdate'         => $now,
-                'tstamp'         => $now,
+                'owner_uid'          => $ownerUid,
+                'agent_uid'          => $agentUid,
+                'run_uid'            => $runUid,
+                'continues_send_uid' => max(0, $continuesSendUid),
+                'message_id'         => $messageId,
+                'request_sha256'     => $requestSha256,
+                'state'              => A2aSendState::INTENDED->value,
+                'crdate'             => $now,
+                'tstamp'             => $now,
             ]);
         } catch (UniqueConstraintViolationException) {
             $existing = $this->findByMessageId($ownerUid, $messageId);
@@ -228,7 +232,8 @@ final readonly class A2aSendJournal
      * How many sends one run made to one agent and how many bytes all of the
      * run's A2A calls moved (A2A-R7). Read from the journal, so the counts
      * survive every suspension and resume, and they count only what nr-llm
-     * itself sent.
+     * itself sent. An answer to a remote question continues a delegation and
+     * is not one (spec 060 RQ7); its bytes count.
      *
      * @return array{delegations: int, transferredBytes: int}
      */
@@ -240,7 +245,7 @@ final readonly class A2aSendJournal
 
         $connection = $this->connection();
         $row        = $connection->executeQuery(
-            'SELECT SUM(CASE WHEN agent_uid = ? THEN 1 ELSE 0 END) AS delegations, SUM(transferred_bytes) AS bytes FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE run_uid = ?',
+            'SELECT SUM(CASE WHEN agent_uid = ? AND continues_send_uid = 0 THEN 1 ELSE 0 END) AS delegations, SUM(transferred_bytes) AS bytes FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE run_uid = ?',
             [$agentUid, $runUid],
             [Connection::PARAM_INT, Connection::PARAM_INT],
         )->fetchAssociative();
@@ -280,6 +285,59 @@ final readonly class A2aSendJournal
         }
 
         return $this->first(['owner_uid' => $ownerUid, 'agent_uid' => $agentUid, 'remote_task_id' => $remoteTaskId]);
+    }
+
+    /**
+     * The delegations whose remote task last asked a question and whose run
+     * no longer waits for anybody (spec 060 RQ9): the run ended, whichever
+     * way, or is gone, and no CancelTask was sent yet. The remote task would
+     * otherwise stay open on the remote side.
+     *
+     * @return list<A2aSendIntent>
+     */
+    public function questionsOfEndedRuns(int $limit = 100): array
+    {
+        $connection = $this->connection();
+        $rows       = $connection->executeQuery(
+            'SELECT s.* FROM ' . $connection->quoteIdentifier(self::TABLE) . ' s LEFT JOIN tx_nrllm_agentrun r ON r.uid = s.run_uid'
+                . ' WHERE s.continues_send_uid = 0 AND s.run_uid > 0 AND s.state = ? AND s.last_remote_state = ? AND s.cancel_outcome = ?'
+                . ' AND (r.uid IS NULL OR r.status IN (?, ?, ?)) ORDER BY s.uid LIMIT ' . max(1, $limit),
+            [A2aSendState::ACCEPTED->value, 'TASK_STATE_INPUT_REQUIRED', '', 'completed', 'failed', 'cancelled'],
+        )->fetchAllAssociative();
+
+        return array_map(A2aSendIntent::fromRow(...), $rows);
+    }
+
+    /**
+     * The runs that may wait for their initiator's answer to a remote
+     * question (spec 060 RQ6), oldest delegation first, after the intent
+     * $afterUid: an accepted delegation whose run waits for input. The
+     * remote state the journal last recorded decides nothing here, since a
+     * stale poll can overwrite it; the poller keeps only runs whose own
+     * checkpoint names the intent, and checks their deadline. Paged, so old pauses of any kind
+     * cannot keep a question out of every tick.
+     *
+     * @return list<array{intentUid: int, runUuid: string}>
+     */
+    public function questionsAwaitingAnswer(int $limit = 100, int $afterUid = 0): array
+    {
+        $connection = $this->connection();
+        $rows       = $connection->executeQuery(
+            'SELECT s.uid, r.uuid FROM ' . $connection->quoteIdentifier(self::TABLE) . ' s INNER JOIN tx_nrllm_agentrun r ON r.uid = s.run_uid'
+                . ' WHERE s.uid > ? AND s.continues_send_uid = 0 AND s.state = ? AND s.cancel_outcome = ? AND r.status = ?'
+                . ' ORDER BY s.uid LIMIT ' . max(1, $limit),
+            [$afterUid, A2aSendState::ACCEPTED->value, '', 'waiting_for_input'],
+            [Connection::PARAM_INT],
+        )->fetchAllAssociative();
+
+        $questions = [];
+        foreach ($rows as $row) {
+            if (is_numeric($row['uid'] ?? null) && is_string($row['uuid'] ?? null)) {
+                $questions[] = ['intentUid' => (int) $row['uid'], 'runUuid' => $row['uuid']];
+            }
+        }
+
+        return $questions;
     }
 
     /**

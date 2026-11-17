@@ -52,6 +52,9 @@ use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolverInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
 use Netresearch\NrLlm\Service\Tool\AgentRunPersister;
+use Netresearch\NrLlm\Service\Tool\DependencyCheckpoint;
+use Netresearch\NrLlm\Service\Tool\DependencyResumingToolLoopInterface;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\InputSchema;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicyInterface;
@@ -151,6 +154,11 @@ final readonly class ResumeCoordinator
         // resumes. A null gives the fallback ceiling of
         // AgentRuntime::MAX_ITERATIONS.
         private ?AgentRoundLimitsInterface $roundLimits = null,
+        // Carries the initiator's answer to a remote question (spec 060,
+        // ADR-311). Absent, a run that waits for such an answer is refused
+        // before it is claimed: its pause is never resumed as an ordinary
+        // input, which would execute the delegation again.
+        private ?RemoteQuestionAnswererInterface $remoteQuestions = null,
     ) {}
 
     /**
@@ -479,9 +487,19 @@ final readonly class ResumeCoordinator
      */
     private function release(AgentRunHandle $handle, SuspendedRunState $state, string $runUuid, ?string $leaseOwner = null): ?AgentRunOutcome
     {
-        $restored = $state->isInputPause()
-            ? $this->persister->suspendForInput($handle, $state)
-            : $this->persister->suspend($handle, $state);
+        // A remote question keeps its binding (spec 060 RQ2): the pause is
+        // written back with the checkpoint the claimed row still holds.
+        // A row that cannot be read is not written back as an ordinary input
+        // pause: it may be a remote question, whose answer would then run the
+        // delegation again. It is failed below instead.
+        $claimed  = $state->isInputPause() ? $this->persister->findRun($handle->uuid) : null;
+        $question = $this->remoteQuestionOf($claimed);
+        $restored = match (true) {
+            $state->isInputPause() && !$claimed instanceof AgentRun => false,
+            $question instanceof DependencyCheckpoint               => $this->persister->suspendForRemoteQuestion($handle, $state, $question),
+            $state->isInputPause()                                  => $this->persister->suspendForInput($handle, $state),
+            default                                                 => $this->persister->suspend($handle, $state),
+        };
 
         if ($restored) {
             return null;
@@ -776,6 +794,9 @@ final readonly class ResumeCoordinator
             throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
 
+        $this->assertMayAnswerRemoteQuestion($actor, $run);
+        $this->assertRemoteAnswer($run, $submission);
+
         // approve()'s first process check (ADR-214 item 6): an answer to a
         // guided process comes from its initiator, in the chat.
         //
@@ -850,6 +871,26 @@ final readonly class ResumeCoordinator
         [$claimed, $handle, $state] = $this->claimedRunState($run);
         $initiatingActor            = $this->claimedActor($state, $claimed, $handle);
 
+        // A remote question is answered only as the checks above saw it
+        // (spec 060 RQ2, RQ3): the run may have been answered and asked
+        // again between them and the claim, even with the same question, and
+        // every new question carries a new checkpoint.
+        if ($this->remoteQuestionOf($run) instanceof DependencyCheckpoint || $this->remoteQuestionOf($claimed) instanceof DependencyCheckpoint) {
+            try {
+                $this->assertMayAnswerRemoteQuestion($actor, $claimed);
+            } catch (AgentRuntimeException $refused) {
+                $this->release($handle, $state, $runUuid);
+
+                throw $refused;
+            }
+
+            if (!hash_equals(hash('sha256', $run->suspendedState), hash('sha256', (string) $claimed->suspendedState))) {
+                $this->release($handle, $state, $runUuid);
+
+                throw StaleInputTurnException::forRun($runUuid);
+            }
+        }
+
         // Gate 1 — the submission must name THIS turn (ADR-150). hash_equals for
         // the same reason as approve(): the digest is not a secret, and what it
         // catches is staleness.
@@ -883,24 +924,7 @@ final readonly class ResumeCoordinator
 
         // Tools resume under the RUN OWNER's identity (ADR-083), not the
         // submitter — same rule as approve().
-        return $this->executor->executeResume(
-            $handle,
-            $onStep,
-            $initiatingActor,
-            fn (
-                ToolExecutionContext $context,
-                RunTrace $trace,
-            ): ToolLoopResult => $this->toolLoop->resumeWithInput(
-                $state,
-                $submission->data,
-                $configuration,
-                $context,
-                $this->roundCap($state),
-                $trace,
-                $submission->submittedByBeUser,
-            ),
-            $leaseOwner,
-        );
+        return $this->continueWithInput($handle, $onStep, $initiatingActor, $claimed, $state, $submission, $configuration, $leaseOwner);
     }
 
     /**
@@ -963,6 +987,9 @@ final readonly class ResumeCoordinator
         if (!$actor->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
             throw RunAccessDeniedException::forActor($actor, $runUuid);
         }
+
+        $this->assertMayAnswerRemoteQuestion($actor, $run);
+        $this->assertRemoteAnswer($run, $submission);
 
         $verdict    = $this->processVerdict($run);
         $processRun = $verdict ?? true;
@@ -1140,23 +1167,8 @@ final readonly class ResumeCoordinator
 
         if ($decision->isInput()) {
             $this->persister->recordInput($handle, $decision->decidedByBeUser);
-            $submission = $decision->inputSubmission();
 
-            return $this->executor->executeResume(
-                $handle,
-                $onStep,
-                $owner,
-                fn (ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resumeWithInput(
-                    $state,
-                    $submission->data,
-                    $configuration,
-                    $context,
-                    $this->roundCap($state),
-                    $trace,
-                    $submission->submittedByBeUser,
-                ),
-                $leaseOwner,
-            );
+            return $this->continueWithInput($handle, $onStep, $owner, $claimed, $state, $decision->inputSubmission(), $configuration, $leaseOwner);
         }
 
         $approval = $decision->approvalDecision();
@@ -1239,6 +1251,8 @@ final readonly class ResumeCoordinator
         if (!$decider->mayActOnRun($run, ServiceAccountScope::AGENT_APPROVE)) {
             throw RunAccessDeniedException::forActor($decider, $run->uuid);
         }
+
+        $this->assertMayAnswerRemoteQuestion($decider, $run);
 
         $verdict    = $this->processVerdict($run);
         $processRun = $verdict ?? true;
@@ -1452,6 +1466,118 @@ final readonly class ResumeCoordinator
 
         /** @var array<string, mixed> $decoded */
         return [$claimed, $handle, SuspendedRunState::fromArray($decoded)];
+    }
+
+    /**
+     * An input pause goes on in one of two ways, and only here. An ordinary
+     * one runs the input tool with the submission (ADR-105). One that waits
+     * for the initiator's answer to a remote question (spec 060) never runs
+     * the pending call again: the answer is sent to the bound remote task,
+     * and the call is answered with the task's result, or the run waits for
+     * the task again on the checkpoint the answer returns.
+     *
+     * @param (Closure(RunStep): void)|null $onStep
+     */
+    private function continueWithInput(AgentRunHandle $handle, ?Closure $onStep, AiActorContext $owner, AgentRun $claimed, SuspendedRunState $state, InputSubmission $submission, LlmConfiguration $configuration, string $leaseOwner): AgentRunResult
+    {
+        $question = $this->remoteQuestionOf($claimed);
+        if (!$question instanceof DependencyCheckpoint) {
+            return $this->executor->executeResume(
+                $handle,
+                $onStep,
+                $owner,
+                fn (ToolExecutionContext $context, RunTrace $trace): ToolLoopResult => $this->toolLoop->resumeWithInput(
+                    $state,
+                    $submission->data,
+                    $configuration,
+                    $context,
+                    $this->roundCap($state),
+                    $trace,
+                    $submission->submittedByBeUser,
+                ),
+                $leaseOwner,
+            );
+        }
+
+        $loop     = $this->toolLoop;
+        $answerer = $this->remoteQuestions;
+        if (!$loop instanceof DependencyResumingToolLoopInterface || !$answerer instanceof RemoteQuestionAnswererInterface) {
+            // assertMayAnswerRemoteQuestion() refused it before the claim.
+            throw new RuntimeException('A remote question cannot be answered without an answerer.', 1799431101);
+        }
+
+        // The pause it was is not the wait it becomes: no input fields.
+        $waiting = SuspendedRunState::fromArray(['inputToolName' => null, 'inputSchema' => []] + array_diff_key($state->toArray(), ['inputCallId' => true]));
+        $answer  = is_string($submission->data['answer'] ?? null) ? $submission->data['answer'] : '';
+        // The id names the question, never the claim: a repeated execution of
+        // the same answer gets the existing intent back instead of a second
+        // send; another text under that id is refused unsent.
+        $marker    = $state->inputSchema['x-nr-llm-question'] ?? '';
+        $messageId = Uuid::v5(Uuid::fromString(Uuid::NAMESPACE_OID), implode("\0", ['nr_llm.remote_answer', $claimed->uuid, (string) $question->journalUid, (string) $question->suspendedAt, (string) $question->deadline, is_string($marker) ? $marker : '']))->toRfc4122();
+        $roundCap  = $this->roundCap($state);
+
+        return $this->executor->executeResume(
+            $handle,
+            $onStep,
+            $owner,
+            static function (ToolExecutionContext $context, RunTrace $trace) use ($loop, $answerer, $question, $waiting, $answer, $messageId, $configuration, $roundCap, $handle): ToolLoopResult {
+                $outcome = $answerer->answer($question, $answer, $messageId, $handle->runUid);
+                if ($outcome instanceof DependencyCheckpoint) {
+                    throw new ToolDependencyRequiredException($waiting, $outcome);
+                }
+
+                return $loop->resumeWithDependency($waiting, $question, $outcome, $configuration, $context, $roundCap, $trace);
+            },
+            $leaseOwner,
+        );
+    }
+
+    /**
+     * A remote question is answered by the run's initiator only (spec 060
+     * RQ3): not an administrator, not a holder of the approval grant, not a
+     * service account. And only where an answerer is wired; otherwise it is
+     * refused before anything is claimed.
+     */
+    private function assertMayAnswerRemoteQuestion(AiActorContext $actor, AgentRun $run): void
+    {
+        if (!$this->remoteQuestionOf($run) instanceof DependencyCheckpoint) {
+            return;
+        }
+
+        if (!$actor->isInitiatorOf($run)) {
+            throw RunAccessDeniedException::forActor($actor, $run->uuid);
+        }
+
+        if (!$this->remoteQuestions instanceof RemoteQuestionAnswererInterface || !$this->toolLoop instanceof DependencyResumingToolLoopInterface) {
+            throw RunStateUnavailableException::forRun($run->uuid);
+        }
+    }
+
+    /**
+     * The answer to a remote question is one text with something in it, at
+     * most {@see DependencyResumeCoordinator::MAX_ANSWER} characters. The
+     * input path validates types and required fields only, so the limits of
+     * the answer's schema are checked here, before anything is claimed.
+     */
+    private function assertRemoteAnswer(AgentRun $run, InputSubmission $submission): void
+    {
+        if (!$this->remoteQuestionOf($run) instanceof DependencyCheckpoint) {
+            return;
+        }
+
+        $answer = $submission->data['answer'] ?? null;
+        if (!is_string($answer) || preg_match('/[^\\s\\p{Z}\\p{Cc}\\p{Cf}]/u', $answer) !== 1 || mb_strlen($answer) > DependencyResumeCoordinator::MAX_ANSWER) {
+            throw InvalidInputSubmissionException::forRun($run->uuid);
+        }
+    }
+
+    /**
+     * The checkpoint of the remote operation an input pause answers, read
+     * from the run's sealed state; null for every other pause.
+     */
+    private function remoteQuestionOf(?AgentRun $run): ?DependencyCheckpoint
+    {
+        return $run instanceof AgentRun ? DependencyResumeCoordinator::checkpointOf($run) : null;
     }
 
     /**

@@ -16,6 +16,8 @@ ADR-281: A run waits durably for a dependency or a decision
     also be stored and continued by the worker); :ref:`ADR-135 <adr-135>` and
     :ref:`ADR-237 <adr-237>` (a write the worker carries out after a stored
     approval gets the backend environment around that call)
+:Amended: 2026-11-16 by :ref:`ADR-311 <adr-311>` (a remote question waits for
+    the run's initiator instead of reaching the model)
 :Authors: Netresearch DTT GmbH
 
 Context

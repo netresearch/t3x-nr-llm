@@ -765,6 +765,35 @@ final readonly class AgentRunPersister
     }
 
     /**
+     * Suspend a run for its initiator's answer to the question of a remote
+     * operation it waits for (spec 060, ADR-311): an input pause whose sealed
+     * state keeps the dependency checkpoint beside it, so the answer goes to
+     * exactly that operation. Fail-closed like the other suspensions.
+     */
+    public function suspendForRemoteQuestion(AgentRunHandle $handle, SuspendedRunState $state, DependencyCheckpoint $checkpoint): bool
+    {
+        try {
+            $stateJson = json_encode(
+                $state->toArray() + [DependencyCheckpoint::STORAGE_KEY => $checkpoint->toArray()],
+                JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+            );
+
+            return $this->transitioned($handle->runUid, fn (): bool => $this->repository->suspendRunForInput($handle->runUid, $stateJson, $handle->claimGeneration));
+        } catch (Throwable $exception) {
+            $this->recordDiagnostic(
+                function () use ($exception): void {
+                    $this->logger?->warning(
+                        'AgentRun could not be suspended for a remote question',
+                        ['exception' => $exception],
+                    );
+                },
+            );
+
+            return false;
+        }
+    }
+
+    /**
      * Suspend a run for an external dependency (ADR-281, spec 051 A2A-R3): the
      * dependency sibling of {@see self::suspendForInput()}. The checkpoint is
      * stored beside the state, in the same sealed column. Fail-closed like the

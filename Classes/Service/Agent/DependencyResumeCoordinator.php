@@ -52,6 +52,9 @@ use Psr\Log\LoggerInterface;
  */
 final readonly class DependencyResumeCoordinator
 {
+    /** The longest answer to a remote question (spec 060 RQ1). */
+    public const MAX_ANSWER = 4000;
+
     public function __construct(
         private AgentRunPersister $persister,
         private LlmConfigurationRepository $configurations,
@@ -97,8 +100,188 @@ final readonly class DependencyResumeCoordinator
             return null;
         }
 
+        return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner);
+    }
+
+    /**
+     * A run that waits for its initiator's answer to a remote question
+     * (spec 060) and whose dependency's deadline passed: resumed like
+     * {@see self::resume()} with $result, from its input pause.
+     *
+     * @param (Closure(): void)|null $onClaimed
+     */
+    public function expireQuestion(AgentRun $run, DependencyCheckpoint $expected, ToolResult $result, ?Closure $onClaimed = null): ?AgentRunResult
+    {
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
+        $leaseOwner = ExecutionIdentity::resume();
+        if (!$this->persister->claimResumeFromInput($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+            return null;
+        }
+
+        // The deadline was read for this pause: a question answered and
+        // asked again since then keeps waiting, unchanged. A read that fails
+        // compares nothing, so nothing is expired on it: the claim goes back
+        // as after any failed read (resumeClaimed()), and a later tick looks
+        // again.
+        $claimed = $this->persister->findRun($run->uuid);
+        if (!$claimed instanceof AgentRun) {
+            if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                $this->fail(new AgentRunHandle($run->uid, $run->uuid), 'The event-stream position could not be determined after the dependency claim', $leaseOwner);
+            }
+
+            return null;
+        }
+
+        if (!$this->samePause($run, $claimed)) {
+            $handle   = $this->persister->resumeHandle($claimed);
+            $state    = $this->decode($claimed)[0] ?? null;
+            $question = self::checkpointOf($claimed);
+            if (!$handle instanceof AgentRunHandle || !$state instanceof SuspendedRunState || !$question instanceof DependencyCheckpoint
+                || !$this->persister->suspendForRemoteQuestion($handle, $state, $question)) {
+                $this->fail($handle ?? new AgentRunHandle($run->uid, $run->uuid), 'The replaced question could not be put back', $leaseOwner);
+            }
+
+            return null;
+        }
+
+        return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner, $claimed);
+    }
+
+    /**
+     * A run that waits for its initiator's answer to a remote question
+     * (spec 060), with its checkpoint; null for any other run.
+     *
+     * @return array{AgentRun, DependencyCheckpoint}|null
+     */
+    public function questionRun(string $runUuid): ?array
+    {
+        $run        = $this->persister->findRun($runUuid);
+        $checkpoint = $run instanceof AgentRun && $run->statusEnum() === AgentRunStatus::WAITING_FOR_INPUT ? self::checkpointOf($run) : null;
+
+        return $run instanceof AgentRun && $checkpoint instanceof DependencyCheckpoint ? [$run, $checkpoint] : null;
+    }
+
+    /**
+     * Turn the run's wait for the remote operation into a wait for its
+     * initiator's answer (spec 060 RQ1): claimed like a resume, the
+     * checkpoint read again and checked, then suspended for input with the
+     * pending call as the input target, the question as the title of its one
+     * field, and the checkpoint kept beside it. No model call and no tool
+     * runs. $endpoint binds the answer to where the question came from. False
+     * when another worker or a cancel won the run, or it was failed because
+     * it could not be paused.
+     *
+     * @param (Closure(): void)|null $onClaimed
+     */
+    public function askInitiator(AgentRun $run, DependencyCheckpoint $expected, string $question, ?Closure $onClaimed = null, string $endpoint = ''): bool
+    {
+        // Literal lease-identity factory; it only builds a bounded process-identity string.
+        // nosemgrep: php.lang.security.exec-use.exec-use
+        $leaseOwner = ExecutionIdentity::resume();
+        if (!$this->persister->claimResumeFromDependency($run, $leaseOwner, time() + AgentRuntime::LEASE_SECONDS)) {
+            return false;
+        }
+
         $claimed = $this->persister->findRun($run->uuid);
         $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
+            if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                $this->fail(new AgentRunHandle($run->uid, $run->uuid), 'The event-stream position could not be determined after the dependency claim', $leaseOwner);
+            }
+
+            return false;
+        }
+
+        // The question was read for this wait: a wait that was answered and
+        // began again since then goes back, unasked.
+        if (!$this->samePause($run, $claimed)) {
+            if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                $this->fail($handle, 'The dependency claim could not be given back', $leaseOwner);
+            }
+
+            return false;
+        }
+
+        [$state, $checkpoint] = $this->decode($claimed) ?? [null, null];
+        if (!$state instanceof SuspendedRunState || !$checkpoint instanceof DependencyCheckpoint
+            || $checkpoint->journalUid !== $expected->journalUid || $checkpoint->toolCallId !== $expected->toolCallId
+            || !$this->owner($state, $claimed) instanceof AiActorContext) {
+            $this->fail($handle, 'The dependency checkpoint could not be read after the claim', $leaseOwner);
+
+            return false;
+        }
+
+        if ($onClaimed instanceof Closure) {
+            $onClaimed();
+        }
+
+        $paused = SuspendedRunState::fromArray([
+            'inputToolName' => $checkpoint->toolName,
+            'inputCallId'   => $checkpoint->toolCallId,
+            // A new marker for every question, even one asked twice.
+            'inputSchema' => self::answerSchema($question, bin2hex(random_bytes(16))),
+        ] + $state->toArray());
+        if ($this->persister->suspendForRemoteQuestion($handle, $paused, $checkpoint->withEndpoint($endpoint))) {
+            return true;
+        }
+
+        $this->fail($handle, 'The run could not wait for the answer to the remote question', $leaseOwner);
+
+        return false;
+    }
+
+    /**
+     * The input a remote question asks of the initiator: one text that is
+     * not only whitespace, the question as its title, and a marker of which
+     * question it is.
+     *
+     * @return array<string, mixed>
+     */
+    public static function answerSchema(string $question, string $marker = ''): array
+    {
+        return [
+            'type'       => 'object',
+            'required'   => ['answer'],
+            'properties' => [
+                'answer' => ['type' => 'string', 'title' => $question, 'minLength' => 1, 'maxLength' => self::MAX_ANSWER, 'pattern' => '\\S'],
+            ],
+            // Which question this is: the turn digest covers the schema, so
+            // an answer given for an earlier question with the same wording
+            // does not match a later one.
+            'x-nr-llm-question' => $marker,
+        ];
+    }
+
+    /**
+     * Whether the claimed row still holds the sealed pause the caller read:
+     * every write seals the state anew, so any pause written since differs.
+     */
+    private function samePause(AgentRun $read, AgentRun $claimed): bool
+    {
+        return hash_equals(hash('sha256', (string) $read->suspendedState), hash('sha256', (string) $claimed->suspendedState));
+    }
+
+    /**
+     * The checkpoint a run's sealed state carries, whatever it waits for.
+     */
+    public static function checkpointOf(AgentRun $run): ?DependencyCheckpoint
+    {
+        $decoded = json_decode($run->suspendedState ?? '', true);
+
+        return is_array($decoded) ? DependencyCheckpoint::fromStoredState($decoded) : null;
+    }
+
+    /**
+     * @param (Closure(): void)|null $onClaimed
+     * @param AgentRun|null          $claimed   the claimed row the caller already read and compared
+     */
+    private function resumeClaimed(AgentRun $run, DependencyCheckpoint $expected, ToolResult $result, ?Closure $onClaimed, string $leaseOwner, ?AgentRun $claimed = null): ?AgentRunResult
+    {
+        // The row the caller already compared, when it read one: a second
+        // read could see a pause it never compared.
+        $claimed ??= $this->persister->findRun($run->uuid);
+        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             // A read that failed for now says nothing about the checkpoint:
             // the claim goes back and a later tick tries again. Only when it

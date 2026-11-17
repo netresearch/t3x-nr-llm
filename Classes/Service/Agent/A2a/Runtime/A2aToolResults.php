@@ -66,14 +66,32 @@ final class A2aToolResults
         return self::error($head . ($status !== '' ? "\nThe remote agent said:\n" . $status : ''));
     }
 
-    public static function timedOut(string $agent, string $remoteTaskId, int $waitedSeconds): ToolResult
+    /**
+     * $authRequested: the remote's last state was AUTH_REQUIRED, which this
+     * installation never answers (spec 060 RQ8).
+     */
+    public static function timedOut(string $agent, string $remoteTaskId, int $waitedSeconds, bool $authRequested = false): ToolResult
     {
         return ToolResult::error(sprintf(
-            'Error: %s task %s did not finish within %d seconds. Its cancellation was requested; there is no result.',
+            'Error: %s task %s did not finish within %d seconds.%s Its cancellation was requested; there is no result.',
             self::origin($agent),
             $remoteTaskId,
             $waitedSeconds,
+            $authRequested ? ' It asked for authentication, which this installation does not give.' : '',
         ));
+    }
+
+    /**
+     * The question a remote task asks, as the initiator of the run reads it
+     * (spec 060 RQ1): marked as the remote agent's, secret shapes masked,
+     * bounded. It names no remote task id.
+     */
+    public static function question(string $agent, A2aTask $task): string
+    {
+        $text = trim($task->status->message?->text() ?? '');
+        $text = $text === '' ? 'It gave no question; answer what it needs to go on.' : mb_substr($text, 0, 2000);
+
+        return self::maskSecretShapes(sprintf('%s asks: %s', self::origin($agent), $text));
     }
 
     public static function refused(string $agent, A2aSendIntent $intent): ToolResult
@@ -97,6 +115,19 @@ final class A2aToolResults
             self::origin($agent),
             $intent->errorReason,
             $intent->messageId,
+        ));
+    }
+
+    /**
+     * The question was already answered with another text under the same
+     * message id: that answer may have reached the remote, this one is not
+     * sent (spec 060 RQ4).
+     */
+    public static function alreadyAnswered(string $agent): ToolResult
+    {
+        return self::error(sprintf(
+            'Error: outcome unknown. The question of %s was already answered with another text, which may have arrived; this answer is not sent.',
+            self::origin($agent),
         ));
     }
 

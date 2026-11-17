@@ -29,6 +29,9 @@ final class A2aPollReport
 
     public int $failed = 0;
 
+    /** Runs paused for their initiator's answer to a remote question (spec 060). */
+    public int $asked = 0;
+
     /** A2A task events the projector caught up on (A2A-R15). */
     public int $projected = 0;
 

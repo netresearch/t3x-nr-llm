@@ -1649,6 +1649,9 @@ CREATE TABLE tx_nrllm_a2a_send (
     agent_uid int(11) unsigned DEFAULT '0' NOT NULL,
     -- The agent run the send belongs to; 0 when there is none.
     run_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    -- The intent whose remote task this send continues with an answer to the
+    -- remote's question (spec 060, ADR-311); 0 for the first send of a task.
+    continues_send_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
     message_id varchar(64) DEFAULT '' NOT NULL,
     request_sha256 char(64) DEFAULT '' NOT NULL,

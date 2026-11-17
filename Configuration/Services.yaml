@@ -212,6 +212,11 @@ services:
   Netresearch\NrLlm\Service\Agent\DependencyCancellerInterface:
     alias: Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aDependencyCanceller
 
+  # Spec 060, ADR-311: the initiator's answer to a remote agent's question
+  # goes to the bound remote task through the A2A client.
+  Netresearch\NrLlm\Service\Agent\RemoteQuestionAnswererInterface:
+    alias: Netresearch\NrLlm\Service\Agent\A2a\Runtime\A2aRemoteAnswerer
+
   # A2A server role (spec 051 stage 3): the artifacts of a completed task come
   # from its profile's domain handler; failed authentications are counted in
   # TYPO3's rate-limiter cache.

@@ -114,6 +114,26 @@ final readonly class A2aDependencyPoller
             }
         } while (count($page) === $limit);
 
+        // Runs that wait for their initiator's answer to a remote question
+        // keep the delegation's deadline (spec 060 RQ6).
+        $afterIntent = 0;
+        do {
+            $questions = $this->journal->questionsAwaitingAnswer($limit, $afterIntent);
+            foreach ($questions as $question) {
+                $afterIntent        = $question['intentUid'];
+                [$run, $checkpoint] = $this->resumes->questionRun($question['runUuid']) ?? [null, null];
+                if ($run instanceof AgentRun && $checkpoint instanceof DependencyCheckpoint && $checkpoint->journalUid === $question['intentUid'] && $now >= $checkpoint->deadline) {
+                    $this->expire($run, $checkpoint, $report);
+                }
+            }
+        } while (count($questions) === $limit);
+
+        // A remote task whose question nobody answers any more, because its
+        // run ended another way, is cancelled once (spec 060 RQ9).
+        foreach ($this->journal->questionsOfEndedRuns($limit) as $orphaned) {
+            $this->canceller->cancelRemote($orphaned);
+        }
+
         // Push registrations of runs that no longer run or wait, those this
         // tick resumed included, close here (A2A-PUSH8).
         $this->pushInbox?->closeEnded();
@@ -164,7 +184,7 @@ final readonly class A2aDependencyPoller
         $title = $agent instanceof A2aRemoteAgent ? $agent->getTitle() : sprintf('#%d', $checkpoint->agentUid);
 
         if ($now >= $checkpoint->deadline) {
-            $result = $this->resume($run, $checkpoint, A2aToolResults::timedOut($title, $checkpoint->remoteTaskId, $checkpoint->deadline - $checkpoint->suspendedAt), function () use ($intent): void {
+            $result = $this->resume($run, $checkpoint, A2aToolResults::timedOut($title, $checkpoint->remoteTaskId, $checkpoint->deadline - $checkpoint->suspendedAt, $intent->lastRemoteState === A2aTaskState::AUTH_REQUIRED->value), function () use ($intent): void {
                 $this->canceller->cancelRemote($intent);
             });
             $report->timedOut += $result instanceof AgentRunResult ? 1 : 0;
@@ -194,11 +214,26 @@ final readonly class A2aDependencyPoller
         }
 
         $state = $task?->status->state;
-        if ($task instanceof A2aTask && $state instanceof A2aTaskState && ($state->isTerminal() || $state->isInterrupted())) {
+        if ($task instanceof A2aTask && $state instanceof A2aTaskState && $state->isTerminal()) {
             $report->resumed += $this->resume($run, $checkpoint, A2aToolResults::task($title, $task)) instanceof AgentRunResult ? 1 : 0;
 
             return;
         }
+
+        if ($task instanceof A2aTask && $state === A2aTaskState::INPUT_REQUIRED) {
+            // The question goes to the run's initiator, never to the model
+            // and never answered from here (spec 060 RQ1, RQ3).
+            $asked = $this->resumes->askInitiator($run, $checkpoint, A2aToolResults::question($title, $task), function () use ($checkpoint): void {
+                $this->closePush($checkpoint->journalUid);
+            }, $agent instanceof A2aRemoteAgent ? A2aRemoteAgentCard::endpointOf($agent) : '');
+            $report->asked += $asked ? 1 : 0;
+
+            return;
+        }
+
+        // Anything else, AUTH_REQUIRED included, is waited out: this
+        // installation sends nothing in reply to a request for
+        // authentication (spec 060 RQ8).
 
         $interval = $this->nextInterval($agent, $intent->pollInterval);
         $this->journal->schedulePoll($intent, min($checkpoint->deadline, $now + $interval + ($this->jitter)($interval)), $interval);
@@ -270,6 +305,34 @@ final readonly class A2aDependencyPoller
         } finally {
             $this->resetRunScopedState();
         }
+    }
+
+    /**
+     * A question nobody answered before the delegation's deadline: the run
+     * goes on with the timeout result, and the remote task is cancelled once
+     * by the process that won the run.
+     */
+    private function expire(AgentRun $run, DependencyCheckpoint $checkpoint, A2aPollReport $report): void
+    {
+        $intent = $this->journal->findForRun($run->uid, $checkpoint->journalUid);
+        if (!$intent instanceof A2aSendIntent || $intent->ownerUid !== $checkpoint->ownerUid) {
+            return;
+        }
+
+        $agent  = $this->agents->findByUid($checkpoint->agentUid);
+        $title  = $agent instanceof A2aRemoteAgent ? $agent->getTitle() : sprintf('#%d', $checkpoint->agentUid);
+        $result = A2aToolResults::timedOut($title, $checkpoint->remoteTaskId, $checkpoint->deadline - $checkpoint->suspendedAt);
+
+        $this->resetRunScopedState();
+        try {
+            $resumed = $this->vaultScope->call(fn (): ?AgentRunResult => $this->resumes->expireQuestion($run, $checkpoint, $result, function () use ($intent): void {
+                $this->canceller->cancelRemote($intent);
+            }));
+        } finally {
+            $this->resetRunScopedState();
+        }
+
+        $report->timedOut += $resumed instanceof AgentRunResult ? 1 : 0;
     }
 
     private function resetRunScopedState(): void
