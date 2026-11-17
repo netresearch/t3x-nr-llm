@@ -104,7 +104,7 @@
       <div class="site-footer__meta">
         <span>{{ brand.footer.copyright }} · Netresearch DTT GmbH</span>
         <a href="{{ contact_url('footer', lang) }}" data-cta="business" data-cta-position="footer">{{ 'Kontakt' if lang == 'de' else 'Contact' }}</a>
-        <span>{{ 'Seite zuletzt geprüft' if lang == 'de' else 'Page last reviewed' }}: <time datetime="{{ project.last_verified }}">{{ project.last_verified }}</time></span>
+        <span>{{ 'Seite zuletzt geprüft' if lang == 'de' else 'Page last reviewed' }}: {%- set reviewed = page_reviewed|default(project.last_verified) %}<time datetime="{{ reviewed }}">{{ reviewed }}</time></span>
         <span>nr-llm · GPL-2.0-or-later</span>
       </div>
     </div>

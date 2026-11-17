@@ -940,6 +940,9 @@ def main():
         rdir.mkdir(parents=True, exist_ok=True)
         (rdir / INDEX_HTML).write_text(env.get_template("readiness.html.j2").render(
             lang=lang, s=STRINGS[lang], r=rd, brand=brand,
+            # The page states its own review date; project.last_verified is the
+            # landing copy's review and must not move with this page.
+            page_reviewed=rd["asOf"],
             canonical=SITE_URL + url(page_path), meta=rd["meta"],
             alternates=[
                 {"lang": "en", "href": SITE_URL + url(f"en/{READINESS_DIR}/")},
