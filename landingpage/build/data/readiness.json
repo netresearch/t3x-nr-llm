@@ -291,7 +291,7 @@
     "heading": "Where the edges are today",
     "intro": "This page does not count merged but unreleased work as available.",
     "items": [
-      "The chain from the backend chat to a remote agent and back needs nr-llm 0.50.0 and nr-mcp-agent 0.39.0 or later. With an older nr-mcp-agent installed, nr-llm offers agent runs no delegation tools. With both releases, the chat shows a step that waits for a remote agent, and nr-llm keeps the final answer of that step after the run resumes.",
+      "The chain from the backend chat to a remote agent and back needs nr-llm 0.50.0 and nr-mcp-agent 0.39.0 or later. With an older nr-mcp-agent installed, nr-llm offers agent runs no delegation tools. With both releases, the chat shows a step that waits for a remote agent, and nr-llm keeps the final answer of that step after the run resumes, as far as the privacy level allows: at the level none it keeps nothing, at redacted only the redacted text.",
       "The A2A client exchanges text only. The A2A server accepts and returns files only when files are enabled.",
       "nr-browser-ai is a proof of concept. Its form tools fill a form and query its data source. They never submit the form.",
       "nr-mcp-agent is published as a proof of concept. nr-repurpose and nr-http-guard are alpha releases.",
