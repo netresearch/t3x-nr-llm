@@ -14,7 +14,8 @@ measured on the model that answered.
   identifier, on the response's metadata. An evaluation stores them (skill,
   source, digest, role) when every prompt's request carried the same
   versions, plus the configuration identifier and the grading protocol
-  version. Otherwise it stores no version.
+  version. Otherwise, and when its gradings do not share one yardstick or
+  none of its decisions could be made, it stores no version.
 - **TE2 Fixed at execution time.** After the answer step of the model call
   that first carried a version, the run records a `skill_evidence` step: per
   version, the evaluations stored at that moment that measured exactly its
@@ -60,7 +61,7 @@ measured on the model that answered.
 
 | Requirement | Evidence |
 | --- | --- |
-| TE1 | `SkillConfigInjectionTest::chatNamesTheSkillVersionsItsRequestCarried`, `EvaluationServiceTest::anEvaluationNamesTheSkillVersionsEveryPromptCarried`, `anEvaluationWhosePromptsDisagreeNamesNoSkillVersion`, functional `SkillEvidenceRepositoryTest` |
+| TE1 | functional `SkillEvidenceRepositoryTest::anEvaluationWithoutOneYardstickIsNoEvidence`, `SkillConfigInjectionTest::chatNamesTheSkillVersionsItsRequestCarried`, `EvaluationServiceTest::anEvaluationNamesTheSkillVersionsEveryPromptCarried`, `anEvaluationWhosePromptsDisagreeNamesNoSkillVersion`, functional `SkillEvidenceRepositoryTest` |
 | TE2, TE3 | `ToolLoopServiceSkillUsageTest::aRunWithoutToolsRecordsTheEvidenceAfterItsOnlyAnswer`, `ToolLoopServiceSkillUsageTest::theEvidenceOfAVersionIsRecordedAfterTheAnswerAndJudgedAgainstItsModel`, functional `SkillEvidenceRepositoryTest::anEvaluationIsFoundForTheVersionItMeasuredWithWhatItTested`, `theNewestEvaluationsComeFirstAndAtMostThree` |
 | TE4 | `ToolLoopServiceSkillUsageTest::evidenceFromAnotherModelIsMarkedAsSuchAfterAFallback`, `SkillEvidenceTest::evidenceIsJudgedAgainstTheModelThatAnswered` |
 | TE6 | `RunTimelineFactoryTest::aSkillEvidenceStepShowsTheRecordedEvaluationAndWhetherItIsStillStored`, functional `SkillEvidenceRepositoryTest::retentionPurgesTheEvaluationAndTheVersionsItMeasured`, `RetentionCoverageTest` |

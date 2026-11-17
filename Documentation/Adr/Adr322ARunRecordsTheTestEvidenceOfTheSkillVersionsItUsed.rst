@@ -44,8 +44,10 @@ Decision
    (:php:`ComposedSkillVersions`), after the call and outside the provider
    pipeline. The evaluation stores them when every prompt's request carried
    the same versions; otherwise it names none and stands as evidence for none.
-   It also stores the configuration identifier and the version of its grading
-   protocol (``tx_nrllm_eval_skill_version``, two columns of
+   So does an evaluation whose gradings do not share one yardstick, or none of
+   whose decisions could be made: it is stored, but measured nothing a run
+   could rely on. It also stores the configuration identifier and the version
+   of its grading protocol (``tx_nrllm_eval_skill_version``, two columns of
    ``tx_nrllm_eval_result``). Identities and digests only.
 2. **A run records the evidence that applied, when it applied.** After the
    answer of the model call that first carried a version, the loop records a

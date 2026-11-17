@@ -303,8 +303,9 @@ An evaluation also stores which skill versions it measured (:ref:`ADR-322
 <adr-322>`): the versions the default configuration composed into every
 prompt's request, by skill uid, source, digest and role, with the
 configuration's identifier and the version of the grading protocol. When the
-prompts of one evaluation did not all carry the same versions, it names none
-and stands as evidence for none. Nothing of a skill's text is stored.
+prompts of one evaluation did not all carry the same versions, or its gradings
+do not share one yardstick (a decision failed), it names none and stands as
+evidence for none. Nothing of a skill's text is stored.
 
 When an agent run's model call first carries a skill version, the run records
 the evaluations stored at that moment that measured exactly that digest, newest

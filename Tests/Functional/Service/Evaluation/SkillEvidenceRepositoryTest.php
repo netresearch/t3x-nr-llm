@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\Evaluation\EvaluationResultRepository;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Evaluation\GradingResult;
 use Netresearch\NrLlm\Service\Evaluation\PromptEvaluation;
 use Netresearch\NrLlm\Service\Evaluation\SetEvaluationResult;
@@ -97,6 +98,21 @@ final class SkillEvidenceRepositoryTest extends AbstractFunctionalTestCase
         self::assertSame([], $this->evidence->evidenceFor(3, self::DIGEST));
     }
 
+    /**
+     * An evaluation whose decisions could not be made, or whose gradings do
+     * not share one yardstick, is stored but measured nothing: it is
+     * evidence for no version, never a measured 0 % pass rate.
+     */
+    #[Test]
+    public function anEvaluationWithoutOneYardstickIsNoEvidence(): void
+    {
+        $use = new SkillUse(3, 1, self::DIGEST, 'house-rules', SkillRole::INSTRUCTION);
+        $this->results->save($this->evaluation(1_700_000_000, [$use], DecisionGrader::FAILED_SERIES, DecisionGrader::FAILED_SERIES));
+        $this->results->save($this->evaluation(1_700_000_001, [$use], 'decision', DecisionGrader::FAILED_SERIES));
+
+        self::assertSame([], $this->evidence->evidenceFor(3, self::DIGEST));
+    }
+
     #[Test]
     public function theNewestEvaluationsComeFirstAndAtMostThree(): void
     {
@@ -140,7 +156,7 @@ final class SkillEvidenceRepositoryTest extends AbstractFunctionalTestCase
     /**
      * @param list<SkillUse> $tested
      */
-    private function evaluation(int $date, array $tested): SetEvaluationResult
+    private function evaluation(int $date, array $tested, string $grader = 'deterministic', string $promptGrader = 'deterministic'): SetEvaluationResult
     {
         $generator = GeneratorProvenance::fromArray(['version' => 1, 'providerIdentifier' => 'openai-main', 'modelId' => 'gpt-5', 'reportedModelId' => 'gpt-5-2025-08-07']);
         self::assertInstanceOf(GeneratorProvenance::class, $generator);
@@ -148,8 +164,8 @@ final class SkillEvidenceRepositoryTest extends AbstractFunctionalTestCase
         return new SetEvaluationResult(
             'nr_llm.smoke',
             'gpt-5',
-            'deterministic',
-            [new PromptEvaluation('p1', new GradingResult(true, 1.0, 'deterministic'), 3, $generator, 'openai')],
+            $grader,
+            [new PromptEvaluation('p1', new GradingResult(true, 1.0, $promptGrader), 3, $generator, 'openai')],
             $date,
             generatorProvenance: $generator,
             completionBenchmarkFingerprint: self::BENCHMARK,

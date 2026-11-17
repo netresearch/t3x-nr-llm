@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -90,11 +91,13 @@ final readonly class EvaluationResultRepository implements BenchmarkEvaluationRe
     /**
      * One row per skill version the evaluation measured (ADR-322), so a run
      * finds the evaluations that covered a version by skill and digest.
-     * Identity and digest only.
+     * Identity and digest only. An evaluation whose gradings do not share
+     * one yardstick, or none of whose decisions could be made, measured
+     * nothing a run could rely on: it is evidence for no version.
      */
     private function saveTestedSkills(int $evaluationUid, SetEvaluationResult $result, int $now): void
     {
-        if ($evaluationUid <= 0 || $result->testedSkills === []) {
+        if ($evaluationUid <= 0 || $result->testedSkills === [] || !$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
             return;
         }
 

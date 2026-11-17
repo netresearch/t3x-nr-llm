@@ -732,7 +732,7 @@ class ToolPlayground {
                 return `#${e.skill} @${digest}: none`;
             }
             return `#${e.skill} @${digest}: ` + items
-                .map((i) => `eval #${i.evaluation} ${i.set} ${i.reportedModel || i.model} pass=${Number(i.passRate).toFixed(2)} fit=${i.fit}`)
+                .map((i) => `eval#${i.evaluation} ${i.set} ${i.reportedModel || i.model} pass=${Number(i.passRate).toFixed(2)} fit=${i.fit}`)
                 .join(' | ');
         });
     }
