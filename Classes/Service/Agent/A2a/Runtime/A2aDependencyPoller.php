@@ -122,7 +122,7 @@ final readonly class A2aDependencyPoller
             foreach ($questions as $question) {
                 $afterIntent        = $question['intentUid'];
                 [$run, $checkpoint] = $this->resumes->questionRun($question['runUuid']) ?? [null, null];
-                if ($run instanceof AgentRun && $checkpoint instanceof DependencyCheckpoint && $now >= $checkpoint->deadline) {
+                if ($run instanceof AgentRun && $checkpoint instanceof DependencyCheckpoint && $checkpoint->journalUid === $question['intentUid'] && $now >= $checkpoint->deadline) {
                     $this->expire($run, $checkpoint, $report);
                 }
             }

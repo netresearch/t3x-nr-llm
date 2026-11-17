@@ -129,7 +129,7 @@ mutation of the behaviour it covers.
 | RQ4a | `anAnswerIsNotSentToAnEndpointOtherThanTheOneThatAsked` |
 | RQ4 (repeated execution of a stored answer) | `aReplayOfAStoredAnswerDoesNotSendItTwice` |
 | RQ5 | `anAnswerAboutAnotherTaskIsNotFollowed`, `aMessageReplyAboutAnotherTaskIsNotFollowed` |
-| RQ1, RQ6 (stale reads) | `aStaleQuestionIsNotAskedAgainAfterItWasAnswered`, `aDeadlineDoesNotExpireTheQuestionThatReplacedIt`, `aFailedReadAfterTheDeadlineClaimDoesNotExpireTheReplacement`, `anAcceptedAnswerWhoseTaskCannotBeReadKeepsTheWait` |
+| RQ1, RQ6 (stale reads) | `aStaleQuestionIsNotAskedAgainAfterItWasAnswered`, `aDeadlineDoesNotExpireTheQuestionThatReplacedIt`, `aFailedReadAfterTheDeadlineClaimDoesNotExpireTheReplacement`, `aStaleRemoteStateDoesNotTakeAQuestionOffItsDeadline`, `anAcceptedAnswerWhoseTaskCannotBeReadKeepsTheWait` |
 | RQ6 | `anUnansweredQuestionTimesOutAtTheDeadline`, `aQuestionBehindOlderPausesStillTimesOut` |
 | RQ1, RQ2 (old form, blank answer, failed release) | `anOldFormDoesNotAnswerARepeatedQuestionAndBlankAnswersAreRefused`, `aReleaseThatCannotReadTheRunFailsClosed` |
 | RQ7 | `anAnswerIsNotADelegation` |

@@ -309,9 +309,12 @@ final readonly class A2aSendJournal
     }
 
     /**
-     * The runs that wait for their initiator's answer to a remote question
-     * (spec 060 RQ6), oldest delegation first, after the intent $afterUid:
-     * the poller checks their deadline. Paged, so old pauses of any kind
+     * The runs that may wait for their initiator's answer to a remote
+     * question (spec 060 RQ6), oldest delegation first, after the intent
+     * $afterUid: an accepted delegation whose run waits for input. The
+     * remote state the journal last recorded decides nothing here, since a
+     * stale poll can overwrite it; the poller keeps only runs whose own
+     * checkpoint names the intent, and checks their deadline. Paged, so old pauses of any kind
      * cannot keep a question out of every tick.
      *
      * @return list<array{intentUid: int, runUuid: string}>
@@ -321,9 +324,9 @@ final readonly class A2aSendJournal
         $connection = $this->connection();
         $rows       = $connection->executeQuery(
             'SELECT s.uid, r.uuid FROM ' . $connection->quoteIdentifier(self::TABLE) . ' s INNER JOIN tx_nrllm_agentrun r ON r.uid = s.run_uid'
-                . ' WHERE s.uid > ? AND s.continues_send_uid = 0 AND s.state = ? AND s.last_remote_state = ? AND s.cancel_outcome = ? AND r.status = ?'
+                . ' WHERE s.uid > ? AND s.continues_send_uid = 0 AND s.state = ? AND s.cancel_outcome = ? AND r.status = ?'
                 . ' ORDER BY s.uid LIMIT ' . max(1, $limit),
-            [$afterUid, A2aSendState::ACCEPTED->value, 'TASK_STATE_INPUT_REQUIRED', '', 'waiting_for_input'],
+            [$afterUid, A2aSendState::ACCEPTED->value, '', 'waiting_for_input'],
             [Connection::PARAM_INT],
         )->fetchAllAssociative();
 

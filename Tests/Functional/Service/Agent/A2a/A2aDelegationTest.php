@@ -1290,6 +1290,25 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Spec 060 RQ6: the deadline of a question does not hang on the remote
+     * state the journal last recorded. A stale poll that wrote another state
+     * after the question was asked does not take the run out of the deadline.
+     */
+    #[Test]
+    public function aStaleRemoteStateDoesNotTakeAQuestionOffItsDeadline(): void
+    {
+        $this->agent(['identifier' => 'remote', 'min_poll_interval_seconds' => 10, 'max_wait_seconds' => 60, 'requires_approval' => 0]);
+        $runtime    = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('nobody answered')]);
+        $runUuid    = $this->delegatedAndAsked($runtime, 'Which year?');
+        $checkpoint = $this->checkpointOf($this->runOf($runUuid));
+        $this->getConnectionPool()->getConnectionForTable('tx_nrllm_a2a_send')->update('tx_nrllm_a2a_send', ['last_remote_state' => 'TASK_STATE_WORKING'], ['uid' => $checkpoint->journalUid]);
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        self::assertSame(1, $this->poller()->tick($checkpoint->deadline)->timedOut);
+        self::assertSame(AgentRunStatus::COMPLETED, $this->runOf($runUuid)->statusEnum());
+    }
+
+    /**
      * Spec 060 RQ1: an INPUT_REQUIRED read before the question was answered
      * does not ask the initiator again once the run waits on the remote
      * after the answer.
