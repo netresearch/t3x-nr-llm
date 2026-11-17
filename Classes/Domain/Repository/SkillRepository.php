@@ -20,6 +20,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class SkillRepository extends Repository
 {
+    use FindsByStorableUid;
+
     protected $defaultOrderings = [
         'name' => QueryInterface::ORDER_ASCENDING,
     ];

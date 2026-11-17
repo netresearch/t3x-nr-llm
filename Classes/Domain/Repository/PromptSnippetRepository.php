@@ -22,6 +22,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class PromptSnippetRepository extends Repository
 {
+    use FindsByStorableUid;
+
     protected $defaultOrderings = [
         'sorting' => QueryInterface::ORDER_ASCENDING,
         'name'    => QueryInterface::ORDER_ASCENDING,

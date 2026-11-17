@@ -19,6 +19,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class UserBudgetRepository extends Repository
 {
+    use FindsByStorableUid;
+
     /**
      * Budgets are global records (rootLevel=-1), so drop storage-page filtering.
      * Respect enable fields so hidden / deleted rows stay excluded.
