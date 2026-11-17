@@ -41,8 +41,8 @@ metadata mode a load left only the tool name behind.
   found. No name, description or body; the identifier is the record's, never
   the approved name a process section falls back to.
 - **SU7 Privacy and retention.** The record is a step of kind `skill_usage`,
-  stored as it is at every privacy level, kept after the run ends and purged
-  with the run's other events.
+  whose entries are stored unchanged at every privacy level, kept after the
+  run ends and purged with the run's other events.
 - **SU8 Readable.** The run timeline shows each entry as identity, digest
   prefix and codes.
 

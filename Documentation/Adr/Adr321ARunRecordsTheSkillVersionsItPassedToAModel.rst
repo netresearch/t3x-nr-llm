@@ -36,57 +36,56 @@ Decision
 ========
 
 1. **A record per send.** Before each model call, the loop records the skill
-   versions that call carries and no earlier call of the segment carried, as
-   a step of kind ``skill_usage`` (:php:`RunStep::KIND_SKILLS`) in the round
-   of that call, ahead of its request step. A version whose segment ends,
-   pauses or fails before such a call is not recorded as passed. ``passed``
-   means handed to the call: a call the manager refuses before the provider
-   (an input guardrail, the budget, the trust-zone gate) keeps the entry, and
-   the missing model-answer step after it shows that no answer came. So does
-   a run cancelled in the moment between the entry and the request step. The
-   check whether another turn ended the run's process (:ref:`ADR-228
-   <adr-228>`) does not run on the usage step, so it stops a turn at the
-   request step that follows instead. An entry counts as passed to a call
-   when a request step of the same round follows it.
+   versions that call carries and no earlier call of the segment carried, as a
+   step of kind ``skill_usage`` (:php:`RunStep::KIND_SKILLS`) in the round of
+   that call, ahead of its request step. A version whose segment ends, pauses
+   or fails before such a call is not recorded as passed. ``passed`` means
+   handed to the call: a call the manager refuses before the provider (an
+   input guardrail, the budget, the trust-zone gate) keeps the entry, and the
+   missing model-answer step after it shows that no answer came. So does a run
+   cancelled in the moment between the entry and the request step. The check
+   whether another turn ended the run's process (:ref:`ADR-228 <adr-228>`)
+   does not run on the usage step, so it stops a turn at the request step that
+   follows instead. An entry counts as passed to a call when a request step of
+   the same round follows it.
 2. **What enters.** A version enters a segment's ledger
    (:php:`SkillUsageLedger`) when the composition put it into the prompt —
-   instruction, process, or a context skill of a block that was placed —
-   when a load appended it, or when a resumed segment holds its pin. A skill
-   that was only attached, only offered in the load catalogue, or dropped by
-   the budget or the integrity check never enters.
+   instruction, process, or a context skill of a block that was placed — when
+   a load appended it, or when a resumed segment holds its pin. A skill that
+   was only attached, only offered in the load catalogue, or dropped by the
+   budget or the integrity check never enters.
 3. **Loads.** A successful load is recorded as ``loaded`` in the round of the
    load, before the tool step that answers it. The next model call records it
    as ``passed``.
-4. **What an entry holds.** Skill uid, source uid, version digest, the
-   skill's identifier, role (``instruction``, ``process``, ``context``),
-   inclusion (``composed``, ``loaded``, ``carried``), state (``loaded``,
-   ``passed``), and the approval that held when the entry was recorded: its
-   uid, or ``none`` for a context skill, or ``unknown``. The version is fixed
-   where it entered the run, and so is the role of a composed version; the
-   approval is read when the entry is recorded
-   (:php:`SkillPinCheck::heldApproval()`), and a loaded or carried version
-   takes its role from that approval (a process or an instruction;
-   ``instruction`` when none is found).
+4. **What an entry holds.** Skill uid, source uid, version digest, the skill's
+   identifier, role (``instruction``, ``process``, ``context``), inclusion
+   (``composed``, ``loaded``, ``carried``), state (``loaded``, ``passed``),
+   and the approval that held when the entry was recorded: its uid, or
+   ``none`` for a context skill, or ``unknown``. The version is fixed where it
+   entered the run, and so is the role of a composed version; the approval is
+   read when the entry is recorded (:php:`SkillPinCheck::heldApproval()`), and
+   a loaded or carried version takes its role from that approval (a process or
+   an instruction; ``instruction`` when none is found).
 5. **No text.** No name, description or body is part of an entry. The
    identifier is the record's identifier, never the approved name a process
-   section falls back to; it is text an administrator or a skill source
-   chose, of the same kind the lineage already stores (:ref:`ADR-228
-   <adr-228>`), not a code. The
-   privacy filter strips content by key, so the step reaches the event stream
-   unchanged at every level; that is safe only because nothing in it is
-   content, and the tests assert the entry's key set.
+   section falls back to; it is text an administrator or a skill source chose,
+   of the same kind the lineage already stores (:ref:`ADR-228 <adr-228>`), not
+   a code. The privacy filter strips content by key, so the step's entries
+   reach the event stream unchanged at every level (the metadata level only
+   adds its ``contentRedacted`` flag to the step); that is safe only because
+   nothing in it is content, and the tests assert the entry's key set.
 6. **Through the trace.** The record is a :php:`RunTrace` step
    (:php:`RunTrace::recordSkillUsage()`, an additive ``@api`` method), not a
-   runtime record, because the loop holds the trace and not the run handle.
-   It is therefore persisted by the same path as every other step, kept after
-   the run ends and purged with the run.
+   runtime record, because the loop holds the trace and not the run handle. It
+   is therefore persisted by the same path as every other step, kept after the
+   run ends and purged with the run.
 
 Consequences
 ============
 
 ●● For every persisted run, the event stream names which skill versions
-reached which model call, including context skills and loads, at the
-default privacy level.
+reached the model calls of each segment, at the first call that carried them,
+including context skills and loads, at the default privacy level.
 
 ● A changed skill shows as a changed digest between two runs, independent of
 the model and the input.
