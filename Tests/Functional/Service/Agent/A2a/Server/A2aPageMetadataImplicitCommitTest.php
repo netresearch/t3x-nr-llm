@@ -125,10 +125,11 @@ final class A2aPageMetadataImplicitCommitTest extends AbstractFunctionalTestCase
         self::assertFalse($this->draftDescription(), 'the rollback took the draft');
         self::assertSame('Old ' . self::TRANSLATION, $this->description(self::TRANSLATION), 'live is unchanged');
 
-        // The call is an error. Which one depends on what the effect check
-        // read after the rollback: the row it would judge is gone, so it cannot
-        // clear the call, and the call cannot be taken back either. Either way
-        // the model is told to check the records and never that it wrote.
+        // The call is an error. The effect check cannot read the row the
+        // rollback took, counts it as outside the scope, and the model is told
+        // to review changes that were NOT rolled back (a known limit in
+        // ADR-295). It is never told that the page was updated, and the A2A
+        // client is never told that a write was executed.
         $toolResult = $this->toolResultOf($this->stored($run));
         self::assertStringContainsString('Error: tool "update_page_metadata"', $toolResult);
         self::assertStringNotContainsString('Updated page [' . self::TRANSLATION . ']', $toolResult);

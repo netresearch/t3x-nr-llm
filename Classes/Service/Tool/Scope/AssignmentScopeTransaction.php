@@ -233,7 +233,15 @@ final class AssignmentScopeTransaction
             throw new AssignmentScopeNotEnforceableException('The transaction of a scoped call was ended by the database before the call did, and not by a commit: whether its changes are stored is unknown.', 1799990242, $lost);
         }
 
-        $this->connection->delete('sys_registry', ['entry_namespace' => self::MARKER_NAMESPACE, 'entry_key' => $this->marker]);
+        try {
+            $this->connection->delete('sys_registry', ['entry_namespace' => self::MARKER_NAMESPACE, 'entry_key' => $this->marker]);
+        } catch (Throwable $failure) {
+            // The transaction is not committed. Ended here, DBAL does not stay
+            // inside it for the next write of a long-lived worker.
+            $this->resetOwned();
+
+            throw $failure;
+        }
 
         if ($this->owned) {
             $this->connection->commit();

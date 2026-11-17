@@ -3293,8 +3293,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $rolledBack)));
             } elseif (!$this->endTransaction($transaction, false, $context->actingBackendUser())) {
                 // The commit did not end as asked (a lost connection, or the database
-                // ended the transaction itself): success is not reported, whatever the
-                // tool said, and the records have to be checked.
+                // rolled the transaction back; a commit by the database counts as
+                // success): success is not reported, whatever the tool said, and the
+                // records have to be checked.
                 $result = ToolResult::error(sprintf('Error: tool "%s" ended with its changes NOT committed as such: the transaction of the call could not be ended as expected, so whether they were saved is unknown. Check the records before retrying.', $call->name));
             }
 
