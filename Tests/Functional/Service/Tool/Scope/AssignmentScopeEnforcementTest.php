@@ -1421,10 +1421,30 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $connection->executeStatement('BEGIN');
     }
 
-    #[Test]
-    public function aCommitThatCannotBeConfirmedIsNotReportedAsSuccess(): void
+    /**
+     * A statement that rolls the transaction back behind DBAL's back, as a hook
+     * of the installation could. A transaction is opened by hand afterwards, for
+     * the reason {@see self::commitBehindTheBack()} gives.
+     */
+    private function rollBackBehindTheBack(): void
     {
-        $flushed = 0;
+        $connection = $this->connectionPool->getConnectionByName(ConnectionPool::DEFAULT_CONNECTION_NAME);
+        $connection->executeStatement('ROLLBACK');
+        $connection->executeStatement('BEGIN');
+    }
+
+    /**
+     * The database committed the call before the call ended (NEXT-240): its
+     * writes are stored, so the call is reported as it ran, and the flush it
+     * asked for runs. The log says that this call could not have been rolled
+     * back.
+     */
+    #[Test]
+    public function aCommitByTheDatabaseIsReportedAsTheCallRan(): void
+    {
+        $flushed              = 0;
+        $logger               = $this->recordingLogger();
+        $this->loggerOverride = $logger;
 
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
@@ -1437,10 +1457,36 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
         );
 
-        self::assertStringContainsString('Error: tool "scoped_probe" ended with its changes NOT committed as such', $outcome['toolResult']);
+        self::assertSame('ok', $outcome['toolResult']);
         self::assertFalse($this->transactionIsOpen(), 'DBAL is back in line with the database');
         self::assertSame('Saved by the database', $this->header(self::IN_SCOPE_ELEMENT));
         self::assertSame(1, $flushed, 'the flush the call asked for still runs: the connection is free');
+        self::assertCount(1, array_filter($logger->records, static fn (string $record): bool => str_starts_with($record, 'warning: The database committed the transaction of a scoped tool call')));
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_registry WHERE entry_namespace = ?', ['tx_nrllm_scope']), 'no marker stays behind');
+        $this->assertNothingLeftArmed();
+    }
+
+    /**
+     * The transaction was rolled back behind the call's back, and a write the
+     * DataHandler did not report (so the effect check had nothing to judge) was
+     * made before: what is stored is not known, and the call is not reported as
+     * a success.
+     */
+    #[Test]
+    public function aCommitThatCannotBeConfirmedIsNotReportedAsSuccess(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (): void {
+                $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['header' => 'Rolled back by the database'], ['uid' => self::IN_SCOPE_ELEMENT]);
+                $this->rollBackBehindTheBack();
+            },
+        );
+
+        self::assertStringContainsString('Error: tool "scoped_probe" ended with its changes NOT committed as such', $outcome['toolResult']);
+        self::assertFalse($this->transactionIsOpen(), 'DBAL is back in line with the database');
+        self::assertSame('Original ' . self::IN_SCOPE_ELEMENT, $this->header(self::IN_SCOPE_ELEMENT));
+        $this->assertNothingLeftArmed();
     }
 
     #[Test]
@@ -1460,6 +1506,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT), 'what the database committed stands, and the result says so');
         self::assertFalse($this->transactionIsOpen());
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_registry WHERE entry_namespace = ?', ['tx_nrllm_scope']), 'the committed marker does not stay behind');
     }
 
     /**
@@ -1618,13 +1665,33 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
-    public function aPendingCallWhoseCommitCannotBeConfirmedIsNotSuspended(): void
+    public function aPendingCallCommittedByTheDatabaseIsSuspended(): void
     {
         $outcome = $this->call(
             $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
             function (ToolExecutionContext $context): never {
                 $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Saved before the hand-over', $context);
                 $this->commitBehindTheBack();
+
+                throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
+            },
+            dependencyTool: true,
+        );
+
+        self::assertTrue($outcome['suspendedForDependency'], 'the changes are stored, so the run waits for the hand-over');
+        self::assertSame('Saved before the hand-over', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertFalse($this->transactionIsOpen());
+        $this->assertNothingLeftArmed();
+    }
+
+    #[Test]
+    public function aPendingCallWhoseCommitCannotBeConfirmedIsNotSuspended(): void
+    {
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (): never {
+                $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['header' => 'Rolled back before the hand-over'], ['uid' => self::IN_SCOPE_ELEMENT]);
+                $this->rollBackBehindTheBack();
 
                 throw new ToolDependencyPendingException(new DependencyCheckpoint(DependencyCheckpoint::KIND_A2A_TASK, 'call_1', 'a2a_agent_skill', 7, 3, 'remote-1', 4, 0, 1000, 4600, 1, 512), 'waiting');
             },

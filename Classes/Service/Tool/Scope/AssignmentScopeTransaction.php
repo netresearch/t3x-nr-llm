@@ -42,17 +42,41 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * fails instead, because the implicit commit also dropped the savepoint, so a
  * rollback that did not happen is seen as one.
  *
- * Cache flushes of a scoped call are therefore deferred ({@see self::defer()}):
- * run after the commit, dropped on a rollback. Not undone, because they are not
- * in this database connection: everything an installation's hook or PSR-14
- * listener does beyond the database, a web request or a file for instance. A tool
- * that writes files or calls out is not covered, and none of the built-in write
- * tools does.
+ * Cache flushes the DataHandler itself asks for are therefore deferred
+ * ({@see self::defer()}): run after the commit, dropped on a rollback. A hook
+ * or listener of the installation can still end the transaction in the middle
+ * of a call: one that flushes a cache on the database backend truncates its
+ * tables (NEXT-240). What the call wrote up to that statement is committed
+ * with it, and every later statement commits on its own, because the server
+ * is back in autocommit mode. Such a call cannot be rolled back any more.
+ *
+ * Which of the two happened is not guessed from the failed savepoint: a call
+ * also writes a marker row into `sys_registry` inside its transaction, right
+ * after the savepoint. When the savepoint is gone, the marker is deleted on the
+ * same connection after the call's own transaction is ended. A delete that
+ * finds it means the marker was committed, and so was the call:
+ * {@see self::commit()} returns and {@see self::wasEndedByTheDatabase()}
+ * says what happened. A marker that is not there means that the transaction
+ * was rolled back, or that the connection was lost. Some writes of the call
+ * may then be stored and some not, and the commit throws. On the normal way
+ * out, the marker is deleted inside the transaction and never becomes
+ * visible. A call inside a transaction of its caller is not covered: there
+ * the delete runs inside that transaction, which may still be open, so a
+ * savepoint a hook released through an unbalanced commit is taken for a
+ * commit although the caller's transaction can still be rolled back.
+ *
+ * Not undone, because they are not in this database connection: everything an
+ * installation's hook or PSR-14 listener does beyond the database, a web
+ * request or a file for instance. A tool that writes files or calls out is not
+ * covered, and none of the built-in write tools does.
  *
  * @internal
  */
 final class AssignmentScopeTransaction
 {
+    /** The `sys_registry` namespace of the markers. */
+    private const MARKER_NAMESPACE = 'tx_nrllm_scope';
+
     private static int $savepoints = 0;
 
     /**
@@ -67,10 +91,13 @@ final class AssignmentScopeTransaction
 
     private bool $ended = false;
 
+    private bool $endedByTheDatabase = false;
+
     private function __construct(
         private readonly Connection $connection,
         private readonly string $savepoint,
         private readonly bool $owned,
+        private readonly string $marker,
     ) {}
 
     /**
@@ -115,7 +142,8 @@ final class AssignmentScopeTransaction
             $connection->beginTransaction();
         }
 
-        $name = 'nrllm_scope_' . ++self::$savepoints;
+        $name   = 'nrllm_scope_' . ++self::$savepoints;
+        $marker = $name . '_' . bin2hex(random_bytes(12));
 
         try {
             $connection->createSavepoint($name);
@@ -127,9 +155,22 @@ final class AssignmentScopeTransaction
             throw $failure;
         }
 
+        try {
+            $connection->insert('sys_registry', ['entry_namespace' => self::MARKER_NAMESPACE, 'entry_key' => $marker, 'entry_value' => null]);
+        } catch (Throwable $failure) {
+            if ($owned) {
+                $connection->rollBack();
+            } else {
+                $connection->rollbackSavepoint($name);
+                $connection->releaseSavepoint($name);
+            }
+
+            throw $failure;
+        }
+
         self::$frames[] = [];
 
-        return new self($connection, $name, $owned);
+        return new self($connection, $name, $owned, $marker);
     }
 
     /**
@@ -151,7 +192,20 @@ final class AssignmentScopeTransaction
     }
 
     /**
-     * @throws AssignmentScopeNotEnforceableException when the transaction was ended behind our back
+     * Whether the database ended the transaction before {@see self::commit()}
+     * did, and the call's writes are stored all the same: the commit found its
+     * savepoint gone and its marker committed.
+     */
+    public function wasEndedByTheDatabase(): bool
+    {
+        return $this->endedByTheDatabase;
+    }
+
+    /**
+     * Returns when what the call wrote is stored. This is also the case when
+     * the database ended the transaction itself ({@see self::wasEndedByTheDatabase()}).
+     *
+     * @throws AssignmentScopeNotEnforceableException when the transaction was ended behind our back and the marker is gone with it, so whether the call's writes are stored is unknown
      */
     public function commit(): void
     {
@@ -167,11 +221,26 @@ final class AssignmentScopeTransaction
         try {
             $this->connection->releaseSavepoint($this->savepoint);
         } catch (Throwable $lost) {
-            // The server ended the transaction (an implicit commit): what the
-            // call wrote is committed already. Bring DBAL's own count back in line.
+            // The server ended the transaction. Bring DBAL's own count back in
+            // line, then read the marker: it says whether that end committed.
+            $this->resetOwned();
+            if ($this->takeCommittedMarker()) {
+                $this->endedByTheDatabase = true;
+
+                return;
+            }
+
+            throw new AssignmentScopeNotEnforceableException('The transaction of a scoped call was ended by the database before the call did, and not by a commit: whether its changes are stored is unknown.', 1799990242, $lost);
+        }
+
+        try {
+            $this->connection->delete('sys_registry', ['entry_namespace' => self::MARKER_NAMESPACE, 'entry_key' => $this->marker]);
+        } catch (Throwable $failure) {
+            // The transaction is not committed. Ended here, DBAL does not stay
+            // inside it for the next write of a long-lived worker.
             $this->resetOwned();
 
-            throw new AssignmentScopeNotEnforceableException('The transaction of a scoped call was ended by the database before the call did.', 1799990242, $lost);
+            throw $failure;
         }
 
         if ($this->owned) {
@@ -191,6 +260,7 @@ final class AssignmentScopeTransaction
             $this->connection->rollbackSavepoint($this->savepoint);
         } catch (Throwable $lost) {
             $this->resetOwned();
+            $this->takeCommittedMarker();
 
             throw new AssignmentScopeNotEnforceableException('The changes of a scoped call could not be rolled back: the transaction was ended by the database.', 1799990243, $lost);
         }
@@ -212,6 +282,20 @@ final class AssignmentScopeTransaction
         $this->ended = true;
 
         return array_pop(self::$frames) ?? [];
+    }
+
+    /**
+     * Whether the marker of this call is stored outside any transaction of
+     * ours, which means that it was committed. It is deleted, so a committed
+     * marker never stays behind. A read that fails counts as not committed.
+     */
+    private function takeCommittedMarker(): bool
+    {
+        try {
+            return $this->connection->delete('sys_registry', ['entry_namespace' => self::MARKER_NAMESPACE, 'entry_key' => $this->marker]) === 1;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function resetOwned(): void

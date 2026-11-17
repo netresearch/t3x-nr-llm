@@ -231,6 +231,25 @@ the call as **not** rolled back (``effectNote``), logs at error level and never
 claims a rollback. The ``TRUNCATE`` of a flush that did not go through ``defer()``
 (a hook or listener of the installation) is covered by this second guard only.
 
+**A commit by the database is observed, not guessed** (NEXT-240, amending this
+decision). An installation's DataHandler hook can end the transaction in the
+middle of a call. nr_mcp_agent's ``DashboardCountInvalidation`` flushes a cache
+on ``Typo3DatabaseBackend`` after every page write, and its ``TRUNCATE``
+commits on MySQL and MariaDB. The call's writes were then stored, and every
+later statement committed on its own. But the failed savepoint release was
+reported as "NOT committed as such", so the A2A task's ``writes`` artifact said
+that no write was executed. Every call now writes a marker row into
+``sys_registry`` (namespace ``tx_nrllm_scope``) inside its transaction, right
+after the savepoint. When the savepoint is gone at the commit, the marker is
+deleted after the call's own transaction is ended (for a call inside its
+caller's transaction, see the known limits), and the number of rows that
+delete affected decides the outcome. One row means that the transaction was committed: the call
+is reported as it ran, its write is recorded, its deferred flushes run, and a
+warning is logged that it could not have been rolled back. No row means that the
+transaction was rolled back or the connection was lost. Then the call stays
+"NOT committed as such". On the normal way out, the marker is deleted inside
+the transaction and never becomes visible.
+
 What a rollback cannot take back, because it is not a database row of that
 connection: side effects of PSR-14 listeners and DataHandler hooks that call out
 (mail, HTTP, queue messages), files written through FAL, and the transaction held
@@ -275,9 +294,21 @@ checks let through:
   to "all changes rolled back".
 - A move pointer written in another workspace than the run's is judged by its live
   position, because the topology overlays rows only for the run's workspace.
-- A failed final commit or savepoint release is reported as an error ("NOT
-  committed as such"), because whether the changes were saved is then unknown;
-  after an implicit commit they are saved. A savepoint release that fails after a
+- A call inside a transaction of its own caller reads its marker inside that
+  transaction. When a hook releases the call's savepoint with an unbalanced
+  commit while the caller's transaction stays open, the call is reported as
+  written, although the caller's transaction can still roll it back. No
+  built-in path runs a tool inside a caller's transaction.
+- A failed final ``COMMIT``, and a failed savepoint release whose marker was
+  not committed, are reported as an error ("NOT committed as such"), because
+  whether the changes were saved is then unknown. The marker is read only when
+  the savepoint release fails.
+- When the database rolls a call back behind its back (a deadlock, or a hook's
+  own ``ROLLBACK``), the effect check cannot read the rows that are gone and
+  counts them as outside the scope. The model is then told that the changes
+  were NOT rolled back and have to be reviewed, although the rows are gone.
+  This errs on the side of checking. What the A2A client reads is right: the
+  call records no write. A savepoint release that fails after a
   successful nested rollback is reported as not rolled back, although it was.
 - A cache flush that fails after the commit is logged as a warning; the tool's
   result has already said it flushed.

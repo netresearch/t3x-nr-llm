@@ -3103,6 +3103,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         try {
             $rollBack ? $transaction->rollBack() : $transaction->commit();
+            if ($transaction->wasEndedByTheDatabase()) {
+                // Stored, but no longer revocable from the moment the database
+                // committed: a statement of the call committed implicitly, most
+                // likely a hook that truncates a cache table (NEXT-240).
+                $this->logger?->warning('The database committed the transaction of a scoped tool call before the call ended, most likely through a TRUNCATE or other DDL statement of a hook or listener. The changes are stored, but they could not have been rolled back.');
+            }
         } catch (Throwable $failure) {
             $ended = false;
             $this->logger?->error(
@@ -3287,8 +3293,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $rolledBack)));
             } elseif (!$this->endTransaction($transaction, false, $context->actingBackendUser())) {
                 // The commit did not end as asked (a lost connection, or the database
-                // ended the transaction itself): success is not reported, whatever the
-                // tool said, and the records have to be checked.
+                // rolled the transaction back; a commit by the database counts as
+                // success): success is not reported, whatever the tool said, and the
+                // records have to be checked.
                 $result = ToolResult::error(sprintf('Error: tool "%s" ended with its changes NOT committed as such: the transaction of the call could not be ended as expected, so whether they were saved is unknown. Check the records before retrying.', $call->name));
             }
 
