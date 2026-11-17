@@ -1689,7 +1689,7 @@ CREATE TABLE tx_nrllm_a2a_send (
     continues_send_uid int(11) unsigned DEFAULT '0' NOT NULL,
 
     message_id varchar(64) DEFAULT '' NOT NULL,
-    request_sha256 char(64) DEFAULT '' NOT NULL,
+    request_sha256 varchar(64) DEFAULT '' NOT NULL,
 
     -- intended, accepted, answered, refused or outcome_unknown.
     state varchar(20) DEFAULT 'intended' NOT NULL,
@@ -1815,7 +1815,7 @@ CREATE TABLE tx_nrllm_a2a_client (
 
     -- Written by the token command only, never by a form.
     token_prefix varchar(32) DEFAULT '' NOT NULL,
-    token_hash char(64) DEFAULT '' NOT NULL,
+    token_hash varchar(64) DEFAULT '' NOT NULL,
     token_issued int(11) unsigned DEFAULT NULL,
 
     -- The technical backend user the client's runs act as (uid > 0, not an
@@ -1931,8 +1931,8 @@ CREATE TABLE tx_nrllm_a2a_dedup (
     message_id varchar(255) DEFAULT '' NOT NULL,
     -- The key: a SHA-256 of message_id, so two ids that differ only in case
     -- stay two ids under a case-insensitive collation.
-    message_id_sha256 char(64) DEFAULT '' NOT NULL,
-    message_sha256 char(64) DEFAULT '' NOT NULL,
+    message_id_sha256 varchar(64) DEFAULT '' NOT NULL,
+    message_sha256 varchar(64) DEFAULT '' NOT NULL,
     task_uid int(11) unsigned DEFAULT '0' NOT NULL,
     crdate int(11) unsigned DEFAULT '0' NOT NULL,
 
@@ -2065,7 +2065,7 @@ CREATE TABLE tx_nrllm_a2a_push_registration (
     config_id varchar(191) DEFAULT '' NOT NULL,
     remote_config_id varchar(255) DEFAULT '' NOT NULL,
     credential_prefix varchar(16) DEFAULT '' NOT NULL,
-    credential_hash char(64) DEFAULT '' NOT NULL,
+    credential_hash varchar(64) DEFAULT '' NOT NULL,
     state varchar(16) DEFAULT 'pending' NOT NULL,
     reason varchar(255) DEFAULT '' NOT NULL,
     -- When the remote task was last read with GetTask; NULL = never.
@@ -2130,7 +2130,7 @@ CREATE TABLE tx_nrllm_a2a_file (
     -- The type the validator confirmed; empty until a check passed.
     media_type varchar(100) DEFAULT '' NOT NULL,
     size int(11) unsigned DEFAULT '0' NOT NULL,
-    sha256 char(64) DEFAULT '' NOT NULL,
+    sha256 varchar(64) DEFAULT '' NOT NULL,
     -- pending, passed or failed
     check_state varchar(16) DEFAULT 'pending' NOT NULL,
     -- pending, approved or refused
