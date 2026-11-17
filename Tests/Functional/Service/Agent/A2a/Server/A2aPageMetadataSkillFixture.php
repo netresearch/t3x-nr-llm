@@ -37,6 +37,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\NullLogger;
 use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\TestingFramework\Core\Testbase;
 
 /**
  * The installation the page metadata tests run against (spec 055), on top of
@@ -125,6 +126,13 @@ trait A2aPageMetadataSkillFixture
         $this->db('tx_nrllm_provider')->update('tx_nrllm_provider', ['trust_zone' => 'local'], ['uid' => 1]);
         foreach (['update_page_metadata', 'check_page_metadata', 'get_page_content', 'ask_choice'] as $tool) {
             $this->db('tx_nrllm_tool_state')->insert('tx_nrllm_tool_state', ['tool_name' => $tool, 'enabled' => 1]);
+        }
+
+        // The rows above carry their uid. PostgreSQL does not advance a
+        // table's sequence for an explicit uid, so the next record DataHandler
+        // creates (the draft version of a page) would get uid 1 again.
+        foreach (['pages', 'be_groups', 'sys_workspace'] as $table) {
+            Testbase::resetTableSequences($this->db($table), $table);
         }
     }
 
