@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional;
 
+use Netresearch\NrLlm\Tests\Fixtures\Database\ExplicitUidSequenceMiddleware;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\TestingFramework\Core\Functional\FunctionalTestCase;
 
@@ -63,6 +64,15 @@ abstract class AbstractFunctionalTestCase extends FunctionalTestCase
                 'Functional tests require database configuration. Set typo3DatabaseDriver environment variable (e.g., pdo_sqlite) to enable.',
             );
         }
+
+        // PostgreSQL only: a fixture row with a fixed uid moves the uid
+        // sequence along, as AUTO_INCREMENT does on MySQL.
+        $database    = is_array($this->configurationToUseInTestInstance['DB'] ?? null) ? $this->configurationToUseInTestInstance['DB'] : [];
+        $middlewares = is_array($database['globalDriverMiddlewares'] ?? null) ? $database['globalDriverMiddlewares'] : [];
+
+        $middlewares['nrllm-tests-explicit-uid-sequence'] = ['target' => ExplicitUidSequenceMiddleware::class];
+        $database['globalDriverMiddlewares']              = $middlewares;
+        $this->configurationToUseInTestInstance['DB']     = $database;
 
         parent::setUp();
         $this->setupCompleted = true;
