@@ -33,6 +33,12 @@ final class RollsTheTransactionBackHook
 
         // The DataHandler builds a hook without arguments; a new pool hands
         // out the connections every pool shares.
-        (new ConnectionPool())->getConnectionForTable('pages')->executeStatement('ROLLBACK');
+        $connection = (new ConnectionPool())->getConnectionForTable('pages');
+        $connection->executeStatement('ROLLBACK');
+        // PDO before PHP 8.4 keeps its own flag for an open transaction and
+        // cannot roll back once the database has none; a transaction opened by
+        // hand keeps the flag true (as AssignmentScopeEnforcementTest's
+        // commitBehindTheBack() does).
+        $connection->executeStatement('BEGIN');
     }
 }
