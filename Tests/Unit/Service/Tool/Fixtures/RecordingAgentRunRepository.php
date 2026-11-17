@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
+use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
@@ -142,6 +143,13 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
     {
         if ($this->throwOnSettleIfWaiting) {
             throw new RuntimeException('settleIfWaiting failed', 1791600399);
+        }
+
+        // The real repository's rule: only the human waiting states.
+        foreach ($from as $status) {
+            if ($status !== AgentRunStatus::WAITING_FOR_APPROVAL && $status !== AgentRunStatus::WAITING_FOR_INPUT) {
+                throw new InvalidArgumentException('A run is settled from a waiting state only.', 1791600301);
+            }
         }
 
         $this->settledIfWaiting[] = [
@@ -590,9 +598,17 @@ final class RecordingAgentRunRepository implements AgentRunRepositoryInterface
         return false;
     }
 
+    /** @var list<int> the runs a guarded dependency cancel was asked for */
+    public array $cancelledWaitingForDependency = [];
+
+    /** Whether the guarded dependency cancel matches the row (the run still waits). */
+    public bool $grantCancelWaitingForDependency = false;
+
     public function cancelWaitingForDependency(int $runUid): bool
     {
-        return false;
+        $this->cancelledWaitingForDependency[] = $runUid;
+
+        return $this->grantCancelWaitingForDependency;
     }
 
     public function releaseDependencyClaim(int $runUid, string $claimedBy): bool

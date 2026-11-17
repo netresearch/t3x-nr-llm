@@ -1817,6 +1817,7 @@ Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface (interface)
   method approve(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid, Netresearch\NrLlm\Service\Agent\ApprovalDecision $decision, ?Closure $onStep = …): Netresearch\NrLlm\Service\Agent\AgentRunResult
   method cancel(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): bool
   method cancelIfWaiting(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
+  method cancelIfWaitingForDependency(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
   method defer(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string
   method endProcess(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $runUuid): Netresearch\NrLlm\Service\Agent\GuardedCancelResult
   method enqueue(Netresearch\NrLlm\Service\Agent\AgentRunRequest $request): string

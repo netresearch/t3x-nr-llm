@@ -611,6 +611,43 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         self::assertSame(0, $this->poller()->tick(time() + 100000)->resumed);
     }
 
+    /**
+     * The chat's "stop waiting" (ADR-281, amendment): it cancels a run only
+     * while the run waits for its dependency, with the remote task. A
+     * continuation that already claimed the run is not stopped; the result
+     * says which status won. Only the initiator or an administrator may.
+     */
+    #[Test]
+    public function stopWaitingCancelsOnlyARunThatStillWaitsForItsDependency(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $suspended = $runtime->run($this->request());
+        $owner     = AiActorContext::backendUser(self::OWNER);
+        $run       = $this->runOf($suspended->runUuid);
+
+        // A continuation claimed the run: it is running and stays so.
+        self::assertTrue($this->persister->claimResumeFromDependency($run, 'worker-x', time() + 60));
+        $lost = $runtime->cancelIfWaitingForDependency($owner, $suspended->runUuid);
+        self::assertFalse($lost->cancelled);
+        self::assertSame(AgentRunStatus::RUNNING, $lost->status);
+        self::assertSame(AgentRunStatus::RUNNING, $this->runOf($suspended->runUuid)->statusEnum());
+        self::assertSame(['SendMessage'], $this->methods());
+
+        // Back to waiting: another user may not, the initiator may.
+        self::assertTrue($this->persister->releaseDependencyClaim($this->runOf($suspended->runUuid), 'worker-x'));
+        $other = $runtime->cancelIfWaitingForDependency(AiActorContext::backendUser(self::OWNER + 1), $suspended->runUuid);
+        self::assertFalse($other->cancelled);
+        self::assertNull($other->status);
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_CANCELED')]);
+        $won = $runtime->cancelIfWaitingForDependency($owner, $suspended->runUuid);
+        self::assertTrue($won->cancelled);
+        self::assertSame(AgentRunStatus::CANCELLED, $won->status);
+        self::assertSame(['SendMessage', 'CancelTask'], $this->methods());
+    }
+
     #[Test]
     public function aCancelThatCouldNotBeSentIsJournalledWithoutTheSecretAndAFailedWriteDoesNotThrow(): void
     {

@@ -93,6 +93,12 @@ Lifecycle methods
     Withdraws only a run waiting for approval or input. A run already released
     for execution is not cancelled. Restricted to its initiator or an admin.
 
+``cancelIfWaitingForDependency($actor, $runUuid)``
+    Cancels only a run waiting for an external dependency, such as a remote
+    agent's task, and asks that operation once to cancel where its reference can be read. A run a continuation
+    already claimed is not cancelled; the result names its status. Restricted
+    to its initiator or an admin.
+
 ``endProcess($actor, $runUuid)``
     Releases a held guided process and cancels a waiting run. It does not undo
     approved writes. A queued or running run cannot be ended through this

@@ -17,7 +17,8 @@ ADR-281: A run waits durably for a dependency or a decision
     :ref:`ADR-237 <adr-237>` (a write the worker carries out after a stored
     approval gets the backend environment around that call)
 :Amended: 2026-11-16 by :ref:`ADR-311 <adr-311>` (a remote question waits for
-    the run's initiator instead of reaching the model)
+    the run's initiator instead of reaching the model); 2026-11-17 by the
+    amendment below (a guarded "stop waiting" for the dependency wait)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -106,6 +107,15 @@ push (:ref:`ADR-285 <adr-285>`) only makes it look sooner. At the deadline the
 run resumes with a timeout result and the remote task is cancelled. Cancelling
 a waiting run sends ``CancelTask`` once and settles the run CANCELLED whatever
 the answer.
+
+*Amendment of 2026-11-17.* :php:`AgentRuntimeInterface::cancel()` stops a run
+in any non-terminal status, so a chat that stops waiting with it could also stop
+a continuation the poller had just claimed. The additive
+:php:`AgentRuntimeInterface::cancelIfWaitingForDependency()` cancels only a run
+that is still ``waiting_for_dependency``, in the same guarded transition and
+with the same one ``CancelTask``, and otherwise changes nothing and returns the
+status that won, as :php:`cancelIfWaiting()` does for the human waiting states.
+Only the run's initiator or an administrator may call it.
 
 **A decision can be stored and continued by the worker.** An additive
 interface takes in an input, an approval or a denial, checks it and stores it,
