@@ -44,14 +44,15 @@ field; the tab follows on the next request.
 
 .. _administration-governance-retention-overrides:
 
-The seven retention overrides
+The eight retention overrides
 =============================
 
-``privacy.retentionDays`` has seven per-category overrides
+``privacy.retentionDays`` has eight per-category overrides
 (``privacy.retention.conversation``, ``.agentRun``, ``.approval``,
-``.telemetry``, ``.evaluation``, ``.skillAudit``, ``.governance``). They are
-omitted from the tab when their effective window equals the global window.
-All seven ship as ``0``, which means "no override". A configured category
+``.telemetry``, ``.evaluation``, ``.skillAudit``, ``.governance``,
+``.toolAudit``). They are omitted from the tab when their effective window
+equals the global window.
+All eight ship as ``0``, which means "no override". A configured category
 whose known effective window differs from the known global window gets its
 own row. An unknown category window is omitted; if the global window is
 unknown, no category override rows appear.

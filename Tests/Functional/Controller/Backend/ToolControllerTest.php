@@ -358,6 +358,26 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
         self::assertSame(['fetch_logs', 0, 1], [$rows[1]['name'], $rows[1]['old_enabled'], $rows[1]['new_enabled']]);
     }
 
+    /**
+     * The state before is the tool's own default when there is no override:
+     * get_env_raw ships disabled, so enabling it is recorded as 0 -> 1.
+     */
+    #[Test]
+    public function enablingAToolThatShipsDisabledRecordsItsDefaultAsTheStateBefore(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $controller = $this->containerController();
+
+        $response = $controller->toggleToolAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))
+            ->withParsedBody(['tool' => 'get_env_raw', 'enabled' => '1']));
+        self::assertSame(200, $response->getStatusCode());
+
+        $rows = $this->auditRows();
+        self::assertCount(1, $rows);
+        self::assertSame(['tool', 'get_env_raw', 0, 1], [$rows[0]['scope'], $rows[0]['name'], $rows[0]['old_enabled'], $rows[0]['new_enabled']]);
+    }
+
     #[Test]
     public function toggleToolGroupActionRecordsWhoSwitchedWhichGroupWhenAndFromWhatToWhat(): void
     {

@@ -186,9 +186,11 @@ has no backend view. Read it in the database, newest first:
    :caption: The latest tool switches (MySQL, MariaDB)
 
    SELECT FROM_UNIXTIME(a.crdate) AS switched_at, a.scope, a.name,
-          a.old_enabled, a.new_enabled, u.username
+          a.old_enabled, a.new_enabled, u.username,
+          o.username AS switched_from_user
      FROM tx_nrllm_tool_audit a
      LEFT JOIN be_users u ON u.uid = a.actor_uid
+     LEFT JOIN be_users o ON o.uid = a.original_actor_uid
     ORDER BY a.uid DESC;
 
 The rows are deleted by :bash:`nrllm:privacy:purge` after the window of
