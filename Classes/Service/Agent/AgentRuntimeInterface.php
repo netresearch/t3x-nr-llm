@@ -176,7 +176,9 @@ interface AgentRuntimeInterface
      * A chat stops waiting with it. If a continuation already claimed the run,
      * the run is RUNNING (or settled), this call loses and changes nothing, and
      * the result says which status the run has, so the caller can put its own
-     * state back instead of stopping work already under way.
+     * state back instead of stopping work already under way. "Not cancelled"
+     * with WAITING_FOR_DEPENDENCY means the attempt did not land (a store
+     * failure); the caller may try again.
      * {@see self::cancel()} also ends a running run and stays the operator's
      * tool.
      *
