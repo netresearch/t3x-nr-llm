@@ -11,6 +11,26 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-49-1:
+
+Version 0.49.1 (2026-11-16)
+===========================
+
+An A2A task can send a file from FAL, and three fixes. Run the TYPO3 database
+schema update after updating.
+
+- **FAL files for A2A clients:** the tool ``send_fal_file`` (ships disabled)
+  sends a file from FAL with a task's result, behind ``a2a.files.enabled``.
+  A publication profile must approve its clients as recipients (new field,
+  off by default), and the client's technical backend user must reach the
+  file through its file mounts and permissions.
+- **Workspace mounts:** FAL tools limit a backend user's file mounts to those
+  its draft workspace names, as core does.
+- **Key rotation:** a master-key rotation reads an A2A file again with a
+  locking read before it rewraps it.
+- **Push:** a delegating run that registers a push callback takes its first
+  look and its suspension at one instant.
+
 .. _version-0-49-0:
 
 Version 0.49.0 (2026-11-16)
