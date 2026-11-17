@@ -39,8 +39,10 @@ use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
  * call (ADR-295). On MySQL and MariaDB a `TRUNCATE` commits implicitly, so the
  * draft used to be stored while the call reported its changes as possibly not
  * saved and the task's `writes` artifact said no write was executed. On
- * SQLite and PostgreSQL the same test checks that the flush stays part of the
- * call.
+ * SQLite, where the flush deletes rows, the same test checks that the flush
+ * stays part of the call. On PostgreSQL the approved draft write fails before
+ * the hook runs, also without this change, and the test has not been run
+ * there.
  */
 #[CoversClass(AssignmentScopeTransaction::class)]
 #[CoversClass(ToolLoopService::class)]

@@ -1506,6 +1506,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT), 'what the database committed stands, and the result says so');
         self::assertFalse($this->transactionIsOpen());
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_registry WHERE entry_namespace = ?', ['tx_nrllm_scope']), 'the committed marker does not stay behind');
     }
 
     /**

@@ -53,13 +53,17 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * Which of the two happened is not guessed from the failed savepoint: a call
  * also writes a marker row into `sys_registry` inside its transaction, right
  * after the savepoint. When the savepoint is gone, the marker is deleted on the
- * same connection, outside any transaction. A delete that finds it means the
- * marker was committed, and so was the call: {@see self::commit()} returns and {@see self::wasEndedByTheDatabase()}
+ * same connection after the call's own transaction is ended. A delete that
+ * finds it means the marker was committed, and so was the call:
+ * {@see self::commit()} returns and {@see self::wasEndedByTheDatabase()}
  * says what happened. A marker that is not there means that the transaction
  * was rolled back, or that the connection was lost. Some writes of the call
  * may then be stored and some not, and the commit throws. On the normal way
  * out, the marker is deleted inside the transaction and never becomes
- * visible.
+ * visible. A call inside a transaction of its caller is not covered: there
+ * the delete runs inside that transaction, which may still be open, so a
+ * savepoint a hook released through an unbalanced commit is taken for a
+ * commit although the caller's transaction can still be rolled back.
  *
  * Not undone, because they are not in this database connection: everything an
  * installation's hook or PSR-14 listener does beyond the database, a web

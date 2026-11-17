@@ -241,8 +241,9 @@ reported as "NOT committed as such", so the A2A task's ``writes`` artifact said
 that no write was executed. Every call now writes a marker row into
 ``sys_registry`` (namespace ``tx_nrllm_scope``) inside its transaction, right
 after the savepoint. When the savepoint is gone at the commit, the marker is
-deleted outside the transaction, and the number of rows that delete affected
-decides the outcome. One row means that the transaction was committed: the call
+deleted after the call's own transaction is ended (for a call inside its
+caller's transaction, see the known limits), and the number of rows that
+delete affected decides the outcome. One row means that the transaction was committed: the call
 is reported as it ran, its write is recorded, its deferred flushes run, and a
 warning is logged that it could not have been rolled back. No row means that the
 transaction was rolled back or the connection was lost. Then the call stays
@@ -293,6 +294,11 @@ checks let through:
   to "all changes rolled back".
 - A move pointer written in another workspace than the run's is judged by its live
   position, because the topology overlays rows only for the run's workspace.
+- A call inside a transaction of its own caller reads its marker inside that
+  transaction. When a hook releases the call's savepoint with an unbalanced
+  commit while the caller's transaction stays open, the call is reported as
+  written, although the caller's transaction can still roll it back. No
+  built-in path runs a tool inside a caller's transaction.
 - A failed final commit or savepoint release whose marker was not committed is
   reported as an error ("NOT committed as such"), because whether the changes
   were saved is then unknown. A savepoint release that fails after a
