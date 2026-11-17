@@ -8,6 +8,58 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-17
+
+### Upgrading from 0.49
+
+- Run the database analyzer: answers to a remote agent's question are journalled with the new column `tx_nrllm_a2a_send.continues_send_uid` (default 0), which keeps them out of the delegations a run may make. The first `nrllm:a2a:poll` after the update sends one `CancelTask` for each earlier delegation whose remote task was left asking a question by a run that has ended.
+
+- Run the database analyzer: the inbox of the FAL adoption adds the column `tx_nrllm_a2a_profile.fal_inbox_folder` (default empty). Existing publication profiles adopt no client file until an administrator names a non-public inbox folder, lists `adopt_client_file` among the tools of a profile that may write, enables the tool in the tool management and gives the client's technical user a writable file mount on the folder with the permissions to add files and write folders.
+
+- With nr-mcp-agent installed, update it to 0.39.0 or later to get the delegation tools of remote A2A agents in its runs; with an older version none are offered, as before.
+
+- Run the database analyzer: the tool audit trail adds the table `tx_nrllm_tool_audit`. Switches made before the update were not recorded.
+
+- `AgentRunRepositoryInterface::recordAnswer()` takes an optional third parameter `?string $whileClaimedBy`, and the interface is now marked `@internal`. An implementation outside this extension has to add the parameter.
+
+### Added
+
+- A2A server role: a run stores a file its client sent with the task in FAL (spec 051 A2A-FILE6, ADR-305), behind `a2a.files.enabled`. The tool `adopt_client_file` (group `files`, ships disabled, offered by a profile that may write) takes the number of the client's file and writes it only into the folder the publication profile names in the new field "Inbox folder for client files" (`fal_inbox_folder`, a combined identifier such as `2:/a2a-inbox/`); without a folder nothing is adopted. A public target (a storage marked public, a `Local` storage with a relative base path or an absolute one inside the web root as written or resolved, a folder linked into the web root, the processing folder or a `_recycler_` folder, or a storage without a record) is not stored when the profile is saved and is refused again at each call. The client's technical backend user writes, with its own file mounts and file permissions, and every call waits for the approval of a person of this installation; a call that cannot be written is refused before the approval is asked. The approval card shows the client's file name, the stored name, the type, the size, the start of the digest and the inbox folder; when these read differently at execution, the file is not stored and the run asks again (ADR-184). A name already taken is never overwritten: the new file is renamed and the existing file keeps its bytes and its record. The file keeps the client's name without any path and without Unicode format characters, with the extension of its checked type. Nothing references the adopted file; it takes effect only when an editor uses it in a workspace record. The task's `writes` artifact names the new `sys_file` record in workspace 0, because a table without workspace versions has only its live row.
+- `ToolExecutionContext` (`@api`) gains the optional constructor parameter and readonly property `approvedPlan` and the method `withApprovedPlan()`: the structured plan the approver saw for the call that runs now (`PreviewPlanInterface`), set by the tool loop only while it carries out an approved call whose preview did not fail (ADR-184). `adopt_client_file` writes only into the approved folder under the approved name. Additive: existing callers are unaffected.
+
+- A2A server role: a `WORKING` task whose run waits for an approval in the backend carries the status message "The task is waiting for an approval in TYPO3.", and one whose run waits for a remote agent "The task is waiting for a remote agent."; the message is gone once the run goes on. It names no approval, agent or id, and reaches `GetTask`, `ListTasks`, the stream and push notifications like any other change of the task (ADR-310).
+
+- Tools module (AI > Operation > Tools): every switch of a tool or a tool group that changes its state is recorded in the new append-only table `tx_nrllm_tool_audit` with the time, the tool or group name, the state before and after, and the administrator (in switch-user mode also the administrator who switched). A switch to the state a tool or group already has records nothing. The trail follows the skill audit trail (ADR-061) and is purged by `nrllm:privacy:purge` under the new retention setting `privacy.retention.toolAudit`.
+
+- `AgentRuntimeInterface::cancelIfWaitingForDependency()` cancels a run only while it waits for an external dependency, such as a remote agent's task, and asks that task once to cancel where its reference can be read. A run that a continuation already claimed is not cancelled; the result names its status. Only the run's initiator or an administrator may call it (ADR-281, amendment of 2026-11-17).
+
+- Two A2A domain handlers for editorial texts used outside TYPO3: `nr_llm.editorial_text` writes a text and `nr_llm.editorial_check` checks a text the client sends without generating one. The final answer of their runs is checked after the loop and before the result is stored, against the term lists and the rule-set judge of the profile's configuration, also when it is short and also when the run only read; a blocking result stops the task as failed. The check is kept as a run event without any passage of the text, and the pipeline judge leaves the answer of such a run to this check, so each text is judged once (ADR-302).
+
+- An editorial A2A task (`nr_llm.editorial_text`, `nr_llm.editorial_check`) carries a second artifact `report` with one data part beside the content artifact, which holds only the text as one text part: the check's status, findings and reasons, the digests of the checked and of the delivered text (a text other than the checked one is reported as not checked), the rule state at the start and at the check, and an editorial state (`draft`, `needs_revision`, `needs_human_review`) apart from the task state. Passages follow the answer level. A task the check stopped carries the report and the status text "The editorial check stopped the text." (ADR-301).
+
+- Run timeline: a provider-call row shows `reportedModel`, the model the provider named on its answer, where it differs from the model the call was sent to (for example an alias resolved to a dated snapshot). Read from the existing `response_model` telemetry column; no schema change (ADR-320).
+
+### Changed
+
+- The site settings documentation says how the backend AI chat (nr-mcp-agent) treats `nrllm.configuration`: it runs a page's conversation on the site's configuration instead of its Task's and refuses one whose model cannot call tools, and a Groq model needs *Tool Use* ticked by hand because Groq reports no capabilities.
+
+- A run that delegated a step to a remote A2A agent no longer hands the remote's question (`TASK_STATE_INPUT_REQUIRED`) to the model. The run waits for an answer from the backend user who started it, in the waiting runs' input form, and the answer goes to exactly the remote task that asked; administrators and holders of the approval grant who did not start the run cannot answer. `TASK_STATE_AUTH_REQUIRED` is waited out until the delegation's maximum wait and never answered; nothing but GetTask is sent (ADR-311).
+
+- `AfterAiRecordWrittenEvent` names workspace 0 for a write to a table whose TCA is loaded and keeps no workspace versions (no `ctrl.versioningWS`), whatever workspace the acting user wrote from: such a table has only its live row. The writes artifact of an A2A task reads the event and so names an adopted `sys_file` as live. No writer before `adopt_client_file` wrote such a table from a draft workspace.
+- A previewing tool can name its plan as structured data (`PreviewPlanInterface`, internal). The loop stores the plan with the preview in the run's suspended state, the ADR-184 comparison treats a changed plan like changed lines, the approvals inbox decides who may read the stored preview on the plan instead of the call's arguments, and the approved call receives it. `adopt_client_file` names its canonical inbox folder and the exact stored name there.
+
+- Outbound A2A delegation tools are offered on an installation with nr-mcp-agent 0.39.0 or later: that release follows a chat run that waits for a remote agent and shows the answer the run keeps after its resume. With an older nr-mcp-agent they stay withheld.
+
+- A run that completes after an approval, an answered question or a remote agent's answer now keeps its answer like a queued run, also when it has no origin (a backend chat); a queued run without an origin now keeps its answer too. The privacy level applies as before: `none` keeps nothing, `redacted` keeps the redacted text, and the answer is sealed and purged with the run. It is readable by the run's initiator, administrators and service accounts holding `agent:read` (ADR-234, amendment of 2026-11-16).
+
+### Fixed
+
+- The comment of the site set `netresearch/nr-llm` and the site settings page no longer say that the site settings are read whether or not a site depends on the set, and the A2A server page now warns about dotted keys. Without the set, `settings.yaml` is read only in the nested form; a dotted key such as `nrllm.a2a.baseUrl` is stored with its dots escaped and is not read, so a site that writes dotted keys has to depend on the set.
+
+- A scoped write (ADR-295) whose transaction the database commits before the call ends, which happens when a DataHandler hook flushes a cache on the database backend and so runs a `TRUNCATE` on MySQL or MariaDB, is now reported as written. Before, the call was reported as "NOT committed as such", and the `writes` artifact of an A2A task said that no write was executed, although the draft was stored. A marker row in `sys_registry` now tells a commit by the database apart from a rollback or a lost connection (NEXT-240).
+
+- The group toggle in the Tools module rendered its `class` and `data-enabled` attributes as raw Fluid (`{f:if(...)}`). The button had no colour, and because the script never read `data-enabled="1"` it always sent "enable", so "Disable group" could not disable a group. The template now resolves the group's state into a variable before the inline condition.
+
 ## [0.49.1] - 2026-11-16
 
 ### Upgrading from 0.49
@@ -5403,7 +5455,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.50.0...HEAD
+[0.50.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.48.0...v0.49.0
 [0.48.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.47.0...v0.48.0

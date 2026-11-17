@@ -1,1 +1,0 @@
-- With nr-mcp-agent installed, update it to 0.39.0 or later to get the delegation tools of remote A2A agents in its runs; with an older version none are offered, as before.
