@@ -131,7 +131,7 @@
          "sources": [{"label": "nr-llm manual: A2A server", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aServer.html"}]},
         {"capability": "Delegate work to other A2A agents", "origin": ["nr"], "component": "A2A client in nr-llm",
          "detail": "Administrators register remote A2A agents. The skills on their Agent Card become tools. These tools are off by default, and by default a run needs an approval before it delegates.",
-         "limit": "The client exchanges text only. While the backend chat nr-mcp-agent is installed, nr-llm does not offer delegation tools to agent runs yet (see the limits section).",
+         "limit": "The client exchanges text only. With the backend chat nr-mcp-agent installed, agent runs get delegation tools from nr-llm 0.50.0 on, and only with nr-mcp-agent 0.39.0 or later (see the limits section).",
          "sources": [{"label": "nr-llm manual: remote agents", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aRemoteAgents.html"}]},
         {"capability": "Personal agents with the editor's own rights", "origin": ["nr"], "component": "A2A tokens in nr-llm",
          "detail": "Where an administrator allows it, editors issue their own revocable A2A tokens. A token is limited to permitted profiles and, by default, to a draft workspace and an expiry date. nr-llm checks every request against the editor's current groups.",
@@ -291,7 +291,7 @@
     "heading": "Where the edges are today",
     "intro": "This page does not count merged but unreleased work as available.",
     "items": [
-      "The chain from the backend chat to a remote agent and back is not available yet. While nr-mcp-agent is installed, nr-llm offers agent runs no delegation tools. nr-mcp-agent already contains a display for a step that waits for a remote agent. That display stays unreachable until nr-llm lifts this block. Keeping the final answer of such a step is in progress in nr-llm.",
+      "The chain from the backend chat to a remote agent and back needs nr-llm 0.50.0 and nr-mcp-agent 0.39.0 or later. With an older nr-mcp-agent installed, nr-llm offers agent runs no delegation tools. With both releases, the chat shows a step that waits for a remote agent, and nr-llm keeps the final answer of that step after the run resumes.",
       "The A2A client exchanges text only. The A2A server accepts and returns files only when files are enabled.",
       "nr-browser-ai is a proof of concept. Its form tools fill a form and query its data source. They never submit the form.",
       "nr-mcp-agent is published as a proof of concept. nr-repurpose and nr-http-guard are alpha releases.",
