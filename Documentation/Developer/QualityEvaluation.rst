@@ -318,15 +318,15 @@ this snapshot; a later evaluation never replaces it, and the run timeline marks
 an evaluation that retention purged since as ``report=gone``
 (``report=unknown`` when the evaluation tables cannot be read). A lookup that
 fails during a run is logged and records no evidence step; the run is not
-stopped. A resumed segment records nothing for the versions it carries over;
-the segment that composed or loaded them did.
+stopped. The step names composed versions only; a version a resumed segment
+carries over is left out, and so is a loaded one.
 
 Evaluations run one-shot completions, never the agent loop. A skill loaded on
-demand during a run is therefore never covered, and its entry names no evidence
-even when an evaluation measured the same digest composed, and evidence always
-has the scope ``completion``. An approval of a skill version and evidence about
-it are recorded apart: the approval is a person's decision about a text, the
-evidence a measurement of how one model did with it.
+demand during a run is therefore never covered, and it is left out of the
+evidence even when an evaluation measured the same digest composed. Evidence
+always has the scope ``completion``. An approval of a skill version and
+evidence about it are recorded apart: the approval is a person's decision about
+a text, the evidence a measurement of how one model did with it.
 
 .. _developer-quality-evaluation-quality-routing:
 

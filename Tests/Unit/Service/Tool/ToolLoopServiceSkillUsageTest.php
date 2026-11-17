@@ -642,25 +642,32 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
 
     /**
      * A version loaded during a run is not what an evaluation measured, even
-     * at the same digest: its evidence is none. The closing call at the
-     * iteration cap is the first to carry the load, so it records it.
+     * at the same digest: the evidence step leaves it out, and names the
+     * composed version beside it.
      */
     #[Test]
-    public function aLoadedVersionHasNoEvidenceAndTheClosingCallRecordsIt(): void
+    public function aLoadedVersionIsLeftOutOfTheEvidence(): void
     {
         $lookup = new InMemorySkillEvidenceLookup();
         $lookup->add(self::ON_DEMAND, $this->skills[self::ON_DEMAND]->getVersionDigest(), $this->evidence(14, 'test-model'));
+        $lookup->add(self::INSTRUCTION, $this->skills[self::INSTRUCTION]->getVersionDigest(), $this->evidence(12, 'test-model'));
 
-        $this->turns = [[$this->loadCall('c1')], [new ToolCall('c2', 'noop', [])]];
+        $this->turns = [[$this->loadCall('c1')]];
         $trace       = new RunTrace();
 
-        $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(onDemand: true), ToolExecutionContext::none(), null, null, 1, $trace);
+        $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(always: [self::INSTRUCTION], onDemand: true), ToolExecutionContext::none(), null, null, 5, $trace);
 
-        $evidenceSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_SKILL_EVIDENCE));
-        self::assertCount(1, $evidenceSteps);
-        [$entry] = SkillEvidenceEntry::listFrom($evidenceSteps[0]->toArray()['skillEvidence'] ?? null);
-        self::assertSame(self::ON_DEMAND, $entry->skillUid);
-        self::assertSame([], $entry->evidence);
+        self::assertContains(self::ON_DEMAND, array_map(static fn (SkillUsageEntry $e): int => $e->skillUid, $this->entries($trace)), 'the load was passed');
+        $named = [];
+        foreach ($trace->getSteps() as $step) {
+            if ($step->kind === RunStep::KIND_SKILL_EVIDENCE) {
+                foreach (SkillEvidenceEntry::listFrom($step->toArray()['skillEvidence'] ?? null) as $entry) {
+                    $named[] = $entry->skillUid;
+                }
+            }
+        }
+
+        self::assertSame([self::INSTRUCTION], $named);
     }
 
     /**

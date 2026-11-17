@@ -120,15 +120,21 @@ final class SkillEvidenceRepositoryTest extends AbstractFunctionalTestCase
     public function retentionPurgesTheEvaluationAndTheVersionsItMeasured(): void
     {
         $this->results->save($this->evaluation(1_700_000_000, [new SkillUse(3, 1, self::DIGEST, 'house-rules', SkillRole::INSTRUCTION)]));
-        [$snapshot] = $this->evidence->evidenceFor(3, self::DIGEST);
+        // A newer evaluation of the same version, inside the retention window.
+        $this->results->save($this->evaluation(1_700_000_002, [new SkillUse(3, 1, self::DIGEST, 'house-rules', SkillRole::INSTRUCTION)]));
+
+        $snapshot = $this->evidence->evidenceFor(3, self::DIGEST)[1];
+        self::assertSame(1_700_000_000, $snapshot->runDate);
 
         $this->results->purgeOlderThan(1_700_000_001);
 
-        self::assertSame([], $this->evidence->evidenceFor(3, self::DIGEST));
+        $kept = $this->evidence->evidenceFor(3, self::DIGEST);
+        self::assertSame([1_700_000_002], array_map(static fn (SkillEvidence $e): int => $e->runDate, $kept));
+        self::assertTrue($this->evidence->isAvailable($kept[0]));
         self::assertFalse($this->evidence->isAvailable($snapshot));
         $pool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $pool);
-        self::assertSame(0, $pool->getConnectionForTable('tx_nrllm_eval_skill_version')->count('*', 'tx_nrllm_eval_skill_version', []));
+        self::assertSame(1, $pool->getConnectionForTable('tx_nrllm_eval_skill_version')->count('*', 'tx_nrllm_eval_skill_version', []));
     }
 
     /**

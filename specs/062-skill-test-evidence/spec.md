@@ -33,9 +33,10 @@ measured on the model that answered.
   The run keeps its snapshot; the timeline marks a snapshot whose evaluation
   is no longer stored (same uid, run date, fingerprint and set) as `report=gone` (`report=unknown` when that cannot be checked) and never
   shows a newer evaluation in its place.
-- **TE7 Loaded, carried and failed.** A version loaded during the run has
-  an empty evidence list. A resumed segment records nothing for the versions
-  it carries over; the segment that composed or loaded them did. A lookup that fails is logged and records no evidence step
+- **TE7 Composed only; a failed lookup.** The step names composed versions
+  only: a version loaded during the run, or carried over a pause by a
+  resumed segment, is left out; the usage step's inclusion says which it
+  was. A lookup that fails is logged and records no evidence step
   for that call; the run continues.
 
 ## Out of scope
@@ -49,6 +50,7 @@ measured on the model that answered.
 ## Limits
 
 - Skills loaded on demand are never covered; scope is always `completion`.
+- Evidence matches by skill and digest, not by configuration or role.
 - An evaluation with a pinned provider runs without the default
   configuration's skills and covers no version.
 - Decision-graded evaluations are recorded; their comparable revision stays
@@ -62,4 +64,4 @@ measured on the model that answered.
 | TE2, TE3 | `ToolLoopServiceSkillUsageTest::aRunWithoutToolsRecordsTheEvidenceAfterItsOnlyAnswer`, `ToolLoopServiceSkillUsageTest::theEvidenceOfAVersionIsRecordedAfterTheAnswerAndJudgedAgainstItsModel`, functional `SkillEvidenceRepositoryTest::anEvaluationIsFoundForTheVersionItMeasuredWithWhatItTested`, `theNewestEvaluationsComeFirstAndAtMostThree` |
 | TE4 | `ToolLoopServiceSkillUsageTest::evidenceFromAnotherModelIsMarkedAsSuchAfterAFallback`, `SkillEvidenceTest::evidenceIsJudgedAgainstTheModelThatAnswered` |
 | TE6 | `RunTimelineFactoryTest::aSkillEvidenceStepShowsTheRecordedEvaluationAndWhetherItIsStillStored`, functional `SkillEvidenceRepositoryTest::retentionPurgesTheEvaluationAndTheVersionsItMeasured`, `RetentionCoverageTest` |
-| TE7 | `ToolLoopServiceSkillUsageTest::aLoadedVersionHasNoEvidenceAndTheClosingCallRecordsIt`, `aResumedSegmentRecordsNoEvidenceForTheVersionsItCarries`, `aFailedEvidenceLookupRecordsNoStepAndTheRunFinishes` |
+| TE7 | `ToolLoopServiceSkillUsageTest::aLoadedVersionIsLeftOutOfTheEvidence`, `aResumedSegmentRecordsNoEvidenceForTheVersionsItCarries`, `aFailedEvidenceLookupRecordsNoStepAndTheRunFinishes` |

@@ -22,6 +22,8 @@ use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessRunPreparer;
 use Netresearch\NrLlm\Service\Agent\QueuedRunCoordinator;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
+use Netresearch\NrLlm\Service\Evaluation\SkillEvidenceLookupInterface;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
 use Netresearch\NrLlm\Service\Skill\SkillApprovalRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillComposerFactory;
@@ -217,6 +219,23 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         self::assertInstanceOf(ToolLoopService::class, $loop);
 
         self::assertInstanceOf(InvocationDigests::class, (new ReflectionProperty(ToolLoopService::class, 'invocationDigests'))->getValue($loop));
+    }
+
+    /**
+     * The evidence lookup is optional on the loop and the timeline (ADR-322):
+     * a container that left it null would record no evidence and mark every
+     * snapshot unknown, with every test that injects it by hand still green.
+     */
+    #[Test]
+    public function productionWiresTheSkillEvidenceLookup(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+        self::assertInstanceOf(SkillEvidenceLookupInterface::class, (new ReflectionProperty(ToolLoopService::class, 'skillEvidence'))->getValue($loop));
+
+        $timeline = $this->get(RunTimelineFactory::class);
+        self::assertInstanceOf(RunTimelineFactory::class, $timeline);
+        self::assertInstanceOf(SkillEvidenceLookupInterface::class, (new ReflectionProperty(RunTimelineFactory::class, 'skillEvidence'))->getValue($timeline));
     }
 
     /**

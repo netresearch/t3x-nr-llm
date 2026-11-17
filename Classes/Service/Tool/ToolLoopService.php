@@ -1777,28 +1777,25 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         $entries = [];
         foreach ($passed as $entry) {
-            // A version carried over a pause was recorded by the segment that
-            // composed or loaded it; the resumed segment cannot tell which,
-            // so it records nothing for it (ADR-322).
-            if ($entry->inclusion === SkillInclusion::CARRIED) {
+            // An evaluation measures a version composed into a one-shot
+            // completion. The step names composed versions only: a version
+            // loaded during the run is never covered, even at the same digest,
+            // and a version carried over a pause was named by the segment
+            // that composed it, if any (ADR-322). The usage step's inclusion
+            // says which a left-out version was.
+            if ($entry->inclusion !== SkillInclusion::COMPOSED) {
                 continue;
             }
 
-            // An evaluation measures a version composed into a one-shot
-            // completion; a version loaded during a run is never covered by
-            // it, even at the same digest.
-            $found = [];
-            if ($entry->inclusion !== SkillInclusion::LOADED) {
-                try {
-                    $found = $this->skillEvidence->evidenceFor($entry->skillUid, $entry->versionDigest);
-                } catch (Throwable $e) {
-                    // Evidence is information about the run, not a condition
-                    // of it: a failed lookup records no evidence step at all,
-                    // which a reader tells apart from an empty list (none).
-                    $this->logger?->warning('Skill evidence lookup failed; the run records none for this call.', ['exception' => $e]);
+            try {
+                $found = $this->skillEvidence->evidenceFor($entry->skillUid, $entry->versionDigest);
+            } catch (Throwable $e) {
+                // Evidence is information about the run, not a condition of
+                // it: a failed lookup records no evidence step at all, which a
+                // reader tells apart from an empty list (none).
+                $this->logger?->warning('Skill evidence lookup failed; the run records none for this call.', ['exception' => $e]);
 
-                    return [];
-                }
+                return [];
             }
 
             $entries[] = new SkillEvidenceEntry(

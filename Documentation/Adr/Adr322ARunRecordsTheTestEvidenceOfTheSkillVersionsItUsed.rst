@@ -53,14 +53,15 @@ Decision
    ``@api``): for each version, the evaluations stored at that moment that
    measured exactly its digest, newest first, at most three
    (:php:`SkillEvidenceLookupInterface::LIMIT`). An empty list states that
-   none applied; a version loaded during the run always has an empty list,
-   since no evaluation measured it loaded, even at the same digest. A resumed
-   segment records nothing for the versions it carries over: the segment that
-   composed or loaded them recorded their evidence, and the resumed one cannot
-   tell which of the two it was. Nothing is looked up later to fill in or
-   replace it. A lookup that fails (for example before the database analyzer
-   created the table) is logged and records no evidence step for that call:
-   the run goes on, and the missing step reads apart from an empty list.
+   none applied. The step names composed versions only: a version loaded
+   during the run is left out, since no evaluation measured it loaded, even at
+   the same digest, and so is a version a resumed segment carries over, which
+   the segment that composed it named if it was composed. The usage step's
+   inclusion (:ref:`ADR-321 <adr-321>`) says which a left-out version was.
+   Nothing is looked up later to fill in or replace it. A lookup that fails
+   (for example before the database analyzer created the table) is logged and
+   records no evidence step for that call: the run goes on, and the missing
+   step reads apart from an empty list.
 3. **Judged against the model that answered.** Each evaluation is marked
    ``match`` when the model the provider named on the call's answer is the
    evaluated model, ``other_model`` otherwise (for example after a fallback),
@@ -83,8 +84,9 @@ Consequences
 versions it used, at that time, and whether they were measured on the model
 that answered.
 
-● A fallback to another model shows as ``other_model`` on the evidence of
-every version the call carried.
+● A fallback to another model on the call that first carried the composed
+versions shows as ``other_model`` on their evidence. A fallback on a later
+call records no evidence.
 
 ● A later evaluation of the same version, or of a newer version, does not
 change what an earlier run recorded.
@@ -94,15 +96,20 @@ results' retention and are purged with them.
 
 ✕ Skills loaded on demand, and anything a run does beyond a one-shot
 completion — tool choice, write proposals, multi-step processes — are never
-covered, because no evaluation runs the agent loop. Their evidence is always
-none, and the scope of every evidence is ``completion``.
+covered, because no evaluation runs the agent loop. They are left out of the
+evidence, and the scope of every evidence is ``completion``.
+
+◑ Evidence matches by skill and digest, not by configuration or role: an
+evaluation through the default configuration counts for a run under another
+configuration, whose system prompt or other skills may differ. The snapshot
+stores the evaluation's configuration.
 
 ◑ An evaluation whose prompts disagreed on the versions they carried, or ran
 with a pinned provider and therefore without the configuration's skills,
 covers no version.
 
-◑ At most three evaluations per version are recorded, the newest stored at
-the time. Older ones are not.
+◑ At most three evaluations per version are recorded, the newest stored at the
+time. Older ones are not.
 
 ◑ Decision-graded evaluations are recorded like the others; their comparable
 revision stays unknown (:ref:`ADR-271 <adr-271>`). Identical versions, model
