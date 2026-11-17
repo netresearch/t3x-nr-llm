@@ -18,6 +18,7 @@ use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryCallOutcomeRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryEvaluationResultRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemorySkillAuditRepository;
+use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryToolAuditRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -43,6 +44,8 @@ final class PurgePrivacyDataCommandTest extends TestCase
 
     private InMemoryCallOutcomeRepository $callOutcomes;
 
+    private InMemoryToolAuditRepository $toolAudit;
+
     protected function setUp(): void
     {
         $this->eval         = new InMemoryEvaluationResultRepository();
@@ -52,6 +55,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         $this->agentRuns    = new InMemoryAgentRunRepository();
         $this->governance   = new InMemoryGovernanceEventRepository();
         $this->callOutcomes = new InMemoryCallOutcomeRepository();
+        $this->toolAudit    = new InMemoryToolAuditRepository();
     }
 
     #[Test]
@@ -65,6 +69,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         $this->agentRuns->purgeUnfinishedReturns = 1;
 
         $this->governance->purgeReturns = 4;
+        $this->toolAudit->purgeReturns  = 6;
 
         $tester = new CommandTester($this->command(['retentionDays' => '45']));
 
@@ -88,6 +93,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
             $this->agentRuns->purgeCutoff,
             $this->agentRuns->purgeUnfinishedCutoff,
             $this->governance->purgeCutoff,
+            $this->toolAudit->purgeCutoff,
         ];
 
         foreach ($cutoffs as $cutoff) {
@@ -104,6 +110,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         self::assertStringContainsString('Finished agent runs (45 d): 11', $display);
         self::assertStringContainsString('Unfinished agent runs (45 d): 1', $display);
         self::assertStringContainsString('Governance events (45 d): 4', $display);
+        self::assertStringContainsString('Tool audit (45 d): 6', $display);
     }
 
     #[Test]
@@ -176,6 +183,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
         self::assertNull($this->agentRuns->purgeCutoff);
         self::assertNull($this->agentRuns->purgeUnfinishedCutoff);
         self::assertNull($this->governance->purgeCutoff);
+        self::assertNull($this->toolAudit->purgeCutoff);
         self::assertStringContainsString('positive integer', $tester->getDisplay());
     }
 
@@ -196,6 +204,7 @@ final class PurgePrivacyDataCommandTest extends TestCase
             $this->agentRuns,
             $this->governance,
             $this->callOutcomes,
+            toolAudit: $this->toolAudit,
         );
     }
 }

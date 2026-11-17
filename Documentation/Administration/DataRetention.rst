@@ -91,6 +91,9 @@ default:
      - Skill scan findings
    * - ``privacy.retention.governance``
      - Tool-gate denials and guardrail blocks (no prompts, no responses)
+   * - ``privacy.retention.toolAudit``
+     - Who switched a tool or a tool group on or off in the
+       :ref:`Tools module <administration-tools-audit>`, and when
 
 A zero, negative or non-numeric value never means "delete immediately" — it
 means "no override". When to set one at all, and how to read the window that

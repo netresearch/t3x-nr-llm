@@ -799,6 +799,41 @@ CREATE TABLE tx_nrllm_tool_group_state (
 );
 
 #
+# Table structure for table 'tx_nrllm_tool_audit'
+# Append-only trail of the administrator switches in the Tools module: one row
+# per toggle of a tool or a tool group that changed its state. Written only by
+# ToolAuditRepository::record() (INSERT); the one delete path is the retention
+# purge (nrllm:privacy:purge, category toolAudit). Follows
+# tx_nrllm_skill_audit (ADR-061): no TCA, no soft-delete, no tstamp -- crdate
+# is the immutable event time.
+#
+CREATE TABLE tx_nrllm_tool_audit (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    -- What was switched: tool | group
+    scope varchar(10) DEFAULT '' NOT NULL,
+    -- The tool name or the group name
+    name varchar(190) DEFAULT '' NOT NULL,
+    -- The state of that tool or group before and after the switch. For a
+    -- tool this is its own state (override or default), not the group cascade.
+    old_enabled smallint(5) unsigned DEFAULT '0' NOT NULL,
+    new_enabled smallint(5) unsigned DEFAULT '0' NOT NULL,
+
+    -- The administrator (be_users.uid); in switch-user mode the administrator
+    -- who switched is kept as well, since the session user is the one
+    -- switched to. 0 when not in switch-user mode.
+    actor_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    original_actor_uid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY subject (scope, name),
+    KEY crdate (crdate)
+);
+
+#
 # Table structure for table 'tx_nrllm_telemetry'
 # One row per provider middleware pipeline run (ADR-058). Unlike
 # tx_nrllm_service_usage (a daily cost AGGREGATE) this is a per-request log:

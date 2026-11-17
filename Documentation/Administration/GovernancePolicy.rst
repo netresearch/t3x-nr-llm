@@ -44,14 +44,15 @@ field; the tab follows on the next request.
 
 .. _administration-governance-retention-overrides:
 
-The seven retention overrides
+The eight retention overrides
 =============================
 
-``privacy.retentionDays`` has seven per-category overrides
+``privacy.retentionDays`` has eight per-category overrides
 (``privacy.retention.conversation``, ``.agentRun``, ``.approval``,
-``.telemetry``, ``.evaluation``, ``.skillAudit``, ``.governance``). They are
-omitted from the tab when their effective window equals the global window.
-All seven ship as ``0``, which means "no override". A configured category
+``.telemetry``, ``.evaluation``, ``.skillAudit``, ``.governance``,
+``.toolAudit``). They are omitted from the tab when their effective window
+equals the global window.
+All eight ship as ``0``, which means "no override". A configured category
 whose known effective window differs from the known global window gets its
 own row. An unknown category window is omitted; if the global window is
 unknown, no category override rows appear.
@@ -74,6 +75,10 @@ Set an override when one category genuinely needs a different window:
   rows buys capacity trends and denial evidence at no content risk.
 - **Skill audit** is the append-only provenance trail for everything that
   reached a prompt. Keep it for as long as you may have to reconstruct that.
+- **Tool audit** records who switched a tool or a tool group, and when. With
+  the global window (``privacy.retentionDays``, 30 days by default) it is
+  purged with the content rows; keep it longer if a switch must still be
+  traceable when somebody notices it later.
 
 The full table of what each override covers is in
 :ref:`administration-data-retention-how-long`.

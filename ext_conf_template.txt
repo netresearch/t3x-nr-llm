@@ -357,6 +357,9 @@ privacy.retention.skillAudit = 0
 # cat=privacy; type=int+; label=Retention override — Governance events (days): Tool-gate denials and guardrail blocks — attributable metadata only, no prompts or responses. 0 uses the default retention window.
 privacy.retention.governance = 0
 
+# cat=privacy; type=int+; label=Retention override — Tool audit (days): Who switched a tool or a tool group in the Tools module on or off, and when — attributable metadata only. 0 uses the default retention window.
+privacy.retention.toolAudit = 0
+
 # =============================================================================
 # Billing report (ADR-231)
 # =============================================================================

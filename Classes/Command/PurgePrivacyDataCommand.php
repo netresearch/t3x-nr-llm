@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface;
 use Netresearch\NrLlm\Service\Skill\SkillAuditRepositoryInterface;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\AgentRunRepositoryInterface;
+use Netresearch\NrLlm\Service\Tool\ToolAuditRepositoryInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -44,7 +45,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  */
 #[AsCommand(
     name: 'nrllm:privacy:purge',
-    description: 'Delete content-bearing rows (eval results, skill audit, telemetry, conversations, agent runs, governance events) past their retention window.',
+    description: 'Delete content-bearing rows (eval results, skill audit, telemetry, conversations, agent runs, governance events, tool audit) past their retention window.',
 )]
 /**
  * @internal not part of the @api surface; may change without notice (ADR-127)
@@ -61,6 +62,9 @@ final class PurgePrivacyDataCommand extends Command
         private readonly GovernanceEventRepositoryInterface $governanceEvents,
         private readonly CallOutcomeRepositoryInterface $callOutcomes,
         private readonly ?A2aFileStore $a2aFiles = null,
+        // Optional and trailing so a positional construction keeps working;
+        // the container always injects it.
+        private readonly ?ToolAuditRepositoryInterface $toolAudit = null,
     ) {
         parent::__construct();
     }
@@ -116,6 +120,11 @@ final class PurgePrivacyDataCommand extends Command
 
         [$days, $cutoff] = $window(PrivacyDataCategory::GOVERNANCE);
         $purged[]        = sprintf('Governance events (%d d): %d', $days, $this->governanceEvents->purgeOlderThan($cutoff));
+
+        if ($this->toolAudit instanceof ToolAuditRepositoryInterface) {
+            [$days, $cutoff] = $window(PrivacyDataCategory::TOOL_AUDIT);
+            $purged[]        = sprintf('Tool audit (%d d): %d', $days, $this->toolAudit->purgeOlderThan($cutoff));
+        }
 
         // A2A files carry their own expiry (spec 051 A2A-FILE4); --days does
         // not move it.

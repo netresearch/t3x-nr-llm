@@ -70,7 +70,7 @@ New tables get a per-table file directly under `TCA/`. The one extension of a fo
 | `tx_nrllm_agentrun`, `tx_nrllm_agentrun_event` | Agent runs and their event log |
 | `tx_nrllm_ai_session`, `tx_nrllm_ai_session_message` | AI sessions |
 | `tx_nrllm_telemetry`, `tx_nrllm_governance_event`, `tx_nrllm_eval_result` | Telemetry / governance / eval records |
-| `tx_nrllm_tool_state`, `tx_nrllm_tool_group_state` | Tool enablement state |
+| `tx_nrllm_tool_state`, `tx_nrllm_tool_group_state` | Tool enablement state (+ `tx_nrllm_tool_audit`, the administrator switches) |
 
 ### Services
 All services use autowiring. Public services defined in `Services.yaml`:

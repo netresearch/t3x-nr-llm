@@ -64,6 +64,13 @@ enum PrivacyDataCategory: string
     case GOVERNANCE = 'governance';
 
     /**
+     * Administrator switches of tools and tool groups in the Tools module
+     * (tx_nrllm_tool_audit). Attributable metadata (be_user, tool or group
+     * name, old and new state), no content.
+     */
+    case TOOL_AUDIT = 'toolAudit';
+
+    /**
      * The `privacy.retention.<key>` extension-configuration key this category
      * reads its override from.
      */

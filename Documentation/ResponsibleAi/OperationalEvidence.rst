@@ -60,6 +60,9 @@ Inventory the following separately before promising deletion:
     * - Evaluation output and skill audit
       - Their category windows govern stored evidence/content. Preserve only
         the non-sensitive evidence needed by the assessment policy.
+    * - Tool audit
+      - ``privacy.retention.toolAudit``; who switched a tool or a tool group,
+        by backend user uid. Metadata only, and still attributable.
     * - Telemetry, call outcomes and governance events
       - Check their respective purge paths and related-row handling. Metadata
         can still identify people or behavior.

@@ -109,8 +109,8 @@ final readonly class EffectivePolicyReadout
      * One row per `privacy.retention.<category>` override that actually moves a
      * window, and none for the rest.
      *
-     * The seven overrides ship as `0` and resolve to the global window, so on a
-     * stock install listing them adds seven rows reading "30" and informs
+     * The overrides (one per PrivacyDataCategory) ship as `0` and resolve to the
+     * global window, so on a stock install listing them adds a row each reading "30" and informs
      * nobody. Once one IS set, the opposite holds: `privacy.retentionDays` is
      * then no longer the window that category is purged on, and a single number
      * on a page promising what the install "actually applies" is read as the

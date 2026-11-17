@@ -65,6 +65,8 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         // expiry before that (spec 051 A2A-FILE4).
         'tx_nrllm_a2a_file',
         'tx_nrllm_governance_event',
+        // Who switched a tool or a tool group in the Tools module.
+        'tx_nrllm_tool_audit',
     ];
 
     /**
@@ -359,6 +361,16 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
             'agentrun_uid'             => 0,
             'guardrail'                => '',
             'detail'                   => 'zone=externalGlobal;ceiling=editorContent;observedOnly=0',
+        ]);
+
+        $connectionPool->getConnectionForTable('tx_nrllm_tool_audit')->insert('tx_nrllm_tool_audit', [
+            'pid'         => 0,
+            'crdate'      => $timestamp,
+            'scope'       => 'tool',
+            'name'        => 'fetch_logs',
+            'old_enabled' => 1,
+            'new_enabled' => 0,
+            'actor_uid'   => 1,
         ]);
     }
 

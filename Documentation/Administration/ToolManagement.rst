@@ -161,6 +161,42 @@ value is the extension key, so an admin can disable an extension's whole
 tool family with one toggle. The design is recorded in
 :ref:`ADR-043 <adr-043>`.
 
+.. _administration-tools-audit:
+
+Who switched a tool or a group
+==============================
+
+Every switch of a tool or a tool group in the Tools module that changes its
+state is recorded in the table ``tx_nrllm_tool_audit``, like the enable and
+disable of a skill (:ref:`ADR-061 <adr-061>`). A row holds:
+
+* ``crdate``: when, as a UNIX timestamp
+* ``scope`` and ``name``: ``tool`` or ``group``, and the tool or group name
+* ``old_enabled`` and ``new_enabled``: the state before and after, ``1``
+  for enabled. For a tool this is the tool's own state, its override or its
+  default; a disabled group around it is not part of it.
+* ``actor_uid``: the administrator (``be_users.uid``). In switch-user mode
+  ``original_actor_uid`` names the administrator who switched; otherwise it
+  is ``0``.
+
+A switch to the state a tool or group already has leaves no row. The table
+has no backend view. Read it in the database, newest first:
+
+.. code-block:: sql
+   :caption: The latest tool switches (MySQL, MariaDB)
+
+   SELECT FROM_UNIXTIME(a.crdate) AS switched_at, a.scope, a.name,
+          a.old_enabled, a.new_enabled, u.username,
+          o.username AS switched_from_user
+     FROM tx_nrllm_tool_audit a
+     LEFT JOIN be_users u ON u.uid = a.actor_uid
+     LEFT JOIN be_users o ON o.uid = a.original_actor_uid
+    ORDER BY a.uid DESC;
+
+The rows are deleted by :bash:`nrllm:privacy:purge` after the window of
+``privacy.retention.toolAudit`` (see :ref:`administration-data-retention`).
+Switches made before this trail existed were not recorded.
+
 .. _administration-tools-excluded:
 
 Excluding single tools per configuration

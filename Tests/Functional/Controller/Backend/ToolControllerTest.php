@@ -13,7 +13,9 @@ use Error;
 use GuzzleHttp\Psr7\ServerRequest as GuzzleServerRequest;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Controller\Backend\ToolController;
+use Netresearch\NrLlm\Domain\Enum\ToolAuditScope;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
+use Netresearch\NrLlm\Service\Tool\ToolAuditRepository;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
@@ -22,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\EditorActionDiagnosticLogger;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FailingToolAuditRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -35,6 +38,7 @@ use RuntimeException;
 use Throwable;
 use TYPO3\CMS\Backend\Routing\Route;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Core\SystemEnvironmentBuilder;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\NormalizedParams;
@@ -56,6 +60,7 @@ use TYPO3\CMS\Extbase\Mvc\Request as ExtbaseRequest;
 #[CoversClass(ToolStateRepository::class)]
 #[CoversClass(ToolGroupStateRepository::class)]
 #[CoversClass(ToolAvailabilityService::class)]
+#[CoversClass(ToolAuditRepository::class)]
 final class ToolControllerTest extends AbstractFunctionalTestCase
 {
     protected function tearDown(): void
@@ -347,6 +352,219 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
 
         // The cascade drops the whole group from the enabled set.
         self::assertSame(['beta_tool'], $this->availabilityFor($toolRegistry)->enabledNames());
+    }
+
+    /**
+     * The controller the backend runs (built by the container, so the audit
+     * dependency is the wired one) leaves one audit row per real switch:
+     * who, when, which tool, from what to what. A repeated identical switch
+     * changes nothing and leaves no row.
+     */
+    #[Test]
+    public function toggleToolActionRecordsWhoSwitchedWhichToolWhenAndFromWhatToWhat(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $controller = $this->containerController();
+        $disable    = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))
+            ->withParsedBody(['tool' => 'fetch_logs', 'enabled' => '0']);
+
+        $before = time();
+        self::assertSame(200, $controller->toggleToolAction($disable)->getStatusCode());
+        $after = time();
+
+        $rows = $this->auditRows();
+        self::assertCount(1, $rows);
+        self::assertSame('tool', $rows[0]['scope']);
+        self::assertSame('fetch_logs', $rows[0]['name']);
+        self::assertSame(1, $rows[0]['old_enabled'], 'fetch_logs is enabled by default');
+        self::assertSame(0, $rows[0]['new_enabled']);
+        self::assertSame(1, $rows[0]['actor_uid']);
+        self::assertSame(0, $rows[0]['original_actor_uid']);
+        self::assertGreaterThanOrEqual($before, $rows[0]['crdate']);
+        self::assertLessThanOrEqual($after, $rows[0]['crdate']);
+
+        // The same switch again changes nothing and records nothing.
+        self::assertSame(200, $controller->toggleToolAction($disable)->getStatusCode());
+        self::assertCount(1, $this->auditRows());
+
+        $enable = (new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))
+            ->withParsedBody(['tool' => 'fetch_logs', 'enabled' => '1']);
+        self::assertSame(200, $controller->toggleToolAction($enable)->getStatusCode());
+        $rows = $this->auditRows();
+        self::assertCount(2, $rows);
+        self::assertSame(['fetch_logs', 0, 1], [$rows[1]['name'], $rows[1]['old_enabled'], $rows[1]['new_enabled']]);
+    }
+
+    /**
+     * The state before is the tool's own default when there is no override:
+     * get_env_raw ships disabled, so enabling it is recorded as 0 -> 1.
+     */
+    #[Test]
+    public function enablingAToolThatShipsDisabledRecordsItsDefaultAsTheStateBefore(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $controller = $this->containerController();
+
+        $response = $controller->toggleToolAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))
+            ->withParsedBody(['tool' => 'get_env_raw', 'enabled' => '1']));
+        self::assertSame(200, $response->getStatusCode());
+
+        $rows = $this->auditRows();
+        self::assertCount(1, $rows);
+        self::assertSame(['tool', 'get_env_raw', 0, 1], [$rows[0]['scope'], $rows[0]['name'], $rows[0]['old_enabled'], $rows[0]['new_enabled']]);
+    }
+
+    #[Test]
+    public function toggleToolGroupActionRecordsWhoSwitchedWhichGroupWhenAndFromWhatToWhat(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $controller = $this->containerController();
+        $disable    = (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))
+            ->withParsedBody(['group' => 'system', 'enabled' => '0']);
+
+        $before = time();
+        self::assertSame(200, $controller->toggleToolGroupAction($disable)->getStatusCode());
+        $after = time();
+
+        $rows = $this->auditRows();
+        self::assertCount(1, $rows);
+        self::assertSame('group', $rows[0]['scope']);
+        self::assertSame('system', $rows[0]['name']);
+        self::assertSame(1, $rows[0]['old_enabled']);
+        self::assertSame(0, $rows[0]['new_enabled']);
+        self::assertSame(1, $rows[0]['actor_uid']);
+        self::assertGreaterThanOrEqual($before, $rows[0]['crdate']);
+        self::assertLessThanOrEqual($after, $rows[0]['crdate']);
+
+        self::assertSame(200, $controller->toggleToolGroupAction($disable)->getStatusCode());
+        self::assertCount(1, $this->auditRows());
+    }
+
+    #[Test]
+    public function aRefusedToggleRecordsNothing(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(2); // non-admin editor
+        $controller = $this->containerController();
+
+        $controller->toggleToolAction((new GuzzleServerRequest('POST', '/ajax/nrllm/tool/toggle'))
+            ->withParsedBody(['tool' => 'fetch_logs', 'enabled' => '0']));
+        $controller->toggleToolGroupAction((new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))
+            ->withParsedBody(['group' => 'system', 'enabled' => '0']));
+
+        self::assertSame([], $this->auditRows());
+    }
+
+    /**
+     * The switch and its audit row are one transaction: when the audit
+     * insert fails, the switch is rolled back and the action reports an
+     * error. Otherwise the state would change without a row, and a retry
+     * would record nothing because the state already matches.
+     */
+    #[Test]
+    #[DataProvider('switchActions')]
+    public function aFailedAuditInsertRollsTheSwitchBack(string $action, string $field, string $name): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $pool         = $this->toolConnectionPool();
+        $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs', group: 'system')]);
+        $controller   = new ToolController(
+            $this->getService(ModuleTemplateFactory::class),
+            $toolRegistry,
+            $this->availabilityFor($toolRegistry),
+            new ToolStateRepository($pool),
+            new ToolGroupStateRepository($pool),
+            $this->getService(PageRenderer::class),
+            audit: new FailingToolAuditRepository(),
+            connectionPool: $pool,
+        );
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/toggle'))
+            ->withParsedBody([$field => $name, 'enabled' => '0']);
+
+        $response = null;
+        try {
+            $response = $action === 'tool' ? $controller->toggleToolAction($request) : $controller->toggleToolGroupAction($request);
+        } catch (Throwable) {
+            // Asserted below: the state must be unchanged either way.
+        }
+
+        self::assertSame([], (new ToolStateRepository($pool))->overrides(), 'the tool switch must be rolled back');
+        self::assertSame([], (new ToolGroupStateRepository($pool))->overrides(), 'the group switch must be rolled back');
+        self::assertInstanceOf(ResponseInterface::class, $response, 'the failure is reported, not thrown');
+        self::assertSame(500, $response->getStatusCode());
+        $payload = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        self::assertSame([], $this->auditRows());
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function switchActions(): iterable
+    {
+        yield 'tool' => ['tool', 'tool', 'fetch_logs'];
+        yield 'group' => ['group', 'group', 'system'];
+    }
+
+    /**
+     * In switch-user mode the session user is the one switched to; the row
+     * names the administrator who switched as well.
+     */
+    #[Test]
+    public function aSwitchInSwitchUserModeNamesTheAdministratorWhoSwitched(): void
+    {
+        $actor       = self::createStub(BackendUserAuthentication::class);
+        $actor->user = ['uid' => 2];
+        $actor->method('getOriginalUserIdWhenInSwitchUserMode')->willReturn(1);
+
+        (new ToolAuditRepository($this->toolConnectionPool()))->record(ToolAuditScope::TOOL, 'fetch_logs', true, false, $actor);
+
+        $rows = $this->auditRows();
+        self::assertCount(1, $rows);
+        self::assertSame([2, 1], [$rows[0]['actor_uid'], $rows[0]['original_actor_uid']]);
+    }
+
+    /**
+     * The controller as the backend gets it. An Extbase controller from the
+     * container needs a backend request in $GLOBALS['TYPO3_REQUEST'].
+     */
+    private function containerController(): ToolController
+    {
+        $this->createBackendRequest();
+
+        return $this->getService(ToolController::class);
+    }
+
+    /**
+     * The audit rows as stored, oldest first, integer columns as integers.
+     *
+     * @return list<array{scope: string, name: string, old_enabled: int, new_enabled: int, actor_uid: int, original_actor_uid: int, crdate: int}>
+     */
+    private function auditRows(): array
+    {
+        $rows = $this->toolConnectionPool()->getConnectionForTable('tx_nrllm_tool_audit')
+            ->select(['scope', 'name', 'old_enabled', 'new_enabled', 'actor_uid', 'original_actor_uid', 'crdate'], 'tx_nrllm_tool_audit', [], [], ['uid' => 'ASC'])
+            ->fetchAllAssociative();
+
+        $typed = [];
+        foreach ($rows as $row) {
+            $typed[] = [
+                'scope'              => is_string($row['scope']) ? $row['scope'] : '',
+                'name'               => is_string($row['name']) ? $row['name'] : '',
+                'old_enabled'        => is_numeric($row['old_enabled']) ? (int) $row['old_enabled'] : -1,
+                'new_enabled'        => is_numeric($row['new_enabled']) ? (int) $row['new_enabled'] : -1,
+                'actor_uid'          => is_numeric($row['actor_uid']) ? (int) $row['actor_uid'] : -1,
+                'original_actor_uid' => is_numeric($row['original_actor_uid']) ? (int) $row['original_actor_uid'] : -1,
+                'crdate'             => is_numeric($row['crdate']) ? (int) $row['crdate'] : -1,
+            ];
+        }
+
+        return $typed;
     }
 
     private function makeController(ToolRegistry $toolRegistry, ?ToolExclusionReadout $exclusions = null): ToolController

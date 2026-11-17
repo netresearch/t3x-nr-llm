@@ -9,6 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Closure;
+use Netresearch\NrLlm\Domain\Enum\ToolAuditScope;
+use Netresearch\NrLlm\Service\Tool\ToolAuditRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
@@ -17,8 +20,12 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -42,6 +49,12 @@ final class ToolController extends ActionController
     use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
 
+    private const AUDIT_TABLE = 'tx_nrllm_tool_audit';
+
+    private const TOOL_STATE_TABLE = 'tx_nrllm_tool_state';
+
+    private const GROUP_STATE_TABLE = 'tx_nrllm_tool_group_state';
+
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
         private readonly ToolRegistry $toolRegistry,
@@ -53,6 +66,13 @@ final class ToolController extends ActionController
         // positional construction keeps working; the container always
         // injects it.
         private readonly ?ToolExclusionReadout $exclusions = null,
+        // The audit trail of the switches below. Optional and trailing for the
+        // same reason; without it a switch is still applied, but not recorded.
+        private readonly ?ToolAuditRepositoryInterface $audit = null,
+        // The switch and its audit row are written in one transaction on
+        // this pool's connection. Optional and trailing like the others.
+        private readonly ?ConnectionPool $connectionPool = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -83,7 +103,9 @@ final class ToolController extends ActionController
      * persisted to `tx_nrllm_tool_state` via {@see ToolStateRepository}; the
      * fail-closed runtime gate then refuses a disabled tool on every later run.
      * Only a registered tool name is accepted so the table cannot accumulate
-     * orphan rows.
+     * orphan rows. A switch that changes the tool's own state is recorded in
+     * the tool audit trail; the state compared is the tool's override or its
+     * default, not the group cascade.
      */
     public function toggleToolAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -93,14 +115,21 @@ final class ToolController extends ActionController
 
         $body     = $request->getParsedBody();
         $toolName = $this->stringFromBody($body, 'tool');
-        if ($toolName === '' || !$this->toolRegistry->get($toolName) instanceof ToolInterface) {
+        $tool     = $toolName === '' ? null : $this->toolRegistry->get($toolName);
+        if (!$tool instanceof ToolInterface) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownTool', 'Unknown tool')], 404);
         }
 
         $enabled = $this->boolFromBody($body, 'enabled');
-        $this->toolStateRepository->setEnabled($toolName, $enabled);
+        $failure = $this->switchAndRecord(
+            ToolAuditScope::TOOL,
+            $toolName,
+            $enabled,
+            fn (): bool => $this->toolStateRepository->overrides()[$toolName] ?? $tool->isEnabledByDefault(),
+            fn () => $this->toolStateRepository->setEnabled($toolName, $enabled),
+        );
 
-        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+        return $failure ?? new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
 
     /**
@@ -111,7 +140,8 @@ final class ToolController extends ActionController
      * currently registered tool is accepted so the table cannot accumulate
      * orphan rows; the stored NAME still covers same-group tools installed
      * later. The cascade in ToolAvailabilityService keeps a disabled group
-     * authoritative over any per-tool override (fail-closed).
+     * authoritative over any per-tool override (fail-closed). A switch that
+     * changes the group's state is recorded in the tool audit trail.
      */
     public function toggleToolGroupAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -127,9 +157,15 @@ final class ToolController extends ActionController
         }
 
         $enabled = $this->boolFromBody($body, 'enabled');
-        $this->toolGroupStateRepository->setEnabled($groupName, $enabled);
+        $failure = $this->switchAndRecord(
+            ToolAuditScope::GROUP,
+            $groupName,
+            $enabled,
+            fn (): bool => $this->toolGroupStateRepository->overrides()[$groupName] ?? true,
+            fn () => $this->toolGroupStateRepository->setEnabled($groupName, $enabled),
+        );
 
-        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+        return $failure ?? new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
 
     /**
@@ -145,6 +181,70 @@ final class ToolController extends ActionController
         }
 
         return $byName;
+    }
+
+    /**
+     * Write a switch and, when it changes the state, its audit row, as one
+     * transaction: a failed audit insert rolls the switch back, so the state
+     * never changes without a row (a retry would record nothing, because the
+     * state would already match). The state and the audit table must share a
+     * connection, as the skill sync requires for its tables; otherwise the
+     * switch is refused. Returns the error response, or null on success.
+     *
+     * @param Closure(): bool $previous the state before the switch
+     * @param Closure(): void $write    the state write
+     */
+    private function switchAndRecord(ToolAuditScope $scope, string $name, bool $enabled, Closure $previous, Closure $write): ?ResponseInterface
+    {
+        $apply = function () use ($scope, $name, $enabled, $previous, $write): void {
+            $before = $previous();
+            $write();
+            if ($before !== $enabled) {
+                $this->audit?->record($scope, $name, $before, $enabled, $this->backendUser());
+            }
+        };
+
+        if (!$this->audit instanceof ToolAuditRepositoryInterface || !$this->connectionPool instanceof ConnectionPool) {
+            $apply();
+
+            return null;
+        }
+
+        $connection = $this->connectionPool->getConnectionForTable(self::AUDIT_TABLE);
+        $stateTable = $scope === ToolAuditScope::TOOL ? self::TOOL_STATE_TABLE : self::GROUP_STATE_TABLE;
+        if ($connection !== $this->connectionPool->getConnectionForTable($stateTable)) {
+            return $this->switchNotSaved($scope, $name, ['reason' => sprintf('The tables %s and %s must use the same database connection.', $stateTable, self::AUDIT_TABLE)]);
+        }
+
+        try {
+            $connection->transactional(static function () use ($apply): void {
+                $apply();
+            });
+        } catch (Throwable $e) {
+            return $this->switchNotSaved($scope, $name, ['exception' => $e]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function switchNotSaved(ToolAuditScope $scope, string $name, array $context): ResponseInterface
+    {
+        $this->logger?->error('Tool switch: not saved, the switch and its audit row are written together', $context + [
+            'scope' => $scope->value,
+            'name'  => $name,
+        ]);
+
+        return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.toggleFailed', 'The switch was not saved. See the system log for details.')], 500);
+    }
+
+    private function backendUser(): ?BackendUserAuthentication
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return $backendUser instanceof BackendUserAuthentication ? $backendUser : null;
     }
 
     private function stringFromBody(mixed $body, string $key): string
