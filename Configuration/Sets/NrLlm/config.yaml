@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 
 # Add this set to a site's dependencies to edit its settings in the
-# site settings editor (ADR-244). Without the set, settings.yaml is read
+# site settings editor (ADR-244). Without the set, the site's settings
+# (settings.yaml, or the settings: block of the site's config.yaml) are read
 # only in the nested form (nrllm: a2a: baseUrl: ...). A dotted key such as
 # nrllm.a2a.baseUrl: ... is then stored with its dots escaped and is not
 # read; a site that writes dotted keys must depend on this set.
