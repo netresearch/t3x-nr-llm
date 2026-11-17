@@ -275,7 +275,9 @@ checks let through:
   an availability loss.
 - On PostgreSQL a database error inside the call aborts the transaction, so the
   note of what was written before the failure may name rows that are gone.
-  **Unverified**: only SQLite and MariaDB were run.
+  The scoped-call tests run on PostgreSQL in CI since PostgreSQL support
+  (`#1420 <https://github.com/netresearch/t3x-nr-llm/issues/1420>`__); this case, a statement failing inside the call, has no PostgreSQL
+  test of its own.
 - A call inside a transaction of its own caller gets a savepoint. Its cache flushes
   wait for the outermost *scoped* call. When that call itself runs inside a
   foreign transaction, they run at its savepoint release, not at the foreign
