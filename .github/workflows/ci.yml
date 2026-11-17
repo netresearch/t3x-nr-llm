@@ -165,6 +165,32 @@ jobs:
       run-rector: false
       run-unit-tests: false
 
+  # PostgreSQL functional leg (one cell), the same shape as the MariaDB leg
+  # above. PostgreSQL is supported (#1420), and it differs where SQLite and
+  # MariaDB agree: an explicit uid does not move the sequence, a failed
+  # statement aborts the whole transaction, an out-of-range integer is an
+  # error, char columns are padded, unquoted names fold to lower case.
+  # postgres:17 is the newest tag in the org's mirror of the Docker official
+  # image (typo3-ci-workflows ci-mirror.yml), as in t3x-nr-vault.
+  ci-functional-postgres:
+    uses: netresearch/typo3-ci-workflows/.github/workflows/ci.yml@main # NOSONAR — own-org reusable workflow deliberately tracks main, like the sibling jobs above
+    permissions:
+      contents: read
+    with:
+      php-versions: '["8.4"]'
+      typo3-versions: '["^14.3"]'
+      run-functional-tests: true
+      functional-test-db: postgres
+      db-image: 'ghcr.io/netresearch/ci-mirror/postgres:17-alpine'
+      # One database per test class, as on MariaDB, so the shards share the
+      # server without sharing state.
+      functional-test-command: 'Build/Scripts/ciFunctionalParallel.sh'
+      run-lint: false
+      run-cgl: false
+      run-phpstan: false
+      run-rector: false
+      run-unit-tests: false
+
   # Property-based (fuzzy) + mutation testing. Enabled here rather than in the
   # template-governed checks.yml because turning these on is a per-extension
   # choice and this file is intentional-drift. Fuzzy runs on every event
