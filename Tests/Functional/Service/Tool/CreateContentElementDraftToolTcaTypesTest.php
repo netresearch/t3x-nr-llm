@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
@@ -692,13 +693,28 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
     {
         $admin = $this->setUpBackendUser(1);
 
-        $result = $this->tool->execute(
-            ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['imagewidth' => 12]],
-            ToolExecutionContext::fromBackendUser($admin),
-        );
+        // DataHandler writes a decimal as "12.00". MySQL and SQLite store that
+        // in the integer column imagewidth; PostgreSQL refuses it, so there
+        // the column is a decimal one for this test, as the TCA says.
+        $content  = $this->connectionPool->getConnectionForTable('tt_content');
+        $postgres = $content->getDatabasePlatform() instanceof PostgreSQLPlatform;
+        if ($postgres) {
+            $content->executeStatement('ALTER TABLE tt_content ALTER COLUMN imagewidth TYPE numeric(10,2)');
+        }
+
+        try {
+            $result = $this->tool->execute(
+                ['page' => self::PAGE, 'type' => self::REWRITTEN_TYPE, 'header' => 'x', 'fields' => ['imagewidth' => 12]],
+                ToolExecutionContext::fromBackendUser($admin),
+            );
+            $stored = $this->createdElement()['imagewidth'] ?? null;
+        } finally {
+            if ($postgres) {
+                $content->executeStatement('ALTER TABLE tt_content ALTER COLUMN imagewidth TYPE integer');
+            }
+        }
 
         self::assertFalse($result->isError, $result->content);
-        $stored = $this->createdElement()['imagewidth'] ?? null;
         self::assertIsNumeric($stored);
         self::assertSame(12.0, (float) $stored);
     }

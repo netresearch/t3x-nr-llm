@@ -110,7 +110,9 @@ final class AttachFileToContentElementToolTest extends AbstractFunctionalTestCas
             'perms_groupid'   => 9, 'perms_group' => Permission::ALL,
             'perms_everybody' => Permission::ALL,
         ]);
-        $this->pageUid = (int) $pages->lastInsertId();
+        // The uid the row was inserted with: PostgreSQL has no last insert id
+        // for a row whose uid did not come from the sequence.
+        $this->pageUid = 1;
 
         $content = $this->connectionPool->getConnectionForTable('tt_content');
         $content->insert('tt_content', [

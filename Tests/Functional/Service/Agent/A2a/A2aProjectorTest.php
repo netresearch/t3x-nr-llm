@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a;
 
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception as DbalException;
+use Doctrine\DBAL\Platforms\PostgreSQLPlatform;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
@@ -170,7 +171,7 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
         $handle  = $this->boundRun();
         $taskUid = (int) $this->taskRow()['uid'];
         $second  = DriverManager::getConnection($connection->getParams());
-        $second->executeStatement('SET SESSION innodb_lock_wait_timeout = 1');
+        $second->executeStatement($second->getDatabasePlatform() instanceof PostgreSQLPlatform ? "SET lock_timeout = '1s'" : 'SET SESSION innodb_lock_wait_timeout = 1');
 
         $pool = self::createStub(ConnectionPool::class);
         $pool->method('getConnectionForTable')->willReturn($second);
@@ -182,7 +183,8 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
             $projector->project($taskUid);
             self::fail('A projection must not pass a held run-row lock.');
         } catch (DbalException $exception) {
-            self::assertStringContainsStringIgnoringCase('lock wait timeout', $exception->getMessage());
+            // MariaDB: "Lock wait timeout exceeded"; PostgreSQL: "canceling statement due to lock timeout".
+            self::assertMatchesRegularExpression('/lock (wait )?timeout/i', $exception->getMessage());
         } finally {
             $connection->commit();
         }
