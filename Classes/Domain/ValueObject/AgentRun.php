@@ -69,8 +69,9 @@ final readonly class AgentRun
         public string $processSkill = '',
         // What queued the run in the background (ADR-234); '' for any other run.
         public string $origin = '',
-        // The answer of a finished background run (ADR-234); null when it kept
-        // none: not finished, no origin, or `privacy.level = none`.
+        // The answer of a run that completed in the worker or in a resume
+        // (ADR-234 and its amendment); null when it kept none: not completed
+        // that way, or a privacy level that keeps nothing.
         public ?string $answer = null,
         // What became of that answer, where something was to become of it:
         // a {@see \Netresearch\NrLlm\Domain\Enum\FieldFillOutcome} (ADR-237).

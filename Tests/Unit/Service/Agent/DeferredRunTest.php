@@ -237,12 +237,16 @@ final class DeferredRunTest extends TestCase
         self::assertSame(['the answer'], array_values($this->repository->answers));
     }
 
+    /**
+     * A run without an origin, a backend chat queued for the worker, keeps its
+     * answer too: nobody watched it arrive (ADR-234, amendment).
+     */
     #[Test]
-    public function aRunWithoutAnOriginKeepsNoAnswer(): void
+    public function aRunWithoutAnOriginKeepsItsAnswer(): void
     {
         $this->execute(new ToolLoopResult('the answer', [], 1, false, UsageStatistics::fromTokens(1, 1)), origin: '');
 
-        self::assertSame([], $this->repository->answers);
+        self::assertSame(['the answer'], array_values($this->repository->answers));
     }
 
     /**

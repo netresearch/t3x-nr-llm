@@ -126,6 +126,9 @@ final readonly class AgentRunExecutor
         // The runs whose answer the pipeline's judge leaves to the end-of-run
         // check, so a text is judged once (ADR-302).
         private ?DeferredAnswerJudging $deferredJudging = null,
+        // Keeps the answer of a run that completes in a resume (ADR-234,
+        // amendment): nobody watched it arrive, whoever's process ran it.
+        private ?RunAnswerKeeper $answers = null,
     ) {}
 
     /**
@@ -337,7 +340,7 @@ final readonly class AgentRunExecutor
         $holdsProcess = false;
         $trace        = $this->trace($handle, $onStep, false, $leaseOwner, $this->processProbe($holdsProcess));
 
-        return $this->execute(
+        $result = $this->execute(
             $handle,
             $trace,
             function () use ($owner, $handle, $loopCall, $trace, &$holdsProcess): ToolLoopResult {
@@ -350,6 +353,9 @@ final readonly class AgentRunExecutor
             $leaseOwner,
             false,
         );
+        $this->answers?->keep($handle, $result);
+
+        return $result;
     }
 
     /**

@@ -13,7 +13,6 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\FieldFillOutcome;
-use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\FieldFillTarget;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
@@ -311,7 +310,7 @@ final readonly class QueuedRunCoordinator
             return $recover($e, []);
         }
 
-        $this->keepAnswer($request, $handle, $result);
+        (new RunAnswerKeeper($this->persister, $this->privacyPolicy))->keep($handle, $result);
         $this->fillField($request, $handle, $result);
 
         return $result;
@@ -436,43 +435,6 @@ final readonly class QueuedRunCoordinator
         }
 
         return $request->withMessage($message);
-    }
-
-    /**
-     * What a finished background run keeps of its answer (ADR-234).
-     *
-     * The answer is what such a run exists for and nobody is watching it arrive,
-     * so unlike the event stream it does not follow the default `metadata`
-     * level. `none` keeps nothing, `redacted` keeps the redacted text, and the
-     * column is sealed and purged with the row either way. A run that went
-     * through an approval ends in another process and keeps none: what it did
-     * is the write.
-     */
-    private function keepAnswer(AgentRunRequest $request, AgentRunHandle $handle, AgentRunResult $result): void
-    {
-        $answer = $result->loopResult?->finalContent;
-        if ($request->origin === '' || $result->outcome !== AgentRunOutcome::COMPLETED || $answer === null || $answer === '') {
-            return;
-        }
-
-        // No policy, no answer: what may be kept is the policy's to say.
-        $global = $this->privacyPolicy?->level();
-        $level  = $this->persister->privacyLevelOf($handle) ?? $global;
-        if (!$level instanceof PrivacyLevel || $level === PrivacyLevel::NONE) {
-            return;
-        }
-
-        // A level a provider or a task tightened to means what it says (ADR-242):
-        // only the global default keeps an answer at `metadata`.
-        if ($level !== $global && !$level->persistsContent()) {
-            return;
-        }
-
-        if ($level->requiresRedaction()) {
-            $answer = $this->privacyPolicy?->filterContentAt($answer, $level) ?? '';
-        }
-
-        $this->persister->recordAnswer($handle, $answer);
     }
 
     /**

@@ -57,6 +57,7 @@ use Netresearch\NrLlm\Service\Agent\PendingPause;
 use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Agent\Queue\WorkerVaultScope;
 use Netresearch\NrLlm\Service\Agent\ResumeCoordinator;
+use Netresearch\NrLlm\Service\Agent\RunAnswerKeeper;
 use Netresearch\NrLlm\Service\Agent\RunScopedStateInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
@@ -76,6 +77,7 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Fixtures\FenceRecordingRunRepository;
 use Netresearch\NrVault\Security\TechnicalActorContextInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\NullLogger;
 use RuntimeException;
@@ -1340,6 +1342,82 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * ADR-234 (amendment): a chat run without an origin that completes when
+     * the poller resumes it after the remote's answer keeps that answer,
+     * sealed; nobody watched it arrive.
+     */
+    #[Test]
+    public function aDelegationResumeKeepsTheAnswerOfAChatRunWithoutAnOrigin(): void
+    {
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('the summary for jane@example.org')]);
+        $suspended = $runtime->run($this->request());
+        self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $suspended->outcome, (string) $suspended->error);
+        self::assertSame('', $this->runOf($suspended->runUuid)->origin);
+
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'done')]);
+        self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($suspended->runUuid))->suspendedAt + 10)->resumed);
+
+        $run = $this->runOf($suspended->runUuid);
+        self::assertSame(AgentRunStatus::COMPLETED, $run->statusEnum());
+        self::assertSame('the summary for jane@example.org', $run->answer);
+        $stored = $this->getConnectionPool()->getConnectionForTable('tx_nrllm_agentrun')->select(['answer'], 'tx_nrllm_agentrun', ['uid' => $run->uid])->fetchOne();
+        self::assertIsString($stored);
+        self::assertStringNotContainsString('jane@example.org', $stored, 'sealed');
+    }
+
+    /**
+     * ADR-234 (amendment): a run that completes in the approver's request
+     * keeps its answer; the initiator did not watch it arrive there.
+     */
+    #[Test]
+    public function anApprovalResumeKeepsTheAnswer(): void
+    {
+        $this->agent(['identifier' => 'remote']);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'done')]]);
+        $runtime = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('approved and done')]);
+        $paused  = $runtime->run($this->request());
+        self::assertSame(AgentRunOutcome::AWAITING_APPROVAL, $paused->outcome, (string) $paused->error);
+        $state = $paused->suspendedState;
+        self::assertInstanceOf(SuspendedRunState::class, $state);
+
+        $approved = $runtime->approve(AiActorContext::backendUser(self::OWNER, true), $paused->runUuid, new ApprovalDecision(true, self::OWNER, (new PendingTurnDigest())->forState($state)));
+
+        self::assertSame(AgentRunOutcome::COMPLETED, $approved->outcome, (string) $approved->error);
+        self::assertSame('approved and done', $this->runOf($paused->runUuid)->answer);
+    }
+
+    /**
+     * ADR-234: `none` keeps nothing, `redacted` keeps the redacted text, also
+     * for a resumed run.
+     *
+     * @return array<string, array{PrivacyLevel, string|null}>
+     */
+    public static function resumedAnswerByLevel(): array
+    {
+        return [
+            'none'     => [PrivacyLevel::NONE, null],
+            'redacted' => [PrivacyLevel::REDACTED, 'the summary for ***'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('resumedAnswerByLevel')]
+    public function aResumedAnswerFollowsThePrivacyLevel(PrivacyLevel $level, ?string $expected): void
+    {
+        $this->answerLevel = $level;
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10]);
+        $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+        $runtime   = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])]), $this->finalTurn('the summary for jane@example.org')]);
+        $suspended = $runtime->run($this->request());
+        $this->transport->thenJson(['result' => $this->task('task-1', 'TASK_STATE_COMPLETED', 'done')]);
+        self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($suspended->runUuid))->suspendedAt + 10)->resumed);
+
+        self::assertSame($expected, $this->runOf($suspended->runUuid)->answer);
+    }
+
+    /**
      * Sends the delegation (the remote accepts task-1), then lets the poller
      * see the remote's question.
      */
@@ -1440,7 +1518,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
         $bus->method('dispatch')->willReturnCallback(static fn (object $message): Envelope => new Envelope($message));
 
         $this->loop = new ToolLoopService($manager, $registry, $policy);
-        $executor   = new AgentRunExecutor($this->loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry));
+        $executor   = new AgentRunExecutor($this->loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry), answers: new RunAnswerKeeper($this->persister, new FixedPrivacyPolicy($this->answerLevel)));
 
         return new AgentRuntime(
             $this->loop,
@@ -1467,6 +1545,9 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 
     private ?ToolLoopService $loop = null;
 
+    /** The privacy level the answer of a resumed run is kept at. */
+    private PrivacyLevel $answerLevel = PrivacyLevel::FULL;
+
     private function coordinator(): DependencyResumeCoordinator
     {
         self::assertInstanceOf(ToolLoopService::class, $this->loop);
@@ -1476,7 +1557,7 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
             $this->persister,
             $this->configurations(),
             $this->loop,
-            new AgentRunExecutor($this->loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry)),
+            new AgentRunExecutor($this->loop, $this->persister, new NullLogger(), new ActingBackendUserResolver(), new ToolEffectResolver($registry), answers: new RunAnswerKeeper($this->persister, new FixedPrivacyPolicy($this->answerLevel))),
         );
     }
 
