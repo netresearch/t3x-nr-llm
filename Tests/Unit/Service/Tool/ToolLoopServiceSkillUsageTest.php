@@ -382,6 +382,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         $process       = $this->skills[self::PROCESS];
         $configuration = $this->configuration();
         $configuration->addSkillOnDemand($process);
+
         $trace = new RunTrace();
 
         $this->service(new ApprovedProcessPinProbe($this->approvals))->runLoop(

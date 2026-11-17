@@ -232,7 +232,7 @@ final readonly class SkillComposer
                 // and has no place in a usage record (ADR-321). A process is
                 // attached on demand, so it is usually not in these lists;
                 // the run fills the identifier from its configuration then.
-                'use' => new SkillUse($version->skillUid, $version->sourceUid, $version->versionDigest, self::identifierOf([...$configSkills, ...$taskSkills], $version->skillUid), SkillRole::PROCESS),
+                'use' => new SkillUse($version->skillUid, $version->sourceUid, $version->versionDigest, $this->identifierOf([...$configSkills, ...$taskSkills], $version->skillUid), SkillRole::PROCESS),
             ];
         }
 
@@ -635,7 +635,7 @@ final readonly class SkillComposer
      *
      * @param list<Skill> $skills
      */
-    private static function identifierOf(array $skills, int $skillUid): string
+    private function identifierOf(array $skills, int $skillUid): string
     {
         foreach ($skills as $skill) {
             if ((int) $skill->getUid() === $skillUid) {
