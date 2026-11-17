@@ -46,6 +46,9 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
     /** @var (Closure(): void)|null runs once before the next claimForResumeFromDependency() */
     public ?Closure $beforeClaimFromDependency = null;
 
+    /** @var (Closure(int, string): void)|null runs before every finishRun(), with the run uid and the status written */
+    public ?Closure $beforeFinish = null;
+
     public function __construct(private readonly AgentRunRepositoryInterface $inner) {}
 
     public function markPendingEffect(int $runUid, string $claimedBy, string $effect, int $leaseExpires): bool
@@ -104,6 +107,10 @@ final class FenceRecordingRunRepository implements AgentRunRepositoryInterface
         string $terminationReason = '',
         ?string $ownedBy = null,
     ): bool {
+        if ($this->beforeFinish instanceof Closure) {
+            ($this->beforeFinish)($runUid, $status);
+        }
+
         return $this->inner->finishRun($runUid, $status, $iterations, $truncated, $promptTokens, $completionTokens, $totalTokens, $estimatedCost, $errorClass, $terminationReason, $ownedBy);
     }
 

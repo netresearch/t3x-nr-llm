@@ -340,7 +340,7 @@ final readonly class AgentRunExecutor
         $holdsProcess = false;
         $trace        = $this->trace($handle, $onStep, false, $leaseOwner, $this->processProbe($holdsProcess));
 
-        $result = $this->execute(
+        return $this->execute(
             $handle,
             $trace,
             function () use ($owner, $handle, $loopCall, $trace, &$holdsProcess): ToolLoopResult {
@@ -353,9 +353,6 @@ final readonly class AgentRunExecutor
             $leaseOwner,
             false,
         );
-        $this->answers?->keep($handle, $result);
-
-        return $result;
     }
 
     /**
@@ -759,7 +756,7 @@ final readonly class AgentRunExecutor
 
         try {
             $result    = $this->loopResult($handle, $start, $loopCall, $checkOnlyCall, $ownerGuard);
-            $completed = $this->completed($handle, $result, $trace, $ownerGuard, $runUuid);
+            $completed = $this->completed($handle, $result, $trace, $ownerGuard, $runUuid, !$start);
             $settled   = true;
 
             return $completed;
@@ -895,8 +892,15 @@ final readonly class AgentRunExecutor
      * run was reclaimed to another worker mid-loop, this completion must not
      * overwrite its state — it stops as LEASE_LOST rather than COMPLETED.
      */
-    private function completed(?AgentRunHandle $handle, ToolLoopResult $result, RunTrace $trace, ?string $ownerGuard, string $runUuid): AgentRunResult
+    private function completed(?AgentRunHandle $handle, ToolLoopResult $result, RunTrace $trace, ?string $ownerGuard, string $runUuid, bool $keepAnswer = false): AgentRunResult
     {
+        // A resume keeps its answer (ADR-234, amendment) before the run is
+        // COMPLETED, so a reader that sees the completion also sees the
+        // answer; a chat that reads once would otherwise miss it.
+        if ($keepAnswer && $handle instanceof AgentRunHandle) {
+            $this->answers?->keepContent($handle, $result->finalContent);
+        }
+
         if ($handle instanceof AgentRunHandle
             && !$this->persister->settleCompleted($handle, $result, $ownerGuard)
             && $ownerGuard !== null

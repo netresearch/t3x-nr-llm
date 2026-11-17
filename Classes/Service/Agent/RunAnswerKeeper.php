@@ -35,8 +35,18 @@ final readonly class RunAnswerKeeper
      */
     public function keep(AgentRunHandle $handle, AgentRunResult $result): void
     {
-        $answer = $result->loopResult?->finalContent;
-        if ($result->outcome !== AgentRunOutcome::COMPLETED || $answer === null || $answer === '') {
+        if ($result->outcome === AgentRunOutcome::COMPLETED) {
+            $this->keepContent($handle, $result->loopResult?->finalContent);
+        }
+    }
+
+    /**
+     * Keep the final content of a run that is about to complete: a resume
+     * writes it before its completion commits, so the two are seen together.
+     */
+    public function keepContent(AgentRunHandle $handle, ?string $answer): void
+    {
+        if ($answer === null || $answer === '') {
             return;
         }
 
