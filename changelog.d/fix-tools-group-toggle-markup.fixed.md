@@ -1,0 +1,1 @@
+- The group toggle in the Tools module rendered its `class` and `data-enabled` attributes as raw Fluid (`{f:if(...)}`). The button had no colour, and because the script never read `data-enabled="1"` it always sent "enable", so "Disable group" could not disable a group. The template now resolves the group's state into a variable before the inline condition.

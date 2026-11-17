@@ -36,6 +36,7 @@
                 <f:if condition="{f:count(subject: toolStates)}">
                     <f:then>
                         <f:groupedFor each="{toolStates}" as="groupTools" groupBy="group" groupKey="groupName">
+                        <f:variable name="groupState" value="{groupStates.{groupName}}" />
                         <div class="card mb-4">
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <div>
@@ -57,9 +58,9 @@
                                     </f:if>
                                 </div>
                                 <button type="button"
-                                        class="btn btn-sm js-toolgroup-toggle {f:if(condition: groupStates.{groupName}.enabled, then: 'btn-default', else: 'btn-success')}"
+                                        class="btn btn-sm js-toolgroup-toggle {f:if(condition: groupState.enabled, then: 'btn-default', else: 'btn-success')}"
                                         data-group="{groupName}"
-                                        data-enabled="{f:if(condition: groupStates.{groupName}.enabled, then: '1', else: '0')}">
+                                        data-enabled="{f:if(condition: groupState.enabled, then: '1', else: '0')}">
                                     <f:if condition="{groupStates.{groupName}.enabled}">
                                         <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.disable" default="Disable group" /></f:then>
                                         <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang_mod_tool.xlf:group.enable" default="Enable group" /></f:else>
