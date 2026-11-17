@@ -38,6 +38,12 @@ Switch it on
          a2a:
            baseUrl: 'https://www.example.org/a2a'
 
+   Write the nested form shown here, or add the set
+   :guilabel:`LLM Foundation` (``netresearch/nr-llm``) to the site's
+   dependencies. On a site without the set, a dotted key such as
+   ``nrllm.a2a.baseUrl: '…'`` is not read, and the site answers no A2A
+   request (:ref:`administration-site-settings-setup`).
+
    The JSON-RPC endpoint is this URL; the agent card is published at
    :file:`https://www.example.org/a2a/.well-known/agent-card.json`. A site
    without the setting answers neither. Every URL in the card and in a
