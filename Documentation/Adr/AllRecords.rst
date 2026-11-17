@@ -304,6 +304,7 @@ All decision records
    Adr297APageMetadataWriteMeetsItsRequestBeforeItsApproval
    Adr298TheInvocationHistoryBindsACheckToItsProposal
    Adr300ADeliveredTextIsCheckedAsItIsDelivered
+   Adr301AnEditorialResultCarriesItsTextAndItsReportApart
    Adr302TheFinalAnswerOfAnEditorialRunIsCheckedBeforeItIsStored
    Adr303ANonAdminRunReadsTheMetadataOfAFileItMayAccess
    Adr305AClientFileIsAdoptedIntoTheProfilesInboxAfterApproval

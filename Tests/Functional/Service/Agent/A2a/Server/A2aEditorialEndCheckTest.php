@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentEventKind;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
@@ -18,18 +19,21 @@ use Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository;
 use Netresearch\NrLlm\Domain\Repository\ProviderRepository;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aEditorialReporter;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aResumeGuard;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aSkillProfileRepository;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aDomainHandlerRegistry;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aEditorialCheckHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aEditorialTextHandler;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\Handler\A2aTextDomainHandler;
+use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aOutputReports;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aResultNotRetainableException;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aRunOutputCheck;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
 use Netresearch\NrLlm\Service\Agent\AgentRunExecutor;
 use Netresearch\NrLlm\Service\Agent\AgentRuntime;
 use Netresearch\NrLlm\Service\Editorial\ExternalTextCheck;
+use Netresearch\NrLlm\Service\Editorial\ExternalTextReport;
 use Netresearch\NrLlm\Service\Editorial\RuleStateDigest;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\Guardrail\Judge\DeferredAnswerJudging;
@@ -38,10 +42,12 @@ use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeReentry;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeUnavailableException;
 use Netresearch\NrLlm\Service\Guardrail\Judge\JudgeViolation;
 use Netresearch\NrLlm\Service\Guardrail\Judge\RuleJudge;
+use Netresearch\NrLlm\Service\Guardrail\Judge\RuleSet;
 use Netresearch\NrLlm\Service\Guardrail\Judge\RuleSetResolver;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermListResolverInterface;
 use Netresearch\NrLlm\Service\Guardrail\Term\TermMatcher;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
+use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelResolver;
 use Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver;
 use Netresearch\NrLlm\Service\Tool\ActingBackendUserResolver;
 use Netresearch\NrLlm\Service\Tool\AgentRunHandle;
@@ -73,6 +79,8 @@ use function json_decode;
 #[CoversClass(AgentRunExecutor::class)]
 #[CoversClass(A2aEditorialTextHandler::class)]
 #[CoversClass(A2aEditorialCheckHandler::class)]
+#[CoversClass(A2aEditorialReporter::class)]
+#[CoversClass(A2aTaskStore::class)]
 final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
 {
     use A2aServerFixture;
@@ -86,6 +94,12 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
     private int $modelCalls = 0;
 
     private int $judgeCalls = 0;
+
+    /** @var (Closure(): mixed)|null runs inside each judge call */
+    private ?Closure $onJudge = null;
+
+    /** @var (Closure(): mixed)|null runs inside each generator call */
+    private ?Closure $onGenerate = null;
 
     private DeferredAnswerJudging $deferred;
 
@@ -135,7 +149,9 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
 
         $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
         self::assertSame('TASK_STATE_FAILED', self::j($task, 'status.state'));
-        self::assertArrayNotHasKey('artifacts', $task);
+        // No content artifact; only the report (ADR-301).
+        self::assertSame(['report'], array_map(static fn (mixed $artifact): mixed => is_array($artifact) ? ($artifact['name'] ?? null) : null, self::rowsOf($task['artifacts'] ?? [])));
+        self::assertStringNotContainsString('Rabatt gern', self::text(json_encode($task)));
         self::assertSame(AgentRunStatus::FAILED->value, $this->runOf($taskId)->status);
 
         $record = $this->latestCheck($taskId);
@@ -311,6 +327,361 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A check that cannot run leaves no report of an earlier check in the
+     * hand-over: a later report must not take it for this text.
+     */
+    #[Test]
+    public function aFailedCheckLeavesNoEarlierReportInTheHandOver(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->responses = [new CompletionResponse('Danke für den Hinweis.', 'fake', UsageStatistics::fromTokens(1, 1))];
+        $taskId          = $this->send('Antworte.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $run    = $this->runOf($taskId);
+        $handle = new AgentRunHandle($run->uid, $run->uuid);
+        $this->outputCheck()->check($handle, 'Ein früherer Text.');
+
+        $this->profile(A2aTextDomainHandler::IDENTIFIER, '');
+        self::assertTrue($this->outputCheck()->check($handle, 'Danke.')->blocks);
+        self::assertNull($this->getService(A2aOutputReports::class)->take($run->uid));
+    }
+
+    /**
+     * A stop that carries no report still drops the report handed over.
+     */
+    #[Test]
+    public function aStopWithoutAReportDropsTheHandedOverReport(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->responses = [new CompletionResponse('Danke für den Hinweis.', 'fake', UsageStatistics::fromTokens(1, 1))];
+        $taskId          = $this->send('Antworte.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $run = $this->runOf($taskId);
+        $this->outputCheck()->check(new AgentRunHandle($run->uid, $run->uuid), 'Ein früherer Text.');
+
+        self::assertNull($this->getService(A2aEditorialReporter::class)->stopped($run->uid, 1, PrivacyLevel::METADATA, 'policy_denied'));
+        self::assertNull($this->getService(A2aOutputReports::class)->take($run->uid));
+    }
+
+    /**
+     * A text the client sent and the check read only redacted is not a
+     * draft: the client publishes its own text, not the redacted one.
+     */
+    #[Test]
+    public function aCheckedClientTextReadRedactedIsNoDraft(): void
+    {
+        $this->profile(A2aEditorialCheckHandler::IDENTIFIER, '');
+        $taskId = $this->send('Vielen Dank für Ihren Hinweis, wir prüfen das.');
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('passed', self::j($task, 'artifacts.1.parts.0.data.check.status'));
+        self::assertSame(A2aEditorialReporter::STATE_NEEDS_HUMAN_REVIEW, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
+    }
+
+    /**
+     * The same text at `full` is a draft.
+     */
+    #[Test]
+    public function aCheckedClientTextReadInFullIsADraft(): void
+    {
+        $this->profile(A2aEditorialCheckHandler::IDENTIFIER, '');
+        $taskId = $this->send('Vielen Dank für Ihren Hinweis, wir prüfen das.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame(A2aEditorialReporter::STATE_DRAFT, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
+    }
+
+    /**
+     * The text handler is unchanged: no end check, no check record.
+     */
+    #[Test]
+    public function aProfileWithTheTextHandlerIsNotEndChecked(): void
+    {
+        $this->responses = [new CompletionResponse(self::SHORT_FORBIDDEN, 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId           = $this->send('Antworte kurz.');
+        $this->watchedRun = $this->runOf($taskId)->uid;
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+        self::assertSame([false], $this->deferredDuringLoop);
+
+        $run = $this->runOf($taskId);
+        self::assertSame('TASK_STATE_COMPLETED', self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'status.state'), $run->errorClass . ' ' . $run->terminationReason);
+        self::assertSame(0, $this->events($taskId, AgentEventKind::OUTPUT_CHECK));
+    }
+
+    /**
+     * X17/X18, plan acceptance E2-1: the content artifact holds exactly one
+     * text part with the text, paragraphs kept; the report is its own
+     * artifact with one data part and no text part.
+     */
+    #[Test]
+    public function theContentIsOneTextPartAndTheReportADataPart(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->responses = [new CompletionResponse("A\n\nB", 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId = $this->send('Schreib zwei Absätze.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_COMPLETED', self::j($task, 'status.state'));
+        self::assertSame([['text' => "A\n\nB"]], self::j($task, 'artifacts.0.parts'));
+        self::assertSame('report', self::j($task, 'artifacts.1.name'));
+        $parts = self::j($task, 'artifacts.1.parts');
+        self::assertIsArray($parts);
+        self::assertCount(1, $parts);
+        self::assertArrayNotHasKey('text', $parts[0]);
+        self::assertSame(A2aEditorialReporter::KIND, self::j($task, 'artifacts.1.parts.0.data.kind'));
+        self::assertSame('passed', self::j($task, 'artifacts.1.parts.0.data.check.status'));
+        self::assertSame(A2aEditorialReporter::STATE_DRAFT, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
+        self::assertSame('sha256:' . hash('sha256', "A\n\nB"), self::j($task, 'artifacts.1.parts.0.data.deliveredTextDigest'));
+        self::assertSame('sha256:' . hash('sha256', "A\n\nB"), self::j($task, 'artifacts.1.parts.0.data.checkedTextDigest'));
+        self::assertSame(self::j($task, 'artifacts.0.artifactId'), self::j($task, 'artifacts.1.parts.0.data.contentArtifactId'));
+    }
+
+    /**
+     * X19, plan acceptance E2-2: the answer level tightens to `redacted`
+     * after the check, so the completion delivers another text than the one
+     * checked; the report never says passed for it.
+     */
+    #[Test]
+    public function aTextThatChangedAfterTheCheckIsNotCheckedNeverPassed(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->responses = [new CompletionResponse('Schreiben Sie an max.mustermann@example.org, wir antworten gern.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId        = $this->send('Antworte.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_COMPLETED', self::j($task, 'status.state'));
+        self::assertStringNotContainsString('max.mustermann@example.org', self::text(self::j($task, 'artifacts.0.parts.0.text')));
+        self::assertSame('passed', $this->latestCheck($taskId)['status']);
+        self::assertSame('not_checked', self::j($task, 'artifacts.1.parts.0.data.check.status'));
+        self::assertSame(A2aEditorialReporter::STATE_NEEDS_HUMAN_REVIEW, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
+    }
+
+    /**
+     * X12/X18, plan acceptance E2-3 for `full`: a rule finding carries its
+     * passage in the report; the run event carries none.
+     */
+    #[Test]
+    public function atFullTheReportQuotesThePassage(): void
+    {
+        $this->eventLevel('full');
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->verdict   = [$this->violation('Hallo du, max.mustermann@example.org')];
+        $this->responses = [new CompletionResponse('Hallo du, max.mustermann@example.org schreibt uns.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId = $this->send('Antworte.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('violation', self::j($task, 'artifacts.1.parts.0.data.check.status'));
+        self::assertSame('Hallo du, max.mustermann@example.org', self::j($task, 'artifacts.1.parts.0.data.check.findings.0.passage'));
+        self::assertSame(A2aEditorialReporter::STATE_NEEDS_REVISION, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
+        self::assertSame('', self::j($this->latestCheck($taskId), 'findings.0.passage'));
+    }
+
+    /**
+     * Plan acceptance E2-3 for `redacted`: the passage is redacted like the
+     * answer.
+     */
+    #[Test]
+    public function atRedactedTheReportRedactsThePassage(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->responses = [new CompletionResponse('Hallo du, max.mustermann@example.org schreibt uns.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId = $this->send('Antworte.');
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $kept          = self::text($this->getService(RunContentPrivacyGuard::class)->keptAt('Hallo du, max.mustermann@example.org', PrivacyLevel::REDACTED));
+        $this->verdict = [$this->violation($kept)];
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task    = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        $passage = self::text(self::j($task, 'artifacts.1.parts.0.data.check.findings.0.passage'));
+        self::assertSame('violation', self::j($task, 'artifacts.1.parts.0.data.check.status'));
+        self::assertStringNotContainsString('max.mustermann@example.org', $passage);
+        self::assertStringNotContainsString('max.mustermann@example.org', self::text(json_encode($task)));
+    }
+
+    /**
+     * Plan acceptance E2-3 for `metadata`: nothing of the text is kept; the
+     * task fails as not retainable, no report quotes anything, and the run
+     * event keeps no passage.
+     */
+    #[Test]
+    public function atMetadataNoPassageIsKeptAnywhere(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->responses = [new CompletionResponse('Hallo du, max.mustermann@example.org schreibt uns.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId = $this->send('Antworte.');
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'metadata'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_FAILED', self::j($task, 'status.state'));
+        self::assertStringNotContainsString('max.mustermann', self::text(json_encode($task)));
+        self::assertSame(0, $this->judgeCalls);
+        self::assertSame(['not_retained'], $this->latestCheck($taskId)['reasons']);
+    }
+
+    /**
+     * X13, plan acceptance E2-4: a block names itself and the report names
+     * the rule; the content artifact does not exist.
+     */
+    #[Test]
+    public function aBlockedTaskCarriesTheReportAndNoContent(): void
+    {
+        $this->profile(A2aEditorialCheckHandler::IDENTIFIER, '');
+        $this->judge('block');
+        $this->verdict = [$this->violation('Hallo du')];
+
+        $taskId = $this->send('Hallo du, danke für den Hinweis.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_FAILED', self::j($task, 'status.state'));
+        self::assertSame('The editorial check stopped the text.', self::j($task, 'status.message.parts.0.text'));
+        self::assertSame('report', self::j($task, 'artifacts.0.name'));
+        self::assertSame('violation', self::j($task, 'artifacts.0.parts.0.data.check.status'));
+        self::assertSame('Sprich die Leser mit „Sie“ an.', self::j($task, 'artifacts.0.parts.0.data.check.findings.0.subject'));
+        self::assertSame('Hallo du', self::j($task, 'artifacts.0.parts.0.data.check.findings.0.passage'));
+        self::assertSame(A2aEditorialReporter::STATE_NEEDS_REVISION, self::j($task, 'artifacts.0.parts.0.data.editorialState'));
+    }
+
+    /**
+     * A level that tightens while the judge runs gets no passage: a fragment
+     * redacted on its own may keep what the whole text loses.
+     */
+    #[Test]
+    public function aLevelTightenedDuringTheJudgeLeavesNoPassageInTheReport(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->verdict   = [$this->violation('Schreiben Sie an max.mustermann@')];
+        $this->responses = [new CompletionResponse('Schreiben Sie an max.mustermann@example.org, wir antworten gern.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId        = $this->send('Antworte.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertStringNotContainsString('max.mustermann', self::text(json_encode($task)));
+        self::assertSame([], self::j($task, 'artifacts.1.parts.0.data.check.findings'));
+        self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.check.findingsWithheld'));
+    }
+
+    /**
+     * The check read the text at `full`; the level tightened before the
+     * completion. A digest of that text would let a client confirm a guessed
+     * text the answer level withholds, so a withheld report names none.
+     */
+    #[Test]
+    public function aWithheldReportCarriesNoDigestOfTheCheckedText(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $answer          = 'Schreiben Sie an max.mustermann@example.org, wir antworten gern.';
+        $this->responses = [new CompletionResponse($answer, 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId        = $this->send('Antworte.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.check.findingsWithheld'));
+        self::assertSame('', self::j($task, 'artifacts.1.parts.0.data.checkedTextDigest'));
+        self::assertStringNotContainsString(substr(ExternalTextReport::digestOf($answer), 7), (string) json_encode($task));
+    }
+
+    /**
+     * A forbidden term is found in the text; when the level tightened since
+     * the check, the report names no term the redacted text may no longer
+     * hold.
+     */
+    #[Test]
+    public function aTermFoundBeforeTheLevelTightenedIsNotNamedInTheReport(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->db('tx_nrllm_term_list')->update('tx_nrllm_term_list', ['forbidden_terms' => 'max.mustermann@example.org'], ['uid' => 1]);
+        $this->responses = [new CompletionResponse('Schreiben Sie an max.mustermann@example.org, wir antworten gern.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId        = $this->send('Antworte.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_FAILED', self::j($task, 'status.state'));
+        self::assertStringNotContainsString('max.mustermann', self::text(json_encode($task)));
+        self::assertTrue(self::j($task, 'artifacts.0.parts.0.data.check.findingsWithheld'));
+    }
+
+    /**
+     * A report about another text than the delivered one inherits neither its
+     * status nor its findings.
+     */
+    #[Test]
+    public function aReportAboutAnotherTextCarriesNoFindings(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->verdict   = [$this->violation('Schreiben Sie')];
+        $this->responses = [new CompletionResponse('Schreiben Sie an max.mustermann@example.org, wir antworten gern.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId        = $this->send('Antworte.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'redacted'], ['uid' => $this->runOf($taskId)->uid]);
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('not_checked', self::j($task, 'artifacts.1.parts.0.data.check.status'));
+        self::assertSame([], self::j($task, 'artifacts.1.parts.0.data.check.findings'));
+        self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.check.findingsWithheld'));
+    }
+
+    /**
+     * A level that tightens after the task completed scrubs the report like
+     * the content: no passage stays, and the report stays a data part.
+     */
+    #[Test]
+    public function aLaterTighteningWithholdsTheReportsFindings(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->verdict   = [$this->violation('Schreiben Sie an max.mustermann@')];
+        $this->responses = [new CompletionResponse('Schreiben Sie an max.mustermann@example.org, wir antworten gern.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId = $this->send('Antworte.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+        self::assertSame('Schreiben Sie an max.mustermann@', self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'artifacts.1.parts.0.data.check.findings.0.passage'));
+
+        $run = $this->runOf($taskId);
+        $this->getService(RunPrivacyLevelResolver::class);
+        $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'full'], ['uid' => $run->uid]);
+        $guard = $this->getService(RunContentPrivacyGuard::class);
+        $scrub = new ReflectionMethod($guard, 'scrubA2aTask');
+        $scrub->invoke($guard, $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun'), $run->uid, PrivacyLevel::REDACTED);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertStringNotContainsString('max.mustermann', self::text(json_encode($task)));
+        self::assertSame([], self::j($task, 'artifacts.1.parts.0.data.check.findings'));
+        self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.check.findingsWithheld'));
+    }
+
+    /**
      * Below `redacted` the check record of the run names no term and no
      * digest of the withheld text.
      */
@@ -379,21 +750,44 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * The text handler is unchanged: no end check, no check record.
+     * Below `redacted` a stopped task carries no report: a term it names
+     * would say what the withheld text contained.
      */
     #[Test]
-    public function aProfileWithTheTextHandlerIsNotEndChecked(): void
+    public function aStopBelowRedactedCarriesNoReport(): void
     {
-        $this->responses = [new CompletionResponse(self::SHORT_FORBIDDEN, 'fake', UsageStatistics::fromTokens(1, 1))];
+        $this->profile(A2aEditorialCheckHandler::IDENTIFIER, '');
+        $this->judge('block');
+        $this->verdict = [$this->violation('Hallo du')];
 
-        $taskId           = $this->send('Antworte kurz.');
-        $this->watchedRun = $this->runOf($taskId)->uid;
+        $taskId        = $this->send('Hallo du, danke für den Hinweis.');
+        $this->onJudge = fn (): int => $this->db('tx_nrllm_agentrun')->update('tx_nrllm_agentrun', ['answer_privacy_level' => 'metadata'], ['uid' => $this->runOf($taskId)->uid]);
         $this->runtime()->runQueued($this->runOf($taskId)->uuid);
-        self::assertSame([false], $this->deferredDuringLoop);
 
-        $run = $this->runOf($taskId);
-        self::assertSame('TASK_STATE_COMPLETED', self::j($this->taskOf($this->call('GetTask', ['id' => $taskId])), 'status.state'), $run->errorClass . ' ' . $run->terminationReason);
-        self::assertSame(0, $this->events($taskId, AgentEventKind::OUTPUT_CHECK));
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_FAILED', self::j($task, 'status.state'));
+        self::assertArrayNotHasKey('artifacts', $task);
+    }
+
+    /**
+     * X21, plan acceptance E2-5: a rule changes while the run runs; the task
+     * completes, and the report asks for a person.
+     */
+    #[Test]
+    public function aRuleChangedDuringTheRunAsksForAPerson(): void
+    {
+        $this->profile(A2aEditorialTextHandler::IDENTIFIER, '');
+        $this->judge('report');
+        $this->onGenerate = fn (): int => $this->db('tx_nrllm_promptsnippet')->update('tx_nrllm_promptsnippet', ['snippet' => 'Sprich die Leser mit „du“ an.'], ['uid' => 1]);
+        $this->responses  = [new CompletionResponse('Danke für den Hinweis, wir melden uns.', 'fake', UsageStatistics::fromTokens(1, 1))];
+
+        $taskId = $this->send('Antworte.');
+        $this->runtime()->runQueued($this->runOf($taskId)->uuid);
+
+        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
+        self::assertSame('TASK_STATE_COMPLETED', self::j($task, 'status.state'));
+        self::assertTrue(self::j($task, 'artifacts.1.parts.0.data.ruleState.changed'));
+        self::assertSame(A2aEditorialReporter::STATE_NEEDS_HUMAN_REVIEW, self::j($task, 'artifacts.1.parts.0.data.editorialState'));
     }
 
     // ------------------------------------------------------------------
@@ -434,6 +828,10 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
         $manager   = self::createStub(LlmServiceManagerInterface::class);
         $generator = function (): CompletionResponse {
             ++$this->modelCalls;
+            if ($this->onGenerate instanceof Closure) {
+                ($this->onGenerate)();
+            }
+
             $this->deferredDuringLoop[] = $this->deferred->covers($this->watchedRun);
             $next                       = array_shift($this->responses);
             self::assertInstanceOf(CompletionResponse::class, $next, 'The model was asked more often than scripted.');
@@ -480,6 +878,10 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
         $judge = self::createStub(RuleJudge::class);
         $judge->method('judge')->willReturnCallback(function (): array {
             ++$this->judgeCalls;
+            if ($this->onJudge instanceof Closure) {
+                ($this->onJudge)();
+            }
+
             $this->judgedInTransaction = $this->judgedInTransaction
                 || $this->getService(ConnectionPool::class)->getConnectionForTable('tx_nrllm_agentrun')->isTransactionActive();
             if ($this->verdict instanceof Throwable) {
@@ -509,7 +911,13 @@ final class A2aEditorialEndCheckTest extends AbstractFunctionalTestCase
             ),
             $digest,
             new NullLogger(),
+            $this->getService(A2aOutputReports::class),
         );
+    }
+
+    private function violation(string $passage): JudgeViolation
+    {
+        return new JudgeViolation(RuleSet::fromSnippets([['name' => 'Ton', 'text' => 'Sprich die Leser mit „Sie“ an.', 'dataClass' => null]])->rules[0], $passage);
     }
 
     private function runOf(string $taskId): AgentRun

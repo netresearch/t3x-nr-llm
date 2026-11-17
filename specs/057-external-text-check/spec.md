@@ -86,7 +86,9 @@ edited outside nr-llm can only be checked by generating it again.
   digest equals the digest of the text in the content artifact; any difference
   is `not_checked`.
 - **X20 Editorial state.** `draft`, `needs_revision` or `needs_human_review`,
-  separate from the task state: a completed task is no approval to publish.
+  separate from the task state: a completed task is no approval to publish. A
+  client text checked by `nr_llm.editorial_check` below the answer level `full`
+  is never a `draft`: the check read it redacted.
 - **X21 Rule state changed.** When the rule state at the check differs from the
   one recorded at the start of the run, the state is `needs_human_review`.
 
@@ -94,6 +96,8 @@ edited outside nr-llm can only be checked by generating it again.
 
 - A channel character limit (needs a profile field, E4).
 - A refusal reason in the status text of a rejected task (after stage 5b).
+- Sources in the report: the search calls of a run are not bound to the
+  task's site and language yet.
 - A snapshot of the snippet texts for a paused run; v1 only reports a change.
 - Proof that a client copies the text unchanged; nr-llm checks its artifact.
 
@@ -104,5 +108,5 @@ edited outside nr-llm can only be checked by generating it again.
 | X1-X9 | `ExternalTextCheckTest`, functional `ExternalTextCheckWiringTest` (rule-state digest included) |
 | X7 shared | `RuleSetJudgeGuardrailTest` (behaviour after the extraction), `ExternalTextCheckTest::aNamedWriterThatDoesNotExistCountsAsTheMostTrustedZone` (a named provider that is gone) |
 | X10-X14, X16 | functional `A2aEditorialEndCheckTest` (read-only run with a twelve-word answer, judge failure in block and report mode, check-only run with zero generator and tool calls, no judge call inside a transaction, a continued run checked on its final answer, the text handler unchanged) |
+| X17-X21 | functional `A2aEditorialEndCheckTest` (one text part and one data part, a text changed after the check is not checked, passage at `full`, redacted at `redacted`, nothing at `metadata`, a blocked task carries the report, a rule changed during the run asks for a person) |
 | X15 | `RuleSetJudgeGuardrailTest` (answer deferred, written arguments and other runs still judged), functional `A2aEditorialEndCheckTest` (deferred during the loop only) |
-| X17-X21 | functional `A2aEditorialEndCheckTest`, extended by the result contract (ADR-301) |

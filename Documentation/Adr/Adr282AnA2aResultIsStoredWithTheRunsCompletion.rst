@@ -14,6 +14,8 @@ ADR-282: An A2A result is stored with the run's completion
 :Amends: :ref:`ADR-234 <adr-234>` (an A2A task's run keeps its result in the
     completing transaction, also after an approval); :ref:`ADR-242 <adr-242>`
     (a fourth store follows the run's answer ceiling)
+:Amended: 2026-11-15 by :ref:`ADR-301 <adr-301>` (an editorial task carries a
+    report artifact beside its text, also when the end-of-run check stopped it)
 :Authors: Netresearch DTT GmbH
 
 .. note::
