@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "TYPO3 agent readiness — what the stack offers AI agents | nr-llm",
+    "title": "TYPO3 agent readiness: what the stack offers AI agents | nr-llm",
     "description": "What TYPO3 Core, official add-ons, Netresearch extensions and community extensions offer AI agents: content for agents, external agents, agents inside TYPO3, control and coding agents."
   },
   "hero": {
@@ -9,8 +9,8 @@
     "tagline": "What the TYPO3 stack offers AI agents today, and who provides each part."
   },
   "intro": [
-    "An agent that works with a website needs more than a language model. It needs content it can read, an interface it may call, rights that limit what it does, and a review step before anything goes live. This page lists what exists for each of these in TYPO3 Core, in official add-ons, in Netresearch extensions and in other community extensions.",
-    "Each row names its origin and links its source. Capabilities that are documented but not yet released are left out or named as work in progress."
+    "An agent that works with a website needs content it can read and an interface it may call. It also needs rights that limit what it does, and a review step before anything goes live. This page lists what TYPO3 Core, official add-ons, Netresearch extensions and other community extensions provide for each of these needs.",
+    "This page leaves out capabilities that are documented but not released yet, or marks them as work in progress."
   ],
   "asOfLabel": "Status as of",
   "asOf": "2026-11-17",
@@ -20,7 +20,7 @@
   "sourcesLabel": "Sources",
   "origins": {
     "heading": "Who provides what",
-    "intro": "The table rows use five origin categories. Netresearch's open-source extensions are part of the TYPO3 ecosystem as well; the categories show who delivers which part of a solution.",
+    "intro": "Each table row names one or more of five origins. Netresearch's open-source extensions are also part of the TYPO3 ecosystem. The origins show who delivers which part of a solution.",
     "labels": {
       "core": "TYPO3 Core",
       "official": "Official add-on",
@@ -41,16 +41,16 @@
       "id": "core",
       "navLabel": "Core foundation",
       "heading": "What TYPO3 Core brings as a foundation",
-      "intro": "Core provides the structures an agent that works under control needs: typed records, permissions, drafts and integration points. The LLM, MCP, WebMCP and A2A functions come from the extensions further down.",
+      "intro": "Core provides the structures that a controlled agent needs: typed records, permissions, drafts and integration points. The LLM, MCP, WebMCP and A2A functions come from the extensions in the sections below.",
       "rows": [
         {"capability": "Structured records, fields and relations", "origin": ["core"], "component": "TCA and DataHandler",
          "detail": "TCA describes tables, fields and relations. Every write to a TCA table goes through DataHandler, which evaluates the acting user's write permissions.",
          "sources": [{"label": "TYPO3 Explained: DataHandler", "href": "https://docs.typo3.org/m/typo3/reference-coreapi/14.3/en-us/ApiOverview/DataHandler/Introduction/Index.html"}]},
         {"capability": "Users, groups and fine-grained rights", "origin": ["core"], "component": "Backend access control",
-         "detail": "Backend groups limit which tables can be read or modified, which page-tree branches and file mounts are reachable, and which languages can be edited. An agent that acts as a backend user inherits these limits.",
+         "detail": "Backend groups limit which tables a user can read or modify and which page-tree branches and file mounts the user can reach. They also limit which languages the user can edit. An agent that acts as a backend user has the same limits.",
          "sources": [{"label": "TYPO3 Explained: access control", "href": "https://docs.typo3.org/m/typo3/reference-coreapi/14.3/en-us/ApiOverview/Backend/AccessControl/Index.html"}]},
         {"capability": "Drafts, versioning and preview", "origin": ["core"], "component": "System extension workspaces",
-         "detail": "Changes stay as versioned drafts that can be previewed and pass review stages before they are published. An agent can prepare a draft while review and publication stay in the editorial process.",
+         "detail": "Changes stay as versioned drafts that editors can preview. Drafts pass review stages before publication. An agent can prepare a draft, and review and publication stay in the editorial process.",
          "sources": [{"label": "Workspaces manual", "href": "https://docs.typo3.org/c/typo3/cms-workspaces/14.3/en-us/Administration/Workspaces/Index.html"}]},
         {"capability": "Background processing and queues", "origin": ["core"], "component": "Symfony Messenger integration",
          "detail": "TYPO3 integrates the Symfony Messenger message bus. Messages are handled synchronously by default.",
@@ -75,17 +75,17 @@
       "intro": "llms.txt, Markdown versions of pages, structured data and JSON output give agents a representation of the site they can use directly.",
       "rows": [
         {"capability": "Provide llms.txt and agent skills from configuration", "origin": ["nr"], "component": "nr-wellknown (beta)",
-         "detail": "Writes /llms.txt from a file or inline text in the site configuration, at deploy time as a static file. Optionally also writes /.well-known/agent-skills.json when skills are configured.",
-         "limit": "One docroot gets one file: in a multi-site instance the first site's configuration is used. agent-skills.json is a concrete interface, not a widely supported standard.",
+         "detail": "At deploy time, writes /llms.txt as a static file from a file or inline text in the site configuration. When skills are configured, it also writes /.well-known/agent-skills.json.",
+         "limit": "There is one file per docroot: in a multi-site instance, the configuration of the first site applies. The agent-skills.json format is not a widely supported standard.",
          "sources": [{"label": "nr-wellknown on GitHub", "href": "https://github.com/netresearch/t3x-nr-wellknown"}]},
         {"capability": "Generate llms.txt from the page tree", "origin": ["community"], "component": "web-vision/ai-llms-txt by web-vision",
-         "detail": "Builds llms.txt from the page tree with configurable depth and page-type exclusions, skips hidden, restricted and no-index pages, serves pages as Markdown and exports them via CLI.",
+         "detail": "Builds llms.txt from the page tree, with configurable depth and page-type exclusions. It leaves out hidden, access-restricted and no-index pages. It also serves pages as Markdown and exports them through a CLI command.",
          "sources": [{"label": "ai-llms-txt manual", "href": "https://docs.typo3.org/p/web-vision/ai-llms-txt/main/en-us/Introduction/Index.html"}]},
         {"capability": "llms.txt with Markdown endpoints", "origin": ["community"], "component": "rtfirst/llms-txt by Roland Tfirst",
          "detail": "Generates llms.txt with Markdown access to page content and can protect these endpoints with an API key.",
          "sources": [{"label": "llms-txt manual", "href": "https://docs.typo3.org/p/rtfirst/llms-txt/main/en-us/Index.html"}]},
-        {"capability": "Pages as Markdown", "origin": ["community", "nr-integration"], "component": "b13/ai-bots-love-markdown by b13; used in the Netresearch demo",
-         "detail": "Serves a page as Markdown on Accept: text/markdown or via a URL suffix, with page metadata as front matter and a rel=\"alternate\" link for discovery.",
+        {"capability": "Pages as Markdown", "origin": ["community", "nr-integration"], "component": "b13/ai-bots-love-markdown by b13, used in the Netresearch demo",
+         "detail": "Serves a page as Markdown when the request sends Accept: text/markdown or uses a URL suffix. The Markdown carries the page metadata as front matter, and the HTML page links to it with rel=\"alternate\".",
          "sources": [{"label": "ai-bots-love-markdown on GitHub", "href": "https://github.com/b13/ai-bots-love-markdown"}]},
         {"capability": "Describe content semantically", "origin": ["community"], "component": "brotkrueml/schema by Chris Müller",
          "detail": "Adds schema.org structured data to pages as JSON-LD, so content types and relations are machine-readable.",
@@ -94,55 +94,55 @@
          "detail": "Renders pages, content elements, menus and metadata as JSON, with multilingual handling and workspace preview.",
          "sources": [{"label": "headless manual", "href": "https://docs.typo3.org/p/friendsoftypo3/headless/main/en-us/Introduction/Index.html"}]},
         {"capability": "Deliver content by context", "origin": ["nr"], "component": "contexts, combinable with Cowriter",
-         "detail": "Shows or hides pages and content depending on configurable contexts, including one that matches requests from known AI crawlers. Cowriter can create audience variants that are bound to such a context.",
-         "limit": "The User-Agent is set by the client, so the AI-crawler context classifies requests; it does not authenticate them.",
+         "detail": "Shows or hides pages and content by configurable contexts. One context matches requests from known AI crawlers. Cowriter can create audience variants that an editor can bind to such a context.",
+         "limit": "The client sets the User-Agent header. The AI-crawler context therefore classifies requests and does not authenticate them.",
          "sources": [{"label": "contexts on GitHub", "href": "https://github.com/netresearch/t3x-contexts"}, {"label": "Cowriter on GitHub", "href": "https://github.com/netresearch/t3x-cowriter"}]}
       ],
       "notes": [
         "The Netresearch TYPO3 demo serves a hand-curated llms.txt directly from nginx and offers every page as Markdown via b13/ai-bots-love-markdown. It does not use nr-wellknown.",
-        "llms.txt is a proposal for giving agents a curated overview of a site. It does not guarantee that content is used or ranked by AI systems; Markdown and structured data are representations agents can use directly."
+        "llms.txt is a proposal for giving agents a curated overview of a site. It does not guarantee that AI systems use or rank the content. Markdown and structured data are representations that agents can use directly."
       ]
     },
     {
       "id": "external",
       "navLabel": "External agents",
       "heading": "External agents can work with TYPO3",
-      "intro": "Browser tools, CMS tools and delegated tasks are three different capabilities. Each one has its own interface and its own limits.",
+      "intro": "Tools in the browser, tools in the CMS and delegated tasks are separate capabilities, each with its own interface and limits.",
       "rows": [
         {"capability": "Local assistant in the browser", "origin": ["nr"], "component": "nr-browser-ai (beta, proof of concept)",
          "detail": "Answers questions about the open page with Gemini Nano through Chrome's built-in Prompt API, on the visitor's device.",
-         "limit": "Runs only where the browser offers the Prompt API. WebLLM was evaluated and not adopted.",
+         "limit": "Runs only where the browser offers the Prompt API. The project evaluated WebLLM and did not adopt it.",
          "sources": [{"label": "nr-browser-ai on GitHub", "href": "https://github.com/netresearch/t3x-nr-browser-ai"}]},
         {"capability": "Form-based tools for browser agents", "origin": ["nr", "core"], "component": "nr-browser-ai on top of the form system extension",
-         "detail": "Generates a JSON Schema from a form definition and registers the form as a tool with the browser's model context (WebMCP) where the browser supports it. The tool fills the visible form and queries the form's configured data source.",
-         "limit": "It does not submit the form, run finishers or execute anything on the server. For multi-step forms only the first page is described.",
+         "detail": "Generates a JSON Schema from a form definition. Where the browser supports WebMCP, it registers the form as a tool with the browser's model context. The tool fills the visible form and queries the data source configured for the form.",
+         "limit": "It does not submit the form, run finishers or execute anything on the server. For a multi-step form, nr-browser-ai describes only the first page.",
          "sources": [{"label": "Decision record: forms as tools", "href": "https://github.com/netresearch/t3x-nr-browser-ai/blob/v0.9.0/docs/decisions/0005-forms-from-the-backend-and-the-model-runtime.md"}, {"label": "WebMCP binding source", "href": "https://github.com/netresearch/t3x-nr-browser-ai/blob/v0.9.0/Resources/Private/TypeScript/tools/ModelContextBinding.ts"}]},
         {"capability": "TYPO3 as an MCP server", "origin": ["community"], "component": "hn/typo3-mcp-server by hauptsache.net",
-         "detail": "Gives MCP clients the page tree and workspace-capable tables with schema inspection over an OAuth-protected HTTP endpoint. Record changes are queued in a workspace.",
+         "detail": "Gives MCP clients access to the page tree and to workspace-capable tables, including their schema. Clients connect to an HTTP endpoint protected by OAuth. The server queues record changes in a workspace.",
          "limit": "It uses the user's first writable workspace. Uploaded files land in storage immediately, because files are not workspace-versioned.",
          "sources": [{"label": "typo3-mcp-server on GitHub", "href": "https://github.com/hauptsacheNet/typo3-mcp-server"}]},
         {"capability": "Use external MCP tools inside TYPO3", "origin": ["nr"], "component": "MCP client in nr-llm",
-         "detail": "Administrators connect external MCP servers. Imported tools start disabled, are enabled one by one and by default need human approval per call.",
+         "detail": "Administrators connect external MCP servers. Imported tools start disabled. An administrator enables them one by one, and by default each call needs a human approval.",
          "limit": "The client speaks HTTP (no stdio) and passes on text results only.",
          "sources": [{"label": "nr-llm manual: MCP servers", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/McpServers.html"}]},
         {"capability": "Address TYPO3 as an A2A agent", "origin": ["nr"], "component": "A2A server in nr-llm",
-         "detail": "TYPO3 answers A2A 1.0 requests over JSON-RPC and publishes an Agent Card with the skills of administrator-defined profiles. Registered clients authenticate with a token, follow task status, answer follow-up questions, cancel tasks and fetch results. Each client's tasks run as a dedicated non-admin backend user in a configured workspace.",
-         "limit": "Files are off by default. When enabled, a task accepts files from the client. Returning a FAL file additionally needs the profile's approval of its clients as recipients and a tool that ships disabled; only files the client's backend user may read are sent.",
+         "detail": "TYPO3 answers A2A 1.0 requests over JSON-RPC and publishes an Agent Card with the skills of administrator-defined profiles. Registered clients authenticate with a token. They can follow task status, answer follow-up questions, cancel tasks and fetch results. Each client's tasks run as a dedicated non-admin backend user in a configured workspace.",
+         "limit": "Files are off by default. When files are on, a task accepts files from the client. To return a FAL file, the profile must also approve its clients as recipients, and an administrator must enable a tool that ships disabled. The task sends only files that the client's backend user may read.",
          "sources": [{"label": "nr-llm manual: A2A server", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aServer.html"}]},
         {"capability": "Delegate work to other A2A agents", "origin": ["nr"], "component": "A2A client in nr-llm",
-         "detail": "Administrators register remote A2A agents. The skills on their Agent Card become tools that are off by default and by default need approval before a run delegates.",
-         "limit": "The client exchanges text only. While the backend chat nr-mcp-agent is installed, agent runs are not offered delegation tools yet (see the limits section).",
+         "detail": "Administrators register remote A2A agents. The skills on their Agent Card become tools. These tools are off by default, and by default a run needs an approval before it delegates.",
+         "limit": "The client exchanges text only. While the backend chat nr-mcp-agent is installed, nr-llm does not offer delegation tools to agent runs yet (see the limits section).",
          "sources": [{"label": "nr-llm manual: remote agents", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aRemoteAgents.html"}]},
         {"capability": "Personal agents with the editor's own rights", "origin": ["nr"], "component": "A2A tokens in nr-llm",
-         "detail": "Where an administrator allows it, editors issue their own revocable A2A tokens, limited to permitted profiles, by default to a draft workspace and an expiry. Every request is checked against the editor's current groups.",
+         "detail": "Where an administrator allows it, editors issue their own revocable A2A tokens. A token is limited to permitted profiles and, by default, to a draft workspace and an expiry date. nr-llm checks every request against the editor's current groups.",
          "sources": [{"label": "nr-llm manual: A2A tokens", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aTokens.html"}]},
         {"capability": "Official API for records and files", "origin": ["official"], "component": "TYPO3 Suite API Hub",
          "detail": "A REST API for records and files with OAuth 2.0 or static tokens. Each app is limited to its backend user's rights and to the actions it is allowed.",
-         "limit": "Part of the TYPO3 Suite, a commercial offering of the TYPO3 Company. An MCP server for the Suite is announced without a launch date.",
+         "limit": "Part of the TYPO3 Suite, a commercial offering of the TYPO3 Company. The TYPO3 Company has announced an MCP server for the Suite, without a launch date.",
          "sources": [{"label": "TYPO3 Suite on typo3.com", "href": "https://typo3.com/products-services/official-integrations-services/typo3-suite"}]}
       ],
       "notes": [
-        "The Netresearch TYPO3 demo answers the A2A protocol since 17 November 2026. Its agent card is public; tasks need an administrator-issued token, and writes go to a draft workspace after approval."
+        "The Netresearch TYPO3 demo has answered A2A requests since 17 November 2026. Its agent card is public. Tasks need a token that an administrator issues, and writes go to a draft workspace after approval."
       ]
     },
     {
@@ -161,11 +161,11 @@
          "detail": "Built-in read tools cover content, page tree, TCA and FlexForm schemas, TypoScript and TSconfig, files and diagnostics. Each tool and each group can be switched off.",
          "sources": [{"label": "nr-llm manual: read tools", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/ReadTools.html"}]},
         {"capability": "Change content under control", "origin": ["nr", "core"], "component": "Write tools in nr-llm, DataHandler and workspaces",
-         "detail": "Writing tools ship disabled and every call pauses for a human approval. Record writers go through DataHandler into the run's workspace.",
-         "limit": "Not every writing tool uses a workspace: cache clearing and the redirect tools are admin-only, and redirects are written live.",
+         "detail": "Writing tools ship disabled, and every call pauses for a human approval. Tools that write records go through DataHandler into the run's workspace.",
+         "limit": "Not every writing tool uses a workspace: cache clearing and the redirect tools are admin-only, and the redirect tools write live.",
          "sources": [{"label": "nr-llm manual: tools and workspaces", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/ToolWorkspaces.html"}]},
         {"capability": "Reusable skills", "origin": ["nr"], "component": "Skill management in nr-llm",
-         "detail": "SKILL.md instructions are versioned and approved; a configuration loads them always or on demand. nr-llm never executes scripts a skill references.",
+         "detail": "SKILL.md instructions are versioned and approved. A configuration loads them always or on demand. nr-llm never executes scripts that a skill references.",
          "sources": [{"label": "nr-llm manual: skills", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/SkillUse.html"}]},
         {"capability": "Central rules for language and style", "origin": ["nr"], "component": "Prompt snippets in nr-llm",
          "detail": "Personas, tone, audience and style are kept as reusable building blocks that extensions combine by tag.",
@@ -191,24 +191,24 @@
       "intro": "Netresearch extensions that use nr-llm for concrete editorial and site tasks, plus the integration of community AI extensions.",
       "rows": [
         {"capability": "Writing assistance in the editor", "origin": ["nr"], "component": "Cowriter",
-         "detail": "A CKEditor assistant that improves, summarizes, extends, corrects and translates text, suggests page fields including SEO and social texts, generates alt texts and, optionally, images and audience variants.",
+         "detail": "A CKEditor assistant that improves, summarizes, extends, corrects and translates text. It suggests page fields, including SEO and social texts, and generates alt texts. Optional features generate images and audience variants.",
          "sources": [{"label": "Cowriter on GitHub", "href": "https://github.com/netresearch/t3x-cowriter"}]},
         {"capability": "AI chat in the backend", "origin": ["nr"], "component": "nr-mcp-agent (proof of concept)",
-         "detail": "A backend chat on nr-llm's agent runtime with persistent conversations, nr-llm tools, background processing and guided flows such as fixing missing alt texts.",
+         "detail": "A backend chat on nr-llm's agent runtime. It keeps conversations, uses nr-llm tools, runs work in the background and offers guided flows, for example for missing alt texts.",
          "sources": [{"label": "nr-mcp-agent on GitHub", "href": "https://github.com/netresearch/t3x-nr-mcp-agent"}]},
-        {"capability": "AI search and site chat", "origin": ["nr"], "component": "nr-ai-search (beta; not publicly available, on request)",
+        {"capability": "AI search and site chat", "origin": ["nr"], "component": "nr-ai-search (beta, not publicly available, on request)",
          "detail": "Answers visitor questions only from the site's own indexed pages. Each search or chat element can be limited to one page subtree.",
-         "limit": "The extension is not publicly available; Netresearch provides it on request. The Netresearch TYPO3 demo documents it as an extension advisor limited to the Extensions section; that chat is not publicly accessible, so that anonymous visitors cannot start paid model calls.",
+         "limit": "The extension is not publicly available. Netresearch provides it on request. The Netresearch TYPO3 demo documents it as an extension advisor for the Extensions section. That chat is not publicly accessible, so anonymous visitors cannot start paid model calls.",
          "sources": [{"label": "Demo README: extension advisor", "href": "https://github.com/netresearch/typo3-demo#extension-advisor-chat-nr_ai_search"}]},
         {"capability": "Content repurposing", "origin": ["nr"], "component": "nr-repurpose (alpha)",
-         "detail": "Turns a web page or PDF into one content brief and from it into formats such as a podcast, a diagram, a story carousel, a summary, an FAQ, social posts, a newsletter, a slide deck and a handout.",
-         "limit": "Approved social posts can be handed to an automation tool through a webhook, optionally signed; other formats are not sent by webhook.",
+         "detail": "Turns a web page or PDF into one content brief. From the brief, it creates formats such as a podcast, a diagram, a story carousel, a summary, an FAQ, social posts, a newsletter, a slide deck and a handout.",
+         "limit": "nr-repurpose can hand approved social posts to an automation tool through a webhook, optionally signed. It sends no other format by webhook.",
          "sources": [{"label": "nr-repurpose on GitHub", "href": "https://github.com/netresearch/t3x-nr-repurpose"}]},
         {"capability": "Landing pages from a briefing", "origin": ["nr"], "component": "nr-landingpage (beta)",
-         "detail": "A backend wizard: pick a template, answer briefing questions, review generated page fields and content sections, then choose where in the page tree the page is created. Templates limit which content elements may be generated.",
+         "detail": "A backend wizard. The editor picks a template, answers briefing questions and reviews the generated page fields and content sections. Then the editor chooses where in the page tree the wizard creates the page. The template limits which content elements the wizard may generate.",
          "sources": [{"label": "nr-landingpage on GitHub", "href": "https://github.com/netresearch/nr-landingpage"}]},
         {"capability": "Bring community AI extensions under shared control", "origin": ["nr", "community"], "component": "nr-llm-compat (beta)",
-         "detail": "Routes the LLM calls of supported extensions, among them AI SEO Helper, T3AI, AI File Metadata, Texter, Exception Solver and Sitescore, through nr-llm and its policies.",
+         "detail": "Routes the LLM calls of supported extensions through nr-llm and its policies. Supported extensions include AI SEO Helper, T3AI, AI File Metadata, Texter, Exception Solver and Sitescore.",
          "limit": "Each integration is off by default and activates only for a supported version whose code contract still matches.",
          "sources": [{"label": "nr-llm-compat on GitHub", "href": "https://github.com/netresearch/t3x-nr-llm-compat"}]},
         {"capability": "Automated translation", "origin": ["community", "nr"], "component": "Autotranslate by Thiele & Klose with nr-llm",
@@ -217,11 +217,11 @@
          "sources": [{"label": "nr-llm manual: Autotranslate", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/Autotranslate.html"}, {"label": "Autotranslate on GitHub", "href": "https://github.com/thieleundklose/tk-typo3-autotranslate"}]},
         {"capability": "A curated combination of the stack", "origin": ["nr"], "component": "TYPO3 AI Edition",
          "detail": "A Composer metapackage that installs Netresearch AI extensions in versions tested together. CI installs it and opens each extension's backend modules.",
-         "limit": "The edition pins the versions that passed its compatibility run; newer single releases, including nr-llm's A2A features, are not part of it yet. The run does not test model answers.",
+         "limit": "The edition pins the versions that passed its compatibility run. Newer single releases, including nr-llm's A2A features, are not part of it yet. The run does not test model answers.",
          "sources": [{"label": "TYPO3 AI Edition on GitHub", "href": "https://github.com/netresearch/typo3-ai-edition"}]}
       ],
       "notes": [
-        "Other agencies offer their own AI foundations: b13 AiM is a central AI layer that selects providers and models, enforces rules and tracks costs; NITSAN's T3AF is an open-source foundation with a built-in MCP server, provider management, budgets and permissions."
+        "Other agencies offer their own AI foundations. b13 AiM is a central AI layer that selects providers and models, enforces rules and tracks costs. NITSAN's T3AF is an open-source foundation with a built-in MCP server, provider management, budgets and permissions."
       ]
     },
     {
@@ -244,12 +244,12 @@
          "sources": [{"label": "nr-llm manual: editorial profile", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/EditorialProfile.html"}]},
         {"capability": "Rules and a second assessment", "origin": ["nr"], "component": "Rule set judge in nr-llm",
          "detail": "An optional second model checks finished texts against written rules and either reports or blocks violations.",
-         "limit": "Off by default; what it catches depends on the configured rules and model.",
+         "limit": "It is off by default. What it catches depends on the configured rules and the model.",
          "sources": [{"label": "nr-llm manual: rule set judge", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/RuleSetJudge.html"}]},
         {"capability": "Repeatable quality checks", "origin": ["nr"], "component": "Quality evaluation in nr-llm",
          "detail": "Golden prompt sets measure answer quality and flag regressions after changes to prompts, models or configuration.",
          "sources": [{"label": "nr-llm manual: quality evaluation", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Developer/QualityEvaluation.html"}]},
-        {"capability": "Mark AI-edited content", "origin": ["nr", "community"], "component": "AI-written marker in nr-llm; optional b13/ai-label by b13",
+        {"capability": "Mark AI-edited content", "origin": ["nr", "community"], "component": "AI-written marker in nr-llm, plus optional b13/ai-label by b13",
          "detail": "Pages and content elements written by a run are marked as AI-written. b13's ai-label adds AI-origin labels, a review record and a visible marker for visitors.",
          "limit": "A technical approval is not an editorial review of the content.",
          "sources": [{"label": "nr-llm manual: AI-written marker", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/AiWritten.html"}, {"label": "ai-label on GitHub", "href": "https://github.com/b13/ai-label"}]},
@@ -260,7 +260,7 @@
          "detail": "Stores secrets with envelope encryption, per-secret access by backend group, a tamper-evident audit log and rotation of secrets and the master key.",
          "sources": [{"label": "nr-vault on GitHub", "href": "https://github.com/netresearch/t3x-nr-vault"}]},
         {"capability": "Protect outgoing HTTP calls", "origin": ["nr"], "component": "nr-http-guard (alpha)",
-         "detail": "Adds SSRF protection to TYPO3's RequestFactory: it blocks private, loopback and metadata destinations, checks DNS results and redirects, and pins connections to verified addresses.",
+         "detail": "Adds SSRF protection to TYPO3's RequestFactory. It blocks private, loopback and metadata destinations, checks DNS results and redirects, and pins connections to verified addresses.",
          "limit": "Direct cURL calls and other HTTP clients are not covered.",
          "sources": [{"label": "nr-http-guard on GitHub", "href": "https://github.com/netresearch/typo3_http_guard"}]}
       ]
@@ -272,16 +272,16 @@
       "intro": "Agent readiness also covers development: coding agents that build and maintain TYPO3 projects need version-specific knowledge and runtime context.",
       "rows": [
         {"capability": "Version-specific TYPO3 knowledge", "origin": ["official"], "component": "TYPO3 Dev Companion",
-         "detail": "A local MCP server that gives coding agents version-specific TYPO3 knowledge and read-only context from the local installation, plus task skills for common development work.",
+         "detail": "A local MCP server for coding agents. It provides version-specific TYPO3 knowledge and read-only context from the local installation, and it ships task skills for common development work.",
          "limit": "Experimental 0.x release. It writes nothing into the installation.",
          "sources": [{"label": "TYPO3 news: Dev Companion", "href": "https://news.typo3.com/article/meet-the-typo3-dev-companion-typo3-knowledge-for-your-coding-agent"}, {"label": "Dev Companion on GitHub", "href": "https://github.com/TYPO3/dev-companion"}]},
         {"capability": "Machine-readable documentation", "origin": ["official"], "component": "docs.typo3.org rendering",
-         "detail": "Every manual on docs.typo3.org gets an llms.txt; depending on the render it also gets Markdown pages and JSON indexes.",
+         "detail": "Every manual on docs.typo3.org gets an llms.txt. Depending on the render, a manual also gets Markdown pages and JSON indexes.",
          "limit": "This applies to the documentation platform, not to TYPO3 websites.",
          "sources": [{"label": "render-guides: llms.txt", "href": "https://docs.typo3.org/other/t3docs/render-guides/main/en-us/Developer/LlmsTxt.html"}]},
         {"capability": "Runtime context for development assistants", "origin": ["community"], "component": "typo3-ai-mate by Konrad Michalik",
-         "detail": "A development-only bridge to Symfony AI Mate with diagnostic tools, nearly all read-only, for TYPO3's resolved runtime state such as TCA, TypoScript, Fluid, dependency injection and events.",
-         "limit": "The tools are called on demand through a CLI; there is no long-running server process.",
+         "detail": "A development-only bridge to Symfony AI Mate. Its diagnostic tools report TYPO3's resolved runtime state, such as TCA, TypoScript, Fluid, dependency injection and events. Nearly all of these tools only read.",
+         "limit": "The tools run on demand through a CLI command. There is no long-running server process.",
          "sources": [{"label": "typo3-ai-mate on GitHub", "href": "https://github.com/konradmichalik/typo3-ai-mate"}]}
       ]
     }
@@ -289,14 +289,14 @@
   "limits": {
     "navLabel": "Limits",
     "heading": "Where the edges are today",
-    "intro": "These limits apply to the current releases. Work that is merged but not released is not counted as available.",
+    "intro": "This page does not count merged but unreleased work as available.",
     "items": [
-      "The chain from the backend chat to a remote agent and back is not available yet. While nr-mcp-agent is installed, nr-llm offers agent runs no delegation tools. nr-mcp-agent already contains a display for a step that waits for a remote agent; it stays unreachable until nr-llm lifts this block. Keeping the final answer of such a step is in progress in nr-llm.",
+      "The chain from the backend chat to a remote agent and back is not available yet. While nr-mcp-agent is installed, nr-llm offers agent runs no delegation tools. nr-mcp-agent already contains a display for a step that waits for a remote agent. That display stays unreachable until nr-llm lifts this block. Keeping the final answer of such a step is in progress in nr-llm.",
       "The A2A client exchanges text only. The A2A server accepts and returns files only when files are enabled.",
-      "nr-browser-ai is a proof of concept. Its form tools fill a form and query its data source; they never submit it.",
-      "nr-mcp-agent is published as a proof of concept; nr-repurpose and nr-http-guard are alpha releases.",
+      "nr-browser-ai is a proof of concept. Its form tools fill a form and query its data source. They never submit the form.",
+      "nr-mcp-agent is published as a proof of concept. nr-repurpose and nr-http-guard are alpha releases.",
       "llms.txt, Markdown and JSON output make content usable for agents. They do not guarantee that an AI system uses or ranks it.",
-      "Automated checks of the AI Edition install the extensions and open their modules; they do not judge model answers. An approval in a workspace is a technical step, not an editorial review."
+      "Automated checks of the AI Edition install the extensions and open their modules. They do not judge model answers. An approval in a workspace is a technical step, not an editorial review."
     ]
   },
   "links": [
