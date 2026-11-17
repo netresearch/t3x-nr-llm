@@ -251,4 +251,17 @@ final class RunStepTest extends TestCase
 
         self::fail('An llm step stated a tool refusal: ' . $step->toolRefusal);
     }
+
+    #[Test]
+    public function onlyASkillUsageStepNamesSkillUsage(): void
+    {
+        $step = new RunStep(kind: RunStep::KIND_SKILLS, round: 1, durationMs: 0.0, skillUsage: []);
+        self::assertSame([], $step->toArray()['skillUsage'] ?? null);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1795300321);
+        $step = new RunStep(kind: RunStep::KIND_REQUEST, round: 1, durationMs: 0.0, skillUsage: []);
+
+        self::fail('A request step named skill usage: ' . json_encode($step->skillUsage));
+    }
 }

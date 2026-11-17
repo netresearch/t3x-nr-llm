@@ -115,7 +115,8 @@ final readonly class RunStep
     /**
      * The skill versions a model call carried for the first time in its
      * segment, or that a load appended (ADR-321). Recorded before the request
-     * step of the round it names, and only when there is something to name.
+     * step of the call, or for a load before the load's tool step, and only
+     * when there is something to name.
      *
      * Uids, digests, identifiers and codes: no name, description or body, so
      * the record is the same at every privacy level.

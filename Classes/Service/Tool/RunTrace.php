@@ -171,8 +171,8 @@ final class RunTrace
     /**
      * Record the skill versions a model call carries for the first time in
      * its segment, or the version a load appended (ADR-321). Called by the
-     * loop before the request step of the round it names; an empty list
-     * records nothing.
+     * loop before the request step of the call, or for a load before the
+     * load's tool step; an empty list records nothing.
      *
      * @param list<SkillUsageEntry> $entries
      */

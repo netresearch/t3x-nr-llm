@@ -457,6 +457,31 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
     }
 
     /**
+     * The approval is read when the entry is recorded, not when the version
+     * entered: an approval revoked between a load and the next call is not
+     * named on that call's passed entry.
+     */
+    #[Test]
+    public function anApprovalRevokedAfterTheLoadIsNotNamedWhenTheVersionIsPassed(): void
+    {
+        $this->turns = [[$this->loadCall('c1')]];
+        $digest      = $this->skills[self::ON_DEMAND]->getVersionDigest();
+        $trace       = new RunTrace(onRecord: function (RunStep $step) use ($digest): void {
+            if ($step->kind === RunStep::KIND_TOOL) {
+                $this->approvals->revoke(self::ON_DEMAND, $digest, 1);
+            }
+        });
+
+        $this->service()->runLoop([ChatMessage::user('go')], $this->configuration(onDemand: true), ToolExecutionContext::none(), null, null, 5, $trace);
+
+        [$loaded, $passed] = $this->entries($trace);
+        self::assertSame($this->approvalUids[self::ON_DEMAND], $loaded->approvalUid);
+        self::assertSame(SkillUsageState::PASSED, $passed->state);
+        self::assertSame(SkillApprovalState::UNKNOWN, $passed->approvalState);
+        self::assertSame(0, $passed->approvalUid);
+    }
+
+    /**
      * A refused load (a uid that is not in the catalogue) appends nothing,
      * so it names nothing.
      */
