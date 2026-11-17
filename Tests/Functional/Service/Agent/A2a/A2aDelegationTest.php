@@ -1255,6 +1255,41 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * Spec 060 RQ6: a deadline claim whose own read of the run fails does not
+     * fall through to a later read that would accept the question that
+     * replaced the expired one: nothing is cancelled and no timeout is given.
+     */
+    #[Test]
+    public function aFailedReadAfterTheDeadlineClaimDoesNotExpireTheReplacement(): void
+    {
+        $repository      = new FenceRecordingRunRepository(AgentRunRepositoryFactory::create($this->getService(ConnectionPool::class), $this->getService(AgentStateCodec::class)));
+        $this->persister = new AgentRunPersister($repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::FULL), new NullLogger());
+        $this->agent(['identifier' => 'remote', 'requires_approval' => 0, 'min_poll_interval_seconds' => 10, 'max_wait_seconds' => 60]);
+        $runtime  = $this->runtime([$this->toolTurn([new ToolCall('d1', $this->skillTool(), ['message' => 'x'])])]);
+        $runUuid  = $this->delegatedAndAsked($runtime, 'Which year?');
+        $deadline = $this->checkpointOf($this->runOf($runUuid))->deadline;
+
+        $repository->beforeClaimFromInput = function () use ($runtime, $runUuid, $repository): void {
+            $this->transport->thenJson(['result' => ['task' => $this->task('task-1', 'TASK_STATE_WORKING')]]);
+            self::assertSame(AgentRunOutcome::AWAITING_DEPENDENCY, $this->answer($runtime, $runUuid, 'the first answer')->outcome);
+            $this->transport->thenJson(['result' => $this->asking('task-1', 'Which month?')]);
+            self::assertSame(1, $this->poller()->tick($this->checkpointOf($this->runOf($runUuid))->suspendedAt + 10)->asked);
+
+            // The deadline claim's own read of the run fails, once.
+            $repository->beforeFindByUuid = static function () use ($repository): never {
+                $repository->beforeFindByUuid = null;
+
+                throw new RuntimeException('database gone for a moment', 1799431202);
+            };
+        };
+
+        self::assertSame(0, $this->poller()->tick($deadline)->timedOut);
+
+        self::assertNotSame(AgentRunStatus::COMPLETED, $this->runOf($runUuid)->statusEnum());
+        self::assertSame(['SendMessage', 'GetTask', 'SendMessage', 'GetTask'], $this->methods(), 'no CancelTask');
+    }
+
+    /**
      * Spec 060 RQ1: an INPUT_REQUIRED read before the question was answered
      * does not ask the initiator again once the run waits on the remote
      * after the answer.

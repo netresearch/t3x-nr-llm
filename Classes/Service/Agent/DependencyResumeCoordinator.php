@@ -120,9 +120,20 @@ final readonly class DependencyResumeCoordinator
         }
 
         // The deadline was read for this pause: a question answered and
-        // asked again since then keeps waiting, unchanged.
+        // asked again since then keeps waiting, unchanged. A read that fails
+        // compares nothing, so nothing is expired on it: the claim goes back
+        // as after any failed read (resumeClaimed()), and a later tick looks
+        // again.
         $claimed = $this->persister->findRun($run->uuid);
-        if ($claimed instanceof AgentRun && !$this->samePause($run, $claimed)) {
+        if (!$claimed instanceof AgentRun) {
+            if (!$this->persister->releaseDependencyClaim($run, $leaseOwner)) {
+                $this->fail(new AgentRunHandle($run->uid, $run->uuid), 'The event-stream position could not be determined after the dependency claim', $leaseOwner);
+            }
+
+            return null;
+        }
+
+        if (!$this->samePause($run, $claimed)) {
             $handle   = $this->persister->resumeHandle($claimed);
             $state    = $this->decode($claimed)[0] ?? null;
             $question = self::checkpointOf($claimed);
@@ -134,7 +145,7 @@ final readonly class DependencyResumeCoordinator
             return null;
         }
 
-        return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner);
+        return $this->resumeClaimed($run, $expected, $result, $onClaimed, $leaseOwner, $claimed);
     }
 
     /**
@@ -263,11 +274,14 @@ final readonly class DependencyResumeCoordinator
 
     /**
      * @param (Closure(): void)|null $onClaimed
+     * @param AgentRun|null          $claimed   the claimed row the caller already read and compared
      */
-    private function resumeClaimed(AgentRun $run, DependencyCheckpoint $expected, ToolResult $result, ?Closure $onClaimed, string $leaseOwner): ?AgentRunResult
+    private function resumeClaimed(AgentRun $run, DependencyCheckpoint $expected, ToolResult $result, ?Closure $onClaimed, string $leaseOwner, ?AgentRun $claimed = null): ?AgentRunResult
     {
-        $claimed = $this->persister->findRun($run->uuid);
-        $handle  = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
+        // The row the caller already compared, when it read one: a second
+        // read could see a pause it never compared.
+        $claimed ??= $this->persister->findRun($run->uuid);
+        $handle = $claimed instanceof AgentRun ? $this->persister->resumeHandle($claimed) : null;
         if (!$claimed instanceof AgentRun || !$handle instanceof AgentRunHandle) {
             // A read that failed for now says nothing about the checkpoint:
             // the claim goes back and a later tick tries again. Only when it
