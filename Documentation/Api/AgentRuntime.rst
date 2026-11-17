@@ -116,6 +116,10 @@ Lifecycle methods
     is what DataHandler runs reported and is never complete (:ref:`adr-292`).
     It names table and uid of records the viewer of the run may not be able to
     read: check the viewer's right to each record before showing it.
+    An event of the kind ``skill_usage`` names the skill versions a model
+    call carried for the first time in its segment, or that a load appended:
+    skill and source uid, version digest, identifier, role, inclusion, state
+    and the approval that held, never the skill's text (:ref:`adr-321`).
 
 .. _api-agent-runtime-boundaries:
 

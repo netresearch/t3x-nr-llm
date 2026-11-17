@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use Netresearch\NrLlm\Service\Skill\SkillInstructionPolicy;
 use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
@@ -77,6 +79,24 @@ final class SkillComposerProcessPrecedenceTest extends TestCase
             $result->instructions,
         );
         self::assertSame('', $result->block);
+    }
+
+    /**
+     * ADR-321: the composition names the process by its record's identifier
+     * when the record is among the composed skills, and by nothing — never by
+     * the approved name — when it is not; the run fills it in then.
+     */
+    #[Test]
+    public function aProcessUseCarriesTheRecordIdentifierOrNone(): void
+    {
+        $tour = $this->approvedSkill(15, 'Tour', 'Step one, then step two.', process: true);
+
+        $withRecord = $this->composer()->composeBlock([$tour], [], [$this->versionOf(15)]);
+        self::assertSame([['skill-15', SkillRole::PROCESS]], array_map(static fn (SkillUse $use): array => [$use->identifier, $use->role], $withRecord->uses));
+
+        $withoutRecord = $this->composer()->composeBlock([], [], [$this->versionOf(15)]);
+        self::assertSame([['', SkillRole::PROCESS]], array_map(static fn (SkillUse $use): array => [$use->identifier, $use->role], $withoutRecord->uses));
+        self::assertSame(['Tour'], $withoutRecord->instructionIncluded, 'the section id still falls back to the name');
     }
 
     #[Test]

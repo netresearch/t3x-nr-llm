@@ -34,6 +34,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolInvocation;
@@ -536,6 +537,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // The cost of the rounds before this segment (NEXT-188): 0.0 for a
         // fresh run, null once any round's cost is unknown.
         ?float $seedCost = 0.0,
+        // The skill usage of a resumed segment, which recorded the loads its
+        // held turn ran (ADR-321); a fresh run starts its own below.
+        ?SkillUsageLedger $skillUsage = null,
     ): ToolLoopResult {
         // Every transcript enters here — a fresh run, a queued one read back
         // from the database, and both resume paths — so this is the one place
@@ -567,6 +571,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // suspends again keeps them for the next resume's check.
         $skillPins      = $carriedPins;
         $instructionIds = [];
+        $composedUses   = [];
         if ($skipAssembly) {
             $dryRun = false;
         } else {
@@ -583,8 +588,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $runTrace?->recordDroppedSources($augmentation->droppedSources);
             }
 
-            [$messages, $dryRun, $skillPins, $instructionIds] = $this->assemble($messages, $configuration, $options, $augmentation, $processVersion);
+            [$messages, $dryRun, $skillPins, $instructionIds, $composedUses] = $this->assemble($messages, $configuration, $options, $augmentation, $processVersion);
         }
+
+        // Which skill versions this segment passes to a model call (ADR-321):
+        // what assembly composed, what a load appends, what a resume carries.
+        // Reported at the send that first carries them, never earlier.
+        $skillUsage ??= $this->skillUsageLedger($composedUses, $configuration, $augmentation);
 
         if ($dryRun) {
             $runTrace?->recordAssembledMessages($messages);
@@ -684,6 +694,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 );
             }
 
+            $runTrace?->recordSkillUsage(1, $skillUsage->passing($skillPins));
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
             $resp = $this->mgr->chatWithConfiguration(
@@ -748,6 +759,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 );
                 // Streamed BEFORE the provider call so the inspector shows the
                 // outgoing request (and a waiting state) from second zero.
+                // The versions this send carries for the first time (ADR-321):
+                // after the fit, at the send, so a version whose run stops
+                // before this call is never reported as passed.
+                $runTrace?->recordSkillUsage($iterations, $skillUsage->passing($skillPins));
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0 = hrtime(true);
                 // The run travels with the call (ADR-153): every round of one run
@@ -859,6 +874,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $configuration,
                         $options,
                         $specs,
+                        $skillUsage,
                     );
 
                     throw ToolApprovalRequiredException::fromState($this->approvalSuspension(
@@ -998,6 +1014,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                                 $configuration,
                                 $options,
                                 $specs,
+                                $skillUsage,
                             );
                             $pendingCalls = [$call];
                         }
@@ -1059,7 +1076,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         // ADR-214 item 4: the loop handles a load itself, because
                         // its effect is on this transcript's system message. It
                         // passes the same gates and invocation rules first.
-                        [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
+                        [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $invocationHistory, $catalogue, $skillPins, $messages, $configuration, $options, $specs, $skillUsage, $iterations);
                     } else {
                         try {
                             $tr = $this->invoke(
@@ -1134,6 +1151,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 [],
                 $runTrace,
             );
+            $runTrace?->recordSkillUsage($iterations + 1, $skillUsage->passing($skillPins));
             $runTrace?->recordRequest($iterations + 1, $messages, []);
             $t0 = hrtime(true);
 
@@ -1244,6 +1262,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         LlmConfiguration $configuration,
         ?ToolOptions $options,
         array $specs,
+        SkillUsageLedger $skillUsage,
+        int $round,
     ): array {
         $target = null;
         $denied = $this->admitInvocation($call, $allowedNames, $environment, $history, $target);
@@ -1252,8 +1272,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         }
 
         $environment->trace?->beforeToolExecution($call->name);
+        $before                     = $pins;
         [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
         $history                    = $this->recorded($history, $call, $result->outcome->value, $target, $result);
+        // The version the load appended, before the tool step that answers
+        // it (ADR-321). Loaded is not passed: the next send reports that.
+        $environment->trace?->recordSkillUsage($round, $skillUsage->loadedBetween($before, $pins));
 
         return [$messages, $pins, $result];
     }
@@ -1309,6 +1333,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         array $pins,
         array $messages,
         array $specs,
+        SkillUsageLedger $skillUsage,
     ): array {
         if ($call->name !== LoadSkillTool::NAME) {
             return [
@@ -1330,6 +1355,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $environment->configuration,
             $resume->options,
             $specs,
+            $skillUsage,
+            $iteration,
         );
         $environment->trace?->recordToolResult(
             $iteration,
@@ -1716,6 +1743,28 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
     }
 
     /**
+     * A segment's skill usage ledger (ADR-321), with the identifiers of the
+     * configuration's skills for versions the composition did not name.
+     *
+     * @param list<SkillUse> $composed
+     */
+    private function skillUsageLedger(array $composed, LlmConfiguration $configuration, ?RunAugmentation $augmentation = null): SkillUsageLedger
+    {
+        // A skill forced onto the run (ADR-165) is not one of the
+        // configuration's: its identifier comes from the forced set, which a
+        // resume re-reads by its stored uids.
+        $identifiers = [];
+        foreach ([...SkillInjectionService::toList($configuration->getSkills()), ...SkillInjectionService::toList($configuration->getSkillsOnDemand()), ...($augmentation->forcedSkills ?? [])] as $skill) {
+            $uid = $skill->getUid();
+            if ($uid !== null) {
+                $identifiers[$uid] = $skill->getIdentifier();
+            }
+        }
+
+        return new SkillUsageLedger($composed, $identifiers, $this->skillPinCheck);
+    }
+
+    /**
      * Whether this run holds a process pin (ADR-214 item 9), asked of the pins
      * the loop holds: an executing run has no stored state to read them from.
      *
@@ -1882,6 +1931,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         LlmConfiguration $configuration,
         ?ToolOptions $options,
         array $specs,
+        SkillUsageLedger $skillUsage,
     ): array {
         $besides = array_values(array_filter($resp->toolCalls ?? [], static fn (ToolCall $c): bool => $c !== $pending));
         array_pop($messages);
@@ -1893,7 +1943,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // section joins this transcript's system message and its pin
                 // is stored with the suspension.
                 $tt0                         = hrtime(true);
-                [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $history, $catalogue, $skillPins, $messages, $configuration, $options, $specs);
+                [$messages, $skillPins, $tr] = $this->dispatchLoad($call, $allowedNames, $environment, $history, $catalogue, $skillPins, $messages, $configuration, $options, $specs, $skillUsage, $iterations);
                 $environment->trace?->recordToolResult($iterations, $this->elapsedMs($tt0), $call->name, $call->arguments, $tr);
                 $messages[] = ChatMessage::toolResult($call->id, $tr->content);
 
@@ -2144,6 +2194,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // approved call executes and before the model is asked again, whether
         // the human approved or declined.
         $this->assertPinsHeld($state);
+        // This segment's skill usage (ADR-321): a load the turn holds is
+        // recorded as loaded here, and as passed at the segment's first send.
+        $skillUsage = $this->skillUsageLedger([], $configuration, $resume->augmentation);
 
         // ADR-184: an approval is a decision about the state the preview showed.
         // Checked for the WHOLE turn before any call runs — a turn is approved as
@@ -2259,6 +2312,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                         $pins,
                         $messages,
                         $resumeSpecs,
+                        $skillUsage,
                     );
                 } catch (ToolDependencyPendingException $pending) {
                     // An approved delegation (ADR-084, ADR-281): approval is
@@ -2309,6 +2363,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // The pins the transcript holds stay the run's on a re-suspend,
             // with any section this resume loaded.
             $pins,
+            $skillUsage,
         );
     }
 
@@ -2481,6 +2536,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         // ADR-214 item 6, as in resume(): stop before the input reaches a tool.
         $this->assertPinsHeld($state);
+        $skillUsage = $this->skillUsageLedger([], $configuration, $resume->augmentation);
 
         foreach ($pendingCalls as $call) {
             if (!in_array($call->name, $resume->offered, true)) {
@@ -2577,6 +2633,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $pins,
                     $messages,
                     $resumeSpecs,
+                    $skillUsage,
                 );
 
                 $result = $tr->content;
@@ -2598,6 +2655,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $maxIterations,
             $invocationHistory,
             $pins,
+            $skillUsage,
         );
     }
 
@@ -2657,7 +2715,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      *
      * @param list<ChatMessage|array<string, mixed>> $messages
      *
-     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool, 2: list<SkillPin>, 3: list<string>} [assembled messages, dryRun, instruction pins, instruction skill identifiers]
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: bool, 2: list<SkillPin>, 3: list<string>, 4: list<SkillUse>} [assembled messages, dryRun, instruction pins, instruction skill identifiers, the versions the prompt receives (ADR-321)]
      */
     private function assemble(
         array $messages,
@@ -2687,6 +2745,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         $instructions   = '';
         $pins           = [];
         $instructionIds = [];
+        $uses           = [];
         if ($this->skillInjection instanceof SkillInjectionService) {
             $injected = $this->skillInjection->composeIntoMessages(
                 $messages,
@@ -2698,6 +2757,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $instructions   = $injected['instructions'];
             $pins           = $injected['pins'];
             $instructionIds = $injected['instructionIds'];
+            $uses           = $injected['uses'];
         }
 
         // An augmentation the runtime built only to carry a process assembles
@@ -2714,7 +2774,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 ));
             }
 
-            return [$messages, false, $pins, $instructionIds];
+            return [$messages, false, $pins, $instructionIds, $uses];
         }
 
         $lead = [];
@@ -2762,7 +2822,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $messages = array_values(array_merge($lead, $messages));
         }
 
-        return [$messages, $augmentation->dryRun, $pins, $instructionIds];
+        return [$messages, $augmentation->dryRun, $pins, $instructionIds, $uses];
     }
 
     /**
@@ -4038,6 +4098,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         ?int $maxIterations,
         ToolInvocationHistory $history,
         array $pins,
+        ?SkillUsageLedger $skillUsage = null,
     ): ToolLoopResult {
         return $this->loop(
             $messages,
@@ -4057,6 +4118,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $pins,
             $history,
             seedCost: $state->estimatedCost,
+            skillUsage: $skillUsage,
         );
     }
 

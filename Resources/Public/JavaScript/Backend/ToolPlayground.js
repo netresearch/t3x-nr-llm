@@ -572,6 +572,14 @@ class ToolPlayground {
             icon.textContent = '✎';
             title.textContent = step.toolName || '(write)';
             sub.textContent = this.writeTargetLabel(step);
+        } else if (step.kind === 'skill_usage') {
+            // ADR-321: the skill versions the next model call carries for the
+            // first time, or a version a load appended. Its own row, like a
+            // write step: the fallback below would show it as a model answer.
+            icon.classList.add('is-context');
+            icon.textContent = '◆';
+            title.textContent = `Skills · round ${step.round}`;
+            sub.textContent = this.skillUsageLabel(step);
         } else {
             const hasCalls = Array.isArray(step.requestedToolCalls) && step.requestedToolCalls.length > 0;
             icon.classList.add(hasCalls ? 'is-req' : 'is-final');
@@ -657,6 +665,13 @@ class ToolPlayground {
             return;
         }
 
+        if (step.kind === 'skill_usage') {
+            detail.appendChild(this.detailHeader(`Skills · round ${step.round}`, this.skillUsageLabel(step), ''));
+            // Identity, digest and codes only (ADR-321): no skill text.
+            detail.appendChild(this.pre(this.skillUsageLines(step).join('\n')));
+            return;
+        }
+
         // llm
         const isFinal = !(Array.isArray(step.requestedToolCalls) && step.requestedToolCalls.length > 0);
         detail.appendChild(this.detailHeader(
@@ -672,6 +687,20 @@ class ToolPlayground {
             ['Thinking', () => step.thinking?.trim() ? this.pre(step.thinking) : this.note('No reasoning returned for this round.')],
         ];
         detail.appendChild(this.tabBox(tabs));
+    }
+
+    skillUsageLabel(step) {
+        const entries = Array.isArray(step.skillUsage) ? step.skillUsage : [];
+        return `${entries.length} skill version${entries.length === 1 ? '' : 's'}`;
+    }
+
+    skillUsageLines(step) {
+        const entries = Array.isArray(step.skillUsage) ? step.skillUsage : [];
+        return entries.map((e) => {
+            const digest = typeof e.digest === 'string' && e.digest !== '' ? e.digest.slice(0, 14) : '-';
+            const approval = Number.isInteger(e.approval) && e.approval > 0 ? `approval #${e.approval}` : `approval ${e.approvalState}`;
+            return `${e.identifier || '(no identifier)'} #${e.skill} @${digest} ${e.role}/${e.inclusion}/${e.state} ${approval}`;
+        });
     }
 
     /**

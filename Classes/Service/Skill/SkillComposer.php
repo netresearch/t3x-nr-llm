@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\Enum\SkillSourceType;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
@@ -19,6 +20,7 @@ use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogueEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillSourceFacts;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 
 /**
  * Renders attached skills into two channels (ADR-036, ADR-061, ADR-214).
@@ -164,9 +166,9 @@ final readonly class SkillComposer
             }
         }
 
-        /** @var list<array{key: string, id: string, name: string, section: string}> $rendered */
+        /** @var list<array{key: string, id: string, name: string, section: string, use: SkillUse}> $rendered */
         $rendered = [];
-        /** @var list<array{key: string, id: string, section: string, pin: SkillPin}> $instructions */
+        /** @var list<array{key: string, id: string, section: string, pin: SkillPin, use: SkillUse}> $instructions */
         $instructions = [];
         /** @var list<string> $processSections */
         $processSections = [];
@@ -199,6 +201,7 @@ final readonly class SkillComposer
                     'id'      => $skill->getIdentifier(),
                     'section' => $this->renderSection($skill),
                     'pin'     => new SkillPin((int) $skill->getUid(), $skill->getSource(), $digest),
+                    'use'     => new SkillUse((int) $skill->getUid(), $skill->getSource(), $digest, $skill->getIdentifier(), SkillRole::INSTRUCTION),
                 ];
                 continue;
             }
@@ -208,6 +211,7 @@ final readonly class SkillComposer
                 'id'      => $skill->getIdentifier(),
                 'name'    => $skill->getName(),
                 'section' => $this->neutralizeInstructionFrame($this->renderSection($skill)),
+                'use'     => new SkillUse((int) $skill->getUid(), $skill->getSource(), $digest, $skill->getIdentifier(), SkillRole::CONTEXT),
             ];
         }
 
@@ -223,6 +227,12 @@ final readonly class SkillComposer
                 'id'      => self::processSectionId([...$configSkills, ...$taskSkills], $version),
                 'section' => $section,
                 'pin'     => new SkillPin($version->skillUid, $version->sourceUid, $version->versionDigest),
+                // The record's identifier, never the section id: that one
+                // falls back to the approved name, which is the skill's text
+                // and has no place in a usage record (ADR-321). A process is
+                // attached on demand, so it is usually not in these lists;
+                // the run fills the identifier from its configuration then.
+                'use' => new SkillUse($version->skillUid, $version->sourceUid, $version->versionDigest, $this->identifierOf([...$configSkills, ...$taskSkills], $version->skillUid), SkillRole::PROCESS),
             ];
         }
 
@@ -234,7 +244,7 @@ final readonly class SkillComposer
         // "\n" that joined it.
         $totalBytes = strlen($this->assemble(array_column($rendered, 'section')));
         while ($rendered !== [] && $totalBytes > $this->maxBytes) {
-            /** @var array{key: string, id: string, name: string, section: string} $popped */
+            /** @var array{key: string, id: string, name: string, section: string, use: SkillUse} $popped */
             $popped = array_pop($rendered);
             $totalBytes -= strlen($popped['section']) + 1;
             $warnings[] = sprintf(self::WARN_BUDGET, $popped['name'], $popped['id'], $this->maxBytes);
@@ -266,6 +276,9 @@ final readonly class SkillComposer
             $this->assembleInstructions($approvedSections, $processSections),
             array_column($instructions, 'id'),
             array_column($instructions, 'pin'),
+            // What reaches the prompt, after the budget dropped from the
+            // block's tail (ADR-321).
+            [...array_column($instructions, 'use'), ...array_column($rendered, 'use')],
         );
     }
 
@@ -614,6 +627,23 @@ final readonly class SkillComposer
         $approval = $this->instructionPolicy->approvalOf($skill, $digest);
 
         return $approval instanceof SkillApproval && $approval->versionDigest === $digest ? $approval : null;
+    }
+
+    /**
+     * The identifier of the record among the given skills, or '' when none
+     * of them is it.
+     *
+     * @param list<Skill> $skills
+     */
+    private function identifierOf(array $skills, int $skillUid): string
+    {
+        foreach ($skills as $skill) {
+            if ((int) $skill->getUid() === $skillUid) {
+                return $skill->getIdentifier();
+            }
+        }
+
+        return '';
     }
 
     /**

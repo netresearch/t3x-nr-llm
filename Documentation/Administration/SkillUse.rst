@@ -149,4 +149,17 @@ Composition rules:
   it is stored or rendered. Message role is defense-in-depth, not a trust
   boundary.
 
+- **Record of use.** Every persisted agent run records, before each model
+  call, the skill versions that call carries for the first time in its
+  segment (a resumed run records the instruction and process versions it
+  carries again): skill and
+  source uid, version digest, identifier, role (instruction, process or
+  context), how the version came in (composed, loaded or carried by a resumed
+  run), and the approval that held. A load is recorded as *loaded* and, at the
+  next call, as *passed*. A skill that is only attached, only offered for
+  loading, or dropped by the budget or the integrity check is not recorded.
+  The record holds no name, description or body and is kept at every privacy
+  level; the run timeline shows it
+  (:ref:`administration-agent-runs-timeline`, :ref:`ADR-321 <adr-321>`).
+
 See :ref:`ADR-036 <adr-036>` for the injection design.

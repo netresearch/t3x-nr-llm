@@ -113,6 +113,17 @@ final readonly class RunStep
     public const KIND_CHANGES = 'tool_changes';
 
     /**
+     * The skill versions a model call carried for the first time in its
+     * segment, or that a load appended (ADR-321). Recorded before the request
+     * step of the call, or for a load before the load's tool step, and only
+     * when there is something to name.
+     *
+     * Uids, digests, identifiers and codes: no name, description or body, so
+     * the record is the same at every privacy level.
+     */
+    public const KIND_SKILLS = 'skill_usage';
+
+    /**
      * Every kind a step can carry, as the class's own statement of its
      * vocabulary.
      *
@@ -141,6 +152,7 @@ final readonly class RunStep
             self::KIND_WRITE,
             self::KIND_HIGHLIGHT,
             self::KIND_CHANGES,
+            self::KIND_SKILLS,
         ];
     }
 
@@ -226,7 +238,19 @@ final readonly class RunStep
          *                             runs wrote (ADR-292); null on every other kind
          */
         public ?ObservedChangeSet $observedChanges = null,
+        /**
+         * @var list<SkillUsageEntry>|null the skill versions a skill usage
+         *                                 step names (ADR-321); null on every other kind
+         */
+        public ?array $skillUsage = null,
     ) {
+        if ($skillUsage !== null && $kind !== self::KIND_SKILLS) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step names no skill usage; only a skill usage step does.', $kind),
+                1795300321,
+            );
+        }
+
         if ($observedChanges instanceof ObservedChangeSet && $kind !== self::KIND_CHANGES) {
             throw new InvalidArgumentException(
                 sprintf('A %s step states no observed changes; only a changes step does.', $kind),
@@ -347,6 +371,13 @@ final readonly class RunStep
             // Identity only, flattened like the write target above.
             'highlightTable' => $this->highlightTarget?->table,
             'highlightUid'   => $this->highlightTarget?->uid,
+            // Identities, digests and codes (ADR-321). A list of structured
+            // entries rather than flattened strings, because the evidence a
+            // later reader joins to them (ADR-322) needs the fields apart.
+            'skillUsage' => $this->skillUsage === null ? null : array_map(
+                static fn (SkillUsageEntry $entry): array => $entry->toArray(),
+                $this->skillUsage,
+            ),
         ];
 
         foreach ($optional as $key => $value) {
