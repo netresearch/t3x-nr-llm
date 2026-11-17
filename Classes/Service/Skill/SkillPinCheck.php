@@ -73,6 +73,17 @@ final readonly class SkillPinCheck
     }
 
     /**
+     * The unrevoked approval that names the pin's skill, source and digest
+     * now, or null when none does. What a run's skill usage record names as
+     * the approval that held when the version reached a model call (ADR-321);
+     * it decides nothing.
+     */
+    public function heldApproval(SkillPin $pin): ?SkillApproval
+    {
+        return $this->approvals->findUnrevoked($pin->skillUid, $pin->sourceUid, $pin->versionDigest);
+    }
+
+    /**
      * Throw for the first pin that no longer holds.
      *
      * @param list<SkillPin> $pins

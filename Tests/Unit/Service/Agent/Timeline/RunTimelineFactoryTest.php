@@ -436,6 +436,32 @@ final class RunTimelineFactoryTest extends TestCase
     }
 
     /**
+     * ADR-321: a skill usage step shows each version as identity, digest and
+     * codes; a stored entry that does not read is left out, never shown half.
+     */
+    #[Test]
+    public function aSkillUsageStepShowsEachVersionItNames(): void
+    {
+        $digest  = '1:' . str_repeat('ab', 32);
+        $payload = [
+            'kind'       => 'skill_usage',
+            'skillUsage' => [
+                ['skill' => 3, 'source' => 1, 'digest' => $digest, 'identifier' => 'house-rules', 'role' => 'instruction', 'inclusion' => 'composed', 'state' => 'passed', 'approvalState' => 'approved', 'approval' => 12],
+                ['skill' => 5, 'source' => 1, 'digest' => '', 'identifier' => 'glossary', 'role' => 'context', 'inclusion' => 'composed', 'state' => 'passed', 'approvalState' => 'none', 'approval' => 0],
+                ['skill' => 'not-a-uid', 'body' => 'leaked text'],
+            ],
+        ];
+        $event = new AgentRunEvent(uid: 200, run: 7, sequence: 0, kind: 'skill_usage', round: 1, durationMs: 0.0, payload: $payload, crdate: 1_700_000_010);
+
+        $timeline = (new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository()))->build($this->agentRun(), [$event]);
+
+        self::assertSame(
+            'skills=house-rules#3@1:abababababab instruction/composed/passed approval=12, glossary#5@- context/composed/passed approval=none',
+            $timeline[0]->detail,
+        );
+    }
+
+    /**
      * ADR-173: the approval row states who decided relative to who started the
      * run. The run fixture's initiator is beUser 1.
      */

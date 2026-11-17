@@ -10,11 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Skill;
 
 use Netresearch\NrLlm\Domain\Enum\MessageRole;
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Psr\Log\LoggerInterface;
 use TYPO3\CMS\Extbase\Persistence\ObjectStorage;
 
@@ -105,23 +107,49 @@ final readonly class SkillInjectionService
      * from the snapshot ({@see SkillComposer::composeBlock()})
      * @param list<SkillApproval> $processVersions
      *
-     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>, instructionIds: list<string>}
+     * `uses` names every skill version the messages receive (ADR-321): the
+     * instruction and process versions, and the context skills of the block
+     * when the block was placed. A list without a user message receives no
+     * block, so its context skills are not among them.
+     *
+     * @return array{messages: list<ChatMessage|array<string, mixed>>, instructions: string, pins: list<SkillPin>, instructionIds: list<string>, uses: list<SkillUse>}
      */
     public function composeIntoMessages(array $messages, array $configSkills, array $taskSkills = [], array $processVersions = []): array
     {
-        $result   = $this->composeAndLog($configSkills, $taskSkills, $processVersions);
-        $messages = $this->prependBlockToFirstUserMessage($messages, $result->block);
+        $result    = $this->composeAndLog($configSkills, $taskSkills, $processVersions);
+        $withBlock = $this->prependBlockToFirstUserMessage($messages, $result->block);
+        $uses      = $this->usesReaching($result, $result->block !== '' && $withBlock !== $messages);
+        $messages  = $withBlock;
 
         if ($result->instructions === '') {
-            return ['messages' => $messages, 'instructions' => '', 'pins' => [], 'instructionIds' => []];
+            return ['messages' => $messages, 'instructions' => '', 'pins' => [], 'instructionIds' => [], 'uses' => $uses];
         }
 
         $placed = self::appendToFirstSystemMessage($messages, $result->instructions);
         if ($placed === null) {
-            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded];
+            return ['messages' => $messages, 'instructions' => $result->instructions, 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded, 'uses' => $uses];
         }
 
-        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded];
+        return ['messages' => $placed, 'instructions' => '', 'pins' => $result->instructionPins, 'instructionIds' => $result->instructionIncluded, 'uses' => $uses];
+    }
+
+    /**
+     * The versions of a composition that reach the prompt: every instruction
+     * and process version, and the context versions only when the block was
+     * placed (ADR-321).
+     *
+     * @return list<SkillUse>
+     */
+    private function usesReaching(SkillCompositionResult $result, bool $blockPlaced): array
+    {
+        if ($blockPlaced) {
+            return $result->uses;
+        }
+
+        return array_values(array_filter(
+            $result->uses,
+            static fn (SkillUse $use): bool => $use->role !== SkillRole::CONTEXT,
+        ));
     }
 
     /**

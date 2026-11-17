@@ -311,3 +311,4 @@ All decision records
    Adr310AWorkingA2aTaskSaysWhatItWaitsFor
    Adr311ARemoteQuestionWaitsForTheRunsInitiator
    Adr320ARunShowsTheModelTheProviderReported
+   Adr321ARunRecordsTheSkillVersionsItPassedToAModel

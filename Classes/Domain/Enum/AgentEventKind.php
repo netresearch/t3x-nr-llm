@@ -82,6 +82,10 @@ enum AgentEventKind: string
     // The digest of the rules a run's answer will be checked against, at the
     // start of the run (ADR-302). A digest, never text. NOT a RunStep kind.
     case RULE_STATE = 'rule_state';
+    // The skill versions a model call carried for the first time in its
+    // segment, or that a load appended (ADR-321): uids, digests, identifiers
+    // and codes. A RunStep kind, recorded before the request step it names.
+    case SKILL_USAGE = 'skill_usage';
 
     /**
      * @return list<string>

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
@@ -290,7 +291,38 @@ final readonly class RunTimelineFactory
             }
         }
 
+        $skills = $this->skillUsage($payload['skillUsage'] ?? null);
+        if ($skills !== '') {
+            $facts['skills'] = $skills;
+        }
+
         return $this->join($facts);
+    }
+
+    /**
+     * A skill usage step's versions (ADR-321), one per skill:
+     * `identifier#uid@digest role/inclusion/state approval=N`. The list is
+     * structured, which the generic allow-list above would drop, so it is
+     * rendered here from {@see SkillUsageEntry}, whose fields are identities,
+     * a digest and codes — never a name, description or body.
+     */
+    private function skillUsage(mixed $stored): string
+    {
+        $parts = [];
+        foreach (SkillUsageEntry::listFrom($stored) as $entry) {
+            $parts[] = sprintf(
+                '%s#%d@%s %s/%s/%s%s',
+                $entry->identifier,
+                $entry->skillUid,
+                $entry->versionDigest === '' ? '-' : substr($entry->versionDigest, 0, 14),
+                $entry->role->value,
+                $entry->inclusion->value,
+                $entry->state->value,
+                $entry->approvalUid > 0 ? ' approval=' . $entry->approvalUid : ' approval=' . $entry->approvalState->value,
+            );
+        }
+
+        return implode(', ', $parts);
     }
 
     /**

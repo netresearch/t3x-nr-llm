@@ -9,10 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Skill;
 
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCompositionResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\Skill\SkillComposer;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -134,6 +136,11 @@ final class SkillComposerTest extends TestCase
         self::assertStringNotContainsString('### Skill: Tsk', $result->block);
         self::assertCount(1, $result->warnings);
         self::assertStringContainsString('tsk', $result->warnings[0]);
+        // ADR-321: a version the budget dropped never reaches the prompt, so
+        // the composition does not name it as used.
+        self::assertSame(['cfg'], array_map(static fn (SkillUse $use): string => $use->identifier, $result->uses));
+        self::assertSame(SkillRole::CONTEXT, $result->uses[0]->role);
+        self::assertSame($config->getVersionDigest(), $result->uses[0]->versionDigest);
     }
 
     #[Test]

@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -164,6 +165,28 @@ final class RunTrace
             round: 0,
             durationMs: 0.0,
             droppedSources: $dropped,
+        ));
+    }
+
+    /**
+     * Record the skill versions a model call carries for the first time in
+     * its segment, or the version a load appended (ADR-321). Called by the
+     * loop before the request step of the round it names; an empty list
+     * records nothing.
+     *
+     * @param list<SkillUsageEntry> $entries
+     */
+    public function recordSkillUsage(int $round, array $entries): void
+    {
+        if ($entries === []) {
+            return;
+        }
+
+        $this->add(new RunStep(
+            kind: RunStep::KIND_SKILLS,
+            round: $round,
+            durationMs: 0.0,
+            skillUsage: $entries,
         ));
     }
 

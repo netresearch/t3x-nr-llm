@@ -30,6 +30,10 @@ namespace Netresearch\NrLlm\Domain\ValueObject;
  * `warnings` carries a human-readable explanation for every exclusion.
  * `instructionIncluded` lists the identifiers composed as instructions; it is a
  * subset of `included`.
+ *
+ * `uses` names every skill version the result puts into the prompt, in either
+ * channel, with its digest and role (ADR-321): the instruction pins and the
+ * context skills left in the block after the byte budget. Identity only.
  */
 final readonly class SkillCompositionResult
 {
@@ -39,6 +43,7 @@ final readonly class SkillCompositionResult
      * @param list<string>   $warnings
      * @param list<string>   $instructionIncluded
      * @param list<SkillPin> $instructionPins     the version each instruction section was composed from (ADR-214 item 6)
+     * @param list<SkillUse> $uses                every version the prompt receives, in either channel (ADR-321)
      */
     public function __construct(
         public string $block,
@@ -48,5 +53,6 @@ final readonly class SkillCompositionResult
         public string $instructions = '',
         public array $instructionIncluded = [],
         public array $instructionPins = [],
+        public array $uses = [],
     ) {}
 }

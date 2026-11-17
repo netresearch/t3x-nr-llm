@@ -21,7 +21,7 @@ final class AgentEventKindTest extends TestCase
     #[Test]
     public function valuesListsAllBackingStrings(): void
     {
-        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input', 'lineage', 'highlight', 'tool_changes', 'output_check', 'rule_state'], AgentEventKind::values());
+        self::assertSame(['request', 'llm', 'tool', 'assembled', 'context', 'dropped', 'tool_write', 'approval', 'input', 'lineage', 'highlight', 'tool_changes', 'output_check', 'rule_state', 'skill_usage'], AgentEventKind::values());
     }
 
     #[Test]
