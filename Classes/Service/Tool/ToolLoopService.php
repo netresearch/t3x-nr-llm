@@ -3103,6 +3103,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         try {
             $rollBack ? $transaction->rollBack() : $transaction->commit();
+            if ($transaction->wasEndedByTheDatabase()) {
+                // Stored, but no longer revocable from the moment the database
+                // committed: a statement of the call committed implicitly, most
+                // likely a hook that truncates a cache table (NEXT-240).
+                $this->logger?->warning('The database committed the transaction of a scoped tool call before the call ended, most likely through a TRUNCATE or other DDL statement of a hook or listener. The changes are stored, but they could not have been rolled back.');
+            }
         } catch (Throwable $failure) {
             $ended = false;
             $this->logger?->error(
