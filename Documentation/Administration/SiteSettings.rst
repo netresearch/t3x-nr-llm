@@ -51,9 +51,21 @@ default. What an extension chose explicitly still wins: the configuration of
 a cowriter request, of a landing page template or of an extension's own
 named configuration.
 
-A configuration that does not exist, is disabled or is restricted to backend
-groups makes the call fail. It does not fall back to the default, because the
-site was set up not to use it.
+A configuration that does not exist or is disabled makes the call fail. A
+configuration restricted to backend groups fails for a call that names no
+backend user; a call made for a backend user, such as the backend AI chat, may
+use it when that user is in one of the allowed groups. The call does not fall
+back to the default, because the site was set up not to use it.
+
+The backend AI chat (``netresearch/nr-mcp-agent``, releases after 0.36.0) puts the
+site above its own choice: a conversation about a page of the site runs on the
+site's configuration instead of the chat Task's. The chat works only through
+tools, so it refuses a site configuration without a fixed model, or whose
+model lacks the capability :guilabel:`Tool Use` or whose provider cannot call
+tools, and says so in the chat; it does not fall back to the Task's
+configuration. Tick :guilabel:`Tool Use` on a Groq model that can call tools:
+Groq reports no capabilities, so discovery leaves it unset. The chat's own
+documentation has the details (its ADR-033).
 
 .. _administration-site-settings-deepl:
 
