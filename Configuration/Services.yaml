@@ -571,6 +571,13 @@ services:
     alias: Netresearch\NrLlm\Service\Skill\SkillAuditRepository
     public: false
 
+  # Tool audit trail: the administrator switches in the Tools module, recorded
+  # like the skill audit above. The Tools controller and the retention purge
+  # wire against the interface.
+  Netresearch\NrLlm\Service\Tool\ToolAuditRepositoryInterface:
+    alias: Netresearch\NrLlm\Service\Tool\ToolAuditRepository
+    public: false
+
   # The approval store and the source lookup the instruction policy reads
   # (ADR-214 item 2). Aliased explicitly so SkillComposerFactory's optional
   # arguments are wired in production rather than left null.

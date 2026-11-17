@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Netresearch\NrLlm\Domain\Enum\ToolAuditScope;
+use Netresearch\NrLlm\Service\Tool\ToolAuditRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolExclusionReadout;
 use Netresearch\NrLlm\Service\Tool\ToolGroupStateRepository;
@@ -19,6 +21,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
+use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -53,6 +56,9 @@ final class ToolController extends ActionController
         // positional construction keeps working; the container always
         // injects it.
         private readonly ?ToolExclusionReadout $exclusions = null,
+        // The audit trail of the switches below. Optional and trailing for the
+        // same reason; without it a switch is still applied, but not recorded.
+        private readonly ?ToolAuditRepositoryInterface $audit = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -83,7 +89,9 @@ final class ToolController extends ActionController
      * persisted to `tx_nrllm_tool_state` via {@see ToolStateRepository}; the
      * fail-closed runtime gate then refuses a disabled tool on every later run.
      * Only a registered tool name is accepted so the table cannot accumulate
-     * orphan rows.
+     * orphan rows. A switch that changes the tool's own state is recorded in
+     * the tool audit trail; the state compared is the tool's override or its
+     * default, not the group cascade.
      */
     public function toggleToolAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -93,12 +101,17 @@ final class ToolController extends ActionController
 
         $body     = $request->getParsedBody();
         $toolName = $this->stringFromBody($body, 'tool');
-        if ($toolName === '' || !$this->toolRegistry->get($toolName) instanceof ToolInterface) {
+        $tool     = $toolName === '' ? null : $this->toolRegistry->get($toolName);
+        if (!$tool instanceof ToolInterface) {
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownTool', 'Unknown tool')], 404);
         }
 
-        $enabled = $this->boolFromBody($body, 'enabled');
+        $enabled  = $this->boolFromBody($body, 'enabled');
+        $previous = $this->toolStateRepository->overrides()[$toolName] ?? $tool->isEnabledByDefault();
         $this->toolStateRepository->setEnabled($toolName, $enabled);
+        if ($previous !== $enabled) {
+            $this->audit?->record(ToolAuditScope::TOOL, $toolName, $previous, $enabled, $this->backendUser());
+        }
 
         return new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
@@ -111,7 +124,8 @@ final class ToolController extends ActionController
      * currently registered tool is accepted so the table cannot accumulate
      * orphan rows; the stored NAME still covers same-group tools installed
      * later. The cascade in ToolAvailabilityService keeps a disabled group
-     * authoritative over any per-tool override (fail-closed).
+     * authoritative over any per-tool override (fail-closed). A switch that
+     * changes the group's state is recorded in the tool audit trail.
      */
     public function toggleToolGroupAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -126,8 +140,12 @@ final class ToolController extends ActionController
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownGroup', 'Unknown tool group')], 404);
         }
 
-        $enabled = $this->boolFromBody($body, 'enabled');
+        $enabled  = $this->boolFromBody($body, 'enabled');
+        $previous = $this->toolGroupStateRepository->overrides()[$groupName] ?? true;
         $this->toolGroupStateRepository->setEnabled($groupName, $enabled);
+        if ($previous !== $enabled) {
+            $this->audit?->record(ToolAuditScope::GROUP, $groupName, $previous, $enabled, $this->backendUser());
+        }
 
         return new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
@@ -145,6 +163,13 @@ final class ToolController extends ActionController
         }
 
         return $byName;
+    }
+
+    private function backendUser(): ?BackendUserAuthentication
+    {
+        $backendUser = $GLOBALS['BE_USER'] ?? null;
+
+        return $backendUser instanceof BackendUserAuthentication ? $backendUser : null;
     }
 
     private function stringFromBody(mixed $body, string $key): string

@@ -1,0 +1,1 @@
+- Run the database analyzer: the tool audit trail adds the table `tx_nrllm_tool_audit`. Switches made before the update were not recorded.
