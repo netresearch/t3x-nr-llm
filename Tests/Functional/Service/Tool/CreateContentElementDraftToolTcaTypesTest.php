@@ -694,12 +694,14 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         $admin = $this->setUpBackendUser(1);
 
         // DataHandler writes a decimal as "12.00". MySQL and SQLite store that
-        // in the integer column imagewidth; PostgreSQL refuses it, so there
-        // the column is a decimal one for this test, as the TCA says.
+        // in the integer column imagewidth and read back "12"; PostgreSQL
+        // refuses it, so there the column is a double precision one for this
+        // test, which also reads back "12" and keeps the read-back comparing
+        // two different strings.
         $content  = $this->connectionPool->getConnectionForTable('tt_content');
         $postgres = $content->getDatabasePlatform() instanceof PostgreSQLPlatform;
         if ($postgres) {
-            $content->executeStatement('ALTER TABLE tt_content ALTER COLUMN imagewidth TYPE numeric(10,2)');
+            $content->executeStatement('ALTER TABLE tt_content ALTER COLUMN imagewidth TYPE double precision');
         }
 
         try {
