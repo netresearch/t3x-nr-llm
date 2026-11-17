@@ -75,6 +75,10 @@ Set an override when one category genuinely needs a different window:
   rows buys capacity trends and denial evidence at no content risk.
 - **Skill audit** is the append-only provenance trail for everything that
   reached a prompt. Keep it for as long as you may have to reconstruct that.
+- **Tool audit** records who switched a tool or a tool group, and when. With
+  the global window (``privacy.retentionDays``, 30 days by default) it is
+  purged with the content rows; keep it longer if a switch must still be
+  traceable when somebody notices it later.
 
 The full table of what each override covers is in
 :ref:`administration-data-retention-how-long`.
