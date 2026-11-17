@@ -185,14 +185,16 @@ final class A2aDelegationTest extends AbstractFunctionalTestCase
 
     /**
      * A2A-R2: while nr_mcp_agent is loaded in a version that does not handle
-     * the status, no run is offered a delegation tool.
+     * the status, no run is offered a delegation tool; from the version that
+     * does (0.39.0), and without nr_mcp_agent, the tools are offered.
      */
     #[Test]
     public function noToolIsOfferedWhileAnIncompatibleNrMcpAgentIsLoaded(): void
     {
         $this->agent(['identifier' => 'remote']);
 
-        self::assertSame([], iterator_to_array($this->provider(new A2aDelegationGate(null, static fn (): string => '2.4.0'))->tools(), false));
+        self::assertSame([], iterator_to_array($this->provider(new A2aDelegationGate(null, static fn (): string => '0.38.5'))->tools(), false));
+        self::assertCount(2, iterator_to_array($this->provider(new A2aDelegationGate(null, static fn (): string => '0.39.0'))->tools(), false));
         self::assertCount(2, iterator_to_array($this->provider(new A2aDelegationGate(null, static fn (): ?string => null))->tools(), false));
     }
 

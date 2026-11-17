@@ -27,12 +27,24 @@ final class A2aDelegationGateTest extends TestCase
         self::assertNull((new A2aDelegationGate(null, static fn (): ?string => null))->refusal());
     }
 
+    /**
+     * nr_mcp_agent 0.39.0 follows a run that waits for a remote agent and
+     * shows its kept answer; every earlier version marks the chat failed.
+     */
     #[Test]
-    public function everyLoadedVersionWithholdsThemWhileNoReleaseIsCompatible(): void
+    public function theFirstReleaseThatHandlesTheWaitOpensTheGate(): void
     {
-        self::assertNull(A2aDelegationGate::FIRST_COMPATIBLE_MCP_AGENT);
+        self::assertSame('0.39.0', A2aDelegationGate::FIRST_COMPATIBLE_MCP_AGENT);
+        self::assertNull((new A2aDelegationGate(null, static fn (): string => '0.39.0'))->refusal());
+        self::assertNull((new A2aDelegationGate(null, static fn (): string => '0.40.1'))->refusal());
+        self::assertStringContainsString('from nr_mcp_agent 0.39.0 on', (string) (new A2aDelegationGate(null, static fn (): string => '0.38.5'))->refusal());
+        self::assertNotNull((new A2aDelegationGate(null, static fn (): string => ''))->refusal());
+    }
+
+    #[Test]
+    public function withoutACompatibleReleaseEveryLoadedVersionWithholdsThem(): void
+    {
         self::assertStringContainsString('no nr_mcp_agent release does yet', (string) A2aDelegationGate::refusalFor('9.9.9', null));
-        self::assertNotNull((new A2aDelegationGate(null, static fn (): string => '1.0.0'))->refusal());
     }
 
     #[Test]
