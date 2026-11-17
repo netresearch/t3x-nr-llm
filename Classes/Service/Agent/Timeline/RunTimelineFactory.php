@@ -329,7 +329,7 @@ final readonly class RunTimelineFactory
                     'eval#%d %s %s pass=%.2f fit=%s%s',
                     $evidence->evaluationUid,
                     $evidence->setIdentifier,
-                    $evidence->reportedModelId !== '' ? $evidence->reportedModelId : $evidence->modelId,
+                    $evidence->reportedModelId !== '' ? $evidence->reportedModelId : ($evidence->modelId !== '' ? $evidence->modelId : '-'),
                     $evidence->passRate,
                     $evidence->fit->value,
                     $this->availability($evidence),
