@@ -38,7 +38,7 @@ final class TestTrigger
         }
 
         if ($platform instanceof PostgreSQLPlatform) {
-            self::postgres($connection, $name, $timing, $event, $table, sprintf('IF %s THEN RAISE EXCEPTION %s; END IF;', $condition, $quoted));
+            self::postgres($connection, $name, $timing, $event, $table, sprintf('IF %s THEN RAISE EXCEPTION USING MESSAGE = %s; END IF;', $condition, $quoted));
 
             return;
         }
