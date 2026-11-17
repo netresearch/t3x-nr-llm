@@ -40,7 +40,8 @@ final readonly class SkillEvidenceRepository implements SkillEvidenceLookupInter
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable(self::RESULT_TABLE);
         $queryBuilder->getRestrictions()->removeAll();
         $rows = $queryBuilder
-            ->select('r.*')
+            // The figures a snapshot holds; never the graded details.
+            ->select('r.uid', 'r.run_date', 'r.set_identifier', 'r.benchmark_fingerprint', 'r.configuration_identifier', 'r.model_id', 'r.generator_provenance', 'r.grader', 'r.grading_protocol', 'r.prompt_count', 'r.passed_count', 'r.pass_rate', 'r.mean_score')
             ->from(self::SKILL_TABLE, 'v')
             ->join('v', self::RESULT_TABLE, 'r', $queryBuilder->expr()->eq('r.uid', $queryBuilder->quoteIdentifier('v.eval_result')))
             ->where(
