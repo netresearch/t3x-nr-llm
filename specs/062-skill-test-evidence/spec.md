@@ -61,8 +61,9 @@ measured on the model that answered.
 
 | Requirement | Evidence |
 | --- | --- |
-| TE1 | functional `SkillEvidenceRepositoryTest::anEvaluationWithoutOneYardstickIsNoEvidence`, `SkillConfigInjectionTest::chatNamesTheSkillVersionsItsRequestCarried`, `EvaluationServiceTest::anEvaluationNamesTheSkillVersionsEveryPromptCarried`, `anEvaluationWhosePromptsDisagreeNamesNoSkillVersion`, functional `SkillEvidenceRepositoryTest` |
+| TE1 | `SkillConfigInjectionTest::chatNamesTheSkillVersionsItsRequestCarried`, `EvaluationServiceTest::anEvaluationNamesTheSkillVersionsEveryPromptCarried`, `anEvaluationWhosePromptsDisagreeNamesNoSkillVersion`, functional `SkillEvidenceRepositoryTest::anEvaluationWithoutOneYardstickIsNoEvidence` |
 | TE2, TE3 | `ToolLoopServiceSkillUsageTest::aRunWithoutToolsRecordsTheEvidenceAfterItsOnlyAnswer`, `ToolLoopServiceSkillUsageTest::theEvidenceOfAVersionIsRecordedAfterTheAnswerAndJudgedAgainstItsModel`, functional `SkillEvidenceRepositoryTest::anEvaluationIsFoundForTheVersionItMeasuredWithWhatItTested`, `theNewestEvaluationsComeFirstAndAtMostThree` |
 | TE4 | `ToolLoopServiceSkillUsageTest::evidenceFromAnotherModelIsMarkedAsSuchAfterAFallback`, `SkillEvidenceTest::evidenceIsJudgedAgainstTheModelThatAnswered` |
+| TE5 | `ToolLoopServiceSkillUsageTest::theEvidenceOfAVersionIsRecordedAfterTheAnswerAndJudgedAgainstItsModel` (a separate `skill_evidence` step; the usage entry keeps the approval, spec 061) |
 | TE6 | `RunTimelineFactoryTest::aSkillEvidenceStepShowsTheRecordedEvaluationAndWhetherItIsStillStored`, functional `SkillEvidenceRepositoryTest::retentionPurgesTheEvaluationAndTheVersionsItMeasured`, `RetentionCoverageTest` |
 | TE7 | `ToolLoopServiceSkillUsageTest::aLoadedVersionIsLeftOutOfTheEvidence`, `aResumedSegmentRecordsNoEvidenceForTheVersionsItCarries`, `aFailedEvidenceLookupRecordsNoStepAndTheRunFinishes` |

@@ -110,6 +110,11 @@ stores the evaluation's configuration.
 with a pinned provider and therefore without the configuration's skills,
 covers no version.
 
+◐ Whoever may read a run sees its evidence: evaluation uid, set, model,
+pass rate and fit, also where the evaluation module itself is for
+administrators only. These are figures about a model, not personal data, and
+the same reader already sees the run's skill identifiers and model.
+
 ◑ At most three evaluations per version are recorded, the newest stored at the
 time. Older ones are not.
 

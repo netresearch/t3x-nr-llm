@@ -404,10 +404,16 @@ class ToolPlayground {
         split.appendChild(detail);
         this.output.appendChild(split);
 
-        // Select the last step (the final answer / assembled messages) by default.
+        // Select the last step (the final answer / assembled messages) by
+        // default. A skill evidence step follows the answer it is judged
+        // against (ADR-322), so it is passed over.
         const rows = list.querySelectorAll('.nrllm-pg-slrow');
         if (rows.length > 0) {
-            rows[rows.length - 1].click();
+            let pick = rows.length - 1;
+            while (pick > 0 && steps[pick] && steps[pick].kind === 'skill_evidence') {
+                pick--;
+            }
+            rows[pick].click();
         } else {
             this.showEmptyDetail(detail);
         }
