@@ -64,7 +64,7 @@ final readonly class A2aTaskProjector
         $connection = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE);
 
         return $connection->transactional(function (Connection $connection) use ($taskUid): int {
-            // Every read here is a locking read. Under REPEATABLE READ
+            // Every read before the event lookup below is a locking read. Under REPEATABLE READ
             // (MariaDB, MySQL) the first plain read would fix the snapshot
             // before the run lock below is held, and the task read after it
             // could then be older than a scrub that committed in between. A
@@ -105,15 +105,14 @@ final readonly class A2aTaskProjector
                 return 0;
             }
 
-            // The task row is locked above and every projection takes that
-            // lock first, so an event of this revision that exists now was
-            // written by a projection that committed. Looked up instead of
-            // inserted and caught: on PostgreSQL the failed insert would
-            // abort the whole transaction. A plain read on purpose: on
-            // MariaDB/MySQL it is the transaction's first consistent read, so
-            // its snapshot is taken after the task lock and sees that event,
-            // while a locking read of a missing key would take a gap lock that
-            // deadlocks with the insert of another task's projection.
+            // A competing projection of this revision has already raised
+            // projected_revision under the task lock, so the check above
+            // returned. This lookup is the fallback for an event row no
+            // projection wrote (a hand insert, a partial restore): looked up
+            // rather than inserted and caught, because on PostgreSQL the
+            // failed insert would abort the whole transaction. A plain read on
+            // purpose: a locking read of a missing key takes a gap lock on
+            // MariaDB/MySQL that deadlocks with another task's event insert.
             $exists = $connection->executeQuery(
                 'SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_uid = ? AND revision = ?',
                 [$taskUid, $revision],
