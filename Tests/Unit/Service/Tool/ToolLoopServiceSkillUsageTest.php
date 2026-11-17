@@ -513,20 +513,25 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
     }
 
     /**
-     * A version whose approval is gone when its usage is recorded names no
-     * approval: `unknown`, never a stale uid.
+     * A version whose approval was revoked by the time its usage is recorded
+     * names no approval: `unknown`, never the revoked uid. The approval is
+     * read at the record, not when the version entered.
      */
     #[Test]
     public function aVersionWithoutAHeldApprovalIsNamedWithAnUnknownApproval(): void
     {
-        $skill  = $this->skills[self::INSTRUCTION];
+        $skill     = $this->skills[self::INSTRUCTION];
+        $approvals = new InMemorySkillApprovalRepository();
+        $approvals->add(self::INSTRUCTION, self::SOURCE, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
+
         $ledger = new SkillUsageLedger([], [self::INSTRUCTION => 'house-rules'], new SkillPinCheck(
-            new InMemorySkillApprovalRepository(),
+            $approvals,
             new FixedSkillSourceLookup([self::SOURCE => SkillTrustLevel::VERIFIED]),
             new FixedSkillRecordLookup([self::INSTRUCTION]),
             new SkillComposerFactory(self::createStub(ExtensionConfiguration::class)),
         ));
 
+        $approvals->revoke(self::INSTRUCTION, $skill->getVersionDigest(), 1);
         [$entry] = $ledger->passing([new SkillPin(self::INSTRUCTION, self::SOURCE, $skill->getVersionDigest())]);
 
         self::assertSame(SkillApprovalState::UNKNOWN, $entry->approvalState);

@@ -31,9 +31,10 @@ use Netresearch\NrLlm\Service\Skill\SkillPinCheck;
  * version enters the ledger when it is composed into the prompt, loaded, or
  * held by a resumed segment, and is reported as passed only at a send.
  *
- * The version and the role are fixed where the version entered: the
- * composition's digest, the load's pin, the resumed state's pin. The approval
- * is read when the usage is recorded and is the one that held then.
+ * The version is fixed where it entered: the composition's digest, the load's
+ * pin, the resumed state's pin; so is the role of a composed version. The
+ * approval is read when the usage is recorded and is the one that held then,
+ * and a loaded or carried version takes its role from it.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
  */

@@ -689,11 +689,6 @@ class ToolPlayground {
         detail.appendChild(this.tabBox(tabs));
     }
 
-    /**
-     * `table:uid` for a write step, or an empty string when the payload carries
-     * neither — a REDACTED level never masks these (they are identity, not
-     * content), but a step from an older backend has no such keys at all.
-     */
     skillUsageLabel(step) {
         const entries = Array.isArray(step.skillUsage) ? step.skillUsage : [];
         return `${entries.length} skill version${entries.length === 1 ? '' : 's'}`;
@@ -708,6 +703,11 @@ class ToolPlayground {
         });
     }
 
+    /**
+     * `table:uid` for a write step, or an empty string when the payload carries
+     * neither — a REDACTED level never masks these (they are identity, not
+     * content), but a step from an older backend has no such keys at all.
+     */
     writeTargetLabel(step) {
         const table = typeof step.writeTargetTable === 'string' ? step.writeTargetTable : '';
         const uid = Number.isInteger(step.writeTargetUid) ? step.writeTargetUid : 0;

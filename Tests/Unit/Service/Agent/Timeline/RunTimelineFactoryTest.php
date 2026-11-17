@@ -449,6 +449,9 @@ final class RunTimelineFactoryTest extends TestCase
                 ['skill' => 3, 'source' => 1, 'digest' => $digest, 'identifier' => 'house-rules', 'role' => 'instruction', 'inclusion' => 'composed', 'state' => 'passed', 'approvalState' => 'approved', 'approval' => 12],
                 ['skill' => 5, 'source' => 1, 'digest' => '', 'identifier' => 'glossary', 'role' => 'context', 'inclusion' => 'composed', 'state' => 'passed', 'approvalState' => 'none', 'approval' => 0],
                 ['skill' => 'not-a-uid', 'body' => 'leaked text'],
+                // An identifier is text a source chose; one that holds the
+                // line's separators must not read as a further entry or fact.
+                ['skill' => 9, 'source' => 1, 'digest' => '', 'identifier' => 'a,b=c;d', 'role' => 'context', 'inclusion' => 'composed', 'state' => 'passed', 'approvalState' => 'none', 'approval' => 0],
             ],
         ];
         $event = new AgentRunEvent(uid: 200, run: 7, sequence: 0, kind: 'skill_usage', round: 1, durationMs: 0.0, payload: $payload, crdate: 1_700_000_010);
@@ -456,7 +459,7 @@ final class RunTimelineFactoryTest extends TestCase
         $timeline = (new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository()))->build($this->agentRun(), [$event]);
 
         self::assertSame(
-            'skills=house-rules#3@1:abababababab instruction/composed/passed approval=12, glossary#5@- context/composed/passed approval=none',
+            'skills=house-rules#3@1:abababababab instruction/composed/passed approval=12, glossary#5@- context/composed/passed approval=none, a_b_c_d#9@- context/composed/passed approval=none',
             $timeline[0]->detail,
         );
     }

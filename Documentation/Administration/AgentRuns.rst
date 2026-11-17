@@ -104,7 +104,8 @@ cost — and below it a single time-ordered list of everything the run produced:
 
 - **Step** — a recorded loop step (a request, a model answer, a tool execution).
   A ``skill_usage`` step names the skill versions the following model call
-  carries for the first time, as ``identifier#uid@digest role/inclusion/state``
+  carries for the first time in its segment, or the version a load appended
+  (state ``loaded``), as ``identifier#uid@digest role/inclusion/state``
   and the approval that held (:ref:`ADR-321 <adr-321>`).
 - **Provider call** — a telemetry row: which provider and model served it, how
   long it took, whether a cache hit or a fallback was involved, and the error
