@@ -1,0 +1,1 @@
+- Run timeline: a provider-call row shows `reportedModel`, the model the provider named on its answer, where it differs from the model the call was sent to (for example an alias resolved to a dated snapshot). Read from the existing `response_model` telemetry column; no schema change (ADR-320).

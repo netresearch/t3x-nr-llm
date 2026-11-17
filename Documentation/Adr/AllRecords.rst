@@ -310,3 +310,4 @@ All decision records
    Adr305AClientFileIsAdoptedIntoTheProfilesInboxAfterApproval
    Adr310AWorkingA2aTaskSaysWhatItWaitsFor
    Adr311ARemoteQuestionWaitsForTheRunsInitiator
+   Adr320ARunShowsTheModelTheProviderReported

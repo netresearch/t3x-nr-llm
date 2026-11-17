@@ -340,6 +340,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
                 'fallback_attempts',
                 'time_to_first_token_ms',
                 'crdate',
+                'response_model',
             )
             ->from(self::TABLE)
             ->where(
@@ -371,6 +372,7 @@ final readonly class TelemetryRepository implements TelemetryRepositoryInterface
                 // NULL is a non-streamed call, which is not the same as 0 ms.
                 timeToFirstTokenMs: is_numeric($ttft) ? (int) $ttft : null,
                 crdate: $this->int($row, 'crdate'),
+                responseModel: $this->str($row, 'response_model'),
             );
         }
 

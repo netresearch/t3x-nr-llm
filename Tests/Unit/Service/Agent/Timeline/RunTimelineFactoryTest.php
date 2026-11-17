@@ -363,6 +363,79 @@ final class RunTimelineFactoryTest extends TestCase
     }
 
     /**
+     * ADR-320: the model the provider named is shown where it says more than
+     * the model the call was sent to — an alias resolved to a snapshot.
+     */
+    #[Test]
+    public function aCallShowsTheModelTheProviderReportedWhereItDiffersFromTheOneAskedFor(): void
+    {
+        $timeline = $this->timelineOf($this->reportingCall('gpt-5', '', '', 'gpt-5-2025-08-07'));
+
+        self::assertStringContainsString('reportedModel=gpt-5-2025-08-07', $timeline[0]->detail);
+    }
+
+    #[Test]
+    public function aReportedModelEqualToTheOneAskedForIsNotRepeated(): void
+    {
+        $timeline = $this->timelineOf($this->reportingCall('gpt-5', '', '', 'gpt-5'));
+
+        self::assertStringNotContainsString('reportedModel', $timeline[0]->detail);
+    }
+
+    #[Test]
+    public function aCallWhoseProviderNamedNoModelShowsNone(): void
+    {
+        $timeline = $this->timelineOf($this->reportingCall('gpt-5', '', '', ''));
+
+        self::assertStringNotContainsString('reportedModel', $timeline[0]->detail);
+    }
+
+    /**
+     * After a fallback the reported model belongs to the model that served,
+     * so it is compared with that one and not with the one asked for.
+     */
+    #[Test]
+    public function afterAFallbackTheReportedModelIsComparedWithTheServingModel(): void
+    {
+        $same = $this->timelineOf($this->reportingCall('gpt-5', 'ollama', 'qwen3:4b', 'qwen3:4b'));
+        self::assertStringContainsString('servedModel=qwen3:4b', $same[0]->detail);
+        self::assertStringNotContainsString('reportedModel', $same[0]->detail);
+
+        $other = $this->timelineOf($this->reportingCall('gpt-5', 'ollama', 'qwen3:4b', 'qwen3:4b-q4_K_M'));
+        self::assertStringContainsString('reportedModel=qwen3:4b-q4_K_M', $other[0]->detail);
+    }
+
+    /**
+     * @return list<RunTimelineEntry>
+     */
+    private function timelineOf(TelemetryCall $call): array
+    {
+        $telemetry                                     = new InMemoryTelemetryRepository();
+        $telemetry->callsByCorrelation[self::RUN_UUID] = [$call];
+
+        return (new RunTimelineFactory($telemetry, new InMemoryGovernanceEventRepository()))->build($this->agentRun(), []);
+    }
+
+    private function reportingCall(string $model, string $servedProvider, string $servedModel, string $responseModel): TelemetryCall
+    {
+        return new TelemetryCall(
+            operation: 'tools',
+            provider: 'openai',
+            model: $model,
+            servedProvider: $servedProvider,
+            servedModel: $servedModel,
+            success: true,
+            errorClass: '',
+            latencyMs: 900,
+            cacheHit: false,
+            fallbackAttempts: $servedProvider === '' ? 0 : 1,
+            timeToFirstTokenMs: null,
+            crdate: 1_700_000_021,
+            responseModel: $responseModel,
+        );
+    }
+
+    /**
      * ADR-173: the approval row states who decided relative to who started the
      * run. The run fixture's initiator is beUser 1.
      */

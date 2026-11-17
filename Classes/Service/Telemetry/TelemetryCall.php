@@ -17,6 +17,13 @@ namespace Netresearch\NrLlm\Service\Telemetry;
  * {@see FallbackHop}: what ran, what answered, whether it worked and how long
  * it took. No prompt, no response, no exception message — `errorClass` is the
  * FQCN the row stores.
+ *
+ * `responseModel` is the model the provider named on its response (ADR-174's
+ * `response_model`), which need not be the one the call was sent to: an alias
+ * can resolve to a dated snapshot. `''` where the call produced no usage block:
+ * a cache hit, a failed call, a specialized operation, a plain streamed chat.
+ * Where a provider's answer names no model, its adapter reports the requested
+ * id instead, so the value is not `''` then (ADR-320).
  */
 final readonly class TelemetryCall
 {
@@ -33,5 +40,6 @@ final readonly class TelemetryCall
         public int $fallbackAttempts,
         public ?int $timeToFirstTokenMs,
         public int $crdate,
+        public string $responseModel = '',
     ) {}
 }
