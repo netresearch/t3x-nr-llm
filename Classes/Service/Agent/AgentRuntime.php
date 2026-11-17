@@ -448,10 +448,11 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
         }
 
         // The guarded transition and the one CancelTask (A2A-R12); without a
-        // canceller the same guarded transition, locally.
+        // canceller the same guarded transition from waiting_for_dependency,
+        // locally, as the canceller makes it.
         $cancelled = $run->statusEnum() === AgentRunStatus::WAITING_FOR_DEPENDENCY && ($this->dependencyCanceller instanceof DependencyCancellerInterface
             ? $this->dependencyCanceller->cancelWaiting($run)
-            : $this->persister->settleIfWaiting($run, [AgentRunStatus::WAITING_FOR_DEPENDENCY], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED));
+            : $this->persister->cancelWaitingForDependency($run));
 
         if ($cancelled) {
             return new GuardedCancelResult(true, AgentRunStatus::CANCELLED);

@@ -183,6 +183,11 @@ interface AgentRuntimeInterface
      * Only the run's initiator or an administrator may call it, as for
      * {@see self::cancelIfWaiting()}; not a service account. For anyone else,
      * and for an unknown run, the result is "not cancelled" with no status.
+     *
+     * A run that waits for its initiator's answer to a remote agent's question
+     * is WAITING_FOR_INPUT: this call returns that status, and
+     * {@see self::cancelIfWaiting()} withdraws it; the remote task is then
+     * cancelled by the next poll (spec 060).
      */
     public function cancelIfWaitingForDependency(AiActorContext $actor, string $runUuid): GuardedCancelResult;
 
