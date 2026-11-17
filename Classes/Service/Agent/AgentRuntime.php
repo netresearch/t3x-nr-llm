@@ -440,6 +440,27 @@ final readonly class AgentRuntime implements AgentRuntimeInterface, DurableDecis
         return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
     }
 
+    public function cancelIfWaitingForDependency(AiActorContext $actor, string $runUuid): GuardedCancelResult
+    {
+        $run = $this->persister->findRun($runUuid);
+        if (!$run instanceof AgentRun || !$this->mayWithdraw($actor, $run)) {
+            return new GuardedCancelResult(false, null);
+        }
+
+        // The guarded transition and the one CancelTask (A2A-R12); without a
+        // canceller the same guarded transition, locally.
+        $cancelled = $run->statusEnum() === AgentRunStatus::WAITING_FOR_DEPENDENCY && ($this->dependencyCanceller instanceof DependencyCancellerInterface
+            ? $this->dependencyCanceller->cancelWaiting($run)
+            : $this->persister->settleIfWaiting($run, [AgentRunStatus::WAITING_FOR_DEPENDENCY], AgentRunStatus::CANCELLED, AgentRunTerminationReason::CANCELLED));
+
+        if ($cancelled) {
+            return new GuardedCancelResult(true, AgentRunStatus::CANCELLED);
+        }
+
+        // Read after the attempt: a loser learns the state that beat it.
+        return new GuardedCancelResult(false, $this->persister->findRun($runUuid)?->statusEnum());
+    }
+
     public function endProcess(AiActorContext $actor, string $runUuid): GuardedCancelResult
     {
         $run = $this->persister->findRun($runUuid);

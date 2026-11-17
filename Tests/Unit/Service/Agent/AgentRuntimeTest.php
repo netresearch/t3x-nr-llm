@@ -2484,6 +2484,38 @@ final class AgentRuntimeTest extends AbstractUnitTestCase
     }
 
     /**
+     * ADR-281 (amendment): without a dependency canceller, "stop waiting"
+     * is the same guarded transition from WAITING_FOR_DEPENDENCY alone; a
+     * run that is not waiting for its dependency is not touched.
+     */
+    #[Test]
+    public function cancelIfWaitingForDependencyIsGuardedToThatWait(): void
+    {
+        $this->repository->findResults = [$this->suspendedRun('waiting_for_dependency'), $this->suspendedRun('cancelled')];
+
+        $result = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaitingForDependency(AiActorContext::backendUser(9), 'run-uuid-1');
+
+        self::assertTrue($result->cancelled);
+        self::assertSame(AgentRunStatus::CANCELLED, $result->status);
+        self::assertSame([[
+            'runUid'     => 1,
+            'from'       => ['waiting_for_dependency'],
+            'to'         => 'cancelled',
+            'reason'     => 'cancelled',
+            'errorClass' => '',
+        ]], $this->repository->settledIfWaiting);
+
+        $this->repository->settledIfWaiting = [];
+        $this->repository->findResults      = [$this->suspendedRun('waiting_for_approval'), $this->suspendedRun('waiting_for_approval')];
+
+        $other = $this->runtime($this->loopReturning($this->loopResult('x')))->cancelIfWaitingForDependency(AiActorContext::backendUser(9), 'run-uuid-1');
+        self::assertFalse($other->cancelled);
+        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $other->status);
+        self::assertSame([], $this->repository->settledIfWaiting);
+        self::assertNull($this->repository->finished, 'never the unguarded cancel');
+    }
+
+    /**
      * Only the initiator or an administrator: a stranger, a holder of the
      * approve grant and a service account with every scope learn nothing —
      * the same answer as for a run that does not exist.

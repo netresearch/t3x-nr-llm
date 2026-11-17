@@ -1,0 +1,1 @@
+- `AgentRuntimeInterface::cancelIfWaitingForDependency()` cancels a run only while it waits for an external dependency, such as a remote agent's task, and asks that task once to cancel. A run that a continuation already claimed is not cancelled; the result names its status. Only the run's initiator or an administrator may call it (ADR-281, amendment of 2026-11-17).

@@ -168,6 +168,25 @@ interface AgentRuntimeInterface
     public function cancelIfWaiting(AiActorContext $actor, string $runUuid): GuardedCancelResult;
 
     /**
+     * Cancel a run only while it waits for an external dependency —
+     * WAITING_FOR_DEPENDENCY, such as a remote agent's task — together with
+     * that operation, in one guarded transition (ADR-281, amendment of
+     * 2026-11-17).
+     *
+     * A chat stops waiting with it. If a continuation already claimed the run,
+     * the run is RUNNING (or settled), this call loses and changes nothing, and
+     * the result says which status the run has, so the caller can put its own
+     * state back instead of stopping work already under way.
+     * {@see self::cancel()} also ends a running run and stays the operator's
+     * tool.
+     *
+     * Only the run's initiator or an administrator may call it, as for
+     * {@see self::cancelIfWaiting()}; not a service account. For anyone else,
+     * and for an unknown run, the result is "not cancelled" with no status.
+     */
+    public function cancelIfWaitingForDependency(AiActorContext $actor, string $runUuid): GuardedCancelResult;
+
+    /**
      * End the process a run holds (ADR-228): the editor stops a tour, or an
      * administrator ends one that is stuck.
      *
