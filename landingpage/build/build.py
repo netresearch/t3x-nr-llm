@@ -61,6 +61,7 @@ SITE_URL = ORIGIN
 LANGS = ["en", "de"]
 
 SEARCH_INDEX = "search-index.json"
+READINESS_DIR = "agent-readiness"
 INDEX_HTML = "index.html"
 SCHEMA_TYPE = "@type"
 SCHEMA_CONTEXT = "@context"
@@ -221,7 +222,7 @@ STRINGS = {
         "skip": "Skip to main content",
         "nav": {"problem": "Problem", "solution": "Solution", "concepts": "Concepts",
                 "dev": "Developers", "admin": "For admins", "adr": "Architecture",
-                "security": "Security", "faq": "FAQ"},
+                "security": "Security", "readiness": "Agent readiness", "faq": "FAQ"},
         "searchLabel": "Search",
         "searchPlaceholder": "Search the site and all ADRs…",
         "searchResults": "{n} results",
@@ -276,7 +277,7 @@ STRINGS = {
         "skip": "Zum Hauptinhalt springen",
         "nav": {"problem": "Problem", "solution": "Lösung", "concepts": "Konzepte",
                 "dev": "Entwickler", "admin": "Für Admins", "adr": "Architektur",
-                "security": "Sicherheit", "faq": "FAQ"},
+                "security": "Sicherheit", "readiness": "Agent-Readiness", "faq": "FAQ"},
         "searchLabel": "Suche",
         "searchPlaceholder": "Website und alle ADRs durchsuchen…",
         "searchResults": "{n} Treffer",
@@ -638,6 +639,7 @@ def main():
                 "de": load("features_de") if (DATA / "features_de.json").exists() else features_en}
     security = {"en": load("security"),
                 "de": load("security_de") if (DATA / "security_de.json").exists() else load("security")}
+    readiness = {"en": load("readiness"), "de": load("readiness_de")}
 
     project = build_project()
 
@@ -659,6 +661,7 @@ def main():
     content = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in content.items()}
     features = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in features.items()}
     security = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in security.items()}
+    readiness = {lang: substitute_project(value, placeholders_for(lang)) for lang, value in readiness.items()}
     seo = substitute_project(seo, placeholders_for("en"))
 
     adrs = collect_adrs(adr_meta)
@@ -738,6 +741,14 @@ def main():
                      "section": STRINGS[lang]["nav"]["security"],
                      "text": re.sub(r"\s+", " ", sec_text).strip()[:1200],
                      "url": url(f"{lang}/security/"), "kind": "page", "lang": lang})
+        rd = readiness[lang]
+        rd_text = " ".join([*rd["intro"], *[" ".join([sec["heading"], sec["intro"],
+                            *[row["capability"] + " " + row["component"] + " " + row["detail"] for row in sec["rows"]]])
+                            for sec in rd["sections"]], *rd["limits"]["items"]])
+        docs.append({"id": f"{lang}-readiness", "title": rd["hero"]["headline"],
+                     "section": STRINGS[lang]["nav"]["readiness"],
+                     "text": re.sub(r"\s+", " ", rd_text).strip()[:1200],
+                     "url": url(f"{lang}/{READINESS_DIR}/"), "kind": "page", "lang": lang})
     index_url = url(SEARCH_INDEX) + "?v=" + hashlib.sha256(
         json.dumps(docs, ensure_ascii=False).encode("utf-8")).hexdigest()[:10]
 
@@ -902,6 +913,45 @@ def main():
             js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
         ), encoding="utf-8")
 
+    # Agent readiness page (bilingual, /<lang>/agent-readiness/): what the TYPO3
+    # stack offers AI agents, by origin. Same shell and pattern as the security page.
+    for lang in LANGS:
+        rd = readiness[lang]
+        page_path = f"{lang}/{READINESS_DIR}/"
+        crumb = [{"name": "nr-llm", "href": url(f"{lang}/")},
+                 {"name": rd["hero"]["eyebrow"], "href": url(page_path)}]
+        breadcrumb_ld = json.dumps({
+            SCHEMA_CONTEXT: SCHEMA_ORG, SCHEMA_TYPE: "BreadcrumbList",
+            "itemListElement": [
+                {SCHEMA_TYPE: "ListItem", "position": i + 1, "name": x["name"], "item": SITE_URL + x["href"]}
+                for i, x in enumerate(crumb)
+            ],
+        }, ensure_ascii=False)
+        org_ld = {SCHEMA_TYPE: "Organization", "name": "Netresearch DTT GmbH",
+                  "url": "https://www.netresearch.de/"}
+        article_ld = json.dumps({
+            SCHEMA_CONTEXT: SCHEMA_ORG, SCHEMA_TYPE: "TechArticle",
+            "headline": rd["hero"]["headline"], "description": rd["meta"]["description"],
+            "inLanguage": lang, "url": SITE_URL + url(page_path), "dateModified": rd["asOf"],
+            "image": SITE_URL + url("assets/img/og-image.png"),
+            "author": org_ld, "publisher": org_ld,
+        }, ensure_ascii=False)
+        rdir = OUT / lang / READINESS_DIR
+        rdir.mkdir(parents=True, exist_ok=True)
+        (rdir / INDEX_HTML).write_text(env.get_template("readiness.html.j2").render(
+            lang=lang, s=STRINGS[lang], r=rd, brand=brand,
+            canonical=SITE_URL + url(page_path), meta=rd["meta"],
+            alternates=[
+                {"lang": "en", "href": SITE_URL + url(f"en/{READINESS_DIR}/")},
+                {"lang": "de", "href": SITE_URL + url(f"de/{READINESS_DIR}/")},
+                {"lang": "x-default", "href": SITE_URL + url(f"en/{READINESS_DIR}/")},
+            ],
+            jsonld_blocks=[{"name": "BreadcrumbList", "json": breadcrumb_ld},
+                           {"name": "TechArticle", "json": article_ld}],
+            show_nav=True, is_landing=False, nav_prefix=url(f"{lang}/") + "#",
+            js_config={"indexUrl": index_url, "lang": lang, "strings": js_strings(lang)},
+        ), encoding="utf-8")
+
     # Root chooser (x-default)
     root = env.get_template("root.html.j2").render(
         lang="en", s=STRINGS["en"], brand=brand, canonical=SITE_URL + BASE,
@@ -942,8 +992,9 @@ def main():
             feature_paths.append(SITE_URL + url(f"{lang}/features/"))
             feature_paths += [SITE_URL + url(f"{lang}/features/{f['slug']}.html") for f in features[lang]]
     security_paths = [SITE_URL + url(f"{lang}/security/") for lang in LANGS]
+    readiness_paths = [SITE_URL + url(f"{lang}/{READINESS_DIR}/") for lang in LANGS]
     paths = (list(seo.get("sitemapPaths", [])) + [SITE_URL + a["url"] for a in adrs]
-             + feature_paths + security_paths)
+             + feature_paths + security_paths + readiness_paths)
     urls_xml = "\n".join(
         f"  <url><loc>{html.escape(p)}</loc></url>" for p in paths)
     (OUT / "sitemap.xml").write_text(

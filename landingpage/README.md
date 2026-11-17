@@ -89,6 +89,16 @@ Landing copy lives in `build/data/content.json` (English) and `content_de.json`
 ADR pages are rendered from `Documentation/Adr/*.rst` at build time (docutils, with
 stub directives/roles for TYPO3-specific RST constructs).
 
+The agent readiness page (`/<lang>/agent-readiness/`) lists what TYPO3 Core,
+official add-ons, Netresearch extensions and community extensions offer AI
+agents. Its copy lives in `build/data/readiness.json` and `readiness_de.json`;
+each row names its origin and links its source, and the page carries its own
+"status as of" date (`asOf`). Most rows describe other projects, so no build
+step can derive them: when you touch a row, re-check it against its source at
+the latest release (not `main`) and move `asOf`. Its tables turn into one card
+per row below 640px; the template sets explicit table roles so that the
+changed `display` value keeps the table semantics.
+
 ## Features
 
 - Separate `/en/` + `/de/` pages with `hreflang` alternates and an `x-default` root.
