@@ -112,7 +112,8 @@ cost — and below it a single time-ordered list of everything the run produced:
   ``none``; ``fit=other_model`` means the call was answered by another model
   than the one evaluated, ``report=gone`` that the evaluation has since
   been purged, ``report=unknown`` that this could not be checked. A loaded
-  version always reads ``none`` (:ref:`ADR-322 <adr-322>`).
+  version always reads ``none``; a resumed segment adds no evidence for the
+  versions it carries over (:ref:`ADR-322 <adr-322>`).
 - **Provider call** — a telemetry row: which provider and model served it, how
   long it took, whether a cache hit or a fallback was involved, and the error
   class when it failed. These are joined to the run because since

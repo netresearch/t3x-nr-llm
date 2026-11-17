@@ -664,6 +664,48 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
     }
 
     /**
+     * A version loaded before a pause is carried after the resume, where the
+     * segment cannot tell it was loaded: it records no evidence for it,
+     * rather than looking it up as if it had been composed.
+     */
+    #[Test]
+    public function aResumedSegmentRecordsNoEvidenceForTheVersionsItCarries(): void
+    {
+        $lookup = new InMemorySkillEvidenceLookup();
+        $lookup->add(self::ON_DEMAND, $this->skills[self::ON_DEMAND]->getVersionDigest(), $this->evidence(14, 'test-model'));
+
+        $this->turns   = [[$this->loadCall('c1'), new ToolCall('c2', 'write', [])]];
+        $probe         = new ProcessPinProbeStub(everyRun: true);
+        $configuration = $this->configuration(onDemand: true);
+
+        $state   = $this->suspendWith($configuration, new RunTrace(), $probe);
+        $resumed = new RunTrace();
+        $this->service($probe, $lookup)->resume($state, true, $configuration, ToolExecutionContext::none(), null, $resumed);
+
+        self::assertSame(SkillInclusion::CARRIED, $this->entries($resumed)[0]->inclusion);
+        self::assertSame([], array_values(array_filter($resumed->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_SKILL_EVIDENCE)));
+    }
+
+    /**
+     * A run offered no tools makes one call; its evidence follows the answer.
+     */
+    #[Test]
+    public function aRunWithoutToolsRecordsTheEvidenceAfterItsOnlyAnswer(): void
+    {
+        $lookup = new InMemorySkillEvidenceLookup();
+        $lookup->add(self::INSTRUCTION, $this->skills[self::INSTRUCTION]->getVersionDigest(), $this->evidence(12, 'test-model'));
+
+        $trace = new RunTrace();
+
+        $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(always: [self::INSTRUCTION]), ToolExecutionContext::none(), [], null, 5, $trace);
+
+        $steps = $trace->getSteps();
+        self::assertSame([RunStep::KIND_SKILLS, RunStep::KIND_REQUEST, RunStep::KIND_LLM, RunStep::KIND_SKILL_EVIDENCE], array_map(static fn (RunStep $s): string => $s->kind, $steps));
+        [$entry] = SkillEvidenceEntry::listFrom($steps[3]->toArray()['skillEvidence'] ?? null);
+        self::assertSame(12, $entry->evidence[0]->evaluationUid);
+    }
+
+    /**
      * Evidence is information about a run, not a condition of it: a lookup
      * that fails (an unreadable table) leaves the run to finish and records
      * no evidence step, which reads apart from an empty list (none).

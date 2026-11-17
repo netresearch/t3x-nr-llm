@@ -306,19 +306,20 @@ configuration's identifier and the version of the grading protocol. When the
 prompts of one evaluation did not all carry the same versions, it names none
 and stands as evidence for none. Nothing of a skill's text is stored.
 
-When an agent run's model call first carries a skill version in its segment,
-the run records the evaluations stored at that moment that measured exactly
-that digest, newest first and at most three, as a ``skill_evidence`` step after
-the call's answer: set, benchmark fingerprint, configuration, provider, model
-and reported model, grader and protocol, prompt count, pass rate and mean
-score. Each is judged against the model the provider named on the call's
-answer: ``match``, ``other_model`` (for example after a fallback) or
-``unknown``. A version no evaluation measured is recorded with no evidence,
-which says so. The run keeps this snapshot; a later evaluation never replaces
-it, and the run timeline marks an evaluation that retention purged since as
-``report=gone`` (``report=unknown`` when the evaluation tables cannot be read).
-A lookup that fails during a run is logged and records no evidence step; the
-run is not stopped.
+When an agent run's model call first carries a skill version, the run records
+the evaluations stored at that moment that measured exactly that digest, newest
+first and at most three, as a ``skill_evidence`` step after the call's answer:
+set, benchmark fingerprint, configuration, provider, model and reported model,
+grader and protocol, prompt count, pass rate and mean score. Each is judged
+against the model the provider named on the call's answer: ``match``,
+``other_model`` (for example after a fallback) or ``unknown``. A version no
+evaluation measured is recorded with no evidence, which says so. The run keeps
+this snapshot; a later evaluation never replaces it, and the run timeline marks
+an evaluation that retention purged since as ``report=gone``
+(``report=unknown`` when the evaluation tables cannot be read). A lookup that
+fails during a run is logged and records no evidence step; the run is not
+stopped. A resumed segment records nothing for the versions it carries over;
+the segment that composed or loaded them did.
 
 Evaluations run one-shot completions, never the agent loop. A skill loaded on
 demand during a run is therefore never covered, and its entry names no evidence

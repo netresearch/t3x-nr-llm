@@ -1777,9 +1777,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
         $entries = [];
         foreach ($passed as $entry) {
+            // A version carried over a pause was recorded by the segment that
+            // composed or loaded it; the resumed segment cannot tell which,
+            // so it records nothing for it (ADR-322).
+            if ($entry->inclusion === SkillInclusion::CARRIED) {
+                continue;
+            }
+
             // An evaluation measures a version composed into a one-shot
             // completion; a version loaded during a run is never covered by
-            // it, even at the same digest (ADR-322).
+            // it, even at the same digest.
             $found = [];
             if ($entry->inclusion !== SkillInclusion::LOADED) {
                 try {

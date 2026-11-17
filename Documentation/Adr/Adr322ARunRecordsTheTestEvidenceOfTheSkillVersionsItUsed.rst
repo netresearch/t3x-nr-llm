@@ -42,23 +42,25 @@ Decision
    puts the skill versions its composition gave the request, and the
    configuration they came from, on the response's metadata
    (:php:`ComposedSkillVersions`), after the call and outside the provider
-   pipeline. The evaluation stores them when every prompt's request carried the
-   same versions; otherwise it names none and stands as evidence for none. It
-   also stores the configuration identifier and the version of its grading
+   pipeline. The evaluation stores them when every prompt's request carried
+   the same versions; otherwise it names none and stands as evidence for none.
+   It also stores the configuration identifier and the version of its grading
    protocol (``tx_nrllm_eval_skill_version``, two columns of
    ``tx_nrllm_eval_result``). Identities and digests only.
 2. **A run records the evidence that applied, when it applied.** After the
-   answer of the model call that first carried a version in its segment (a
-   resumed segment looks again), the loop records a
+   answer of the model call that first carried a version, the loop records a
    ``skill_evidence`` step (:php:`RunTrace::recordSkillEvidence()`, additive
    ``@api``): for each version, the evaluations stored at that moment that
-   measured exactly its digest, newest first, at most three   (:php:`SkillEvidenceLookupInterface::LIMIT`). An empty list states that
+   measured exactly its digest, newest first, at most three
+   (:php:`SkillEvidenceLookupInterface::LIMIT`). An empty list states that
    none applied; a version loaded during the run always has an empty list,
-   since no evaluation measured it loaded, even at the same digest. Nothing
-   is looked up later to fill in or replace it. A lookup that fails (for
-   example before the database analyzer created the table) is logged and
-   records no evidence step for that call: the run goes on, and the missing
-   step reads apart from an empty list.
+   since no evaluation measured it loaded, even at the same digest. A resumed
+   segment records nothing for the versions it carries over: the segment that
+   composed or loaded them recorded their evidence, and the resumed one cannot
+   tell which of the two it was. Nothing is looked up later to fill in or
+   replace it. A lookup that fails (for example before the database analyzer
+   created the table) is logged and records no evidence step for that call:
+   the run goes on, and the missing step reads apart from an empty list.
 3. **Judged against the model that answered.** Each evaluation is marked
    ``match`` when the model the provider named on the call's answer is the
    evaluated model, ``other_model`` otherwise (for example after a fallback),
@@ -70,7 +72,8 @@ Decision
    and pass counts, pass rate, mean score, scope. The usage entry keeps the
    approval; the evidence step keeps the measurement.
 5. **Gone, never replaced.** The run timeline shows the recorded snapshot.
-   Where the evaluation it came from is no longer stored — the same uid with   the same run date, fingerprint and set — it adds ``report=gone``; where
+   Where the evaluation it came from is no longer stored — the same uid with
+   the same run date, fingerprint and set — it adds ``report=gone``; where
    that check cannot be made, ``report=unknown``.
 
 Consequences
