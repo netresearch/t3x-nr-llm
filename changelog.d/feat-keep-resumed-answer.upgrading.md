@@ -1,0 +1,1 @@
+- `AgentRunRepositoryInterface::recordAnswer()` takes an optional third parameter `?string $whileClaimedBy`, and the interface is now marked `@internal`. An implementation outside this extension has to add the parameter.
