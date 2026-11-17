@@ -312,3 +312,4 @@ All decision records
    Adr311ARemoteQuestionWaitsForTheRunsInitiator
    Adr320ARunShowsTheModelTheProviderReported
    Adr321ARunRecordsTheSkillVersionsItPassedToAModel
+   Adr322ARunRecordsTheTestEvidenceOfTheSkillVersionsItUsed

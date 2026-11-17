@@ -124,6 +124,14 @@ final readonly class RunStep
     public const KIND_SKILLS = 'skill_usage';
 
     /**
+     * The test evidence that applied to the skill versions a model call first
+     * carried (ADR-322): recorded after that call's answer step, because the
+     * evidence is judged against the model that answered. Identifiers,
+     * figures and codes; no text.
+     */
+    public const KIND_SKILL_EVIDENCE = 'skill_evidence';
+
+    /**
      * Every kind a step can carry, as the class's own statement of its
      * vocabulary.
      *
@@ -153,6 +161,7 @@ final readonly class RunStep
             self::KIND_HIGHLIGHT,
             self::KIND_CHANGES,
             self::KIND_SKILLS,
+            self::KIND_SKILL_EVIDENCE,
         ];
     }
 
@@ -243,7 +252,19 @@ final readonly class RunStep
          *                                 step names (ADR-321); null on every other kind
          */
         public ?array $skillUsage = null,
+        /**
+         * @var list<SkillEvidenceEntry>|null the evidence a skill evidence
+         *                                    step states (ADR-322); null on every other kind
+         */
+        public ?array $skillEvidence = null,
     ) {
+        if ($skillEvidence !== null && $kind !== self::KIND_SKILL_EVIDENCE) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step states no skill evidence; only a skill evidence step does.', $kind),
+                1795300322,
+            );
+        }
+
         if ($skillUsage !== null && $kind !== self::KIND_SKILLS) {
             throw new InvalidArgumentException(
                 sprintf('A %s step names no skill usage; only a skill usage step does.', $kind),
@@ -377,6 +398,11 @@ final readonly class RunStep
             'skillUsage' => $this->skillUsage === null ? null : array_map(
                 static fn (SkillUsageEntry $entry): array => $entry->toArray(),
                 $this->skillUsage,
+            ),
+            // Identifiers, figures and codes (ADR-322).
+            'skillEvidence' => $this->skillEvidence === null ? null : array_map(
+                static fn (SkillEvidenceEntry $entry): array => $entry->toArray(),
+                $this->skillEvidence,
             ),
         ];
 

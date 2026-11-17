@@ -294,6 +294,35 @@ adds revision-specific reads; custom repositories without it remain usable
 for history, while the command skips comparison and fails when
 ``--fail-on-regression`` is set.
 
+.. _developer-quality-evaluation-skill-evidence:
+
+Skill versions as test evidence
+===============================
+
+An evaluation also stores which skill versions it measured
+(:ref:`ADR-322 <adr-322>`): the versions the default configuration composed
+into every prompt's request, by skill uid, source, digest and role, with the
+configuration's identifier and the version of the grading protocol. When the
+prompts of one evaluation did not all carry the same versions, it names none
+and stands as evidence for none. Nothing of a skill's text is stored.
+
+When an agent run's model call first carries a skill version, the run records
+the evaluations stored at that moment that measured exactly that digest, newest
+first and at most three, as a ``skill_evidence`` step after the call's answer:
+set, benchmark fingerprint, configuration, provider, model and reported model,
+grader and protocol, prompt count, pass rate and mean score. Each is judged
+against the model the provider named on the call's answer: ``match``,
+``other_model`` (for example after a fallback) or ``unknown``. A version no
+evaluation measured is recorded with no evidence, which says so. The run keeps
+this snapshot; a later evaluation never replaces it, and the run timeline marks
+an evaluation that retention purged since as ``report=gone``.
+
+Evaluations run one-shot completions, never the agent loop. A skill loaded on
+demand during a run is therefore never covered, and evidence always has the
+scope ``completion``. An approval of a skill version and evidence about it are
+recorded apart: the approval is a person's decision about a text, the evidence
+a measurement of how one model did with it.
+
 .. _developer-quality-evaluation-quality-routing:
 
 Quality-aware routing (opt-in)

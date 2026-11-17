@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Domain\ValueObject\InjectedContext;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
 use Netresearch\NrLlm\Domain\ValueObject\ProviderAdapterKey;
 use Netresearch\NrLlm\Domain\ValueObject\RequestFacts;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Exception\RuntimeException;
@@ -171,7 +172,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      * @param list<ChatMessage|array<string, mixed>> $messages
      * @param array<string, mixed>                   $optionOverrides
      *
-     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: array<string, mixed>} the messages and the overrides to send with them
+     * @return array{0: list<ChatMessage|array<string, mixed>>, 1: array<string, mixed>, 2: list<SkillUse>} the messages, the overrides to send with them, and the skill versions they carry (ADR-322)
      */
     private function injectConfigSkillsIntoMessages(array $messages, LlmConfiguration $configuration, array $optionOverrides): array
     {
@@ -182,7 +183,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         $messages = $this->snippetResolver?->appendToCallerSystemMessage($messages, $configuration) ?? $messages;
 
         if (!$this->skillInjection instanceof SkillInjectionService) {
-            return [$messages, $optionOverrides];
+            return [$messages, $optionOverrides, []];
         }
 
         $injected = $this->skillInjection->composeIntoMessages(
@@ -204,11 +205,11 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         if ($injected['instructions'] !== '') {
             $placed = SkillInjectionService::appendToLastSystemMessage($injected['messages'], $injected['instructions']);
             if ($placed !== null) {
-                return [$placed, $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
+                return [$placed, $this->withSkillInstructions($optionOverrides, $injected['instructions']), $injected['uses']];
             }
         }
 
-        return [$injected['messages'], $this->withSkillInstructions($optionOverrides, $injected['instructions'])];
+        return [$injected['messages'], $this->withSkillInstructions($optionOverrides, $injected['instructions']), $injected['uses']];
     }
 
     /**
@@ -686,13 +687,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
         // throws (no extension-config fallback; see ADR-034).
         $defaultConfiguration = $this->configurationResolver->resolveDefaultConfiguration($providerKey, $options->getSite());
         if ($defaultConfiguration instanceof LlmConfiguration) {
-            [$skilledMessages, $skilledOptions] = $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration, $optionsArray);
+            [$skilledMessages, $skilledOptions, $skillUses] = $this->injectConfigSkillsIntoMessages($messages, $defaultConfiguration, $optionsArray);
 
-            return $this->chatWithConfiguration(
-                $skilledMessages,
-                $defaultConfiguration,
-                $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
-                $skilledOptions,
+            // Which skill versions this request carried (ADR-322), so an
+            // evaluation can name the versions it measured. Added after the
+            // call, outside the pipeline, so no middleware rewrites it.
+            return ComposedSkillVersions::attach(
+                $this->chatWithConfiguration(
+                    $skilledMessages,
+                    $defaultConfiguration,
+                    $this->metadata->budget($options->getBeUserUid(), $options->getPlannedCost()) + $this->metadata->idempotency($options->getIdempotencyKey()) + $this->metadata->requestCount($options) + $this->metadata->callerSource($options) + $this->metadata->answerCacheChoice($options),
+                    $skilledOptions,
+                ),
+                $defaultConfiguration->getIdentifier(),
+                $skillUses,
             );
         }
 

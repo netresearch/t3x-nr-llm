@@ -86,6 +86,10 @@ enum AgentEventKind: string
     // segment, or that a load appended (ADR-321): uids, digests, identifiers
     // and codes. A RunStep kind, recorded before the request step it names.
     case SKILL_USAGE = 'skill_usage';
+    // The test evidence that applied to those versions, judged against the
+    // model that answered (ADR-322). A RunStep kind, recorded after the
+    // answer step of the call.
+    case SKILL_EVIDENCE = 'skill_evidence';
 
     /**
      * @return list<string>

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service;
 
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
 use Netresearch\NrLlm\Domain\Enum\SupportStatus;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
@@ -24,11 +25,13 @@ use Netresearch\NrLlm\Domain\Repository\PromptSnippetRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ContextBudgetBreakdown;
 use Netresearch\NrLlm\Domain\ValueObject\ContextFitResult;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Domain\ValueObject\VisionContent;
 use Netresearch\NrLlm\Provider\Contract\ProviderInterface;
 use Netresearch\NrLlm\Provider\Contract\VisionCapableInterface;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\ComposedSkillVersions;
 use Netresearch\NrLlm\Service\ConfigurationCallPlanner;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\LlmServiceManager;
@@ -114,6 +117,33 @@ final class SkillConfigInjectionTest extends AbstractUnitTestCase
         $userContent = $this->content($capturedMessages[1]);
         self::assertStringContainsString(self::SKILL_NEEDLE, $userContent);
         self::assertStringEndsWith('Translate this.', $userContent);
+    }
+
+    /**
+     * ADR-322: the response of a configuration-backed chat names the skill
+     * versions its request carried and the configuration they came from, so
+     * an evaluation can say which versions it measured. Identity only.
+     */
+    #[Test]
+    public function chatNamesTheSkillVersionsItsRequestCarried(): void
+    {
+        $adapter = $this->createMock(ProviderInterface::class);
+        $adapter->method('chatCompletion')->willReturn($this->completionResponse());
+        $skill = $this->approvedSkill();
+
+        $response = $this->managerWithAdapter($adapter, $this->configurationWithApprovedSkill(), $this->instructingInjection())
+            ->chat([['role' => 'user', 'content' => 'Translate this.']]);
+
+        $composition = ComposedSkillVersions::read($response->metadata);
+        self::assertNotNull($composition);
+        self::assertSame('default-config', $composition['configuration']);
+        self::assertEquals(
+            [new SkillUse(4, 1, $skill->getVersionDigest(), 'cfg', SkillRole::INSTRUCTION)],
+            $composition['skills'],
+        );
+        $json = json_encode($response->metadata[ComposedSkillVersions::METADATA_KEY] ?? null, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('Always answer in JSON.', $json);
+        self::assertStringNotContainsString('Config Skill', $json);
     }
 
     /**

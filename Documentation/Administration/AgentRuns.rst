@@ -106,7 +106,12 @@ cost — and below it a single time-ordered list of everything the run produced:
   A ``skill_usage`` step names the skill versions the following model call
   carries for the first time in its segment, or the version a load appended
   (state ``loaded``), as ``identifier#uid@digest role/inclusion/state``
-  and the approval that held (:ref:`ADR-321 <adr-321>`).
+  and the approval that held (:ref:`ADR-321 <adr-321>`). A ``skill_evidence``
+  step after that call's answer names, per version, the evaluations that had
+  measured it at that moment — ``eval#N set model pass=… fit=…`` — or
+  ``none``; ``fit=other_model`` means the call was answered by another model
+  than the one evaluated, and ``report=gone`` that the evaluation has since
+  been purged (:ref:`ADR-322 <adr-322>`).
 - **Provider call** — a telemetry row: which provider and model served it, how
   long it took, whether a cache hit or a fallback was involved, and the error
   class when it failed. These are joined to the run because since

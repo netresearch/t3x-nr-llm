@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 
 /**
@@ -24,6 +25,9 @@ final readonly class SetEvaluationResult
 {
     /**
      * @param list<PromptEvaluation> $evaluations
+     * @param list<SkillUse>         $testedSkills        the skill versions every prompt's request carried, `[]` when the prompts did not agree or carried none (ADR-322)
+     * @param string                 $testedConfiguration the configuration those versions were composed from, '' with none
+     * @param string                 $gradingProtocol     the version of the grading protocol, '' where the grader states none
      */
     public function __construct(
         public string $setIdentifier,
@@ -34,6 +38,9 @@ final readonly class SetEvaluationResult
         public ?RetrievalSetEvaluationResult $retrieval = null,
         public ?GeneratorProvenance $generatorProvenance = null,
         public string $completionBenchmarkFingerprint = '',
+        public array $testedSkills = [],
+        public string $testedConfiguration = '',
+        public string $gradingProtocol = '',
     ) {}
 
     /**

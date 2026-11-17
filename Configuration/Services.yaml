@@ -161,6 +161,11 @@ services:
     alias: Netresearch\NrLlm\Service\Tool\ToolLoopService
     public: true
 
+  # The evaluations that measured a skill version (ADR-322), read by the agent
+  # loop when a model call first carries the version and by the run timeline.
+  Netresearch\NrLlm\Service\Evaluation\SkillEvidenceLookupInterface:
+    alias: Netresearch\NrLlm\Service\Evaluation\SkillEvidenceRepository
+
   # The resume of a run that waited for a dependency (ADR-281), additive to the
   # @api loop interface above.
   Netresearch\NrLlm\Service\Tool\DependencyResumingToolLoopInterface:

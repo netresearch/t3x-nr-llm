@@ -32,8 +32,11 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidenceEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -65,6 +68,7 @@ use Netresearch\NrLlm\Service\Agent\Exception\ProcessVerdictUnavailableException
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface;
 use Netresearch\NrLlm\Service\Context\SectionAdmissionInterface;
+use Netresearch\NrLlm\Service\Evaluation\SkillEvidenceLookupInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
 use Netresearch\NrLlm\Service\ModelSelectionServiceInterface;
@@ -250,6 +254,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // Optional for the lean test wiring; absent it no entry carries a
         // digest, and a rule that binds a call to a check refuses it.
         private ?InvocationDigests $invocationDigests = null,
+        // The evaluations that measured a skill version (ADR-322). Optional
+        // for the lean test wiring; absent it no evidence step is recorded.
+        private ?SkillEvidenceLookupInterface $skillEvidence = null,
     ) {}
 
     /**
@@ -694,7 +701,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 );
             }
 
-            $runTrace?->recordSkillUsage(1, $skillUsage->passing($skillPins));
+            $passed = $skillUsage->passing($skillPins);
+            $runTrace?->recordSkillUsage(1, $passed);
             $runTrace?->recordRequest(1, $messages, []);
             $t0   = hrtime(true);
             $resp = $this->mgr->chatWithConfiguration(
@@ -709,6 +717,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 injectedContext: $augmentation?->injectedContext(),
             );
             $runTrace?->recordLlmCall(1, $this->elapsedMs($t0), $resp);
+            $runTrace?->recordSkillEvidence(1, $this->skillEvidenceFor($passed, $resp));
 
             // Fold in any carried-over counters (a resume whose continuation has
             // no offered tools still ran this synthesis round on top of the
@@ -762,7 +771,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // The versions this send carries for the first time (ADR-321):
                 // after the fit, at the send, so a version whose run stops
                 // before this call is never reported as passed.
-                $runTrace?->recordSkillUsage($iterations, $skillUsage->passing($skillPins));
+                $passed = $skillUsage->passing($skillPins);
+                $runTrace?->recordSkillUsage($iterations, $passed);
                 $runTrace?->recordRequest($iterations, $messages, $allowedNames);
                 $t0 = hrtime(true);
                 // The run travels with the call (ADR-153): every round of one run
@@ -786,6 +796,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $this->elapsedMs($t0),
                     $resp,
                 );
+                // The evidence that applied to what this call first carried,
+                // judged against the model that answered it (ADR-322).
+                $runTrace?->recordSkillEvidence($iterations, $this->skillEvidenceFor($passed, $resp));
                 $lastUsage = $resp->usage;
                 $promptTokens += $resp->usage->promptTokens;
                 $completionTokens += $resp->usage->completionTokens;
@@ -1151,7 +1164,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 [],
                 $runTrace,
             );
-            $runTrace?->recordSkillUsage($iterations + 1, $skillUsage->passing($skillPins));
+            $passed = $skillUsage->passing($skillPins);
+            $runTrace?->recordSkillUsage($iterations + 1, $passed);
             $runTrace?->recordRequest($iterations + 1, $messages, []);
             $t0 = hrtime(true);
 
@@ -1183,6 +1197,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $this->elapsedMs($t0),
                 $final,
             );
+            $runTrace?->recordSkillEvidence($iterations + 1, $this->skillEvidenceFor($passed, $final));
             $promptTokens += $final->usage->promptTokens;
             $completionTokens += $final->usage->completionTokens;
             $cost = $this->addCost($cost, $final->usage);
@@ -1740,6 +1755,38 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // So a resumed run adds its next rounds to this cost (NEXT-188).
             estimatedCost: $cost,
         );
+    }
+
+    /**
+     * The test evidence that applied to the versions a call first carried
+     * (ADR-322): for each passed version, the evaluations stored now that
+     * measured its digest, judged against the model the provider named on
+     * the call's answer. An empty evidence list states that none applied.
+     * Without the lookup, which only the lean wiring lacks, nothing.
+     *
+     * @param list<SkillUsageEntry> $passed
+     *
+     * @return list<SkillEvidenceEntry>
+     */
+    private function skillEvidenceFor(array $passed, CompletionResponse $answer): array
+    {
+        if (!$this->skillEvidence instanceof SkillEvidenceLookupInterface) {
+            return [];
+        }
+
+        $entries = [];
+        foreach ($passed as $entry) {
+            $entries[] = new SkillEvidenceEntry(
+                $entry->skillUid,
+                $entry->versionDigest,
+                array_map(
+                    static fn (SkillEvidence $evidence): SkillEvidence => $evidence->judgedAgainst($answer->model),
+                    $this->skillEvidence->evidenceFor($entry->skillUid, $entry->versionDigest),
+                ),
+            );
+        }
+
+        return $entries;
     }
 
     /**

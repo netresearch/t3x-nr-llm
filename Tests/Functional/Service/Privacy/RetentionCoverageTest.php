@@ -47,6 +47,8 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
         // rating without its telemetry row cannot be read (ADR-176).
         'tx_nrllm_call_outcome',
         'tx_nrllm_eval_result',
+        // The skill versions an evaluation measured go with it (ADR-322).
+        'tx_nrllm_eval_skill_version',
         'tx_nrllm_skill_audit',
         'tx_nrllm_telemetry',
         'tx_nrllm_ai_session',
@@ -226,6 +228,17 @@ final class RetentionCoverageTest extends AbstractFunctionalTestCase
             'details'        => '[]',
             'run_date'       => $timestamp,
             'tstamp'         => $timestamp,
+            'crdate'         => $timestamp,
+        ]);
+
+        $connectionPool->getConnectionForTable('tx_nrllm_eval_skill_version')->insert('tx_nrllm_eval_skill_version', [
+            'pid'            => 0,
+            'eval_result'    => 1,
+            'skill_uid'      => 3,
+            'source_uid'     => 1,
+            'version_digest' => '1:' . str_repeat('a', 64),
+            'role'           => 'instruction',
+            'run_date'       => $timestamp,
             'crdate'         => $timestamp,
         ]);
 

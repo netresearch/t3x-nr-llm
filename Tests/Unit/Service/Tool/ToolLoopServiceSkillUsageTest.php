@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
 use Netresearch\NrLlm\Domain\Enum\SkillApprovalState;
+use Netresearch\NrLlm\Domain\Enum\SkillEvidenceFit;
 use Netresearch\NrLlm\Domain\Enum\SkillInclusion;
 use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\Enum\SkillTrustLevel;
@@ -25,6 +26,8 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\Repository\SkillRepository;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidenceEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -32,6 +35,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
 use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
 use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
+use Netresearch\NrLlm\Service\Evaluation\SkillEvidenceLookupInterface;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -56,6 +60,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
 use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
+use Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture\InMemorySkillEvidenceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillLoadLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillRecordLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
@@ -105,6 +110,9 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
 
     /** @var list<list<ToolCall>> */
     private array $turns = [];
+
+    /** The model the provider names on every answer. */
+    private string $answeringModel = 'test-model';
 
     protected function setUp(): void
     {
@@ -596,6 +604,64 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         self::assertSame(SkillRole::INSTRUCTION, $entry->role);
     }
 
+    /**
+     * ADR-322: after the answer of the call that first carried a version,
+     * the run records the evaluations that had measured that digest, judged
+     * against the model that answered. A version no evaluation measured is
+     * recorded with no evidence, explicitly.
+     */
+    #[Test]
+    public function theEvidenceOfAVersionIsRecordedAfterTheAnswerAndJudgedAgainstItsModel(): void
+    {
+        $lookup = new InMemorySkillEvidenceLookup();
+        $lookup->add(self::INSTRUCTION, $this->skills[self::INSTRUCTION]->getVersionDigest(), $this->evidence(12, 'test-model'));
+
+        $trace = new RunTrace();
+
+        $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(always: [self::INSTRUCTION, self::CONTEXT]), ToolExecutionContext::none(), null, null, 5, $trace);
+
+        $steps = $trace->getSteps();
+        $kinds = array_map(static fn (RunStep $s): string => $s->kind, $steps);
+        $at    = array_search(RunStep::KIND_SKILL_EVIDENCE, $kinds, true);
+        self::assertIsInt($at);
+        self::assertSame(RunStep::KIND_LLM, $kinds[$at - 1], 'recorded after the answer it is judged against');
+        self::assertSame(1, $steps[$at]->round);
+
+        $entries = SkillEvidenceEntry::listFrom($steps[$at]->toArray()['skillEvidence'] ?? null);
+        self::assertSame([self::INSTRUCTION, self::CONTEXT], array_map(static fn (SkillEvidenceEntry $e): int => $e->skillUid, $entries));
+        self::assertCount(1, $entries[0]->evidence);
+        self::assertSame(12, $entries[0]->evidence[0]->evaluationUid);
+        self::assertSame(SkillEvidenceFit::MATCH, $entries[0]->evidence[0]->fit);
+        self::assertSame([], $entries[1]->evidence, 'no evaluation measured the context version: none, stated');
+        self::assertCount(1, array_keys($kinds, RunStep::KIND_SKILL_EVIDENCE, true), 'later calls carry nothing new');
+    }
+
+    /**
+     * Case 4: a fallback answered with another model. The run names that
+     * model's answer and states that the evidence was measured on another.
+     */
+    #[Test]
+    public function evidenceFromAnotherModelIsMarkedAsSuchAfterAFallback(): void
+    {
+        $lookup = new InMemorySkillEvidenceLookup();
+        $lookup->add(self::INSTRUCTION, $this->skills[self::INSTRUCTION]->getVersionDigest(), $this->evidence(12, 'test-model'));
+
+        $this->answeringModel = 'fallback-model';
+        $trace                = new RunTrace();
+
+        $this->service(evidence: $lookup)->runLoop([ChatMessage::user('go')], $this->configuration(always: [self::INSTRUCTION]), ToolExecutionContext::none(), null, null, 5, $trace);
+
+        $evidenceSteps = array_values(array_filter($trace->getSteps(), static fn (RunStep $s): bool => $s->kind === RunStep::KIND_SKILL_EVIDENCE));
+        [$entry]       = SkillEvidenceEntry::listFrom($evidenceSteps[0]->toArray()['skillEvidence'] ?? null);
+        self::assertSame(SkillEvidenceFit::OTHER_MODEL, $entry->evidence[0]->fit);
+        self::assertSame('test-model', $entry->evidence[0]->reportedModelId);
+    }
+
+    private function evidence(int $uid, string $model): SkillEvidence
+    {
+        return new SkillEvidence($uid, 1_700_000_000, 'nr_llm.smoke', 'v1:' . str_repeat('c', 64), 'default', 'openai', $model, $model, 'deterministic', 'deterministic-assertions-v1', 2, 2, 1.0, 1.0);
+    }
+
     private function suspendWith(LlmConfiguration $configuration, RunTrace $trace, ?ProcessPinProbe $probe = null): SuspendedRunState
     {
         try {
@@ -628,14 +694,14 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         return $entries;
     }
 
-    private function service(?ProcessPinProbe $probe = null, ?SkillRepository $skillRepository = null): ToolLoopService
+    private function service(?ProcessPinProbe $probe = null, ?SkillEvidenceLookupInterface $evidence = null, ?SkillRepository $skillRepository = null): ToolLoopService
     {
         $manager = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
             function (): CompletionResponse {
                 $calls = array_shift($this->turns);
 
-                return new CompletionResponse($calls === null ? 'done' : '', 'test-model', UsageStatistics::fromTokens(1, 1), toolCalls: $calls);
+                return new CompletionResponse($calls === null ? 'done' : '', $this->answeringModel, UsageStatistics::fromTokens(1, 1), toolCalls: $calls);
             },
         );
         $manager->method('chatWithConfiguration')->willReturn(new CompletionResponse('done', 'test-model', UsageStatistics::fromTokens(1, 1)));
@@ -677,6 +743,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
             ),
             skillLoad: new SkillLoadService($composer, $this->loadLookup),
             processPinProbe: $probe,
+            skillEvidence: $evidence,
         );
     }
 

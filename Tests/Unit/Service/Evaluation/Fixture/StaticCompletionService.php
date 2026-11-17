@@ -15,7 +15,9 @@ use Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
 use Netresearch\NrLlm\Domain\ValueObject\ModelResolution;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\CompletionRequestIdentity;
+use Netresearch\NrLlm\Service\ComposedSkillVersions;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
 use RuntimeException;
@@ -36,6 +38,14 @@ final class StaticCompletionService implements CompletionServiceInterface
     /** @var list<ChatOptions|null> */
     public array $receivedOptions = [];
 
+    /**
+     * The composed skill versions (ADR-322) each call's response carries, by
+     * call index; a call without an entry carries none.
+     *
+     * @var array<int, array{configuration: string, uses: list<SkillUse>}>
+     */
+    public array $compositionPerCall = [];
+
     public function __construct(
         private readonly string $content,
         private readonly string $model = 'test-model',
@@ -51,7 +61,7 @@ final class StaticCompletionService implements CompletionServiceInterface
             throw new RuntimeException('provider unavailable', 1794000099);
         }
 
-        return new CompletionResponse(
+        $response = new CompletionResponse(
             $this->content,
             $this->model,
             new UsageStatistics(0, 0, 0),
@@ -62,6 +72,9 @@ final class StaticCompletionService implements CompletionServiceInterface
                 CompletionRequestIdentity::METADATA_KEY => $this->requestFingerprint,
             ] : []),
         );
+        $composition = $this->compositionPerCall[count($this->receivedPrompts) - 1] ?? null;
+
+        return $composition === null ? $response : ComposedSkillVersions::attach($response, $composition['configuration'], $composition['uses']);
     }
 
     public function completeJson(string $prompt, ?ChatOptions $options = null): array
