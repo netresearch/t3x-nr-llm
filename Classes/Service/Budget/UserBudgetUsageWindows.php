@@ -42,9 +42,14 @@ final readonly class UserBudgetUsageWindows implements BudgetUsageWindowsInterfa
         // daily bound.
         $lowerBound = $monthlyFromTimestamp ?? $dailyFromTimestamp;
 
+        // A window that is not set counts from after the upper bound, so no
+        // row the WHERE admits falls into it. PHP_INT_MAX did the same on
+        // MySQL and SQLite and is out of range for an integer column in
+        // PostgreSQL.
+        $none             = $toTimestamp + 1;
         $queryBuilder     = $this->connectionPool->getQueryBuilderForTable(self::USAGE_TABLE);
-        $dailyFromParam   = $queryBuilder->createNamedParameter($dailyFromTimestamp ?? PHP_INT_MAX);
-        $monthlyFromParam = $queryBuilder->createNamedParameter($monthlyFromTimestamp ?? PHP_INT_MAX);
+        $dailyFromParam   = $queryBuilder->createNamedParameter($dailyFromTimestamp ?? $none);
+        $monthlyFromParam = $queryBuilder->createNamedParameter($monthlyFromTimestamp ?? $none);
 
         $row = $queryBuilder
             ->addSelectLiteral(sprintf('SUM(CASE WHEN request_date >= %s THEN request_count ELSE 0 END) AS daily_requests', $dailyFromParam))
