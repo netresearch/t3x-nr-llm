@@ -73,7 +73,9 @@ first; nr-llm writes it only after that. Since nr_mcp_agent's chat runs cannot
 be told apart, no delegation tool is offered at all while nr_mcp_agent is
 loaded in a version that does not handle the status, and the remote-agent
 module says why. The release that activates the status names the nr_mcp_agent
-version under "Upgrading".
+version under "Upgrading". That version is 0.39.0:
+:php:`A2aDelegationGate::FIRST_COMPATIBLE_MCP_AGENT` holds it, and a lower
+version keeps the delegation tools withheld.
 
 **The suspension is a checkpoint, and it resolves once.** A suspended segment
 stores, sealed, the tool-call id the dependency answers, the external operation
@@ -152,8 +154,8 @@ Consequences
   checks as one from the inbox.
 - ◑ A run can sit in the new status until its deadline; the inbox and the run
   list show it as waiting, not as needing a decision.
-- ◑ On an installation with nr_mcp_agent, delegation waits for an
-  nr_mcp_agent release.
+- ◑ On an installation with nr_mcp_agent, delegation needs nr_mcp_agent 0.39.0
+  or later; with an older version no delegation tool is offered.
 - ✕ Any other consumer that maps "not waiting, not running, not queued" to
   "settled" misreads the status, although the enum change is additive.
 - ✕ Polling adds requests to the remote for the duration of a task.
