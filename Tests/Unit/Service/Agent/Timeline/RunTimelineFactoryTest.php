@@ -485,6 +485,11 @@ final class RunTimelineFactoryTest extends TestCase
                 (new SkillEvidenceEntry(5, '', []))->toArray(),
             ],
         ];
+        // As stored: the persister encodes without preserving a zero
+        // fraction, so a pass rate of 1.0 comes back as the integer 1.
+        $payload = json_decode(json_encode($payload, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        /** @var array<string, mixed> $payload */
         $event = new AgentRunEvent(uid: 201, run: 7, sequence: 1, kind: 'skill_evidence', round: 1, durationMs: 0.0, payload: $payload, crdate: 1_700_000_011);
 
         $lookup = new InMemorySkillEvidenceLookup();

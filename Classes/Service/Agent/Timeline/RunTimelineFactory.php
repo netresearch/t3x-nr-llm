@@ -314,7 +314,7 @@ final readonly class RunTimelineFactory
     /**
      * A skill evidence step (ADR-322), one part per version:
      * `#uid@digest: none`, or each evaluation as
-     * `eval#N set model pass=0.90 fit=match`, with `report gone` when
+     * `eval#N set model pass=0.90 fit=match`, with `report=gone` when
      * retention purged the evaluation since. The snapshot the run recorded is
      * what is shown; a newer evaluation of the same version never stands in
      * for it.

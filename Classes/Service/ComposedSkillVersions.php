@@ -14,7 +14,7 @@ use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 
 /**
- * The skill versions a configuration-backed chat composed into its request,
+ * The skill versions a chat through the default configuration composed into its request,
  * carried on the response's metadata so an evaluation can say which skill
  * versions it measured (ADR-322).
  *

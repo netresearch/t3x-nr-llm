@@ -1760,7 +1760,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
     /**
      * The test evidence that applied to the versions a call first carried
-     * (ADR-322): for each passed version, the evaluations stored now that
+     * (ADR-322): for each passed composed version, the evaluations stored now that
      * measured its digest, judged against the model the provider named on
      * the call's answer. An empty evidence list states that none applied.
      * Without the lookup, which only the lean wiring lacks, nothing.

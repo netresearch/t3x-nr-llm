@@ -9,7 +9,7 @@ measured on the model that answered.
 
 ## Requirements
 
-- **TE1 An evaluation names what it measured.** A configuration-backed chat
+- **TE1 An evaluation names what it measured.** A chat through the default configuration
   puts the skill versions its request carried, and the configuration
   identifier, on the response's metadata. An evaluation stores them (skill,
   source, digest, role) when every prompt's request carried the same
