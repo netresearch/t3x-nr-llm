@@ -3483,6 +3483,9 @@
             <trans-unit id="error.tool.unknownGroup">
                 <source>Unknown tool group</source>
             </trans-unit>
+            <trans-unit id="error.tool.toggleFailed">
+                <source>The switch was not saved. See the system log for details.</source>
+            </trans-unit>
             <trans-unit id="error.tool.decidedInChat">
                 <source>This run is a guided process. It is decided in the chat by the person who started it, not in the playground.</source>
             </trans-unit>

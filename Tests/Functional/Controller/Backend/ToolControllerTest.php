@@ -24,6 +24,7 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\EditorActionDiagnosticLogger;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FailingToolAuditRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeMalformedEditorActionTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
@@ -418,6 +419,59 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
             ->withParsedBody(['group' => 'system', 'enabled' => '0']));
 
         self::assertSame([], $this->auditRows());
+    }
+
+    /**
+     * The switch and its audit row are one transaction: when the audit
+     * insert fails, the switch is rolled back and the action reports an
+     * error. Otherwise the state would change without a row, and a retry
+     * would record nothing because the state already matches.
+     */
+    #[Test]
+    #[DataProvider('switchActions')]
+    public function aFailedAuditInsertRollsTheSwitchBack(string $action, string $field, string $name): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $this->setUpBackendUser(1); // admin
+        $pool         = $this->toolConnectionPool();
+        $toolRegistry = new ToolRegistry([new FakeTool('fetch_logs', group: 'system')]);
+        $controller   = new ToolController(
+            $this->getService(ModuleTemplateFactory::class),
+            $toolRegistry,
+            $this->availabilityFor($toolRegistry),
+            new ToolStateRepository($pool),
+            new ToolGroupStateRepository($pool),
+            $this->getService(PageRenderer::class),
+            audit: new FailingToolAuditRepository(),
+            connectionPool: $pool,
+        );
+        $request = (new GuzzleServerRequest('POST', '/ajax/nrllm/toggle'))
+            ->withParsedBody([$field => $name, 'enabled' => '0']);
+
+        $response = null;
+        try {
+            $response = $action === 'tool' ? $controller->toggleToolAction($request) : $controller->toggleToolGroupAction($request);
+        } catch (Throwable) {
+            // Asserted below: the state must be unchanged either way.
+        }
+
+        self::assertSame([], (new ToolStateRepository($pool))->overrides(), 'the tool switch must be rolled back');
+        self::assertSame([], (new ToolGroupStateRepository($pool))->overrides(), 'the group switch must be rolled back');
+        self::assertInstanceOf(ResponseInterface::class, $response, 'the failure is reported, not thrown');
+        self::assertSame(500, $response->getStatusCode());
+        $payload = json_decode((string) $response->getBody(), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        self::assertFalse($payload['success']);
+        self::assertSame([], $this->auditRows());
+    }
+
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
+    public static function switchActions(): iterable
+    {
+        yield 'tool' => ['tool', 'tool', 'fetch_logs'];
+        yield 'group' => ['group', 'group', 'system'];
     }
 
     /**

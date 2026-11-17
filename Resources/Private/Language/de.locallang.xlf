@@ -4632,6 +4632,10 @@
                 <source>Unknown tool group</source>
                 <target>Unbekannte Werkzeuggruppe</target>
             </trans-unit>
+            <trans-unit id="error.tool.toggleFailed">
+                <source>The switch was not saved. See the system log for details.</source>
+                <target>Die Änderung wurde nicht gespeichert. Details stehen im Systemprotokoll.</target>
+            </trans-unit>
             <trans-unit id="error.tool.decidedInChat">
                 <source>This run is a guided process. It is decided in the chat by the person who started it, not in the playground.</source>
                 <target>Dieser Lauf ist ein geführter Ablauf. Darüber entscheidet die Person, die ihn gestartet hat, im Chat, nicht im Playground.</target>

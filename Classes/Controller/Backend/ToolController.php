@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Controller\Backend;
 
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolAuditScope;
 use Netresearch\NrLlm\Service\Tool\ToolAuditRepositoryInterface;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityServiceInterface;
@@ -19,9 +20,12 @@ use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Log\LoggerInterface;
+use Throwable;
 use TYPO3\CMS\Backend\Attribute\AsController;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
@@ -44,6 +48,11 @@ final class ToolController extends ActionController
     use DefensiveLocalizationTrait;
     use ModuleChromeTrait;
     use RequiresBackendAdminTrait;
+    private const AUDIT_TABLE = 'tx_nrllm_tool_audit';
+
+    private const TOOL_STATE_TABLE = 'tx_nrllm_tool_state';
+
+    private const GROUP_STATE_TABLE = 'tx_nrllm_tool_group_state';
 
     public function __construct(
         private readonly ModuleTemplateFactory $moduleTemplateFactory,
@@ -59,6 +68,10 @@ final class ToolController extends ActionController
         // The audit trail of the switches below. Optional and trailing for the
         // same reason; without it a switch is still applied, but not recorded.
         private readonly ?ToolAuditRepositoryInterface $audit = null,
+        // The switch and its audit row are written in one transaction on
+        // this pool's connection. Optional and trailing like the others.
+        private readonly ?ConnectionPool $connectionPool = null,
+        private readonly ?LoggerInterface $logger = null,
     ) {}
 
     public function listAction(): ResponseInterface
@@ -106,14 +119,16 @@ final class ToolController extends ActionController
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownTool', 'Unknown tool')], 404);
         }
 
-        $enabled  = $this->boolFromBody($body, 'enabled');
-        $previous = $this->toolStateRepository->overrides()[$toolName] ?? $tool->isEnabledByDefault();
-        $this->toolStateRepository->setEnabled($toolName, $enabled);
-        if ($previous !== $enabled) {
-            $this->audit?->record(ToolAuditScope::TOOL, $toolName, $previous, $enabled, $this->backendUser());
-        }
+        $enabled = $this->boolFromBody($body, 'enabled');
+        $failure = $this->switchAndRecord(
+            ToolAuditScope::TOOL,
+            $toolName,
+            $enabled,
+            fn (): bool => $this->toolStateRepository->overrides()[$toolName] ?? $tool->isEnabledByDefault(),
+            fn () => $this->toolStateRepository->setEnabled($toolName, $enabled),
+        );
 
-        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+        return $failure ?? new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
 
     /**
@@ -140,14 +155,16 @@ final class ToolController extends ActionController
             return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.unknownGroup', 'Unknown tool group')], 404);
         }
 
-        $enabled  = $this->boolFromBody($body, 'enabled');
-        $previous = $this->toolGroupStateRepository->overrides()[$groupName] ?? true;
-        $this->toolGroupStateRepository->setEnabled($groupName, $enabled);
-        if ($previous !== $enabled) {
-            $this->audit?->record(ToolAuditScope::GROUP, $groupName, $previous, $enabled, $this->backendUser());
-        }
+        $enabled = $this->boolFromBody($body, 'enabled');
+        $failure = $this->switchAndRecord(
+            ToolAuditScope::GROUP,
+            $groupName,
+            $enabled,
+            fn (): bool => $this->toolGroupStateRepository->overrides()[$groupName] ?? true,
+            fn () => $this->toolGroupStateRepository->setEnabled($groupName, $enabled),
+        );
 
-        return new JsonResponse(['success' => true, 'enabled' => $enabled]);
+        return $failure ?? new JsonResponse(['success' => true, 'enabled' => $enabled]);
     }
 
     /**
@@ -163,6 +180,63 @@ final class ToolController extends ActionController
         }
 
         return $byName;
+    }
+
+    /**
+     * Write a switch and, when it changes the state, its audit row, as one
+     * transaction: a failed audit insert rolls the switch back, so the state
+     * never changes without a row (a retry would record nothing, because the
+     * state would already match). The state and the audit table must share a
+     * connection, as the skill sync requires for its tables; otherwise the
+     * switch is refused. Returns the error response, or null on success.
+     *
+     * @param Closure(): bool $previous the state before the switch
+     * @param Closure(): void $write    the state write
+     */
+    private function switchAndRecord(ToolAuditScope $scope, string $name, bool $enabled, Closure $previous, Closure $write): ?ResponseInterface
+    {
+        $apply = function () use ($scope, $name, $enabled, $previous, $write): void {
+            $before = $previous();
+            $write();
+            if ($before !== $enabled) {
+                $this->audit?->record($scope, $name, $before, $enabled, $this->backendUser());
+            }
+        };
+
+        if (!$this->audit instanceof ToolAuditRepositoryInterface || !$this->connectionPool instanceof ConnectionPool) {
+            $apply();
+
+            return null;
+        }
+
+        $connection = $this->connectionPool->getConnectionForTable(self::AUDIT_TABLE);
+        $stateTable = $scope === ToolAuditScope::TOOL ? self::TOOL_STATE_TABLE : self::GROUP_STATE_TABLE;
+        if ($connection !== $this->connectionPool->getConnectionForTable($stateTable)) {
+            return $this->switchNotSaved($scope, $name, ['reason' => sprintf('The tables %s and %s must use the same database connection.', $stateTable, self::AUDIT_TABLE)]);
+        }
+
+        try {
+            $connection->transactional(static function () use ($apply): void {
+                $apply();
+            });
+        } catch (Throwable $e) {
+            return $this->switchNotSaved($scope, $name, ['exception' => $e]);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     */
+    private function switchNotSaved(ToolAuditScope $scope, string $name, array $context): ResponseInterface
+    {
+        $this->logger?->error('Tool switch: not saved, the switch and its audit row are written together', $context + [
+            'scope' => $scope->value,
+            'name'  => $name,
+        ]);
+
+        return new JsonResponse(['success' => false, 'error' => $this->localize('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:error.tool.toggleFailed', 'The switch was not saved. See the system log for details.')], 500);
     }
 
     private function backendUser(): ?BackendUserAuthentication
