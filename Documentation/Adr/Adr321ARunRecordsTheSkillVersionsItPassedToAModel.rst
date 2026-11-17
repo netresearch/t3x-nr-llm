@@ -45,9 +45,10 @@ Decision
    missing model-answer step after it shows that no answer came. So does a run
    cancelled in the moment between the entry and the request step. The check
    whether another turn ended the run's process (:ref:`ADR-228 <adr-228>`)
-   does not run on the usage step, so it stops a turn at the request step that
-   follows instead. An entry counts as passed to a call when a request step of
-   the same round follows it.
+   does not run on the usage step: for a send it stops the turn at the request
+   step that follows, for a load at the next tool or request check. An entry
+   counts as passed to a call when a request step of the same round follows
+   it.
 2. **What enters.** A version enters a segment's ledger
    (:php:`SkillUsageLedger`) when the composition put it into the prompt —
    instruction, process, or a context skill of a block that was placed — when
