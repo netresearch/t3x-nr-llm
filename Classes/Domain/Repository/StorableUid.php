@@ -10,8 +10,10 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Domain\Repository;
 
 /**
- * Whether a uid is one a record can have: a positive 32-bit integer, the
- * range of TYPO3's uid column on every database it supports.
+ * Whether a uid is one a record can have here: a positive signed 32-bit
+ * integer, the largest uid every database TYPO3 supports can store
+ * (PostgreSQL's uid column is a signed integer; MySQL's is unsigned and
+ * goes further).
  *
  * A uid often comes from a request (an AJAX body, a route argument, a CLI
  * argument). MySQL and SQLite compare a larger value and find nothing;
@@ -23,7 +25,7 @@ namespace Netresearch\NrLlm\Domain\Repository;
  */
 final class StorableUid
 {
-    /** The largest uid a record can have: the 32-bit signed integer limit. */
+    /** The largest uid every supported database can store: the signed 32-bit limit. */
     public const LARGEST = 2147483647;
 
     public static function fits(mixed $uid): bool

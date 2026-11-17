@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Agent\A2a\Server;
 
+use Netresearch\NrLlm\Domain\Repository\StorableUid;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -86,6 +87,12 @@ final readonly class A2aInboundClientRepository
      */
     public function findRawByUid(int $uid): ?A2aInboundClient
     {
+        // A uid from a capability token or a request body; PostgreSQL refuses
+        // one outside the uid column's range instead of finding nothing.
+        if (!StorableUid::fits($uid)) {
+            return null;
+        }
+
         $builder = $this->connectionPool->getQueryBuilderForTable(self::TABLE);
         $builder->getRestrictions()->removeAll()->add(new DeletedRestriction());
         $row = $builder->select('*')
@@ -214,6 +221,10 @@ final readonly class A2aInboundClientRepository
      */
     public function revoke(int $uid, ?int $selfServiceOwnerUid = null): bool
     {
+        if (!StorableUid::fits($uid)) {
+            return false;
+        }
+
         $criteria = ['uid' => $uid, 'deleted' => 0];
         if ($selfServiceOwnerUid !== null) {
             $criteria += ['self_service' => 1, 'be_user' => $selfServiceOwnerUid];

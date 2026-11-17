@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 
 use Doctrine\DBAL\Exception as DbalException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushDeliverer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
@@ -110,31 +109,31 @@ final readonly class A2aTaskProjector
             // lock first, so an event of this revision that exists now was
             // written by a projection that committed. Looked up instead of
             // inserted and caught: on PostgreSQL the failed insert would
-            // abort the whole transaction.
+            // abort the whole transaction. A plain read on purpose: on
+            // MariaDB/MySQL it is the transaction's first consistent read, so
+            // its snapshot is taken after the task lock and sees that event,
+            // while a locking read of a missing key would take a gap lock that
+            // deadlocks with the insert of another task's projection.
             $exists = $connection->executeQuery(
-                'SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_uid = ? AND revision = ?' . $this->lockingRead($connection),
+                'SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_uid = ? AND revision = ?',
                 [$taskUid, $revision],
                 [Connection::PARAM_INT, Connection::PARAM_INT],
             )->fetchOne();
 
             $written = 0;
             if ($exists === false) {
-                try {
-                    $connection->insert(self::TABLE, [
-                        'task_uid' => $taskUid,
-                        'revision' => $revision,
-                        'kind'     => self::KIND_TASK,
-                        'payload'  => $this->codec->encode($this->payload($task), AgentStateCodec::PURPOSE_A2A_EVENT),
-                        'crdate'   => time(),
-                    ]);
-                    $written = 1;
-                    // A2A-PUSH3: the event and its delivery jobs commit together;
-                    // while push is switched off no job is written.
-                    if ($this->settings?->pushEnabled() === true) {
-                        A2aPushDeliverer::enqueue($connection, $taskUid, $revision, time());
-                    }
-                } catch (UniqueConstraintViolationException) {
-                    // Another projection of this revision won; it is the same event.
+                $connection->insert(self::TABLE, [
+                    'task_uid' => $taskUid,
+                    'revision' => $revision,
+                    'kind'     => self::KIND_TASK,
+                    'payload'  => $this->codec->encode($this->payload($task), AgentStateCodec::PURPOSE_A2A_EVENT),
+                    'crdate'   => time(),
+                ]);
+                $written = 1;
+                // A2A-PUSH3: the event and its delivery jobs commit together;
+                // while push is switched off no job is written.
+                if ($this->settings?->pushEnabled() === true) {
+                    A2aPushDeliverer::enqueue($connection, $taskUid, $revision, time());
                 }
             }
 
