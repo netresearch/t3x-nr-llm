@@ -131,7 +131,7 @@
          "sources": [{"label": "nr-llm-Handbuch: A2A-Server", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aServer.html"}]},
         {"capability": "Arbeit an andere A2A-Agenten delegieren", "origin": ["nr"], "component": "A2A-Client in nr-llm",
          "detail": "Administratoren registrieren entfernte A2A-Agenten. Die Skills aus deren Agent Card werden zu Werkzeugen, die anfangs ausgeschaltet sind und standardmäßig eine Freigabe verlangen, bevor ein Lauf delegiert.",
-         "limit": "Der Client tauscht nur Text aus. Solange der Backend-Chat nr-mcp-agent installiert ist, bekommen Agentenläufe noch keine Delegationswerkzeuge angeboten (siehe Grenzen).",
+         "limit": "Der Client tauscht nur Text aus. Ist der Backend-Chat nr-mcp-agent installiert, bekommen Agentenläufe Delegationswerkzeuge ab nr-llm 0.50.0, und nur mit nr-mcp-agent 0.39.0 oder neuer (siehe Grenzen).",
          "sources": [{"label": "nr-llm-Handbuch: entfernte Agenten", "href": "https://docs.typo3.org/p/netresearch/nr-llm/main/en-us/Administration/A2aRemoteAgents.html"}]},
         {"capability": "Persönliche Agenten mit den Rechten des Redakteurs", "origin": ["nr"], "component": "A2A-Tokens in nr-llm",
          "detail": "Sofern ein Administrator es erlaubt, stellen Redakteure eigene widerrufbare A2A-Tokens aus. Ein Token ist auf freigegebene Profile beschränkt und standardmäßig auf einen Entwurfs-Workspace und ein Ablaufdatum. nr-llm prüft jede Anfrage gegen die aktuellen Gruppen des Redakteurs.",
@@ -291,7 +291,7 @@
     "heading": "Wo die Grenzen heute liegen",
     "intro": "Diese Grenzen gelten für die aktuellen Releases. Was gemergt, aber noch nicht veröffentlicht ist, zählt hier nicht als verfügbar.",
     "items": [
-      "Die Kette vom Backend-Chat zu einem entfernten Agenten und zurück ist noch nicht verfügbar. Solange nr-mcp-agent installiert ist, bietet nr-llm Agentenläufen keine Delegationswerkzeuge an. nr-mcp-agent enthält zwar schon eine Anzeige für einen Schritt, der auf einen entfernten Agenten wartet, erreichbar wird sie aber erst, wenn nr-llm diese Sperre aufhebt. Dass nr-llm die abschließende Antwort eines solchen Schritts behält, ist in Arbeit.",
+      "Die Kette vom Backend-Chat zu einem entfernten Agenten und zurück braucht nr-llm 0.50.0 und nr-mcp-agent 0.39.0 oder neuer. Ist ein älteres nr-mcp-agent installiert, bietet nr-llm Agentenläufen keine Delegationswerkzeuge an. Mit beiden Releases zeigt der Chat einen Schritt an, der auf einen entfernten Agenten wartet, und nr-llm behält die abschließende Antwort dieses Schritts, wenn der Lauf weiterläuft, soweit die Datenschutzstufe es zulässt: Bei der Stufe none bleibt nichts, bei redacted nur der geschwärzte Text.",
       "Der A2A-Client tauscht nur Text aus. Der A2A-Server nimmt Dateien nur an und gibt sie nur zurück, wenn Dateien eingeschaltet sind.",
       "nr-browser-ai ist ein Proof of Concept. Seine Formularwerkzeuge füllen ein Formular aus und fragen dessen Datenquelle ab; abgeschickt wird es nie.",
       "nr-mcp-agent ist als Proof of Concept veröffentlicht, nr-repurpose und nr-http-guard als Alpha.",
