@@ -479,7 +479,10 @@ final readonly class AgentRunExecutor
                 // check before the next tool call or provider call stops the
                 // turn instead. Unlike the cancellation probe this one fails
                 // closed: a row it cannot read stops the turn.
-                $toolResultStep = in_array($step->kind, [RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT, RunStep::KIND_WRITE, RunStep::KIND_CHANGES], true);
+                // Nor on a skill usage step (ADR-321): it is written just before
+                // a request step or a load's tool step, and stopping between
+                // the two would leave a usage entry with nothing after it.
+                $toolResultStep = in_array($step->kind, [RunStep::KIND_TOOL, RunStep::KIND_HIGHLIGHT, RunStep::KIND_WRITE, RunStep::KIND_CHANGES, RunStep::KIND_SKILLS], true);
                 $refusal        = $processProbe instanceof Closure && !$toolResultStep ? $processProbe(static fn (): ?AgentRun => $run) : null;
                 if ($refusal instanceof ProcessInvocationRefusal) {
                     throw ProcessInvocationRefusedException::forRun($handle->uuid, $refusal);

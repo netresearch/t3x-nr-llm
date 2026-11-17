@@ -150,7 +150,8 @@ Composition rules:
   boundary.
 
 - **Record of use.** Every persisted agent run records, before each model
-  call, the skill versions that call carries for the first time: skill and
+  call, the skill versions that call carries for the first time in its
+  segment (a resumed run records what it carries again): skill and
   source uid, version digest, identifier, role (instruction, process or
   context), how the version came in (composed, loaded or carried by a resumed
   run), and the approval that held. A load is recorded as *loaded* and, at the

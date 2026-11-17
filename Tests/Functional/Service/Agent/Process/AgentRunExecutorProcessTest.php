@@ -14,6 +14,10 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\Enum\ProcessInvocationRefusal;
+use Netresearch\NrLlm\Domain\Enum\SkillApprovalState;
+use Netresearch\NrLlm\Domain\Enum\SkillInclusion;
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
+use Netresearch\NrLlm\Domain\Enum\SkillUsageState;
 use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Skill;
@@ -27,6 +31,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RunLineage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
 use Netresearch\NrLlm\Domain\ValueObject\SkillInvocation;
 use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SubjectRecord;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
@@ -332,6 +337,44 @@ final class AgentRunExecutorProcessTest extends AbstractFunctionalTestCase
                 self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, $case);
             }
         }
+    }
+
+    /**
+     * ADR-321: a skill usage step is written just before the request step of
+     * its call, so an ended process does not stop the turn between the two:
+     * the usage entry is followed by its request step, and the turn stops
+     * there.
+     */
+    #[Test]
+    public function anEndedProcessStopsATurnAtTheRequestStepAfterItsSkillUsage(): void
+    {
+        $pin    = new SkillPin(5, self::SOURCE, str_repeat('a', 64));
+        $origin = $this->begin();
+        self::assertTrue($this->persister->recordLineage($origin, new RunLineage(30, $pin, originRunUuid: $origin->uuid)));
+        $turn = $this->begin();
+        self::assertTrue($this->persister->recordLineage($turn, new RunLineage(30, $pin, originRunUuid: $origin->uuid)));
+
+        $this->rounds = 0;
+        $result       = $this->executor(true)->executeResume(
+            $turn,
+            null,
+            AiActorContext::backendUser(2),
+            function (ToolExecutionContext $context, RunTrace $trace) use ($origin, $pin): ToolLoopResult {
+                $trace->recordRequest(1, [], []);
+                self::assertTrue($this->persister->recordLineage($origin, (new RunLineage(30, $pin, originRunUuid: $origin->uuid))->withReleasedProcess()));
+                $trace->recordSkillUsage(2, [new SkillUsageEntry(5, self::SOURCE, str_repeat('a', 64), 'tour', SkillRole::PROCESS, SkillInclusion::CARRIED, SkillUsageState::PASSED, SkillApprovalState::UNKNOWN)]);
+                $this->rounds = 2;
+                $trace->recordRequest(2, [], []);
+                $this->rounds = 3;
+
+                return new ToolLoopResult('done', [], 2, false, UsageStatistics::fromTokens(1, 1));
+            },
+        );
+
+        self::assertSame(2, $this->rounds, 'the usage step is passed, the request step stops the turn');
+        self::assertSame(AgentRunOutcome::FAILED, $result->outcome);
+        $kinds = array_map(static fn (AgentRunEvent $e): string => $e->kind, $this->persister->findEvents($turn->runUid));
+        self::assertSame([RunStep::KIND_SKILLS, RunStep::KIND_REQUEST], array_slice($kinds, -2));
     }
 
     /**

@@ -122,6 +122,8 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
 
         $process = $this->skills[self::PROCESS];
         $process->setProcess(true);
+        // A process restricts a run to the tools it declares.
+        $process->setAllowedTools('["write"]');
         $process->setVersionDigest(SkillVersionDigest::of($process));
         $this->approvalUids[self::PROCESS] = $this->approvals->add(self::PROCESS, self::SOURCE, $process->getVersionDigest(), ['process' => true] + SkillVersionDigest::fieldsOf($process), 'verified', 1);
 
@@ -452,6 +454,84 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         $entries = $this->entries($resumed);
         self::assertSame([SkillUsageState::LOADED, SkillUsageState::PASSED], array_map(static fn (SkillUsageEntry $e): SkillUsageState => $e->state, $entries));
         self::assertSame(SkillInclusion::LOADED, $entries[1]->inclusion);
+    }
+
+    /**
+     * A refused load (a uid that is not in the catalogue) appends nothing,
+     * so it names nothing.
+     */
+    #[Test]
+    public function aRefusedLoadNamesNothing(): void
+    {
+        $this->turns = [[new ToolCall('c1', LoadSkillTool::NAME, ['skill_uid' => 999])]];
+        $trace       = new RunTrace();
+
+        $this->service()->runLoop([ChatMessage::user('go')], $this->configuration(onDemand: true), ToolExecutionContext::none(), null, null, 5, $trace);
+
+        self::assertSame([], $this->usageSteps($trace));
+    }
+
+    /**
+     * A guided process pauses for an approval; the resumed segment carries
+     * its pin, and the entry takes the role from the approval that held:
+     * a process, not an instruction.
+     */
+    #[Test]
+    public function aResumedProcessIsCarriedAsAProcess(): void
+    {
+        $process       = $this->skills[self::PROCESS];
+        $configuration = $this->configuration();
+        $configuration->addSkillOnDemand($process);
+        $probe       = new ApprovedProcessPinProbe($this->approvals);
+        $this->turns = [[new ToolCall('c1', 'write', [])]];
+
+        try {
+            $this->service($probe)->runLoop(
+                [ChatMessage::user('start the tour')],
+                $configuration,
+                ToolExecutionContext::none(),
+                null,
+                null,
+                5,
+                new RunTrace(),
+                RunAugmentation::forProcess(new SkillPin(self::PROCESS, self::SOURCE, $process->getVersionDigest())),
+            );
+            self::fail('The write did not suspend the run.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $resumed = new RunTrace();
+        $this->service($probe)->resume($state, true, $configuration, ToolExecutionContext::none(), null, $resumed);
+
+        [$carried] = $this->entries($resumed);
+        self::assertSame(self::PROCESS, $carried->skillUid);
+        self::assertSame(SkillInclusion::CARRIED, $carried->inclusion);
+        self::assertSame(SkillRole::PROCESS, $carried->role);
+        self::assertSame('tour', $carried->identifier);
+    }
+
+    /**
+     * A version whose approval is gone when its usage is recorded names no
+     * approval: `unknown`, never a stale uid.
+     */
+    #[Test]
+    public function aVersionWithoutAHeldApprovalIsNamedWithAnUnknownApproval(): void
+    {
+        $skill  = $this->skills[self::INSTRUCTION];
+        $ledger = new SkillUsageLedger([], [self::INSTRUCTION => 'house-rules'], new SkillPinCheck(
+            new InMemorySkillApprovalRepository(),
+            new FixedSkillSourceLookup([self::SOURCE => SkillTrustLevel::VERIFIED]),
+            new FixedSkillRecordLookup([self::INSTRUCTION]),
+            new SkillComposerFactory(self::createStub(ExtensionConfiguration::class)),
+        ));
+
+        [$entry] = $ledger->passing([new SkillPin(self::INSTRUCTION, self::SOURCE, $skill->getVersionDigest())]);
+
+        self::assertSame(SkillApprovalState::UNKNOWN, $entry->approvalState);
+        self::assertSame(0, $entry->approvalUid);
+        self::assertSame(SkillInclusion::CARRIED, $entry->inclusion);
+        self::assertSame(SkillRole::INSTRUCTION, $entry->role);
     }
 
     private function suspendWith(LlmConfiguration $configuration, RunTrace $trace, ?ProcessPinProbe $probe = null): SuspendedRunState

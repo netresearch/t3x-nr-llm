@@ -17,7 +17,9 @@ metadata mode a load left only the tool name behind.
   round of the first model call of a segment whose request carries it, before
   that call's request step. A version whose segment ends, pauses or fails
   before such a call is not recorded as passed. Passed means handed to the
-  call; a call the manager refuses before the provider keeps the entry.
+  call: a call the manager refuses before the provider, or a run cancelled
+  between the entry and the request step, keeps the entry. An entry counts as
+  passed when a request step of the same round follows it.
 - **SU2 Every channel.** Instruction versions, the process version and the
   context skills of the delimited block are recorded. A context skill is
   recorded only when the block was placed into the messages.
@@ -75,7 +77,8 @@ metadata mode a load left only the tool name behind.
 | SU1 (changed skill) | `ToolLoopServiceSkillUsageTest::aChangedSkillIsNamedWithItsNewDigest` |
 | SU2 (block not placed) | `SkillInjectionBoundaryTest::missingUserPreservesTheEntireMessageListAndFencedSkillsCannotEnterSystemRole` |
 | SU3 | `ToolLoopServiceSkillUsageTest::aSkillOnlyOfferedInTheCatalogueIsNeverNamed`, `SkillComposerTest::dropsTaskAdditiveBeforeConfigBaselineWhenOverBudget` |
-| SU4 | `ToolLoopServiceSkillUsageTest::aLoadIsNamedAsLoadedAndThenAsPassedByTheNextCall`, `aLoadedVersionWhoseRunPausesBeforeTheNextCallIsNotNamedAsPassed` |
+| SU4 | `ToolLoopServiceSkillUsageTest::aLoadIsNamedAsLoadedAndThenAsPassedByTheNextCall`, `aLoadedVersionWhoseRunPausesBeforeTheNextCallIsNotNamedAsPassed`, `aRefusedLoadNamesNothing` |
+| SU5 (carried process, unknown approval) | `ToolLoopServiceSkillUsageTest::aResumedProcessIsCarriedAsAProcess`, `aVersionWithoutAHeldApprovalIsNamedWithAnUnknownApproval` |
 | SU5 | `ToolLoopServiceSkillUsageTest::aResumedSegmentNamesTheVersionItCarriesAtItsFirstSend`, `aLoadHeldInAPausedTurnIsNamedWhenTheResumeRunsIt`, `aLoadHeldInATurnPausedForInputIsNamedWhenTheResumeRunsIt`, `aRevocationDuringThePauseStopsTheResumeBeforeAnythingIsNamed` |
 | SU6, SU7 | `ToolLoopServiceSkillUsageTest::theRecordCarriesNoTextOfTheSkill`, functional `SkillUsagePersistenceTest` (every privacy level, after the run ends, purge) |
 | SU8 | `RunTimelineFactoryTest::aSkillUsageStepShowsEachVersionItNames` |

@@ -312,7 +312,10 @@ final readonly class RunTimelineFactory
         foreach (SkillUsageEntry::listFrom($stored) as $entry) {
             $parts[] = sprintf(
                 '%s#%d@%s %s/%s/%s%s',
-                $entry->identifier,
+                // The identifier is text an administrator or a source chose;
+                // the separators of this line are replaced, so it cannot read
+                // as a further entry or fact.
+                strtr($entry->identifier, [',' => '_', ';' => '_', '=' => '_']),
                 $entry->skillUid,
                 $entry->versionDigest === '' ? '-' : substr($entry->versionDigest, 0, 14),
                 $entry->role->value,

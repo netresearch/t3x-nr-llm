@@ -43,8 +43,11 @@ Decision
    means handed to the call: a call the manager refuses before the provider
    (an input guardrail, the budget, the trust-zone gate) keeps the entry, and
    the missing model-answer step after it shows that no answer came. So does
-   a turn of a process that another turn ended in the moment between the
-   entry and the request step (:ref:`ADR-228 <adr-228>`).
+   a run cancelled in the moment between the entry and the request step. The
+   check whether another turn ended the run's process (:ref:`ADR-228
+   <adr-228>`) does not run on the usage step, so it stops a turn at the
+   request step that follows instead. An entry counts as passed to a call
+   when a request step of the same round follows it.
 2. **What enters.** A version enters a segment's ledger
    (:php:`SkillUsageLedger`) when the composition put it into the prompt —
    instruction, process, or a context skill of a block that was placed —
@@ -58,9 +61,12 @@ Decision
    skill's identifier, role (``instruction``, ``process``, ``context``),
    inclusion (``composed``, ``loaded``, ``carried``), state (``loaded``,
    ``passed``), and the approval that held when the entry was recorded: its
-   uid, or ``none`` for a context skill, or ``unknown``. The version and role
-   are fixed where the version entered the run; the approval is read when
-   the entry is recorded (:php:`SkillPinCheck::heldApproval()`).
+   uid, or ``none`` for a context skill, or ``unknown``. The version is fixed
+   where it entered the run, and so is the role of a composed version; the
+   approval is read when the entry is recorded
+   (:php:`SkillPinCheck::heldApproval()`), and a loaded or carried version
+   takes its role from that approval (a process or an instruction;
+   ``instruction`` when none is found).
 5. **No text.** No name, description or body is part of an entry. The
    identifier is the record's identifier, never the approved name a process
    section falls back to; it is text an administrator or a skill source
