@@ -95,7 +95,7 @@ Lifecycle methods
 
 ``cancelIfWaitingForDependency($actor, $runUuid)``
     Cancels only a run waiting for an external dependency, such as a remote
-    agent's task, and asks that operation once to cancel. A run a continuation
+    agent's task, and asks that operation once to cancel where its reference can be read. A run a continuation
     already claimed is not cancelled; the result names its status. Restricted
     to its initiator or an admin.
 
