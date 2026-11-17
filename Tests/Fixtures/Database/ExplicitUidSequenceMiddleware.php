@@ -9,14 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Fixtures\Database;
 
-use Closure;
 use Doctrine\DBAL\Driver as DriverInterface;
 use Doctrine\DBAL\Driver\Connection as ConnectionInterface;
-use Doctrine\DBAL\Driver\Middleware\AbstractConnectionMiddleware;
 use Doctrine\DBAL\Driver\Middleware\AbstractDriverMiddleware;
-use Doctrine\DBAL\Driver\Middleware\AbstractStatementMiddleware;
-use Doctrine\DBAL\Driver\Result;
-use Doctrine\DBAL\Driver\Statement;
 use SensitiveParameter;
 use TYPO3\CMS\Core\Database\Middleware\UsableForConnectionInterface;
 
@@ -42,47 +37,7 @@ final class ExplicitUidSequenceMiddleware implements UsableForConnectionInterfac
         return new class ($driver) extends AbstractDriverMiddleware {
             public function connect(#[SensitiveParameter] array $params): ConnectionInterface
             {
-                return new class (parent::connect($params)) extends AbstractConnectionMiddleware {
-                    public function prepare(string $sql): Statement
-                    {
-                        $statement = parent::prepare($sql);
-                        $table     = ExplicitUidSequenceMiddleware::tableWithExplicitUid($sql);
-                        if ($table === null) {
-                            return $statement;
-                        }
-
-                        $follow = fn (): int|string => parent::exec(ExplicitUidSequenceMiddleware::followUid($table));
-
-                        return new class ($statement, $follow) extends AbstractStatementMiddleware {
-                            /**
-                             * @param Closure(): (int|string) $follow
-                             */
-                            public function __construct(Statement $statement, private readonly Closure $follow)
-                            {
-                                parent::__construct($statement);
-                            }
-
-                            public function execute(): Result
-                            {
-                                $result = parent::execute();
-                                ($this->follow)();
-
-                                return $result;
-                            }
-                        };
-                    }
-
-                    public function exec(string $sql): int|string
-                    {
-                        $affected = parent::exec($sql);
-                        $table    = ExplicitUidSequenceMiddleware::tableWithExplicitUid($sql);
-                        if ($table !== null) {
-                            parent::exec(ExplicitUidSequenceMiddleware::followUid($table));
-                        }
-
-                        return $affected;
-                    }
-                };
+                return new ExplicitUidSequenceConnection(parent::connect($params));
             }
         };
     }
