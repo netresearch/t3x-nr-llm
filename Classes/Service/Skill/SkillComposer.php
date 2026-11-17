@@ -222,13 +222,17 @@ final readonly class SkillComposer
         foreach ($processVersions as $version) {
             $section           = $this->renderApprovedSection($version);
             $processSections[] = $section;
-            $processId         = self::processSectionId([...$configSkills, ...$taskSkills], $version);
             $instructions[]    = [
                 'key'     => 'process' . "\x00" . $version->skillUid,
-                'id'      => $processId,
+                'id'      => self::processSectionId([...$configSkills, ...$taskSkills], $version),
                 'section' => $section,
                 'pin'     => new SkillPin($version->skillUid, $version->sourceUid, $version->versionDigest),
-                'use'     => new SkillUse($version->skillUid, $version->sourceUid, $version->versionDigest, $processId, SkillRole::PROCESS),
+                // The record's identifier, never the section id: that one
+                // falls back to the approved name, which is the skill's text
+                // and has no place in a usage record (ADR-321). A process is
+                // attached on demand, so it is usually not in these lists;
+                // the run fills the identifier from its configuration then.
+                'use' => new SkillUse($version->skillUid, $version->sourceUid, $version->versionDigest, self::identifierOf([...$configSkills, ...$taskSkills], $version->skillUid), SkillRole::PROCESS),
             ];
         }
 
@@ -623,6 +627,23 @@ final readonly class SkillComposer
         $approval = $this->instructionPolicy->approvalOf($skill, $digest);
 
         return $approval instanceof SkillApproval && $approval->versionDigest === $digest ? $approval : null;
+    }
+
+    /**
+     * The identifier of the record among the given skills, or '' when none
+     * of them is it.
+     *
+     * @param list<Skill> $skills
+     */
+    private static function identifierOf(array $skills, int $skillUid): string
+    {
+        foreach ($skills as $skill) {
+            if ((int) $skill->getUid() === $skillUid) {
+                return $skill->getIdentifier();
+            }
+        }
+
+        return '';
     }
 
     /**

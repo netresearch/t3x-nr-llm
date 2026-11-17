@@ -152,7 +152,9 @@ final class SkillUsageLedger
             $approval instanceof SkillApproval && $approval->process => SkillRole::PROCESS,
             default                                                  => SkillRole::INSTRUCTION,
         };
-        $identifier = $use instanceof SkillUse ? $use->identifier : ($this->identifiers[$pin->skillUid] ?? '');
+        // A composed process names no identifier when its record is attached
+        // on demand only; the configuration's skills name it then.
+        $identifier = $use instanceof SkillUse && $use->identifier !== '' ? $use->identifier : ($this->identifiers[$pin->skillUid] ?? '');
 
         return new SkillUsageEntry(
             $pin->skillUid,

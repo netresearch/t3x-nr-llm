@@ -16,7 +16,8 @@ metadata mode a load left only the tool name behind.
 - **SU1 Passed means sent.** A skill version is recorded as `passed` in the
   round of the first model call of a segment whose request carries it, before
   that call's request step. A version whose segment ends, pauses or fails
-  before such a call is not recorded as passed.
+  before such a call is not recorded as passed. Passed means handed to the
+  call; a call the manager refuses before the provider keeps the entry.
 - **SU2 Every channel.** Instruction versions, the process version and the
   context skills of the delimited block are recorded. A context skill is
   recorded only when the block was placed into the messages.
@@ -35,7 +36,8 @@ metadata mode a load left only the tool name behind.
   (`composed`, `loaded`, `carried`), state (`loaded`, `passed`), and the
   approval that held when the entry was recorded: its uid and `approved`, or
   `none` for a context skill, or `unknown` when no unrevoked approval was
-  found. No name, description or body.
+  found. No name, description or body; the identifier is the record's, never
+  the approved name a process section falls back to.
 - **SU7 Privacy and retention.** The record is a step of kind `skill_usage`,
   stored as it is at every privacy level, kept after the run ends and purged
   with the run's other events.
@@ -56,24 +58,30 @@ metadata mode a load left only the tool name behind.
   state holds pins of instructions only. Its earlier entry in the same run
   stands.
 - A legacy context skill (no version digest) is recorded with digest `''`.
-- The identifier of a loaded or carried version is read from the
-  configuration's skills when the segment starts; a skill detached since has
-  identifier `''`.
+- The identifier of a loaded, carried or on-demand process version is read
+  from the configuration's skills when the segment starts; a skill detached
+  since has identifier `''`.
+- A caller of the public `runLoop()` that passes an already assembled
+  transcript (`skipAssembly`) gets no entry for the instructions baked into
+  it, as it gets no pins for them.
 
 ## Verification
 
 | Requirement | Evidence |
 | --- | --- |
-| SU1, SU2, SU6 | `ToolLoopServiceSkillUsageTest::theComposedVersionsAreNamedAtTheFirstSendAndNotAgain`, `aRunWithoutToolsNamesItsVersionsBeforeItsOnlyCall` |
+| SU1, SU2, SU6 | `ToolLoopServiceSkillUsageTest::theComposedVersionsAreNamedAtTheFirstSendAndNotAgain`, `aRunWithoutToolsNamesItsVersionsBeforeItsOnlyCall`, `theClosingCallAtTheRoundLimitNamesWhatItCarries` |
+| SU6 (process identity, no name) | `ToolLoopServiceSkillUsageTest::aProcessIsNamedByItsRecordIdentifierAndNeverByItsName` |
 | SU1 (changed skill) | `ToolLoopServiceSkillUsageTest::aChangedSkillIsNamedWithItsNewDigest` |
 | SU2 (block not placed) | `SkillInjectionBoundaryTest::missingUserPreservesTheEntireMessageListAndFencedSkillsCannotEnterSystemRole` |
 | SU3 | `ToolLoopServiceSkillUsageTest::aSkillOnlyOfferedInTheCatalogueIsNeverNamed`, `SkillComposerTest::dropsTaskAdditiveBeforeConfigBaselineWhenOverBudget` |
 | SU4 | `ToolLoopServiceSkillUsageTest::aLoadIsNamedAsLoadedAndThenAsPassedByTheNextCall`, `aLoadedVersionWhoseRunPausesBeforeTheNextCallIsNotNamedAsPassed` |
-| SU5 | `ToolLoopServiceSkillUsageTest::aResumedSegmentNamesTheVersionItCarriesAtItsFirstSend`, `aLoadHeldInAPausedTurnIsNamedWhenTheResumeRunsIt`, `aRevocationDuringThePauseStopsTheResumeBeforeAnythingIsNamed` |
+| SU5 | `ToolLoopServiceSkillUsageTest::aResumedSegmentNamesTheVersionItCarriesAtItsFirstSend`, `aLoadHeldInAPausedTurnIsNamedWhenTheResumeRunsIt`, `aLoadHeldInATurnPausedForInputIsNamedWhenTheResumeRunsIt`, `aRevocationDuringThePauseStopsTheResumeBeforeAnythingIsNamed` |
 | SU6, SU7 | `ToolLoopServiceSkillUsageTest::theRecordCarriesNoTextOfTheSkill`, functional `SkillUsagePersistenceTest` (every privacy level, after the run ends, purge) |
 | SU8 | `RunTimelineFactoryTest::aSkillUsageStepShowsEachVersionItNames` |
 
 Each of SU1, SU2, SU4 and SU5 was also shown failing by a mutation of the
 code that implements it (send site removed, ledger not remembering what it
 passed, load not recorded, resume ledger not handed to the loop, block rule
-removed, approval lookup removed, the no-tools send site removed).
+removed, approval lookup removed, the no-tools send site removed, the
+closing send site removed, the input resume not handing over its ledger,
+the process entry named by the approved name).

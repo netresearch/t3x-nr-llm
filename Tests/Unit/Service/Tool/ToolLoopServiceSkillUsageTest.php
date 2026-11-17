@@ -24,10 +24,13 @@ use Netresearch\NrLlm\Domain\Model\Skill;
 use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillPin;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException;
+use Netresearch\NrLlm\Service\Agent\Process\ApprovedProcessPinProbe;
+use Netresearch\NrLlm\Service\Agent\Process\ProcessPinProbe;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -41,6 +44,8 @@ use Netresearch\NrLlm\Service\Skill\SkillVersionDigest;
 use Netresearch\NrLlm\Service\Tool\AllowedToolsResolver;
 use Netresearch\NrLlm\Service\Tool\Builtin\LoadSkillTool;
 use Netresearch\NrLlm\Service\Tool\Exception\ToolApprovalRequiredException;
+use Netresearch\NrLlm\Service\Tool\Exception\ToolInputRequiredException;
+use Netresearch\NrLlm\Service\Tool\RunAugmentation;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\SkillUsageLedger;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
@@ -54,6 +59,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillLoadLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillRecordLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -84,6 +90,8 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
 
     private const ON_DEMAND = 7;
 
+    private const PROCESS = 11;
+
     private InMemorySkillApprovalRepository $approvals;
 
     private FixedSkillLoadLookup $loadLookup;
@@ -102,7 +110,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         parent::setUp();
         $this->approvals  = new InMemorySkillApprovalRepository();
         $this->loadLookup = new FixedSkillLoadLookup();
-        foreach ([self::INSTRUCTION => 'house-rules', self::CONTEXT => 'glossary', self::ON_DEMAND => 'style'] as $uid => $identifier) {
+        foreach ([self::INSTRUCTION => 'house-rules', self::CONTEXT => 'glossary', self::ON_DEMAND => 'style', self::PROCESS => 'tour'] as $uid => $identifier) {
             $this->skills[$uid] = $this->skill($uid, $identifier);
         }
 
@@ -111,6 +119,11 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
             $skill                    = $this->skills[$uid];
             $this->approvalUids[$uid] = $this->approvals->add($uid, self::SOURCE, $skill->getVersionDigest(), SkillVersionDigest::fieldsOf($skill), 'verified', 1);
         }
+
+        $process = $this->skills[self::PROCESS];
+        $process->setProcess(true);
+        $process->setVersionDigest(SkillVersionDigest::of($process));
+        $this->approvalUids[self::PROCESS] = $this->approvals->add(self::PROCESS, self::SOURCE, $process->getVersionDigest(), ['process' => true] + SkillVersionDigest::fieldsOf($process), 'verified', 1);
 
         $this->loadLookup->onDemand[9]                  = [self::ON_DEMAND];
         $this->loadLookup->digests[self::ON_DEMAND]     = $this->skills[self::ON_DEMAND]->getVersionDigest();
@@ -357,7 +370,90 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         }
     }
 
-    private function suspendWith(LlmConfiguration $configuration, RunTrace $trace, ?ProcessPinProbeStub $probe = null): SuspendedRunState
+    /**
+     * A process is attached on demand, so the composition does not find its
+     * record among the always-loaded skills. The entry names the record's
+     * identifier from the configuration — never the approved name, which is
+     * the skill's text.
+     */
+    #[Test]
+    public function aProcessIsNamedByItsRecordIdentifierAndNeverByItsName(): void
+    {
+        $process       = $this->skills[self::PROCESS];
+        $configuration = $this->configuration();
+        $configuration->addSkillOnDemand($process);
+        $trace = new RunTrace();
+
+        $this->service(new ApprovedProcessPinProbe($this->approvals))->runLoop(
+            [ChatMessage::user('start the tour')],
+            $configuration,
+            ToolExecutionContext::none(),
+            null,
+            null,
+            5,
+            $trace,
+            RunAugmentation::forProcess(new SkillPin(self::PROCESS, self::SOURCE, $process->getVersionDigest())),
+        );
+
+        [$entry] = $this->entries($trace);
+        self::assertSame(SkillRole::PROCESS, $entry->role);
+        self::assertSame('tour', $entry->identifier);
+        self::assertSame(SkillInclusion::COMPOSED, $entry->inclusion);
+        self::assertSame($this->approvalUids[self::PROCESS], $entry->approvalUid);
+        $json = json_encode($this->usageSteps($trace)[0]->toArray(), JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString($process->getName(), $json);
+        self::assertStringNotContainsString($process->getBody(), $json);
+    }
+
+    /**
+     * The closing call at the round limit is a send too: a version loaded in
+     * the last tool round is named as passed by it.
+     */
+    #[Test]
+    public function theClosingCallAtTheRoundLimitNamesWhatItCarries(): void
+    {
+        $this->turns = [[$this->loadCall('c1'), new ToolCall('c2', 'noop', [])]];
+        $trace       = new RunTrace();
+
+        $this->service()->runLoop([ChatMessage::user('go')], $this->configuration(onDemand: true), ToolExecutionContext::none(), null, null, 1, $trace);
+
+        $steps = $trace->getSteps();
+        $usage = $this->usageSteps($trace);
+        self::assertCount(2, $usage);
+        self::assertSame([SkillUsageState::LOADED, SkillUsageState::PASSED], array_map(static fn (SkillUsageEntry $e): SkillUsageState => $e->state, $this->entries($trace)));
+        self::assertSame(2, $usage[1]->round);
+        $at = array_search($usage[1], $steps, true);
+        self::assertIsInt($at);
+        self::assertSame(RunStep::KIND_REQUEST, $steps[$at + 1]->kind);
+        self::assertSame([], $steps[$at + 1]->toolSpecs, 'the closing call offers no tools');
+    }
+
+    /**
+     * The input resume hands its ledger to the loop as the approval resume
+     * does: a load the paused turn holds is passed as loaded.
+     */
+    #[Test]
+    public function aLoadHeldInATurnPausedForInputIsNamedWhenTheResumeRunsIt(): void
+    {
+        $this->turns   = [[$this->loadCall('c1'), new ToolCall('c2', 'ask_user', [])]];
+        $configuration = $this->configuration(onDemand: true);
+
+        try {
+            $this->service()->runLoop([ChatMessage::user('go')], $configuration, ToolExecutionContext::none(), null, null, 5, new RunTrace());
+            self::fail('The input tool did not suspend the run.');
+        } catch (ToolInputRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $resumed = new RunTrace();
+        $this->service()->resumeWithInput($state, ['city' => 'Berlin'], $configuration, ToolExecutionContext::none(), null, $resumed);
+
+        $entries = $this->entries($resumed);
+        self::assertSame([SkillUsageState::LOADED, SkillUsageState::PASSED], array_map(static fn (SkillUsageEntry $e): SkillUsageState => $e->state, $entries));
+        self::assertSame(SkillInclusion::LOADED, $entries[1]->inclusion);
+    }
+
+    private function suspendWith(LlmConfiguration $configuration, RunTrace $trace, ?ProcessPinProbe $probe = null): SuspendedRunState
     {
         try {
             $this->service($probe)->runLoop([ChatMessage::user('go')], $configuration, ToolExecutionContext::none(), null, null, 5, $trace);
@@ -389,7 +485,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
         return $entries;
     }
 
-    private function service(?ProcessPinProbeStub $probe = null): ToolLoopService
+    private function service(?ProcessPinProbe $probe = null): ToolLoopService
     {
         $manager = self::createStub(LlmServiceManagerInterface::class);
         $manager->method('chatWithToolsForConfiguration')->willReturnCallback(
@@ -411,6 +507,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
             new FakeTool('noop'),
             new FakeTool('write', effect: ToolEffect::IDEMPOTENT_WRITE),
             new LoadSkillTool(),
+            new FakeInputTool('ask_user'),
         ]);
         $extensionConfiguration = self::createStub(ExtensionConfiguration::class);
         $extensionConfiguration->method('get')->willReturn(['skills' => []]);
@@ -431,7 +528,7 @@ final class ToolLoopServiceSkillUsageTest extends TestCase
             skillPinCheck: new SkillPinCheck(
                 $this->approvals,
                 $sources,
-                new FixedSkillRecordLookup([self::INSTRUCTION, self::CONTEXT, self::ON_DEMAND]),
+                new FixedSkillRecordLookup([self::INSTRUCTION, self::CONTEXT, self::ON_DEMAND, self::PROCESS]),
                 new SkillComposerFactory($extensionConfiguration),
             ),
             skillLoad: new SkillLoadService($composer, $this->loadLookup),

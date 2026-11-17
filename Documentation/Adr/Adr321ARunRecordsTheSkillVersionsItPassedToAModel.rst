@@ -39,7 +39,10 @@ Decision
    versions that call carries and no earlier call of the segment carried, as
    a step of kind ``skill_usage`` (:php:`RunStep::KIND_SKILLS`) in the round
    of that call, ahead of its request step. A version whose segment ends,
-   pauses or fails before such a call is not recorded as passed.
+   pauses or fails before such a call is not recorded as passed. ``passed``
+   means handed to the call: a call the manager refuses before the provider
+   (an input guardrail, the budget, the trust-zone gate) keeps the entry, and
+   the missing model-answer step after it shows that no answer came.
 2. **What enters.** A version enters a segment's ledger
    (:php:`SkillUsageLedger`) when the composition put it into the prompt —
    instruction, process, or a context skill of a block that was placed —
@@ -57,6 +60,10 @@ Decision
    are fixed where the version entered the run; the approval is read when
    the entry is recorded (:php:`SkillPinCheck::heldApproval()`).
 5. **No text.** No name, description or body is part of an entry. The
+   identifier is the record's identifier, never the approved name a process
+   section falls back to; it is text an administrator or a skill source
+   chose, of the same kind the lineage already stores (:ref:`ADR-228
+   <adr-228>`), not a code. The
    privacy filter strips content by key, so the step reaches the event stream
    unchanged at every level; that is safe only because nothing in it is
    content, and the tests assert the entry's key set.
