@@ -98,10 +98,11 @@ final class SkillUsagePersistenceTest extends AbstractFunctionalTestCase
         $persister = new AgentRunPersister($this->repository, FixedPrivacyPolicy::filterAt(PrivacyLevel::METADATA), new NullLogger());
         $handle    = $persister->begin(null, 1);
         self::assertNotNull($handle);
-        $persister->recordStep($handle, new RunStep(kind: RunStep::KIND_SKILLS, round: 1, durationMs: 0.0, skillUsage: [
+        self::assertTrue($persister->recordStep($handle, new RunStep(kind: RunStep::KIND_SKILLS, round: 1, durationMs: 0.0, skillUsage: [
             new SkillUsageEntry(3, 1, '1:' . str_repeat('a', 64), 'house-rules', SkillRole::INSTRUCTION, SkillInclusion::COMPOSED, SkillUsageState::PASSED, SkillApprovalState::APPROVED, 12),
-        ]));
+        ])));
         $persister->settleCompleted($handle, new ToolLoopResult('done', [], 1, false, UsageStatistics::fromTokens(1, 1)));
+        self::assertCount(1, $this->repository->findEvents($handle->runUid), 'the record exists before the purge');
 
         $this->repository->purgeOlderThan(time() + 1);
 

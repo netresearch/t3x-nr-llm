@@ -42,7 +42,9 @@ Decision
    pauses or fails before such a call is not recorded as passed. ``passed``
    means handed to the call: a call the manager refuses before the provider
    (an input guardrail, the budget, the trust-zone gate) keeps the entry, and
-   the missing model-answer step after it shows that no answer came.
+   the missing model-answer step after it shows that no answer came. So does
+   a turn of a process that another turn ended in the moment between the
+   entry and the request step (:ref:`ADR-228 <adr-228>`).
 2. **What enters.** A version enters a segment's ledger
    (:php:`SkillUsageLedger`) when the composition put it into the prompt —
    instruction, process, or a context skill of a block that was placed —

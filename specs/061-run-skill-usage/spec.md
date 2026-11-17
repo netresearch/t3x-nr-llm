@@ -60,7 +60,8 @@ metadata mode a load left only the tool name behind.
 - A legacy context skill (no version digest) is recorded with digest `''`.
 - The identifier of a loaded, carried or on-demand process version is read
   from the configuration's skills when the segment starts; a skill detached
-  since has identifier `''`.
+  since, and a playground's forced skill carried into a resumed segment, has
+  identifier `''`. Uid and digest still identify the version.
 - A caller of the public `runLoop()` that passes an already assembled
   transcript (`skipAssembly`) gets no entry for the instructions baked into
   it, as it gets no pins for them.
