@@ -20,6 +20,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class SkillRepository extends Repository
 {
+    use FindsByStorableUid;
+
     protected $defaultOrderings = [
         'name' => QueryInterface::ORDER_ASCENDING,
     ];
@@ -141,6 +143,8 @@ class SkillRepository extends Repository
      */
     private function orderedByUid(array $uids, bool $enabledOnly): array
     {
+        // A uid no record can have would fail the query on PostgreSQL.
+        $uids = StorableUid::only($uids);
         if ($uids === []) {
             return [];
         }

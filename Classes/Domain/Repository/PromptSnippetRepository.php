@@ -22,6 +22,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class PromptSnippetRepository extends Repository
 {
+    use FindsByStorableUid;
+
     protected $defaultOrderings = [
         'sorting' => QueryInterface::ORDER_ASCENDING,
         'name'    => QueryInterface::ORDER_ASCENDING,
@@ -163,6 +165,8 @@ class PromptSnippetRepository extends Repository
      */
     private function orderedByUid(array $uids, bool $activeOnly): array
     {
+        // A uid no record can have would fail the query on PostgreSQL.
+        $uids = StorableUid::only($uids);
         if ($uids === []) {
             return [];
         }

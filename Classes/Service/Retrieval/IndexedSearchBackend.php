@@ -133,9 +133,9 @@ final class IndexedSearchBackend implements SearchBackendInterface
 
         $queryBuilder = $this->phashQueryBuilder();
         $row          = $queryBuilder
-            ->select('IP.phash', 'IP.item_title')
+            ->select('ip.phash', 'ip.item_title')
             ->andWhere(
-                $queryBuilder->expr()->eq('IP.phash', $queryBuilder->createNamedParameter($phash)),
+                $queryBuilder->expr()->eq('ip.phash', $queryBuilder->createNamedParameter($phash)),
             )
             ->executeQuery()
             ->fetchAssociative();
@@ -218,16 +218,16 @@ final class IndexedSearchBackend implements SearchBackendInterface
     {
         $queryBuilder = $this->phashQueryBuilder();
         $queryBuilder
-            ->join('IP', 'index_rel', 'IR', 'IR.phash = IP.phash')
-            ->join('IR', 'index_words', 'IW', 'IW.wid = IR.wid')
+            ->join('ip', 'index_rel', 'ir', 'ir.phash = ip.phash')
+            ->join('ir', 'index_words', 'iw', 'iw.wid = ir.wid')
             ->andWhere(
-                $queryBuilder->expr()->in('IW.wid', $queryBuilder->createNamedParameter($hashes, Connection::PARAM_STR_ARRAY)),
-                $queryBuilder->expr()->eq('IW.is_stopword', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->eq('IP.sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
+                $queryBuilder->expr()->in('iw.wid', $queryBuilder->createNamedParameter($hashes, Connection::PARAM_STR_ARRAY)),
+                $queryBuilder->expr()->eq('iw.is_stopword', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('ip.sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
             )
-            ->groupBy('IP.phash', 'IP.data_page_id', 'IP.data_page_type', 'IP.static_page_arguments', 'IP.item_title', 'IP.item_description', 'IP.sys_language_uid')
-            ->having('COUNT(DISTINCT IW.wid) = ' . count($hashes))
-            ->addSelectLiteral('MAX(IR.flags) AS rank_flags', 'SUM(IR.freq) AS rank_freq')
+            ->groupBy('ip.phash', 'ip.data_page_id', 'ip.data_page_type', 'ip.static_page_arguments', 'ip.item_title', 'ip.item_description', 'ip.sys_language_uid')
+            ->having('COUNT(DISTINCT iw.wid) = ' . count($hashes))
+            ->addSelectLiteral('MAX(ir.flags) AS rank_flags', 'SUM(ir.freq) AS rank_freq')
             ->orderBy('rank_flags', 'DESC')
             ->addOrderBy('rank_freq', 'DESC')
             ->setMaxResults(self::MAX_ROWS);
@@ -246,21 +246,25 @@ final class IndexedSearchBackend implements SearchBackendInterface
         $queryBuilder = $this->phashQueryBuilder();
         $like         = '%' . $queryBuilder->escapeLikeWildcards($query) . '%';
         $queryBuilder
-            ->join('IP', 'index_fulltext', 'IFT', 'IFT.phash = IP.phash')
+            ->join('ip', 'index_fulltext', 'ift', 'ift.phash = ip.phash')
             ->andWhere(
-                $queryBuilder->expr()->like('IFT.fulltextdata', $queryBuilder->createNamedParameter($like)),
-                $queryBuilder->expr()->eq('IP.sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
+                $queryBuilder->expr()->like('ift.fulltextdata', $queryBuilder->createNamedParameter($like)),
+                $queryBuilder->expr()->eq('ip.sys_language_uid', $queryBuilder->createNamedParameter($languageId, Connection::PARAM_INT)),
             )
-            ->groupBy('IP.phash', 'IP.data_page_id', 'IP.data_page_type', 'IP.static_page_arguments', 'IP.item_title', 'IP.item_description', 'IP.sys_language_uid')
-            ->orderBy('IP.item_mtime', 'DESC')
+            ->groupBy('ip.phash', 'ip.data_page_id', 'ip.data_page_type', 'ip.static_page_arguments', 'ip.item_title', 'ip.item_description', 'ip.sys_language_uid')
+            ->orderBy('ip.item_mtime', 'DESC')
             ->setMaxResults(self::MAX_ROWS);
 
         return array_values($queryBuilder->executeQuery()->fetchAllAssociative());
     }
 
     /**
-     * Base query: public page rows from index_phash (aliased IP), the
+     * Base query: public page rows from index_phash (aliased ip), the
      * anonymous-visitor gr_list on the row or on an index_grlist row.
+     *
+     * The table aliases are lower case: the query builder quotes an alias in
+     * some places and not in the raw join conditions, and PostgreSQL folds an
+     * unquoted name to lower case, so "IG" and IG would be two names there.
      */
     private function phashQueryBuilder(): QueryBuilder
     {
@@ -269,15 +273,15 @@ final class IndexedSearchBackend implements SearchBackendInterface
 
         $publicList = $queryBuilder->createNamedParameter(self::PUBLIC_GR_LIST);
         $queryBuilder
-            ->select('IP.phash', 'IP.data_page_id', 'IP.data_page_type', 'IP.static_page_arguments', 'IP.item_title', 'IP.item_description', 'IP.sys_language_uid')
-            ->from('index_phash', 'IP')
-            ->leftJoin('IP', 'index_grlist', 'IG', 'IG.phash = IP.phash AND IG.gr_list = ' . $publicList)
+            ->select('ip.phash', 'ip.data_page_id', 'ip.data_page_type', 'ip.static_page_arguments', 'ip.item_title', 'ip.item_description', 'ip.sys_language_uid')
+            ->from('index_phash', 'ip')
+            ->leftJoin('ip', 'index_grlist', 'ig', 'ig.phash = ip.phash AND ig.gr_list = ' . $publicList)
             ->andWhere(
-                $queryBuilder->expr()->eq('IP.item_type', $queryBuilder->createNamedParameter('0')),
-                $queryBuilder->expr()->eq('IP.freeIndexUid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
+                $queryBuilder->expr()->eq('ip.item_type', $queryBuilder->createNamedParameter('0')),
+                $queryBuilder->expr()->eq('ip.freeIndexUid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->or(
-                    $queryBuilder->expr()->eq('IP.gr_list', $publicList),
-                    $queryBuilder->expr()->isNotNull('IG.phash'),
+                    $queryBuilder->expr()->eq('ip.gr_list', $publicList),
+                    $queryBuilder->expr()->isNotNull('ig.phash'),
                 ),
             );
 

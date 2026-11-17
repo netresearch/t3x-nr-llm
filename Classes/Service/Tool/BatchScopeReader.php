@@ -267,7 +267,7 @@ final readonly class BatchScopeReader
      *
      * @return list<int>
      */
-    private function pagesWhere(string $column, array $values, BackendUserAuthentication $user, int $permission, int $workspace, int $belowDoktype = PHP_INT_MAX): array
+    private function pagesWhere(string $column, array $values, BackendUserAuthentication $user, int $permission, int $workspace, ?int $belowDoktype = null): array
     {
         if ($this->readsWorkspaceRows('pages', $workspace)) {
             return $this->pagesInWorkspaceWhere($column, $values, $user, $permission, $workspace, $belowDoktype);
@@ -283,14 +283,26 @@ final readonly class BatchScopeReader
                 $queryBuilder->expr()->in($column, $queryBuilder->createNamedParameter($values, Connection::PARAM_INT_ARRAY)),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
                 $queryBuilder->expr()->eq('t3ver_wsid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->lt('doktype', $queryBuilder->createNamedParameter($belowDoktype, Connection::PARAM_INT)),
                 $user->getPagePermsClause($permission),
+                ...$this->doktypeBelow($queryBuilder, $belowDoktype),
             )
             ->orderBy('uid')
             ->executeQuery()
             ->fetchFirstColumn();
 
         return array_map(static fn (mixed $uid): int => is_numeric($uid) ? (int) $uid : 0, $rows);
+    }
+
+    /**
+     * Pages below `$doktype` only, or no condition for null. A bound like
+     * PHP_INT_MAX is out of range for the doktype column, which PostgreSQL
+     * refuses where MySQL and SQLite compare.
+     *
+     * @return list<string>
+     */
+    private function doktypeBelow(QueryBuilder $queryBuilder, ?int $doktype): array
+    {
+        return $doktype === null ? [] : [$queryBuilder->expr()->lt('doktype', $queryBuilder->createNamedParameter($doktype, Connection::PARAM_INT))];
     }
 
     /**
@@ -306,7 +318,7 @@ final readonly class BatchScopeReader
      *
      * @return list<int>
      */
-    private function pagesInWorkspaceWhere(string $column, array $values, BackendUserAuthentication $user, int $permission, int $workspace, int $belowDoktype): array
+    private function pagesInWorkspaceWhere(string $column, array $values, BackendUserAuthentication $user, int $permission, int $workspace, ?int $belowDoktype): array
     {
         $queryBuilder = $this->connectionPool->getQueryBuilderForTable('pages');
         $queryBuilder->getRestrictions()->removeAll()->add(new DeletedRestriction());
@@ -329,7 +341,7 @@ final readonly class BatchScopeReader
                 $match,
                 $this->shownInWorkspace($queryBuilder, 'pages', $workspace),
                 $queryBuilder->expr()->eq('sys_language_uid', $queryBuilder->createNamedParameter(0, Connection::PARAM_INT)),
-                $queryBuilder->expr()->lt('doktype', $queryBuilder->createNamedParameter($belowDoktype, Connection::PARAM_INT)),
+                ...$this->doktypeBelow($queryBuilder, $belowDoktype),
             )
             ->executeQuery()
             ->fetchAllAssociative();

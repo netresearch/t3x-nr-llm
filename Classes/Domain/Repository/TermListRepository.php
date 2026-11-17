@@ -27,6 +27,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class TermListRepository extends Repository
 {
+    use FindsByStorableUid;
+
     protected $defaultOrderings = [
         'name' => QueryInterface::ORDER_ASCENDING,
         'uid'  => QueryInterface::ORDER_ASCENDING,

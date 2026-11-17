@@ -25,6 +25,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class TaskRepository extends Repository
 {
+    use FindsByStorableUid;
+
     private const TABLE = 'tx_nrllm_task';
 
     protected $defaultOrderings = [

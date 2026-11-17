@@ -101,6 +101,7 @@ final class A2aProjectorTest extends AbstractFunctionalTestCase
         $this->connection()->update(A2aTaskStore::TABLE, ['projected_revision' => 0], ['uid' => $taskUid]);
         self::assertSame(0, $this->projector->project($taskUid));
         self::assertSame(1, $this->eventCount());
+        self::assertSame(0, $this->connection()->getTransactionNestingLevel(), 'no transaction is left open');
 
         $this->persister->settleCompleted($handle, $this->loopResult('done'), 'worker-a:1');
         self::assertSame([1, 2], array_column($this->projector->events($taskUid), 'revision'));

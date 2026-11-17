@@ -28,6 +28,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class GlossaryRepository extends Repository
 {
+    use FindsByStorableUid;
+
     protected $defaultOrderings = [
         'siteIdentifier' => QueryInterface::ORDER_ASCENDING,
         'sourceLanguage' => QueryInterface::ORDER_ASCENDING,

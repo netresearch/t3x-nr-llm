@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 
 use Doctrine\DBAL\Exception as DbalException;
-use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\DBAL\Platforms\SQLitePlatform;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aPushDeliverer;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aServerSettings;
@@ -65,7 +64,7 @@ final readonly class A2aTaskProjector
         $connection = $this->connectionPool->getConnectionForTable(A2aTaskStore::TABLE);
 
         return $connection->transactional(function (Connection $connection) use ($taskUid): int {
-            // Every read here is a locking read. Under REPEATABLE READ
+            // Every read before the event lookup below is a locking read. Under REPEATABLE READ
             // (MariaDB, MySQL) the first plain read would fix the snapshot
             // before the run lock below is held, and the task read after it
             // could then be older than a scrub that committed in between. A
@@ -106,8 +105,22 @@ final readonly class A2aTaskProjector
                 return 0;
             }
 
+            // A competing projection of this revision has already raised
+            // projected_revision under the task lock, so the check above
+            // returned. This lookup is the fallback for an event row no
+            // projection wrote (a hand insert, a partial restore): looked up
+            // rather than inserted and caught, because on PostgreSQL the
+            // failed insert would abort the whole transaction. A plain read on
+            // purpose: a locking read of a missing key takes a gap lock on
+            // MariaDB/MySQL that deadlocks with another task's event insert.
+            $exists = $connection->executeQuery(
+                'SELECT 1 FROM ' . $connection->quoteIdentifier(self::TABLE) . ' WHERE task_uid = ? AND revision = ?',
+                [$taskUid, $revision],
+                [Connection::PARAM_INT, Connection::PARAM_INT],
+            )->fetchOne();
+
             $written = 0;
-            try {
+            if ($exists === false) {
                 $connection->insert(self::TABLE, [
                     'task_uid' => $taskUid,
                     'revision' => $revision,
@@ -121,8 +134,6 @@ final readonly class A2aTaskProjector
                 if ($this->settings?->pushEnabled() === true) {
                     A2aPushDeliverer::enqueue($connection, $taskUid, $revision, time());
                 }
-            } catch (UniqueConstraintViolationException) {
-                // Another projection of this revision won; it is the same event.
             }
 
             $connection->executeStatement(
