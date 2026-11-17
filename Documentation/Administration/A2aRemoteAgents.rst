@@ -313,7 +313,7 @@ nr-llm's control.
     other runs, and before 0.39.0 it marks a conversation failed when its run
     waits for a remote agent. From 0.39.0 on, the chat waits, follows the run
     and shows its answer. The version is read as TYPO3 reports it (``v0.39.0``
-    and ``0.39.0-alpha`` count as 0.39.0); a branch checkout such as
+    and ``0.39.0-alpha`` count as 0.39.0); a checkout of a branch named like
     ``dev-main`` names no release and keeps the tools withheld.
 
 ..  _administration-a2a-remote-agents-push:
