@@ -52,11 +52,14 @@ equal.
 ◐ The value is metadata like the rest of the row: an identifier, never content
 of the call. The timeline stays metadata only at every privacy level.
 
-◑ The column is ``''`` wherever the provider named no model and wherever no
-token-shaped response was produced (a cache hit, a failed call, the
-specialized operations; see :ref:`ADR-174 <adr-174>`). The timeline then
-shows nothing, which cannot be told apart from a provider that repeated the
-requested name.
+◑ The column is ``''`` wherever the call produced no usage block: a cache hit,
+a failed call, the specialized operations and a plain streamed chat (see
+:ref:`ADR-174 <adr-174>`). Where a provider's answer names no model, the
+adapter reports the requested id instead. The timeline shows nothing in both
+cases, which cannot be told apart from a provider that repeated the requested
+name.
 
-◑ The value is what the provider reports. A provider that names the alias it
-was sent, not the snapshot behind it, gives the timeline nothing to show.
+◑ The value is what the adapter reports. :php:`GeminiProvider` reports the
+model id of the request and never reads one from the response, so a Gemini
+call never shows ``reportedModel``. The same holds for any provider that
+names the alias it was sent, not the snapshot behind it.
