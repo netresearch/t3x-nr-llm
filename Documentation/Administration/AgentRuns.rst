@@ -110,7 +110,8 @@ cost — and below it a single time-ordered list of everything the run produced:
   uuid as its correlation id. Where the provider named a different model on
   its answer than the one the call was sent to — an alias resolved to a dated
   snapshot — the row shows it as ``reportedModel``
-  (:ref:`ADR-320 <adr-320>`).
+  (:ref:`ADR-320 <adr-320>`). On Azure OpenAI the call is sent to a
+  deployment name, so most rows show the model behind the deployment there.
 - **Governance** — a decision taken during the run: a tool the gate withheld, a
   guardrail block, an approval requirement, an injected-context refusal.
 
