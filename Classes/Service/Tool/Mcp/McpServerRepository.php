@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Tool\Mcp;
 
 use Doctrine\DBAL\ParameterType;
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\Repository\StorableUid;
 use Netresearch\NrLlm\Domain\ValueObject\McpServerRecord;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -92,6 +93,10 @@ final readonly class McpServerRepository
 
     public function findByUid(int $uid): ?McpServerRecord
     {
+        if (!StorableUid::fits($uid)) {
+            return null;
+        }
+
         $queryBuilder = $this->queryBuilder();
 
         $row = $queryBuilder

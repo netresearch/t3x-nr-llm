@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Agent\A2a\Agent;
 
 use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
+use Netresearch\NrLlm\Domain\Repository\FindsByStorableUid;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Extbase\Persistence\Repository;
@@ -27,6 +28,8 @@ use TYPO3\CMS\Extbase\Persistence\Repository;
  */
 class A2aRemoteAgentRepository extends Repository
 {
+    use FindsByStorableUid;
+
     /**
      * The pool reads the trust fields past Extbase's identity map
      * ({@see self::currentTrust()}).

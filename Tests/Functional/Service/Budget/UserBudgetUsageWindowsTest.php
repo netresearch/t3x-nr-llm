@@ -86,7 +86,7 @@ final class UserBudgetUsageWindowsTest extends AbstractFunctionalTestCase
         $result = $this->windows->aggregate(1, self::NOW - self::DAY, null, self::NOW);
 
         self::assertSame(1, $result['daily']['requests']);
-        // The monthly window is unset (PHP_INT_MAX sentinel): nothing qualifies.
+        // The monthly window is unset (it counts from after the upper bound): nothing qualifies.
         self::assertSame(0, $result['monthly']['requests']);
     }
 
