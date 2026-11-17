@@ -197,6 +197,43 @@ final class ToolControllerTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The group toggle's state attributes are inline Fluid. An inline
+     * ViewHelper argument written as `groupStates.{groupName}.enabled` is not
+     * valid inline syntax, so Fluid emitted the whole `{f:if(...)}` verbatim
+     * and the JavaScript read a literal string as the group's state.
+     */
+    #[Test]
+    public function listActionRendersTheGroupToggleStateAsEvaluatedAttributes(): void
+    {
+        $this->importFixture('BeUsers.csv');
+        $backendUser     = $this->setUpBackendUser(1);
+        $GLOBALS['LANG'] = $this->get(LanguageServiceFactory::class)->createFromUserPreferences($backendUser);
+
+        $toolRegistry = new ToolRegistry([
+            new FakeTool('alpha_tool', group: 'alpha'),
+            new FakeTool('beta_tool', group: 'beta'),
+        ]);
+        $controller = $this->makeController($toolRegistry);
+        $controller->toggleToolGroupAction(
+            (new GuzzleServerRequest('POST', '/ajax/nrllm/toolgroup/toggle'))
+                ->withParsedBody(['group' => 'beta', 'enabled' => 'false']),
+        );
+        $this->setPrivateProperty($controller, 'request', $this->createBackendRequest());
+
+        $body = (string) $controller->listAction()->getBody();
+
+        self::assertStringNotContainsString('{f:', $body);
+        self::assertMatchesRegularExpression(
+            '/class="btn btn-sm js-toolgroup-toggle btn-default"\s+data-group="alpha"\s+data-enabled="1"/',
+            $body,
+        );
+        self::assertMatchesRegularExpression(
+            '/class="btn btn-sm js-toolgroup-toggle btn-success"\s+data-group="beta"\s+data-enabled="0"/',
+            $body,
+        );
+    }
+
+    /**
      * The declaration ADR-152 introduces is only worth having if the module
      * renders it, so this asserts the rendered HTML rather than the state array:
      * the translated action name and group name instead of a wire identifier,
