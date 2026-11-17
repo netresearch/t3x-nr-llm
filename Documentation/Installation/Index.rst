@@ -277,6 +277,7 @@ To remove the extension:
       DROP TABLE IF EXISTS tx_nrllm_configuration_skill_mm;
       DROP TABLE IF EXISTS tx_nrllm_tool_state;
       DROP TABLE IF EXISTS tx_nrllm_tool_group_state;
+      DROP TABLE IF EXISTS tx_nrllm_tool_audit;
       DROP TABLE IF EXISTS tx_nrllm_telemetry;
       DROP TABLE IF EXISTS tx_nrllm_skill_audit;
       DROP TABLE IF EXISTS tx_nrllm_eval_result;
