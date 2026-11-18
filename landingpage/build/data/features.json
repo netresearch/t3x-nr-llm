@@ -182,7 +182,7 @@
         "You run none of them: the always-available pages/tt_content database fallback still answers, labelled as such in the evidence header.",
         "Evidence must be scoped to what an anonymous visitor could read — index-level filtering is always public-only (fail-closed without a backend user).",
         "Use site_rag_query to get a curated evidence package, then site_fetch_source(source_id) to read a single source's full indexed text (capped).",
-        "For persistent vector store / chunking / reindex-on-change semantic retrieval, install nr_ai_search on top instead — that is deliberately out of scope here (ADR-050)."
+        "For a persistent vector index with chunks that are reindexed on change, Netresearch offers the separate nr_ai_search extension as a beta on request (ADR-050)."
       ]
     },
     "technical": {
