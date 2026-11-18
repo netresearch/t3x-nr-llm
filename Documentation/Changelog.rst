@@ -27,33 +27,19 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-51-0:
+.. _version-0-51-1:
 
-Version 0.51.0 (2026-11-18)
+Version 0.51.1 (2026-11-18)
 ===========================
 
-Agent runs record the skill versions their model calls carried and the test
-evidence of those versions, PostgreSQL is a supported database, and an A2A
-page metadata write to a translated page is stored and reported. Run the
-TYPO3 database schema update after updating.
+The A2A ``writes`` artifact names every record a run's tool calls wrote.
 
-- **Skill versions in runs:** a run records the skill versions each model
-  call carried for the first time (``skill_usage``, ADR-321) and the
-  evaluations that measured exactly those versions (``skill_evidence``,
-  ADR-322); both show in the run timeline.
-- **Input digests:** with ``privacy.inputDigests`` (off by default) a step
-  stored at the ``metadata`` level keeps keyed digests of the content it
-  drops, so two runs show which input differed (ADR-323).
-- **PostgreSQL:** supported beside MariaDB/MySQL and SQLite; CI runs the
-  functional tests on PostgreSQL 17. Six hash columns are now
-  ``varchar(64)``.
-- **A2A:** a page metadata write to a page with a translation, under a scope
-  of the default language only, is stored and reported as written, and the
-  ``writes`` artifact also lists records a failed call wrote. A page with a
-  file in ``media``, ``og_image`` or ``twitter_image`` is still refused under
-  such a scope. The A2A tokens module offers
-  :guilabel:`Enable and generate token` for a disabled client.
-- **Breaking for implementers:** ``PrivacyPolicyInterface`` gains
-  ``inputDigests(): bool``.
+- **Writes artifact:** a completed call's records beside its announced
+  write are listed in a block of their own: what core wrote along with it,
+  and what a listener of the write stored after the call. With AI Label
+  installed, a page metadata write to a translated page left a workspace
+  version of the translation (on TYPO3 14) that no list named (#1432).
+- **Change list:** a move in a draft workspace is named as the version it
+  wrote, not as a live move.
 
 Details in the repository :file:`CHANGELOG.md`.

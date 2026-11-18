@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.51.1] - 2026-11-18
+
+### Fixed
+
+- The `writes` artifact of an A2A task now also names the records a completed tool call wrote beside its announced write, in a block of its own. With AI Label installed, a page metadata write to a page with a translation left a workspace version of the translation that no list named: AI Label stores its metadata on the page's draft after the call, and on TYPO3 14 core gives the translations a version in that write, as it does when an editor saves the page in a workspace. The changes the listeners of a write store are now part of the call's `tool_changes` step, and the page metadata skill's documentation no longer says that translations stay without a draft (ADR-295, [#1432](https://github.com/netresearch/t3x-nr-llm/issues/1432)).
+- The change list of a tool call (`tool_changes`) names a move in a draft workspace as the version it wrote, in that workspace. It also listed the live record as moved in workspace 0, although live was not changed, and the `writes` artifact of an A2A task would have shown that line (ADR-292, ADR-295).
+
 ## [0.51.0] - 2026-11-18
 
 ### Upgrading from 0.50
@@ -5485,7 +5492,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.1...HEAD
+[0.51.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.0...v0.51.1
 [0.51.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.50.0...v0.51.0
 [0.50.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.0...v0.49.1
