@@ -580,16 +580,16 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             return null;
         }
 
-        $lines = [];
-        foreach ($rows as $row) {
-            $lines[] = sprintf(
+        $lines = array_map(
+            static fn (array $row): string => sprintf(
                 '- %s:%d in workspace %d (%s)',
                 is_string($row['record_table'] ?? null) ? $row['record_table'] : '',
                 is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0,
                 is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0,
                 is_string($row['kind'] ?? null) ? $row['kind'] : '',
-            );
-        }
+            ),
+            $rows,
+        );
 
         $parts = [];
         if ($lines !== []) {
@@ -622,44 +622,47 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      */
     private function changesOfFailedCalls(int $runUid): array
     {
-        $known      = [];
+        $lines      = [];
         $incomplete = false;
+        foreach ($this->changeSetsOfFailedCalls($runUid) as $set) {
+            $incomplete = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
+            foreach ($set->changes as $change) {
+                // The line holds every part of its identity, so it is its own key.
+                $lines[sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $change->liveUid ?? $change->record->uid, $change->workspace, $change->action->value)] = true;
+            }
+        }
 
+        return ['lines' => array_keys($lines), 'incomplete' => $incomplete];
+    }
+
+    /**
+     * The `tool_changes` sets of the run's calls whose tool step was an error.
+     *
+     * @return list<ObservedChangeSet>
+     */
+    private function changeSetsOfFailedCalls(int $runUid): array
+    {
         $events = $this->connection()->executeQuery(
             'SELECT kind, payload FROM tx_nrllm_agentrun_event WHERE run = ? AND kind IN (?, ?) ORDER BY sequence, uid',
             [$runUid, 'tool', 'tool_changes'],
             [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR],
         )->fetchAllAssociative();
 
-        $lines  = [];
+        $sets   = [];
         $failed = false;
         foreach ($events as $event) {
             $payload = is_string($event['payload'] ?? null) ? json_decode($event['payload'], true) : null;
             $payload = is_array($payload) ? $payload : [];
-            if (($event['kind'] ?? null) === 'tool') {
-                $failed = ($payload['toolIsError'] ?? null) === true;
-
-                continue;
+            $isTool  = ($event['kind'] ?? null) === 'tool';
+            $set     = !$isTool && $failed ? ObservedChangeSet::tryFromEventPayload($payload) : null;
+            if ($set instanceof ObservedChangeSet) {
+                $sets[] = $set;
             }
 
-            $set = $failed ? ObservedChangeSet::tryFromEventPayload($payload) : null;
-            if ($set instanceof ObservedChangeSet && ($set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0)) {
-                $incomplete = true;
-            }
-
-            foreach ($set instanceof ObservedChangeSet ? $set->changes : [] as $change) {
-                $uid = $change->liveUid ?? $change->record->uid;
-                $key = sprintf('%s:%d:%d:%s', $change->record->table, $uid, $change->workspace, $change->action->value);
-                if (!isset($known[$key])) {
-                    $known[$key] = true;
-                    $lines[]     = sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $uid, $change->workspace, $change->action->value);
-                }
-            }
-
-            $failed = false;
+            $failed = $isTool && ($payload['toolIsError'] ?? null) === true;
         }
 
-        return ['lines' => $lines, 'incomplete' => $incomplete];
+        return $sets;
     }
 
     private function profileOf(int $runUid): int

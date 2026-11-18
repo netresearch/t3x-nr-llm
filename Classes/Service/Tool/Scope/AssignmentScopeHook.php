@@ -237,11 +237,7 @@ final class AssignmentScopeHook
 
         $entries      = is_array($submitted[$table] ?? null) ? $submitted[$table] : [];
         $synchronised = $this->synchronisedFields($table);
-        if ($synchronised === [] || array_key_exists((int) $id, $entries) || array_diff($this->names($fields), [...$synchronised, 'l10n_state']) !== []) {
-            return false;
-        }
-
-        if ($this->listsAChild($table, $fields)) {
+        if ($synchronised === [] || array_key_exists((int) $id, $entries) || array_diff($this->names($fields), [...$synchronised, 'l10n_state']) !== [] || $this->listsAChild($table, $fields)) {
             return false;
         }
 
@@ -251,19 +247,32 @@ final class AssignmentScopeHook
             return false;
         }
 
+        return $this->originsWereSubmittedWithoutASynchronisedField($checker, $table, $entries, $origins, $synchronised, $workspace);
+    }
+
+    /**
+     * Whether the run submitted at least one of the records an added entry
+     * derives from, and none of them with a synchronised field.
+     *
+     * @param array<array-key, mixed> $entries      the submitted entries of the table
+     * @param list<int>               $origins      the live uids the entry derives from
+     * @param list<string>            $synchronised
+     */
+    private function originsWereSubmittedWithoutASynchronisedField(AssignmentScopeChecker $checker, string $table, array $entries, array $origins, array $synchronised, int $workspace): bool
+    {
         $found = false;
         foreach ($entries as $key => $entry) {
-            if (!is_array($entry) || !MathUtility::canBeInterpretedAsInteger($key) || (int) $key < 1) {
+            $isOrigin = is_array($entry) && MathUtility::canBeInterpretedAsInteger($key) && (int) $key > 0
+                && (in_array((int) $key, $origins, true) || in_array($checker->factsOf($table, (int) $key, $workspace)?->liveUid, $origins, true));
+            if (!$isOrigin) {
                 continue;
             }
 
-            if (in_array((int) $key, $origins, true) || in_array($checker->factsOf($table, (int) $key, $workspace)?->liveUid, $origins, true)) {
-                if (array_intersect($this->names($entry), $synchronised) !== []) {
-                    return false;
-                }
-
-                $found = true;
+            if (array_intersect($this->names($entry), $synchronised) !== []) {
+                return false;
             }
+
+            $found = true;
         }
 
         return $found;
