@@ -96,7 +96,8 @@ No other level keeps digests: ``none`` keeps nothing, ``redacted`` would
 otherwise confirm a credential the redactor masked, and ``full`` stores the
 text itself. A step first written at ``redacted`` and later held to
 ``metadata`` by a provider's ceiling gets none, because its text is already
-masked. When a run's level is tightened later, the digests are removed with
+masked. A step first written at ``full`` and held to ``metadata`` later gets
+no request digest, because ``full`` does not keep the request identity. When a run's level is tightened later, the digests are removed with
 the rest. Switching the setting off removes no digest already stored; they go
 with the run's other events under ``privacy.retention.agentRun``.
 

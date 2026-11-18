@@ -41,7 +41,7 @@ Decision
 
 1. **Keyed digests of the dropped parts, opt-in.** With the new setting
    ``privacy.inputDigests`` (off by default), a step filtered at the
-   ``metadata`` level keeps a digest of each part of its content it drops:
+   ``metadata`` level keeps a digest of these parts of the content it drops:
    ``messagesSentDigests`` (one per message, with its role, in order),
    ``contentDigest`` (the answer), ``toolArgumentsDigest``,
    ``toolResultDigest`` and ``requestDigest`` (item 3). A digest is
@@ -120,6 +120,12 @@ reasoning) look the same.
 ``fetch_external_url`` fences the page with a per-call nonce, so its
 ``toolResultDigest`` and the digest of the message that carries it differ
 for the same page.
+
+◑ A step first stored at ``full`` and held to ``metadata`` later (a
+provider's ceiling, a tightened run) has message, answer and tool digests
+but no ``requestDigest``: ``full`` does not store the identity it would be
+computed from. Thinking, requested tool calls, tool artifacts and raw
+provider bodies get no digest.
 
 ◑ A step stored at ``redacted`` before this change has no ``contentMasked``
 mark. If the setting is on and the run's level is later tightened to

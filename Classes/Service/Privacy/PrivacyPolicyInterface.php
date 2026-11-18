@@ -37,9 +37,9 @@ interface PrivacyPolicyInterface
 
     /**
      * Whether a run's step at the `metadata` level keeps a keyed digest of
-     * each part of its content it drops (ADR-323). Off by default: a digest
-     * of a short or predictable text lets a reader of the run confirm a
-     * guess at it.
+     * its messages, answer, tool arguments, tool result and request
+     * (ADR-323). Off by default: a digest of a short or predictable text lets
+     * a reader of the run confirm a guess at it.
      */
     public function inputDigests(): bool;
 

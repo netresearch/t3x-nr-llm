@@ -12,7 +12,7 @@ skill, a changed model and a changed input apart.
   default. Off, a stored step is what it was before, except that a step
   stored at `redacted` carries the `contentMasked` mark (CD6).
 - **CD2 Digests of the dropped parts.** On, a step filtered at the
-  `metadata` level keeps a keyed digest of each part it drops: each message
+  `metadata` level keeps a keyed digest of these parts it drops: each message
   sent (with its role, in order), the answer, a tool's arguments, a tool's
   result, and the request a model call answered. No text is kept.
 - **CD3 Keyed.** A digest is the HMAC-SHA-256 of the ADR-298 canonical form,
@@ -46,6 +46,10 @@ skill, a changed model and a changed input apart.
 
 - A reader of the run can confirm a guessed short or predictable input.
 - Requests that differ only in provider items look the same.
+- A step first stored at `full` and held to `metadata` later (a provider's
+  ceiling, a tightened run) has no request digest: `full` never stores the
+  request identity it would be computed from. Thinking, requested tool
+  calls, tool artifacts and raw provider bodies get no digest.
 - A tool result with a per-call random value (`fetch_external_url`'s fence
   nonce) differs on every run.
 
