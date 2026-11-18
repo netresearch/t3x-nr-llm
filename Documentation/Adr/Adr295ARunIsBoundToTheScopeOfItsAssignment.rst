@@ -188,7 +188,9 @@ The hook now keeps the datamap as the run submitted it, in
   from it (``l10n_source``), have to be in scope, as for a delete or a move
   (``language_not_allowed`` on the record, read through its live row). This
   errs on the side of refusing: a translation whose ``l10n_state`` keeps the
-  field custom would not be changed.
+  field custom would not be changed, an update that repeats the stored value
+  is judged by the field's name, and a translation row that is deleted or
+  belongs to another workspace counts too.
 - An entry core added is skipped, without a refusal, where the scope refuses
   it, when the run submitted nothing for that record, the record is a
   translation, the run submitted the record it translates or the one it was
@@ -203,13 +205,14 @@ The hook now keeps the datamap as the run submitted it, in
   ``og_image`` and ``twitter_image`` of a page) core copies or localises the
   children inside its processor, before any entry is judged. An added entry
   that lists children is therefore judged as before, so a write to a page
-  whose translation carries such a field is still refused under a scope of the
-  default language only.
+  with a file in such a field, on the page or on a translation that follows
+  it, is still refused under a scope of the default language only.
 - The submitted datamap is the one this hook sees in
   ``processDatamap_beforeStart``: a ``processDatamap_beforeStart`` hook of an
   extension registered after nr_llm that adds a synchronised field is not in
   it, and the entries core adds for that field are then left out without a
-  refusal. Nothing outside the scope is stored that way.
+  refusal: the record keeps the new value and its translations do not.
+  Nothing outside the scope is stored that way.
 
 **What stands of a failed call is reported** (same amendment). A call that had
 a write refused commits the rest of what it wrote, and a tool that fails after
