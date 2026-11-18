@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\ValueObject\DroppedSource;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidenceEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
 use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -187,6 +188,28 @@ final class RunTrace
             round: $round,
             durationMs: 0.0,
             skillUsage: $entries,
+        ));
+    }
+
+    /**
+     * Record the test evidence that applied to the skill versions a model
+     * call first carried (ADR-322), after that call's answer step. An empty
+     * list records nothing; an entry with no evidence states that none
+     * applied.
+     *
+     * @param list<SkillEvidenceEntry> $entries
+     */
+    public function recordSkillEvidence(int $round, array $entries): void
+    {
+        if ($entries === []) {
+            return;
+        }
+
+        $this->add(new RunStep(
+            kind: RunStep::KIND_SKILL_EVIDENCE,
+            round: $round,
+            durationMs: 0.0,
+            skillEvidence: $entries,
         ));
     }
 

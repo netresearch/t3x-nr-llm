@@ -404,10 +404,16 @@ class ToolPlayground {
         split.appendChild(detail);
         this.output.appendChild(split);
 
-        // Select the last step (the final answer / assembled messages) by default.
+        // Select the last step (the final answer / assembled messages) by
+        // default. A skill evidence step follows the answer it is judged
+        // against (ADR-322), so it is passed over.
         const rows = list.querySelectorAll('.nrllm-pg-slrow');
         if (rows.length > 0) {
-            rows[rows.length - 1].click();
+            let pick = rows.length - 1;
+            while (pick > 0 && steps[pick]?.kind === 'skill_evidence') {
+                pick--;
+            }
+            rows[pick].click();
         } else {
             this.showEmptyDetail(detail);
         }
@@ -580,6 +586,13 @@ class ToolPlayground {
             icon.textContent = '◆';
             title.textContent = `Skills · round ${step.round}`;
             sub.textContent = this.skillUsageLabel(step);
+        } else if (step.kind === 'skill_evidence') {
+            // ADR-322: the evaluations that had measured those versions,
+            // judged against the model that answered.
+            icon.classList.add('is-context');
+            icon.textContent = '✓';
+            title.textContent = `Skill evidence · round ${step.round}`;
+            sub.textContent = this.skillEvidenceLabel(step);
         } else {
             const hasCalls = Array.isArray(step.requestedToolCalls) && step.requestedToolCalls.length > 0;
             icon.classList.add(hasCalls ? 'is-req' : 'is-final');
@@ -672,6 +685,13 @@ class ToolPlayground {
             return;
         }
 
+        if (step.kind === 'skill_evidence') {
+            detail.appendChild(this.detailHeader(`Skill evidence · round ${step.round}`, this.skillEvidenceLabel(step), ''));
+            // Identifiers, figures and codes only (ADR-322).
+            detail.appendChild(this.pre(this.skillEvidenceLines(step).join('\n')));
+            return;
+        }
+
         // llm
         const isFinal = !(Array.isArray(step.requestedToolCalls) && step.requestedToolCalls.length > 0);
         detail.appendChild(this.detailHeader(
@@ -700,6 +720,26 @@ class ToolPlayground {
             const digest = typeof e.digest === 'string' && e.digest !== '' ? e.digest.slice(0, 14) : '-';
             const approval = Number.isInteger(e.approval) && e.approval > 0 ? `approval #${e.approval}` : `approval ${e.approvalState}`;
             return `${e.identifier || '(no identifier)'} #${e.skill} @${digest} ${e.role}/${e.inclusion}/${e.state} ${approval}`;
+        });
+    }
+
+    skillEvidenceLabel(step) {
+        const entries = Array.isArray(step.skillEvidence) ? step.skillEvidence : [];
+        const tested = entries.filter((e) => Array.isArray(e.evidence) && e.evidence.length > 0).length;
+        return `${tested} of ${entries.length} tested`;
+    }
+
+    skillEvidenceLines(step) {
+        const entries = Array.isArray(step.skillEvidence) ? step.skillEvidence : [];
+        return entries.map((e) => {
+            const digest = typeof e.digest === 'string' && e.digest !== '' ? e.digest.slice(0, 14) : '-';
+            const items = Array.isArray(e.evidence) ? e.evidence : [];
+            if (items.length === 0) {
+                return `#${e.skill} @${digest}: none`;
+            }
+            return `#${e.skill} @${digest}: ` + items
+                .map((i) => `eval#${i.evaluation} ${i.set} ${i.reportedModel || i.model || '-'} pass=${Number(i.passRate).toFixed(2)} fit=${i.fit}`)
+                .join(' | ');
         });
     }
 

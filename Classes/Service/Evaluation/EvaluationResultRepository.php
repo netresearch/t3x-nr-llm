@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Service\Evaluation\Grader\DecisionGrader;
 use Netresearch\NrLlm\Service\Privacy\PrivacyPolicyInterface;
 use Netresearch\NrLlm\Service\Privacy\RunPrivacyLevelsInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -31,6 +32,9 @@ final readonly class EvaluationResultRepository implements BenchmarkEvaluationRe
 {
     private const TABLE = 'tx_nrllm_eval_result';
 
+    /** The skill versions an evaluation measured (ADR-322). */
+    private const SKILL_TABLE = 'tx_nrllm_eval_skill_version';
+
     private EvaluationResultRowMapper $rows;
 
     public function __construct(
@@ -49,8 +53,8 @@ final readonly class EvaluationResultRepository implements BenchmarkEvaluationRe
         $level     = $generator instanceof GeneratorProvenance
             ? $this->privacyLevels?->forProvider($generator->providerIdentifier) ?? $this->privacyPolicy->level()
             : $this->privacyPolicy->level();
-        $this->connectionPool
-            ->getConnectionForTable(self::TABLE)
+        $connection = $this->connectionPool->getConnectionForTable(self::TABLE);
+        $connection
             ->insert(
                 self::TABLE,
                 [
@@ -66,22 +70,61 @@ final readonly class EvaluationResultRepository implements BenchmarkEvaluationRe
                         ],
                         JSON_THROW_ON_ERROR,
                     ) : '',
-                    'benchmark_fingerprint' => $identity->benchmarkFingerprint ?? $result->verifiedCompletionBenchmarkFingerprint(),
-                    'variant_fingerprint'   => $identity->variantFingerprint ?? '',
-                    'prompt_count'          => $result->promptCount(),
-                    'passed_count'          => $result->passedCount(),
-                    'pass_rate'             => $result->passRate(),
-                    'mean_score'            => $result->meanScore(),
-                    'details'               => $this->permittedDetails($this->encodeDetails($result, $level), $level) ?? '',
-                    'run_date'              => $result->runTimestamp,
-                    'tstamp'                => $now,
-                    'crdate'                => $now,
+                    'benchmark_fingerprint'    => $identity->benchmarkFingerprint ?? $result->verifiedCompletionBenchmarkFingerprint(),
+                    'variant_fingerprint'      => $identity->variantFingerprint ?? '',
+                    'configuration_identifier' => $result->testedConfiguration,
+                    'grading_protocol'         => $result->gradingProtocol,
+                    'prompt_count'             => $result->promptCount(),
+                    'passed_count'             => $result->passedCount(),
+                    'pass_rate'                => $result->passRate(),
+                    'mean_score'               => $result->meanScore(),
+                    'details'                  => $this->permittedDetails($this->encodeDetails($result, $level), $level) ?? '',
+                    'run_date'                 => $result->runTimestamp,
+                    'tstamp'                   => $now,
+                    'crdate'                   => $now,
                 ],
             );
+
+        $this->saveTestedSkills((int) $connection->lastInsertId(), $result, $now);
+    }
+
+    /**
+     * One row per skill version the evaluation measured (ADR-322), so a run
+     * finds the evaluations that covered a version by skill and digest.
+     * Identity and digest only. An evaluation whose gradings do not share
+     * one yardstick, or none of whose decisions could be made, measured
+     * nothing a run could rely on: it is evidence for no version.
+     */
+    private function saveTestedSkills(int $evaluationUid, SetEvaluationResult $result, int $now): void
+    {
+        if ($evaluationUid <= 0 || $result->testedSkills === [] || !$result->sharesOneYardstick() || $result->grader === DecisionGrader::FAILED_SERIES) {
+            return;
+        }
+
+        $connection = $this->connectionPool->getConnectionForTable(self::SKILL_TABLE);
+        foreach ($result->testedSkills as $use) {
+            $connection->insert(self::SKILL_TABLE, [
+                'pid'            => 0,
+                'eval_result'    => $evaluationUid,
+                'skill_uid'      => $use->skillUid,
+                'source_uid'     => $use->sourceUid,
+                'version_digest' => $use->versionDigest,
+                'role'           => $use->role->value,
+                'run_date'       => $result->runTimestamp,
+                'crdate'         => $now,
+            ]);
+        }
     }
 
     public function purgeOlderThan(int $timestamp): int
     {
+        // The versions an evaluation measured go with it, on its run date.
+        $skills = $this->connectionPool->getConnectionForTable(self::SKILL_TABLE)->createQueryBuilder();
+        $skills
+            ->delete(self::SKILL_TABLE)
+            ->where($skills->expr()->lt('run_date', $skills->createNamedParameter($timestamp)))
+            ->executeStatement();
+
         $connection   = $this->connectionPool->getConnectionForTable(self::TABLE);
         $queryBuilder = $connection->createQueryBuilder();
 

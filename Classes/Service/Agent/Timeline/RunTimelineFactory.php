@@ -15,11 +15,15 @@ use Netresearch\NrLlm\Domain\Enum\ApprovalAttribution;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidenceEntry;
 use Netresearch\NrLlm\Domain\ValueObject\SkillUsageEntry;
+use Netresearch\NrLlm\Service\Evaluation\SkillEvidenceLookupInterface;
 use Netresearch\NrLlm\Service\Governance\GovernanceEventRepositoryInterface;
 use Netresearch\NrLlm\Service\Governance\RecordedGovernanceEvent;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
+use Throwable;
 
 /**
  * Assembles one agent run's three record streams into a single ordered timeline
@@ -105,6 +109,9 @@ final readonly class RunTimelineFactory
     public function __construct(
         private TelemetryRepositoryInterface $telemetry,
         private GovernanceEventRepositoryInterface $governance,
+        // Whether an evaluation a run recorded as evidence is still stored
+        // (ADR-322). Absent, its availability is shown as unknown.
+        private ?SkillEvidenceLookupInterface $skillEvidence = null,
     ) {}
 
     /**
@@ -296,7 +303,76 @@ final readonly class RunTimelineFactory
             $facts['skills'] = $skills;
         }
 
+        $evidence = $this->skillEvidence($payload['skillEvidence'] ?? null);
+        if ($evidence !== '') {
+            $facts['evidence'] = $evidence;
+        }
+
         return $this->join($facts);
+    }
+
+    /**
+     * A skill evidence step (ADR-322), one part per version:
+     * `#uid@digest: none`, or each evaluation as
+     * `eval#N set model pass=0.90 fit=match`, with `report=gone` when
+     * retention purged the evaluation since. The snapshot the run recorded is
+     * what is shown; a newer evaluation of the same version never stands in
+     * for it.
+     */
+    private function skillEvidence(mixed $stored): string
+    {
+        $parts = [];
+        foreach (SkillEvidenceEntry::listFrom($stored) as $entry) {
+            $items = [];
+            foreach ($entry->evidence as $evidence) {
+                $items[] = sprintf(
+                    'eval#%d %s %s pass=%.2f fit=%s%s',
+                    $evidence->evaluationUid,
+                    $evidence->setIdentifier,
+                    $this->evaluatedModel($evidence),
+                    $evidence->passRate,
+                    $evidence->fit->value,
+                    $this->availability($evidence),
+                );
+            }
+
+            $parts[] = sprintf(
+                '#%d@%s: %s',
+                $entry->skillUid,
+                $entry->versionDigest === '' ? '-' : substr($entry->versionDigest, 0, 14),
+                $items === [] ? 'none' : implode(' | ', $items),
+            );
+        }
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * The model an evaluation names: the one its provider reported, else the
+     * one it asked for, else a placeholder.
+     */
+    private function evaluatedModel(SkillEvidence $evidence): string
+    {
+        if ($evidence->reportedModelId !== '') {
+            return $evidence->reportedModelId;
+        }
+
+        return $evidence->modelId !== '' ? $evidence->modelId : '-';
+    }
+
+    private function availability(SkillEvidence $evidence): string
+    {
+        if (!$this->skillEvidence instanceof SkillEvidenceLookupInterface) {
+            return ' report=unknown';
+        }
+
+        try {
+            return $this->skillEvidence->isAvailable($evidence) ? '' : ' report=gone';
+        } catch (Throwable) {
+            // The evaluation tables cannot be read: the snapshot still shows,
+            // without a claim about whether its evaluation is still stored.
+            return ' report=unknown';
+        }
     }
 
     /**

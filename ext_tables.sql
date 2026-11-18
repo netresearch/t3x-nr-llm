@@ -1101,6 +1101,11 @@ CREATE TABLE tx_nrllm_eval_result (
     -- Completion benchmark identity (ADR-271) or retrieval benchmark (ADR-215).
     benchmark_fingerprint varchar(67) DEFAULT '' NOT NULL,
     variant_fingerprint varchar(67) DEFAULT '' NOT NULL,
+    -- The configuration whose skills the evaluated requests carried and the
+    -- version of the grading protocol (ADR-322): what a run's evidence names
+    -- as the tested configuration and grading method. '' where unknown.
+    configuration_identifier varchar(190) DEFAULT '' NOT NULL,
+    grading_protocol varchar(64) DEFAULT '' NOT NULL,
 
     -- Aggregate metrics (pass_rate / mean_score normalised 0.0000-1.0000)
     prompt_count int(11) unsigned DEFAULT '0' NOT NULL,
@@ -1124,6 +1129,31 @@ CREATE TABLE tx_nrllm_eval_result (
     KEY set_model (set_identifier, model_id, run_date),
     -- Quality-routing read path: latest runs per set for a model.
     KEY model_lookup (model_id, run_date)
+);
+
+#
+# The skill versions one evaluation measured (ADR-322): one row per version
+# the request of every prompt carried. Identity and digest only, no text. A run
+# looks its evidence up here by skill and digest. Deleted with its evaluation
+# row by the same retention (run_date is that of the evaluation).
+#
+CREATE TABLE tx_nrllm_eval_skill_version (
+    uid int(11) unsigned NOT NULL auto_increment,
+    pid int(11) unsigned DEFAULT '0' NOT NULL,
+
+    eval_result int(11) unsigned DEFAULT '0' NOT NULL,
+    skill_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    source_uid int(11) unsigned DEFAULT '0' NOT NULL,
+    version_digest varchar(80) DEFAULT '' NOT NULL,
+    role varchar(16) DEFAULT '' NOT NULL,
+    run_date int(11) unsigned DEFAULT '0' NOT NULL,
+
+    crdate int(11) unsigned DEFAULT '0' NOT NULL,
+
+    PRIMARY KEY (uid),
+    KEY parent (pid),
+    KEY skill_digest (skill_uid, version_digest, run_date),
+    KEY eval_result (eval_result)
 );
 
 #

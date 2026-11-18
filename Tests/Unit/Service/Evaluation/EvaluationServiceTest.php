@@ -9,8 +9,10 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Evaluation;
 
+use Netresearch\NrLlm\Domain\Enum\SkillRole;
 use Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionAnswer;
 use Netresearch\NrLlm\Domain\ValueObject\Decision\ProbabilityKind;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\Decision\DecisionException;
 use Netresearch\NrLlm\Service\Decision\DecisionResult;
 use Netresearch\NrLlm\Service\Evaluation\Assertion;
@@ -37,6 +39,53 @@ final class EvaluationServiceTest extends TestCase
             $completion,
             new GradingService(new DeterministicGrader(), new DecisionGrader(new FakeDecisionService())),
         );
+    }
+
+    /**
+     * ADR-322: an evaluation names the skill versions it measured when every
+     * prompt's request carried the same composition, with the configuration
+     * they came from and the version of its grading protocol.
+     */
+    #[Test]
+    public function anEvaluationNamesTheSkillVersionsEveryPromptCarried(): void
+    {
+        $completion                     = new StaticCompletionService('ACK Paris');
+        $use                            = new SkillUse(3, 1, '1:' . str_repeat('a', 64), 'house-rules', SkillRole::INSTRUCTION);
+        $completion->compositionPerCall = [
+            0 => ['configuration' => 'default', 'uses' => [$use]],
+            1 => ['configuration' => 'default', 'uses' => [$use]],
+        ];
+
+        $result = $this->evaluationService($completion)->run($this->set());
+
+        self::assertEquals([$use], $result->testedSkills);
+        self::assertSame('default', $result->testedConfiguration);
+        self::assertSame('deterministic-assertions-v1', $result->gradingProtocol);
+    }
+
+    /**
+     * Prompts that carried different versions, or one that carried none, make
+     * the evaluation stand as evidence for no version: it never covers a
+     * version only some of its prompts saw.
+     */
+    #[Test]
+    public function anEvaluationWhosePromptsDisagreeNamesNoSkillVersion(): void
+    {
+        $first  = new SkillUse(3, 1, '1:' . str_repeat('a', 64), 'house-rules', SkillRole::INSTRUCTION);
+        $second = new SkillUse(3, 1, '1:' . str_repeat('b', 64), 'house-rules', SkillRole::INSTRUCTION);
+
+        $changed                     = new StaticCompletionService('ACK Paris');
+        $changed->compositionPerCall = [
+            0 => ['configuration' => 'default', 'uses' => [$first]],
+            1 => ['configuration' => 'default', 'uses' => [$second]],
+        ];
+        $partial                     = new StaticCompletionService('ACK Paris');
+        $partial->compositionPerCall = [0 => ['configuration' => 'default', 'uses' => [$first]]];
+
+        self::assertSame([], $this->evaluationService($changed)->run($this->set())->testedSkills);
+        $result = $this->evaluationService($partial)->run($this->set());
+        self::assertSame([], $result->testedSkills);
+        self::assertSame('', $result->testedConfiguration);
     }
 
     private function set(): GoldenPromptSet

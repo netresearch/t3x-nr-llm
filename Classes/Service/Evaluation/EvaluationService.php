@@ -10,7 +10,9 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Evaluation;
 
 use Netresearch\NrLlm\Domain\ValueObject\GeneratorProvenance;
+use Netresearch\NrLlm\Domain\ValueObject\SkillUse;
 use Netresearch\NrLlm\Service\CompletionRequestIdentity;
+use Netresearch\NrLlm\Service\ComposedSkillVersions;
 use Netresearch\NrLlm\Service\Evaluation\Grader\DeterministicGrader;
 use Netresearch\NrLlm\Service\Feature\CompletionServiceInterface;
 use Netresearch\NrLlm\Service\Option\ChatOptions;
@@ -56,6 +58,7 @@ final readonly class EvaluationService
         ?ChatOptions $baseOptions = null,
     ): SetEvaluationResult {
         $effectiveRequests = [];
+        $compositions      = [];
         $this->gradingService->assertReady($graderId);
         $evaluations = [];
         foreach ($set->prompts as $prompt) {
@@ -87,7 +90,8 @@ final readonly class EvaluationService
             $effectiveRequests[] = CompletionRequestIdentity::read(
                 $response->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null,
             );
-            $evaluations[] = new PromptEvaluation(
+            $compositions[] = ComposedSkillVersions::read($response->metadata);
+            $evaluations[]  = new PromptEvaluation(
                 $prompt->id,
                 $grading,
                 $latencyMs,
@@ -97,6 +101,8 @@ final readonly class EvaluationService
         }
 
         $generator = $this->singleGenerator($evaluations);
+        $tested    = $this->singleComposition($compositions);
+        $protocol  = $this->gradingService->benchmarkProtocol($graderId)['version'] ?? '';
 
         return new SetEvaluationResult(
             $set->identifier,
@@ -113,7 +119,51 @@ final readonly class EvaluationService
                 ),
                 $effectiveRequests,
             ) : '',
+            testedSkills: $tested['skills'] ?? [],
+            testedConfiguration: $tested['configuration'] ?? '',
+            gradingProtocol: is_string($protocol) ? $protocol : '',
         );
+    }
+
+    /**
+     * The skill versions the evaluation measured (ADR-322): the composition
+     * every prompt's request carried, when all of them carried the same one.
+     * Prompts that disagree, or one that carried no readable composition, make
+     * the evaluation name no skill version at all, so it never stands as
+     * evidence for a version only some of its prompts saw.
+     *
+     * @param list<array{configuration: string, skills: list<SkillUse>}|null> $compositions
+     *
+     * @return array{configuration: string, skills: list<SkillUse>}|null
+     */
+    private function singleComposition(array $compositions): ?array
+    {
+        $first = $compositions[0] ?? null;
+        if ($first === null) {
+            return null;
+        }
+
+        $key = $this->compositionKey($first);
+        foreach ($compositions as $composition) {
+            if ($composition === null || $this->compositionKey($composition) !== $key) {
+                return null;
+            }
+        }
+
+        return $first;
+    }
+
+    /**
+     * @param array{configuration: string, skills: list<SkillUse>} $composition
+     */
+    private function compositionKey(array $composition): string
+    {
+        $parts = [$composition['configuration']];
+        foreach ($composition['skills'] as $use) {
+            $parts[] = implode("\x00", [$use->skillUid, $use->sourceUid, $use->versionDigest, $use->role->value]);
+        }
+
+        return implode("\x01", $parts);
     }
 
     /**

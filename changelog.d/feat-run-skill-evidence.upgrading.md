@@ -1,0 +1,1 @@
+- Run the database analyzer: test evidence of skill versions adds the table `tx_nrllm_eval_skill_version` and the columns `tx_nrllm_eval_result.configuration_identifier` and `tx_nrllm_eval_result.grading_protocol` (both default empty). Evaluations stored before name no skill versions and are evidence for none (ADR-322).

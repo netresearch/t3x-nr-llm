@@ -9,9 +9,12 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Agent\Timeline;
 
+use Netresearch\NrLlm\Domain\Enum\SkillEvidenceFit;
 use Netresearch\NrLlm\Domain\Enum\ToolOutcome;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
 use Netresearch\NrLlm\Domain\ValueObject\AgentRunEvent;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
+use Netresearch\NrLlm\Domain\ValueObject\SkillEvidenceEntry;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineEntry;
 use Netresearch\NrLlm\Service\Agent\Timeline\RunTimelineFactory;
@@ -20,6 +23,7 @@ use Netresearch\NrLlm\Service\Telemetry\TelemetryCall;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Tests\Unit\Command\Fixture\InMemoryGovernanceEventRepository;
 use Netresearch\NrLlm\Tests\Unit\Fixture\InMemoryTelemetryRepository;
+use Netresearch\NrLlm\Tests\Unit\Service\Evaluation\Fixture\InMemorySkillEvidenceLookup;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -462,6 +466,50 @@ final class RunTimelineFactoryTest extends TestCase
             'skills=house-rules#3@1:abababababab instruction/composed/passed approval=12, glossary#5@- context/composed/passed approval=none, a_b_c_d#9@- context/composed/passed approval=none',
             $timeline[0]->detail,
         );
+    }
+
+    /**
+     * ADR-322, cases 6 and 7 of the lineage acceptance: the run shows the
+     * evidence it recorded. A newer evaluation of the same version does not
+     * take its place, and an evaluation retention purged since shows as gone.
+     */
+    #[Test]
+    public function aSkillEvidenceStepShowsTheRecordedEvaluationAndWhetherItIsStillStored(): void
+    {
+        $digest   = '1:' . str_repeat('ab', 32);
+        $recorded = new SkillEvidence(12, 1_700_000_000, 'nr_llm.smoke', 'v1:' . str_repeat('c', 64), 'default', 'openai', 'gpt-5', 'gpt-5-2025-08-07', 'deterministic', 'deterministic-assertions-v1', 2, 2, 1.0, 1.0, fit: SkillEvidenceFit::MATCH);
+        $payload  = [
+            'kind'          => 'skill_evidence',
+            'skillEvidence' => [
+                (new SkillEvidenceEntry(3, $digest, [$recorded]))->toArray(),
+                (new SkillEvidenceEntry(5, '', []))->toArray(),
+            ],
+        ];
+        // As stored: the persister encodes without preserving a zero
+        // fraction, so a pass rate of 1.0 comes back as the integer 1.
+        $payload = json_decode(json_encode($payload, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR);
+        self::assertIsArray($payload);
+        /** @var array<string, mixed> $payload */
+        $event = new AgentRunEvent(uid: 201, run: 7, sequence: 1, kind: 'skill_evidence', round: 1, durationMs: 0.0, payload: $payload, crdate: 1_700_000_011);
+
+        $lookup = new InMemorySkillEvidenceLookup();
+        $lookup->add(3, $digest, $recorded);
+        // A newer evaluation of the same version, stored after the run.
+        $lookup->add(3, $digest, new SkillEvidence(13, 1_700_100_000, 'nr_llm.smoke', 'v1:' . str_repeat('d', 64), 'default', 'openai', 'gpt-5', 'gpt-5-2025-08-07', 'deterministic', 'deterministic-assertions-v1', 2, 0, 0.0, 0.0));
+
+        $factory = new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository(), $lookup);
+
+        $stored = $factory->build($this->agentRun(), [$event]);
+        self::assertSame('evidence=#3@1:abababababab: eval#12 nr_llm.smoke gpt-5-2025-08-07 pass=1.00 fit=match, #5@-: none', $stored[0]->detail);
+
+        $lookup->stored = [13];
+        $purged         = $factory->build($this->agentRun(), [$event]);
+        self::assertSame('evidence=#3@1:abababababab: eval#12 nr_llm.smoke gpt-5-2025-08-07 pass=1.00 fit=match report=gone, #5@-: none', $purged[0]->detail);
+
+        // The evaluation tables cannot be read: the snapshot still shows.
+        $lookup->failure = new RuntimeException('table missing');
+        $unreadable      = $factory->build($this->agentRun(), [$event]);
+        self::assertSame('evidence=#3@1:abababababab: eval#12 nr_llm.smoke gpt-5-2025-08-07 pass=1.00 fit=match report=unknown, #5@-: none', $unreadable[0]->detail);
     }
 
     /**
