@@ -48,6 +48,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixtures\Database\FailsOneReadConnectionPool;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -432,6 +433,31 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
         self::assertSame([], $resolver->resolve([], ['scope1'])->changes, 'without a watermark no history is read');
         self::assertSame([], $resolver->resolve([], ['otherscope'], 0)->changes, "another chain's rows are not this call's");
+    }
+
+    /**
+     * A row that cannot be read is not a row that is gone. A move is listed
+     * as the hooks heard of it; a delete or undelete, which would be listed
+     * only if its row or the history bore it out, is counted as a record the
+     * list could not settle, so the list does not read as complete. A delete of
+     * a uid that no row bears, read without a failure, is still no change.
+     */
+    #[Test]
+    public function aCommandWhoseRowCannotBeReadIsNotDroppedSilently(): void
+    {
+        $records = static fn (ChangeAction $action, int $uid = self::ELEMENT): array => ['tt_content:' . $uid => ['table' => 'tt_content', 'uid' => $uid, 'action' => $action, 'workspace' => 0]];
+
+        $moved = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records(ChangeAction::MOVED), []);
+        self::assertSame(['tt_content:' . self::ELEMENT], array_map(static fn (ObservedChange $change): string => (string) $change->record, $moved->changes), 'the move is listed');
+
+        foreach ([ChangeAction::DELETED, ChangeAction::RESTORED] as $action) {
+            $set = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records($action), []);
+            self::assertSame(1, $set->omitted, $action->value . ': the list says it is not complete');
+        }
+
+        $gone = (new ObservedChangeResolver($this->connectionPool))->resolve($records(ChangeAction::DELETED, 9999), []);
+        self::assertSame([], $gone->changes);
+        self::assertSame(0, $gone->omitted, 'a row that is confirmed missing is no change and leaves the list complete');
     }
 
     /**

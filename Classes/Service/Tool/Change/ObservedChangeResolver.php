@@ -31,8 +31,11 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  * alone, except for one rule: a delete of a row that no longer exists is listed
  * only where the history names it, because a command for a uid that never
  * existed reaches the hook the same way and leaves the same trace. Without
- * history a hard delete is therefore not listed. `history_data` is never
- * selected (ADR-185).
+ * history a hard delete is therefore not listed. A row that cannot be read is
+ * not a row that is gone: an entry that would be left out for want of it marks
+ * the list as incomplete, as a history read that fails does, so the scope's
+ * effect check rolls the call back (ADR-295). `history_data` is never selected
+ * (ADR-185).
  *
  * The stored state — workspace, live uid, language, the disable flag and the
  * row's own time and group restrictions — is read from the row, not from what
@@ -99,7 +102,7 @@ final readonly class ObservedChangeResolver
         // names the version: after the entries are settled the two meet.
         $settled = [];
         foreach ($records as $entry) {
-            $applied = $this->applied($entry, $confirmed);
+            $applied = $this->applied($entry, $confirmed, $truncated);
             if ($applied === null) {
                 continue;
             }
@@ -251,19 +254,26 @@ final readonly class ObservedChangeResolver
      * draft workspace names the version it wrote; without one, core moved the
      * live row and the entry names it.
      *
+     * A read that fails settles none of this: it marks the list as incomplete
+     * ($truncated), so that the effect check of a scope does not clear what it
+     * could not see.
+     *
      * @param array{table: string, uid: int, action: ChangeAction, workspace: int}                $entry
      * @param array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}> $confirmed the history's entries by `table:uid`
      *
      * @return array{table: string, uid: int, action: ChangeAction, workspace: int}|null
      */
-    private function applied(array $entry, array $confirmed): ?array
+    private function applied(array $entry, array $confirmed, bool &$truncated): ?array
     {
         if (!in_array($entry['action'], [ChangeAction::DELETED, ChangeAction::RESTORED, ChangeAction::MOVED], true)) {
             return $entry;
         }
 
-        $row = $this->row($entry['table'], $entry['uid']);
+        $failed = false;
+        $row    = $this->row($entry['table'], $entry['uid'], $failed);
         if ($row === null) {
+            $truncated = $truncated || $failed;
+
             // A move whose row cannot be read is kept, so that the effect check
             // judges it, and fails closed, as before a move was mapped here.
             return $entry['action'] === ChangeAction::MOVED || isset($confirmed[$entry['table'] . ':' . $entry['uid']]) ? $entry : null;
@@ -271,7 +281,8 @@ final readonly class ObservedChangeResolver
 
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
         if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
-            $version = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace']);
+            $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
+            $truncated = $truncated || $failed;
 
             return $version === null ? null : [...$entry, 'uid' => $version];
         }
@@ -279,7 +290,8 @@ final readonly class ObservedChangeResolver
         // A move core made live (a table without versioning, a workspace that
         // allows live editing) has no version and keeps the live row.
         if ($entry['action'] === ChangeAction::MOVED && $entry['workspace'] > 0 && $liveRow) {
-            $version = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace']);
+            $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
+            $truncated = $truncated || $failed;
 
             return $version === null ? $entry : [...$entry, 'uid' => $version];
         }
@@ -289,8 +301,9 @@ final readonly class ObservedChangeResolver
 
     /**
      * The uid of the version a draft workspace holds of a live row, or null.
+     * A lookup that fails sets $failed.
      */
-    private function versionIn(string $table, int $uid, int $workspace): ?int
+    private function versionIn(string $table, int $uid, int $workspace, bool &$failed = false): ?int
     {
         // A table without versioning has no version columns, and a failed query
         // would end an open transaction on PostgreSQL.
@@ -314,6 +327,8 @@ final readonly class ObservedChangeResolver
                 ->executeQuery()
                 ->fetchOne();
         } catch (Throwable) {
+            $failed = true;
+
             return null;
         }
 
@@ -396,12 +411,13 @@ final readonly class ObservedChangeResolver
     }
 
     /**
-     * The stored row, deleted ones included, or null where it does not exist
-     * or its table is not a TCA table.
+     * The stored row, deleted ones included, or null where it does not exist,
+     * its table is not a TCA table, or the read fails; a read that fails sets
+     * $failed.
      *
      * @return array<string, mixed>|null
      */
-    private function row(string $table, int $uid): ?array
+    private function row(string $table, int $uid, bool &$failed = false): ?array
     {
         // @phpstan-ignore-next-line TCA access returns mixed at each nesting level
         if (!isset($GLOBALS['TCA'][$table])) {
@@ -418,6 +434,8 @@ final readonly class ObservedChangeResolver
                 ->executeQuery()
                 ->fetchAssociative();
         } catch (Throwable) {
+            $failed = true;
+
             return null;
         }
 

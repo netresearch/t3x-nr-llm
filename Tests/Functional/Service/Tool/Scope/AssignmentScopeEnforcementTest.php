@@ -63,6 +63,7 @@ use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
+use Netresearch\NrLlm\Tests\Fixtures\Database\FailsOneReadConnectionPool;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -2137,6 +2138,139 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertFalse($this->transactionIsOpen(), 'the transaction ended');
         self::assertSame('Original 21', $this->header(self::IN_SCOPE_ELEMENT), 'what could not be judged was rolled back');
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+    }
+
+    // --- a row the effect check cannot read (#1434) ---------------------------
+
+    /**
+     * @return iterable<string, array{int, array<string, int>, int, int, int}>
+     */
+    public static function unreadableCommands(): iterable
+    {
+        // the element, its command, its `deleted` before the call, the
+        // workspace, the request for tt_content that fails (1 the row, 2 the
+        // version of a draft)
+        yield 'delete, live' => [self::OUTSIDE_ELEMENT, ['delete' => 1], 0, 0, 1];
+        yield 'undelete, live' => [self::OUTSIDE_ELEMENT, ['undelete' => 1], 1, 0, 1];
+        yield 'delete in a draft, the version cannot be read' => [self::OUTSIDE_ELEMENT, ['delete' => 1], 0, self::DRAFT, 2];
+    }
+
+    /**
+     * A delete or undelete outside the scope whose row, or whose draft version,
+     * the effect check cannot read is not cleared by it: the call is rolled
+     * back. The
+     * history, which would name the record otherwise, is gone (pruned), so the
+     * reads are all the check has. Only the hook layer is taken away, so the
+     * command reaches the DataHandler.
+     *
+     * @param array<string, int> $command
+     */
+    #[Test]
+    #[DataProvider('unreadableCommands')]
+    public function aCommandWhoseRowTheEffectCheckCannotReadIsRolledBack(int $element, array $command, int $deletedBefore, int $workspace, int $failingRead): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $this->connectionPool->getConnectionForTable('tt_content')->update('tt_content', ['deleted' => $deletedBefore], ['uid' => $element]);
+        $user = $this->setUpBackendUser(1);
+        if ($workspace > 0) {
+            self::assertTrue($user->setTemporaryWorkspace($workspace));
+        }
+
+        $before = $this->fingerprint();
+        $pool   = FailsOneReadConnectionPool::failing('tt_content', $failingRead, $failingRead);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($element, $command, $pool): void {
+                $this->command(['tt_content' => [$element => $command]], $context);
+                $this->forgetTheHistory();
+                // The pool the effect check takes next reads everything but tt_content.
+                GeneralUtility::addInstance(ConnectionPool::class, $pool);
+            },
+            user: $user,
+        );
+
+        self::assertSame(1, $pool->failed, 'the effect check read the element through the failing pool');
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the command is gone with the rollback');
+    }
+
+    /**
+     * The control of the test above: with the same failing read, a move out of
+     * the scope is rolled back too, and a command for a uid that no row bears,
+     * read with a working pool, is still no change: it does not roll back the
+     * call's write inside the scope.
+     */
+    #[Test]
+    public function aMoveWhoseRowCannotBeReadIsRolledBackAndADeleteOfNoRowIsNot(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $before = $this->fingerprint();
+        $pool   = FailsOneReadConnectionPool::failing('tt_content', 1, 1);
+
+        $moved = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($pool): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::OTHER]]], $context);
+                $this->forgetTheHistory();
+                GeneralUtility::addInstance(ConnectionPool::class, $pool);
+            },
+        );
+
+        self::assertSame(1, $pool->failed, 'the effect check read the element through the failing pool');
+        self::assertStringContainsString(self::ROLLED_BACK, $moved['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the move is gone with the rollback');
+
+        $kept = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Kept', $context);
+                $this->command(['tt_content' => [9999 => ['delete' => 1]]], $context);
+            },
+        );
+
+        self::assertSame('ok', $kept['toolResult']);
+        self::assertSame('Kept', $this->header(self::IN_SCOPE_ELEMENT), 'a delete of no row is not a write outside the scope');
+    }
+
+    /**
+     * A move that core makes live from a draft workspace, on a table without
+     * versioning, inside the scope: the effect check looks for a version only
+     * where the table keeps versions. A query for the version columns of such a
+     * table fails, and on PostgreSQL a failed statement ends the call's open
+     * transaction, so every later read of the check failed and the move was
+     * rolled back although it lay in the scope.
+     */
+    #[Test]
+    public function aMoveOfATableWithoutVersioningInsideTheScopeIsKeptInADraftWorkspace(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_workspace')->insert('sys_workspace', ['uid' => 3, 'pid' => 0, 'title' => 'Live editing', 'members' => '', 'live_edit' => 1]);
+        // Website users are allowed in a folder.
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', ['uid' => 90, 'pid' => self::SCOPED, 'title' => 'Users', 'doktype' => 254, 'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL]);
+        $this->connectionPool->getConnectionForTable('fe_users')->insert('fe_users', ['uid' => 1, 'pid' => self::SCOPED, 'username' => 'visitor']);
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(3));
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('move', [new RecordReference('fe_users', 1)], [new ScopedDestination('fe_users', 90)]),
+            function (ToolExecutionContext $context): void {
+                $this->command(['fe_users' => [1 => ['move' => 90]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(90, $this->pidOf('fe_users', 1), 'the move was made live and kept');
+    }
+
+    /**
+     * Takes away the history rows of the call, inside its transaction: the
+     * effect check then has only the hooks' records and the rows.
+     */
+    private function forgetTheHistory(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_history')->executeStatement('DELETE FROM sys_history');
     }
 
     // --- cache flushes wait for the commit ------------------------------------
