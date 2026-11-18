@@ -376,14 +376,17 @@ delete or undelete only where the stored row or the history bears it out: a
 command for a uid that no row bears is no change. A read of the row that failed
 was taken the same way. A delete or undelete outside the scope whose row could
 not be read, and whose history was gone, was left out, and the check cleared
-the call without judging it. A read that fails, of the row or of the version a
-draft workspace holds of it, now marks the entries as incomplete, as a history
-read that fails does, and the call is rolled back as not judgeable. This holds
-for a move too, which stays an entry and is judged as before. A row that was
-read and is not there is still no change. The version is looked up only for a
-table that keeps versions: a table without versioning has no version columns,
-so the query would always fail, and a move core makes live on such a table from
-a draft workspace would always be rolled back.
+the call without judging it. A read that fails, of the row of a delete or
+undelete or of the version a draft workspace holds of a row, now marks the
+entries as incomplete, as a history read that fails does, and the call is
+rolled back as not judgeable. A move whose row cannot be read stays an entry
+and is judged as before, which fails closed. A row that was read and is not
+there is still no change. The version is looked up only for a table that keeps
+versions: a table without versioning has no version columns, so the query would
+always fail, and a move core makes live on such a table from a draft workspace
+would always be rolled back. A delete core makes live on such a table (from a
+workspace that allows live editing) has no version either and is judged by its
+live row; it was taken as a delete that did not happen and left out.
 
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:

@@ -437,7 +437,8 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
     /**
      * A row that cannot be read is not a row that is gone. A move is listed
-     * as the hooks heard of it; a delete or undelete, which would be listed
+     * as the hooks heard of it, and the list stays complete; a delete or
+     * undelete, which would be listed
      * only if its row or the history bore it out, is counted as a record the
      * list could not settle, so the list does not read as complete. A delete of
      * a uid that no row bears, read without a failure, is still no change.
@@ -449,6 +450,7 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
         $moved = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records(ChangeAction::MOVED), []);
         self::assertSame(['tt_content:' . self::ELEMENT], array_map(static fn (ObservedChange $change): string => (string) $change->record, $moved->changes), 'the move is listed');
+        self::assertSame(0, $moved->omitted, 'the listed move is not also counted as left out');
 
         foreach ([ChangeAction::DELETED, ChangeAction::RESTORED] as $action) {
             $set = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records($action), []);

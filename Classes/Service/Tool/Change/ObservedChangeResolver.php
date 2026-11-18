@@ -272,15 +272,19 @@ final readonly class ObservedChangeResolver
         $failed = false;
         $row    = $this->row($entry['table'], $entry['uid'], $failed);
         if ($row === null) {
-            $truncated = $truncated || $failed;
-
             // A move whose row cannot be read is kept, so that the effect check
-            // judges it, and fails closed, as before a move was mapped here.
+            // judges it, and fails closed, as before a move was mapped here. A
+            // delete is not: the effect check clears a delete whose record it
+            // cannot read, as a hard delete leaves none.
+            $truncated = $truncated || $failed && $entry['action'] !== ChangeAction::MOVED;
+
             return $entry['action'] === ChangeAction::MOVED || isset($confirmed[$entry['table'] . ':' . $entry['uid']]) ? $entry : null;
         }
 
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
-        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
+        // A delete core made live (a table without versioning, a workspace that
+        // allows live editing) has no version and names the live row.
+        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow && $this->versioned($entry['table'])) {
             $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
             $truncated = $truncated || $failed;
 
@@ -307,10 +311,7 @@ final readonly class ObservedChangeResolver
     {
         // A table without versioning has no version columns, and a failed query
         // would end an open transaction on PostgreSQL.
-        $tca    = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
-        $schema = is_array($tca[$table] ?? null) ? $tca[$table] : [];
-        $ctrl   = is_array($schema['ctrl'] ?? null) ? $schema['ctrl'] : [];
-        if (!(bool) ($ctrl['versioningWS'] ?? false)) {
+        if (!$this->versioned($table)) {
             return null;
         }
 
@@ -333,6 +334,14 @@ final readonly class ObservedChangeResolver
         }
 
         return is_numeric($version) && (int) $version > 0 ? (int) $version : null;
+    }
+
+    /**
+     * Whether the table keeps workspace versions.
+     */
+    private function versioned(string $table): bool
+    {
+        return (bool) ($this->ctrl($table)['versioningWS'] ?? false);
     }
 
     /**

@@ -2265,6 +2265,35 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A delete that core makes live from a draft workspace, on a table without
+     * versioning, outside the scope: no version is written, so the effect check
+     * judges the live row. It took the missing version as a delete that did not
+     * happen and committed the call. Only the hook layer is taken away, so the
+     * command reaches the DataHandler.
+     */
+    #[Test]
+    public function aDeleteOfATableWithoutVersioningOutsideTheScopeIsRolledBackInADraftWorkspace(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $this->connectionPool->getConnectionForTable('sys_workspace')->insert('sys_workspace', ['uid' => 3, 'pid' => 0, 'title' => 'Live editing', 'members' => '', 'live_edit' => 1]);
+        $this->connectionPool->getConnectionForTable('fe_users')->insert('fe_users', ['uid' => 2, 'pid' => self::OTHER, 'username' => 'elsewhere']);
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(3));
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->command(['fe_users' => [2 => ['delete' => 1]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        $deleted = $this->connectionPool->getConnectionForTable('fe_users')->select(['deleted'], 'fe_users', ['uid' => 2])->fetchOne();
+        self::assertSame(0, (int) $deleted, 'the delete is gone with the rollback');
+    }
+
+    /**
      * Takes away the history rows of the call, inside its transaction: the
      * effect check then has only the hooks' records and the rows.
      */

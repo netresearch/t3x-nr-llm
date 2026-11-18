@@ -77,8 +77,9 @@ row that is not hidden can still be a draft, and nothing states that it is
 public. Frontend visibility is not checked and has no field. The list holds at
 most 50 entries, keeps the tool's own target among them, and counts the rest in
 ``changesOmitted``; a history chain of more than 5000 rows is cut off and counted
-as at least one more, and so is a history read that fails and a delete or
-undelete whose row cannot be read (:ref:`ADR-295 <adr-295>`, 2026-11-18). No title and no
+as at least one more, and so is a history read that fails, a delete or
+undelete whose row cannot be read, and a draft version that cannot be looked up
+(:ref:`ADR-295 <adr-295>`, 2026-11-18). No title and no
 field value is stored, so the run-step privacy filter has nothing to strip at
 any level, and the step is persisted as it is.
 
