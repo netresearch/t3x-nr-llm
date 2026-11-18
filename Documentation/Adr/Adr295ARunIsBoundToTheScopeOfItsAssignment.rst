@@ -184,19 +184,32 @@ The hook now keeps the datamap as the run submitted it, in
 ``processDatamap_beforeStart``, and judges by it:
 
 - An update that names a synchronised field reaches the translations, so the
-  languages of all translations of the record have to be in scope, as for a
-  delete or a move (``language_not_allowed`` on the record). This errs on the
-  side of refusing: a translation whose ``l10n_state`` keeps the field custom
-  would not be changed.
+  languages of all translations of the record, and of the rows translated
+  from it (``l10n_source``), have to be in scope, as for a delete or a move
+  (``language_not_allowed`` on the record, read through its live row). This
+  errs on the side of refusing: a translation whose ``l10n_state`` keeps the
+  field custom would not be changed.
 - An entry core added is skipped, without a refusal, where the scope refuses
   it, when the run submitted nothing for that record, the record is a
-  translation, the run submitted the record it translates, that submitted
-  entry names no synchronised field, and the added entry holds nothing but
-  synchronised fields and ``l10n_state``. The run asked for nothing of it.
+  translation, the run submitted the record it translates or the one it was
+  translated from, no such submitted entry names a synchronised field, the
+  added entry holds nothing but synchronised fields and ``l10n_state``, and no
+  inline or file field in it lists a child. The run asked for nothing of it.
   The translation is then not written and gets no version; a value of a
   synchronised field that already differed from its source stays as it was.
-  Anything else is judged as before. The skip only ever leaves a write out, so
-  it cannot let a run write anything.
+  Anything else is judged as before. The skip leaves the entry's own write
+  out and cannot let a run write anything through it.
+- Known limit: for a synchronised inline or file field (``media``,
+  ``og_image`` and ``twitter_image`` of a page) core copies or localises the
+  children inside its processor, before any entry is judged. An added entry
+  that lists children is therefore judged as before, so a write to a page
+  whose translation carries such a field is still refused under a scope of the
+  default language only.
+- The submitted datamap is the one this hook sees in
+  ``processDatamap_beforeStart``: a ``processDatamap_beforeStart`` hook of an
+  extension registered after nr_llm that adds a synchronised field is not in
+  it, and the entries core adds for that field are then left out without a
+  refusal. Nothing outside the scope is stored that way.
 
 **What stands of a failed call is reported** (same amendment). A call that had
 a write refused commits the rest of what it wrote, and a tool that fails after
@@ -204,8 +217,12 @@ it wrote commits what it wrote; the model reads both in the call's error. The
 A2A ``writes`` artifact read only announced writes, which a failed call has
 none of, and said "No write was executed." beside a stored draft. It now also
 lists, in a block of its own, the records the ``tool_changes`` step of each
-failed call names and no announced write names. A call that was rolled back
-has an empty ``tool_changes`` step and lists nothing.
+failed call names, worded so that it does not claim they are stored (a call
+whose commit failed has its writes listed although they may be gone), and
+says so when such a step is not the whole list (a capture that missed writes,
+or a list cut at its limit). A call that was rolled back has an empty
+``tool_changes`` step and lists nothing. A dependency tool whose commit fails
+drops its change list, so its writes are not named there.
 
 **The input checks fail closed.** Both layers read the input of a write, and a
 third of the defects found in review were values the parser had skipped. A value

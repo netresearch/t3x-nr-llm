@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use ReflectionMethod;
 
 /**
  * An approved write of the page metadata skill to a default-language page
@@ -106,7 +107,7 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
 
         $writes = $this->writesOf($taskId);
         self::assertStringNotContainsString('No write was executed', $writes);
-        self::assertStringContainsString('Records changed by tool calls that did not complete (1)', $writes);
+        self::assertStringContainsString('Records written by tool calls that did not complete (1)', $writes);
         // The draft is a new version row of the page, so the change reads "created".
         self::assertStringContainsString('- pages:' . self::PAGE . ' in workspace ' . self::WORKSPACE . ' (created)', $writes);
     }
@@ -129,6 +130,35 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         self::assertFalse($this->draftOf(self::NEIGHBOUR), 'and the write of the hook');
         self::assertStringContainsString('All database changes of this call were rolled back.', $this->toolResultOf($this->stored($run)));
         self::assertStringStartsWith('No write was executed.', $this->writesOf($taskId));
+    }
+
+    /**
+     * A failed call whose capture missed writes, or whose list was cut, is not
+     * reported as no write: the artifact says the list may miss records. Only
+     * the steps of a failed call count; a successful call's are left out.
+     */
+    #[Test]
+    public function aFailedCallWhoseChangesWereNotAllCapturedIsNotReportedAsNoWrite(): void
+    {
+        $events = [
+            ['tool', ['toolIsError' => false]],
+            ['tool_changes', ['changes' => [['table' => 'pages', 'uid' => 7, 'action' => 'updated', 'workspace' => 0]], 'changeCount' => 1, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0]],
+            ['tool', ['toolIsError' => true]],
+            ['tool_changes', ['changes' => [], 'changeCount' => 0, 'changeCoverage' => 'not_captured', 'changesOmitted' => 0]],
+            ['tool', ['toolIsError' => true]],
+            ['tool_changes', ['changes' => [['table' => 'pages', 'uid' => 9, 'action' => 'created', 'workspace' => 3, 'liveUid' => 8]], 'changeCount' => 1, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0]],
+        ];
+        foreach ($events as $sequence => [$kind, $payload]) {
+            $this->db('tx_nrllm_agentrun_event')->insert('tx_nrllm_agentrun_event', ['run' => 900, 'sequence' => $sequence, 'kind' => $kind, 'payload' => json_encode($payload, JSON_THROW_ON_ERROR)]);
+        }
+
+        $artifact = (new ReflectionMethod(A2aTaskStore::class, 'writesArtifact'))->invoke($this->getService(A2aTaskStore::class), 900, false);
+        $text     = self::text(self::j(self::objectOf($artifact), 'parts.0.text'));
+
+        self::assertStringNotContainsString('No write was executed', $text);
+        self::assertStringContainsString("did not complete (1), each in the workspace named (0 is live); whether each change is stored has to be checked:\n- pages:8 in workspace 3 (created)", $text);
+        self::assertStringContainsString('may have written records this list does not name', $text);
+        self::assertStringNotContainsString('pages:7', $text, 'the changes of a call that succeeded are not listed');
     }
 
     /**

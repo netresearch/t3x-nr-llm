@@ -44,6 +44,14 @@ interface RecordTopologyInterface
     public function translationLanguages(string $table, int $uid, int $workspace): array;
 
     /**
+     * The languages of the rows translated from the row (`l10n_source`), which
+     * core synchronises from it as it does from a translation parent.
+     *
+     * @return list<int>
+     */
+    public function sourcedTranslationLanguages(string $table, int $uid, int $workspace): array;
+
+    /**
      * Every page below the page, at any depth, once each.
      *
      * @return list<int>|null null when there are more than $limit

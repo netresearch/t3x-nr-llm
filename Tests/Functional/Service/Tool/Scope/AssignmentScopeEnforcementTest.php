@@ -921,6 +921,80 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A translation translated from another one (`l10n_source`): core adds an
+     * entry for it to a write of its source as it does to a write of the
+     * default-language page. A write that synchronises nothing is not refused
+     * for it; a write of a field that reaches it is refused at the source.
+     */
+    #[Test]
+    public function aTranslationTranslatedFromTheWrittenOneIsHeldToTheSameRules(): void
+    {
+        $this->insertAGermanOverlayOfTheScopedPage(['l10n_state' => '{"author":"custom"}']);
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'              => self::OVERLAY + 1, 'pid' => 1, 'title' => 'Page 2 (2)', 'doktype' => 1, 'slug' => '/2',
+            'sys_language_uid' => 2, 'l10n_parent' => self::SCOPED, 'l10n_source' => self::OVERLAY, 'l10n_state' => '{"author":"source"}',
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL,
+        ]);
+        $sourced = $this->pageRows(self::OVERLAY + 1);
+        $scope   = new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0, self::GERMAN]);
+
+        $plain = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::OVERLAY)], [], false, self::GERMAN),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::OVERLAY => ['description' => 'Beschrieben']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: $scope,
+        );
+        self::assertSame([], $this->refusals($plain['trace']));
+        self::assertSame('Beschrieben', $this->scalar('SELECT description FROM pages WHERE uid = ?', [self::OVERLAY]));
+        self::assertSame($sourced, $this->pageRows(self::OVERLAY + 1));
+
+        $synchronised = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::OVERLAY)], [], false, self::GERMAN),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::OVERLAY => ['author' => 'Jemand']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: $scope,
+        );
+        self::assertContains('update pages:60 language_not_allowed', $this->refusals($synchronised['trace']));
+        self::assertSame('', $this->scalar('SELECT author FROM pages WHERE uid = ?', [self::OVERLAY]));
+        self::assertSame($sourced, $this->pageRows(self::OVERLAY + 1));
+    }
+
+    /**
+     * For a synchronised file field core copies or localises the children
+     * before any entry is judged, so an entry core added that lists children
+     * is judged as any other and not left out: a known limit, the call is
+     * refused for a page whose translation carries a synchronised file field.
+     */
+    #[Test]
+    public function anEntryCoreAddedThatListsChildrenIsJudgedAndNotLeftOut(): void
+    {
+        $this->insertAFile();
+        $this->insertAGermanOverlayOfTheScopedPage(['media' => 1]);
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['media' => 1], ['uid' => self::SCOPED]);
+        $references = $this->connectionPool->getConnectionForTable('sys_file_reference');
+        $references->insert('sys_file_reference', ['uid' => 70, 'pid' => self::SCOPED, 'uid_local' => 1, 'uid_foreign' => self::SCOPED, 'tablenames' => 'pages', 'fieldname' => 'media', 'sorting_foreign' => 1]);
+        $references->insert('sys_file_reference', ['uid' => 71, 'pid' => self::SCOPED, 'uid_local' => 1, 'uid_foreign' => self::OVERLAY, 'tablenames' => 'pages', 'fieldname' => 'media', 'sorting_foreign' => 1, 'sys_language_uid' => self::GERMAN, 'l10n_parent' => 70]);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)], [], false, 0),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['description' => 'Described']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0]),
+        );
+
+        self::assertSame(['update pages:60 language_not_allowed'], $this->refusals($outcome['trace']));
+    }
+
+    /**
      * An entry for the translation that the run submitted itself is judged as
      * any other, even when it holds only fields core synchronises.
      */
@@ -2042,6 +2116,11 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
                 return [];
             }
 
+            public function sourcedTranslationLanguages(string $table, int $uid, int $workspace): array
+            {
+                return [];
+            }
+
             public function descendantPages(int $pageUid, int $workspace, int $limit): ?array
             {
                 return null;
@@ -2484,9 +2563,12 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     /**
      * A German overlay of the scoped page, beside it as core puts one.
      */
-    private function insertAGermanOverlayOfTheScopedPage(): void
+    /**
+     * @param array<string, mixed> $fields set on the overlay besides the defaults
+     */
+    private function insertAGermanOverlayOfTheScopedPage(array $fields = []): void
     {
-        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', $fields + [
             'uid'              => self::OVERLAY, 'pid' => 1, 'title' => 'Seite 2', 'doktype' => 1, 'slug' => '/2',
             'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::SCOPED, 'l10n_source' => self::SCOPED, 'sorting' => self::SCOPED * 256,
             'perms_userid'     => 1, 'perms_user' => Permission::ALL,

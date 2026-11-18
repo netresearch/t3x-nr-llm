@@ -183,8 +183,10 @@ final class AssignmentScopeHook
             // record, so their languages have to be in scope too. Read from the
             // entry as the run submitted it: core's processor merges the
             // synchronised fields into the entry of a submitted translation.
+            // The translations point at the live row, also when the entry names
+            // its workspace version.
             if (array_intersect($this->names($this->submittedEntry($dataHandler, $table, $uid) ?? $fields), $this->synchronisedFields($table)) !== []) {
-                $refusal = $checker->translationsRefusal($scope, 'update', $table, $uid, $workspace);
+                $refusal = $checker->synchronisedTranslationsRefusal($scope, $table, $checker->factsOf($table, $uid, $workspace)->liveUid ?? $uid, $workspace);
                 if ($refusal instanceof ScopeRefusal) {
                     return $refusal;
                 }
@@ -215,11 +217,14 @@ final class AssignmentScopeHook
 
     /**
      * Whether the entry is one core's data-map processor added for an existing
-     * translation, because the run updated the record it translates in a way
-     * that synchronises nothing: its id was not submitted, the record it
-     * translates was, that submitted entry names no synchronised field, and
-     * the entry holds nothing but synchronised fields and `l10n_state`. Any
-     * doubt is a no, and the entry is judged as any other.
+     * translation, because the run updated the record it translates or was
+     * translated from in a way that synchronises nothing: its id was not
+     * submitted; the record it translates (`l10n_parent`) or its source
+     * (`l10n_source`) was, and no submitted entry of those two names a
+     * synchronised field; the entry holds nothing but synchronised fields and
+     * `l10n_state`; and no inline or file field in it lists a child, because
+     * core copies or localises children for such a field before any entry is
+     * judged. Any doubt is a no, and the entry is judged as any other.
      *
      * @param array<array-key, mixed> $fields
      */
@@ -236,18 +241,49 @@ final class AssignmentScopeHook
             return false;
         }
 
-        $origin = $checker->factsOf($table, (int) $id, $workspace)?->translationOf;
-        if ($origin === null || $origin < 1) {
+        if ($this->listsAChild($table, $fields)) {
             return false;
         }
 
+        $facts   = $checker->factsOf($table, (int) $id, $workspace);
+        $origins = array_values(array_filter([$facts?->translationOf, $facts?->translationSource], static fn (?int $uid): bool => $uid !== null && $uid > 0));
+        if ($origins === []) {
+            return false;
+        }
+
+        $found = false;
         foreach ($entries as $key => $entry) {
             if (!is_array($entry) || !MathUtility::canBeInterpretedAsInteger($key) || (int) $key < 1) {
                 continue;
             }
 
-            if ((int) $key === $origin || $checker->factsOf($table, (int) $key, $workspace)?->liveUid === $origin) {
-                return array_intersect($this->names($entry), $synchronised) === [];
+            if (in_array((int) $key, $origins, true) || in_array($checker->factsOf($table, (int) $key, $workspace)?->liveUid, $origins, true)) {
+                if (array_intersect($this->names($entry), $synchronised) !== []) {
+                    return false;
+                }
+
+                $found = true;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * Whether an inline or file field of the entry lists anything.
+     *
+     * @param array<array-key, mixed> $fields
+     */
+    private function listsAChild(string $table, array $fields): bool
+    {
+        $tca     = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $schema  = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $columns = is_array($schema['columns'] ?? null) ? $schema['columns'] : [];
+        foreach ($fields as $name => $value) {
+            $column = is_array($columns[$name] ?? null) ? $columns[$name] : [];
+            $config = is_array($column['config'] ?? null) ? $column['config'] : [];
+            if (in_array($config['type'] ?? null, ['inline', 'file'], true) && !in_array($value, [null, '', 0, '0', []], true)) {
+                return true;
             }
         }
 

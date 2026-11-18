@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
@@ -559,8 +560,8 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * can stand: a call the scope of the assignment refused a part of commits
      * the rest (ADR-295), and so does a tool that fails after it wrote. Those
      * records are listed apart, from the call's `tool_changes` step, which is
-     * empty when the call was rolled back. A record an announced write already
-     * names is not listed twice.
+     * empty when the call was rolled back. A set whose capture missed writes
+     * or was cut at its limit says so.
      *
      * @return array<string, mixed>|null
      */
@@ -573,8 +574,9 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             [$runUid],
             [Connection::PARAM_INT],
         )->fetchAllAssociative();
-        $steps = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
-        if (!$profileMayWrite && $rows === [] && $steps === 0) {
+        $steps  = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
+        $failed = $this->changesOfFailedCalls($runUid);
+        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete']) {
             return null;
         }
 
@@ -589,15 +591,17 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             );
         }
 
-        $failed = $this->changesOfFailedCalls($runUid, $rows);
-
         $parts = [];
         if ($lines !== []) {
             $parts[] = sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
         }
 
-        if ($failed !== []) {
-            $parts[] = sprintf("Records changed by tool calls that did not complete (%d), each in the workspace named (0 is live); check these records:\n%s", count($failed), implode("\n", $failed));
+        if ($failed['lines'] !== []) {
+            $parts[] = sprintf("Records written by tool calls that did not complete (%d), each in the workspace named (0 is live); whether each change is stored has to be checked:\n%s", count($failed['lines']), implode("\n", $failed['lines']));
+        }
+
+        if ($failed['incomplete']) {
+            $parts[] = 'A tool call that did not complete may have written records this list does not name; check the run.';
         }
 
         $text = $parts === [] ? 'No write was executed.' : implode("\n", $parts);
@@ -609,20 +613,17 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
     }
 
     /**
-     * The records the run's failed tool calls changed, as their `tool_changes`
-     * steps name them, one line each, without those an announced write names.
+     * The records the run's failed tool calls wrote, as their `tool_changes`
+     * steps name them, one line each, and whether a step says it is not the
+     * whole list (a capture that missed writes, or a list cut at its limit).
      * A call's steps are recorded in order: its tool step, then its changes.
      *
-     * @param list<array<string, mixed>> $announced the write rows of the run
-     *
-     * @return list<string>
+     * @return array{lines: list<string>, incomplete: bool}
      */
-    private function changesOfFailedCalls(int $runUid, array $announced): array
+    private function changesOfFailedCalls(int $runUid): array
     {
-        $known = [];
-        foreach ($announced as $row) {
-            $known[sprintf('%s:%d:%d', is_string($row['record_table'] ?? null) ? $row['record_table'] : '', is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0, is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0)] = true;
-        }
+        $known      = [];
+        $incomplete = false;
 
         $events = $this->connection()->executeQuery(
             'SELECT kind, payload FROM tx_nrllm_agentrun_event WHERE run = ? AND kind IN (?, ?) ORDER BY sequence, uid',
@@ -642,9 +643,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             }
 
             $set = $failed ? ObservedChangeSet::tryFromEventPayload($payload) : null;
+            if ($set instanceof ObservedChangeSet && ($set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0)) {
+                $incomplete = true;
+            }
+
             foreach ($set instanceof ObservedChangeSet ? $set->changes : [] as $change) {
                 $uid = $change->liveUid ?? $change->record->uid;
-                $key = sprintf('%s:%d:%d', $change->record->table, $uid, $change->workspace);
+                $key = sprintf('%s:%d:%d:%s', $change->record->table, $uid, $change->workspace, $change->action->value);
                 if (!isset($known[$key])) {
                     $known[$key] = true;
                     $lines[]     = sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $uid, $change->workspace, $change->action->value);
@@ -654,7 +659,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $failed = false;
         }
 
-        return $lines;
+        return ['lines' => $lines, 'incomplete' => $incomplete];
     }
 
     private function profileOf(int $runUid): int

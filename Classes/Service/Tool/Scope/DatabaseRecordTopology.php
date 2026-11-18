@@ -64,6 +64,8 @@ final readonly class DatabaseRecordTopology implements RecordTopologyInterface
         $languageField = is_string($ctrl['languageField'] ?? null) ? $ctrl['languageField'] : '';
         $originField   = is_string($ctrl['transOrigPointerField'] ?? null) ? $ctrl['transOrigPointerField'] : '';
         $origin        = $originField !== '' ? $this->int($row[$originField] ?? 0) : 0;
+        $sourceField   = is_string($ctrl['translationSource'] ?? null) ? $ctrl['translationSource'] : '';
+        $source        = $sourceField !== '' ? $this->int($row[$sourceField] ?? 0) : 0;
 
         return new RecordFacts(
             $this->int($row['uid'] ?? 0),
@@ -71,6 +73,7 @@ final readonly class DatabaseRecordTopology implements RecordTopologyInterface
             $languageField !== '' ? $this->int($row[$languageField] ?? 0) : 0,
             $origin > 0 ? $origin : null,
             $table === 'sys_file_metadata' && $this->int($row['file'] ?? 0) > 0 ? new RecordReference('sys_file', $this->int($row['file'])) : ChildRelations::host($table, $row),
+            $source > 0 ? $source : null,
         );
     }
 
@@ -133,6 +136,29 @@ final readonly class DatabaseRecordTopology implements RecordTopologyInterface
             ->select($field)
             ->from($table)
             ->where($query->expr()->eq($origin, $query->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchFirstColumn();
+
+        return array_values(array_unique(array_map($this->int(...), $rows)));
+    }
+
+    public function sourcedTranslationLanguages(string $table, int $uid, int $workspace): array
+    {
+        $allTca = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $tca    = is_array($allTca[$table] ?? null) ? $allTca[$table] : [];
+        $ctrl   = is_array($tca['ctrl'] ?? null) ? $tca['ctrl'] : [];
+        $source = $ctrl['translationSource'] ?? null;
+        $field  = $ctrl['languageField'] ?? null;
+        if (!is_string($source) || !is_string($field) || preg_match('/\A\w+\z/', $source . $field) !== 1) {
+            return [];
+        }
+
+        $query = $this->connectionPool->getQueryBuilderForTable($table);
+        $query->getRestrictions()->removeAll();
+        $rows = $query
+            ->select($field)
+            ->from($table)
+            ->where($query->expr()->eq($source, $query->createNamedParameter($uid, Connection::PARAM_INT)))
             ->executeQuery()
             ->fetchFirstColumn();
 

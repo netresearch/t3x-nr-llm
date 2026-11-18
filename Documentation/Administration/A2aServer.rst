@@ -138,8 +138,9 @@ May write
    in an error announces no write, but what it changed before can stand: a
    call the scope of the assignment refused a part of keeps the rest
    (:ref:`ADR-295 <adr-295>`). Such records are listed in a second block,
-   "Records changed by tool calls that did not complete", to be checked; a
-   call that was rolled back lists nothing.
+   "Records written by tool calls that did not complete", to be checked, and
+   a line says when that list may be incomplete; a call that was rolled back
+   lists nothing.
    The one exception to "drafts only" is ``adopt_client_file``, which
    stores a client's file in the skill's inbox folder as a new FAL file. A
    FAL file has no draft; nothing uses it until an editor references it in

@@ -224,6 +224,26 @@ final readonly class AssignmentScopeChecker
     }
 
     /**
+     * Whether an update of a field core synchronises stays in the languages of
+     * the scope: core copies it to the translations of the row and to the rows
+     * translated from it (`l10n_source`).
+     */
+    public function synchronisedTranslationsRefusal(AssignmentScope $scope, string $table, int $uid, int $workspace): ?ScopeRefusal
+    {
+        if ($scope->languages === null) {
+            return null;
+        }
+
+        foreach ([...$this->topology->translationLanguages($table, $uid, $workspace), ...$this->topology->sourcedTranslationLanguages($table, $uid, $workspace)] as $language) {
+            if (!$scope->admitsLanguage($language)) {
+                return new ScopeRefusal('update', $table, $uid, 0, ScopeRefusal::LANGUAGE_NOT_ALLOWED);
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether a copy of a page keeps to the languages of the scope: the page's
      * content and translations are copied with it.
      */

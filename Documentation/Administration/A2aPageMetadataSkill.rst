@@ -166,7 +166,12 @@ has translations writes that page only. TYPO3 adds the page's translations to
 every write of the page, with the fields it keeps equal in all languages
 (``l10n_mode`` ``exclude`` and ``allowLanguageSynchronization``). None of the
 fields this skill sets is one of them, so that addition is left out and the
-translations stay as they are, without a draft.
+translations stay as they are, without a draft. A page whose translations
+carry one of the page's synchronised file fields (``media``, ``og_image``,
+``twitter_image``) is the exception: TYPO3 handles those files before the
+scope sees the write, so the write is refused unless the request's scope
+covers the languages of the translations, which a request for one language
+does not.
 
 ..  _a2a-page-metadata-skill-setup:
 

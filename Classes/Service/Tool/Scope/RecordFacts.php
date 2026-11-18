@@ -19,11 +19,12 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 final readonly class RecordFacts
 {
     /**
-     * @param int                  $liveUid       the uid of the live row; a workspace version is its live row
-     * @param int                  $pid           the page the row is on, or for a page its parent
-     * @param int                  $language      sys_language_uid of the row, 0 where the table has none
-     * @param int|null             $translationOf the default-language row this row translates
-     * @param RecordReference|null $owner         the record a row belongs to outside the page tree (file metadata: its file)
+     * @param int                  $liveUid           the uid of the live row; a workspace version is its live row
+     * @param int                  $pid               the page the row is on, or for a page its parent
+     * @param int                  $language          sys_language_uid of the row, 0 where the table has none
+     * @param int|null             $translationOf     the default-language row this row translates
+     * @param RecordReference|null $owner             the record a row belongs to outside the page tree (file metadata: its file)
+     * @param int|null             $translationSource the row this translation was translated from (`l10n_source`), when the table has one
      */
     public function __construct(
         public int $liveUid,
@@ -31,5 +32,6 @@ final readonly class RecordFacts
         public int $language = 0,
         public ?int $translationOf = null,
         public ?RecordReference $owner = null,
+        public ?int $translationSource = null,
     ) {}
 }
