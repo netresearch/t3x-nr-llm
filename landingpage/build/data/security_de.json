@@ -15,7 +15,7 @@
       "Human-in-the-Loop-Freigabe für Aktionen mit Seiteneffekten",
       "71 Built-in-Tools in fail-closed-Gruppen — 48 nur lesend, dreiundzwanzig schreibend und freigabepflichtig — mit fail-closed-Netzwerkzugriff",
       "Budgets pro Benutzer (Requests, Tokens, Kosten — täglich und monatlich) samt Nutzungsanalyse",
-      "Vollständiger Betrieb auf lokalem Ollama oder jedem OpenAI-kompatiblen Endpoint — ohne Datenabfluss",
+      "Selbst gehostete Modelle über Ollama oder eine kompatible API anbinden",
       "Signierte Releases: SLSA-Level-3-Provenance, Cosign-Signaturen, SBOMs in SPDX + CycloneDX"
     ]
   },
@@ -69,8 +69,8 @@
       "id": "budgets",
       "heading": "Kosten-Governance",
       "paragraphs": [
-        "Budgets pro Benutzer deckeln die KI-Ausgaben jeder Backend-Benutzerin unabhängig von den täglichen Limits pro Konfiguration. Ein Budget trägt sechs unabhängige Obergrenzen — Requests, Tokens und Kosten, jeweils täglich und monatlich — und ist eine Obergrenze, kein Zähler: Die Nutzung wird bei Bedarf aus der einen Nutzungstabelle aggregiert, sodass beide nie auseinanderdriften können.",
-        "Die Prüfung ist ein reiner Pre-Flight vor jedem Aufruf; über dem Budget führt sie zu einer expliziten Ablehnung, die das überschrittene Limit benennt — nie zu stillem Throttling. Jeder Request wird der aufrufenden Backend-Benutzerin zugeordnet und in einem Analytics-Dashboard für Administratoren aufgerollt — Kosten- und Request-Trends, Aufschlüsselungen nach Provider, Modell und Dienst sowie der Verbrauch jeder Benutzerin gegen ihr Monatsbudget. Idempotente Completions werden gecacht, sodass ein wiederholter Aufruf nicht zweimal bezahlt wird."
+        "Pro Backend-Nutzer lassen sich tägliche und monatliche Grenzen für Anfragen, Tokens und geschätzte Kosten festlegen. Die Prüfung verwendet den erfassten Verbrauch und bekannte Plankosten. Sie reserviert kein Guthaben. Gleichzeitig laufende Anfragen und erst nachträglich erfasste Nutzung können das Limit überschreiten.",
+        "Lehnt die Vorabprüfung einen Aufruf ab, nennt sie den Grund. Die Nutzungsauswertung zeigt erfasste Anfragen und geschätzte Kosten nach Anbieter, Modell, Dienst und Nutzer. Tageslimits für eine einzelne Konfiguration werden gesondert geprüft."
       ],
       "adrs": [25, 52]
     },
@@ -78,7 +78,7 @@
       "id": "privacy",
       "heading": "Datenhaltung & Datenschutz",
       "paragraphs": [
-        "Wo das Modell läuft, ist deine Entscheidung. nr-llm spricht mit Ollama und jedem OpenAI-kompatiblen Endpoint — vLLM, LocalAI, LiteLLM —, sodass eine Instanz vollständig auf selbst gehosteten On-Premises-Modellen laufen kann, ohne dass Prompts oder Inhalte das Netzwerk verlassen, oder je Konfiguration einen gehosteten Provider nutzen kann, wo das vertretbar ist.",
+        "nr-llm unterstützt Ollama und OpenAI-kompatible Dienste wie vLLM und LocalAI. Für einen internen Ablauf prüfen Sie den Modellendpunkt, sämtliche Rückfallanbieter und die aufgerufenen Werkzeuge und Modelldienste.",
         "Weil Tool-Ausgaben und jede Modellantwort an den gewählten Provider gehen, behandelt die Extension beide als nicht vertrauenswürdig: Tool-Ergebnisse sind mengenbegrenzt und um personenbezogene Felder bereinigt, Antworten werden escaped gerendert, und HTML wird nur in einer Sandbox-Vorschau angezeigt."
       ],
       "adrs": [1]
@@ -117,7 +117,7 @@
       },
       {
         "q": "Kann ich das betreiben, ohne Daten an einen Drittanbieter-KI-Provider zu senden?",
-        "a": "Ja. Richte eine Konfiguration auf ein selbst gehostetes Ollama oder einen OpenAI-kompatiblen Endpoint (vLLM, LocalAI, LiteLLM) aus, und die Anfrage verlässt nie dein Netzwerk. Die Provider-Wahl erfolgt je Konfiguration, sodass datensensible Workloads lokal bleiben, während andere einen gehosteten Provider nutzen."
+        "a": "Ja. Für einen internen Ablauf prüfen Sie den Modellendpunkt, sämtliche Rückfallanbieter und die aufgerufenen Werkzeuge und Modelldienste."
       },
       {
         "q": "Was hindert den KI-Agenten daran, Secrets zu lesen oder Daten zu ändern?",
@@ -125,7 +125,7 @@
       },
       {
         "q": "Wie verhindere ich, dass eine einzelne Redakteurin die Kosten in die Höhe treibt?",
-        "a": "Gib ihr ein Budget pro Benutzer mit täglichen und monatlichen Obergrenzen für Requests, Tokens und Kosten. Eine Pre-Flight-Prüfung lehnt den Aufruf mit klarer Begründung ab, sobald eine Obergrenze erreicht ist, und das Analytics-Dashboard zeigt die Ausgaben jeder Benutzerin gegen ihr Budget."
+        "a": "Richte ein Budget für die Redakteurin ein und verfolge den erfassten Verbrauch in der Nutzungsauswertung. Die Vorabprüfung kann weitere Aufrufe ablehnen. Parallel laufende Anfragen und später erfasste Kosten können das Budget dennoch überschreiten."
       },
       {
         "q": "Könnte ein Modell ein Secret preisgeben, das es erhalten hat?",

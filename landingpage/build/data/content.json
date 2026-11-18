@@ -215,7 +215,7 @@
       },
       {
         "q": "Is nr-llm GDPR-friendly, and can I keep data in the EU?",
-        "a": "You choose the provider per configuration. Running Ollama or another OpenAI-compatible endpoint locally keeps all prompt data on your own infrastructure with no external API calls; for hosted providers you can select EU-region endpoints such as Azure OpenAI. API keys are encrypted at rest via nr-vault, access is admin-only, and error messages are sanitized to strip secrets."
+        "a": "For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls. For Azure, the deployment type determines where the request can be processed. Check the contract for each hosted service. nr-vault encrypts stored API keys."
       },
       {
         "q": "How is nr-llm different from other TYPO3 AI extensions?",
@@ -339,7 +339,7 @@
       },
       {
         "title": "How much each person may spend",
-        "body": "Budgets cap requests, tokens or estimated cost per backend user, daily or monthly. A run that would exceed the budget fails with a typed exception rather than silently continuing."
+        "body": "For requests attributed to a backend user, nr-llm checks the enabled daily or monthly budget before dispatch. It uses recorded requests and tokens and any available cost estimate. Concurrent requests or usage recorded after dispatch can exceed the limit."
       },
       {
         "title": "Which tools a model may call",
@@ -377,7 +377,7 @@
       },
       {
         "title": "The provider receives the request",
-        "body": "Whatever the configuration names: a commercial API, an EU-hosted provider, your own Azure deployment, or an endpoint inside your network."
+        "body": "The selected provider receives the request. For eligible failures, nr-llm can send the same request to a configured fallback provider."
       },
       {
         "title": "The answer comes back and is recorded",
@@ -387,7 +387,7 @@
     "notes": [
       "What is transferred: the prompt the extension built, plus any site content a retrieval tool included.",
       "Where keys are stored: in nr-vault, envelope-encrypted, referenced by identifier. nr-llm never stores or logs a raw key.",
-      "What can stay local: everything, if the configuration points at a self-hosted endpoint. Provider choice is per configuration, not per site."
+      "To keep the whole workflow internal, also check each fallback provider, tool and additional model service it uses."
     ]
   },
   "operating": {
@@ -414,7 +414,7 @@
       },
       {
         "model": "Azure OpenAI",
-        "data": "In the Azure deployment and region you configure",
+        "data": "The deployment type determines the processing boundary: global, data zone or Azure geography.",
         "fit": "An Azure agreement and suitable models are available",
         "tradeoff": "Azure operation, region and model availability must be checked"
       },
@@ -428,7 +428,7 @@
         "model": "Self-hosted (Ollama, vLLM, LocalAI)",
         "data": "In your infrastructure",
         "fit": "Data must not leave the network",
-        "tradeoff": "Your own operations, hardware and model maintenance"
+        "tradeoff": "Operate and maintain the models. Check fallback providers and connected tools as well."
       },
       {
         "model": "Mixed",
@@ -452,7 +452,7 @@
       },
       {
         "title": "What happens at the limit",
-        "body": "The request is refused with a typed BudgetExceededException. The calling extension decides how to present that."
+        "body": "When the preflight check detects an exceeded budget, nr-llm stops the request with a BudgetExceededException. The calling extension decides how to present it."
       },
       {
         "title": "Falling back to something cheaper",

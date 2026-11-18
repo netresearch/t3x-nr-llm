@@ -215,7 +215,7 @@
       },
       {
         "q": "Ist nr-llm DSGVO-freundlich, und kann ich Daten in der EU halten?",
-        "a": "Du wählst den Provider je Konfiguration. Ein lokal betriebenes Ollama oder ein anderer OpenAI-kompatibler Endpoint hält alle Prompt-Daten auf deiner eigenen Infrastruktur, ohne externe API-Aufrufe; bei gehosteten Providern kannst du EU-Region-Endpoints wie Azure OpenAI wählen. API-Keys sind über nr-vault verschlüsselt gespeichert, der Zugriff ist nur für Administratoren, und Fehlermeldungen werden um Secrets bereinigt."
+        "a": "Für einen internen Ablauf prüfen Sie den Modellendpunkt, sämtliche Rückfallanbieter und die aufgerufenen Werkzeuge und Modelldienste. Bei Azure hängt der Verarbeitungsort vom Bereitstellungstyp ab. Prüfen Sie bei gehosteten Diensten zusätzlich den Vertrag. nr-vault verschlüsselt die gespeicherten API-Schlüssel."
       },
       {
         "q": "Wie unterscheidet sich nr-llm von anderen TYPO3-KI-Extensions?",
@@ -339,7 +339,7 @@
       },
       {
         "title": "Wie viel jede Person ausgeben darf",
-        "body": "Budgets begrenzen Anfragen, Tokens oder geschätzte Kosten je Backend-Nutzer, täglich oder monatlich. Ein Lauf, der das Budget überschreiten würde, scheitert mit einer typisierten Ausnahme, statt still weiterzulaufen."
+        "body": "Für Anfragen mit Backend-Nutzer prüft nr-llm das aktivierte Tages- oder Monatsbudget vor dem Aufruf. Die Prüfung nutzt bisher erfasste Anfragen und Tokens sowie bekannte Kostenschätzungen. Parallele Aufrufe oder erst später erfasster Verbrauch können das Limit überschreiten."
       },
       {
         "title": "Welche Werkzeuge ein Modell aufrufen darf",
@@ -377,7 +377,7 @@
       },
       {
         "title": "Der Provider erhält die Anfrage",
-        "body": "Genau der, den die Konfiguration benennt: eine kommerzielle API, ein in der EU gehosteter Anbieter, Ihr eigenes Azure-Deployment oder ein Endpunkt in Ihrem Netz."
+        "body": "Der gewählte Anbieter erhält die Anfrage. Bei bestimmten Fehlern kann nr-llm dieselbe Anfrage an einen konfigurierten Ersatzanbieter senden."
       },
       {
         "title": "Die Antwort kommt zurück und wird erfasst",
@@ -387,7 +387,7 @@
     "notes": [
       "Was übertragen wird: der Prompt, den die Extension gebaut hat, sowie Seiteninhalte, die ein Retrieval-Werkzeug beigelegt hat.",
       "Wo Schlüssel liegen: in nr-vault, envelope-verschlüsselt, referenziert über eine Kennung. nr-llm speichert und protokolliert nie einen Schlüssel im Klartext.",
-      "Was lokal bleiben kann: alles, wenn die Konfiguration auf einen selbst gehosteten Endpunkt zeigt. Die Provider-Wahl gilt je Konfiguration, nicht je Seite."
+      "Für einen rein internen Ablauf müssen auch die Ersatzanbieter, aufgerufenen Werkzeuge und weiteren Modelldienste innerhalb Ihrer Infrastruktur arbeiten."
     ]
   },
   "operating": {
@@ -414,7 +414,7 @@
       },
       {
         "model": "Azure OpenAI",
-        "data": "Im konfigurierten Azure-Deployment und seiner Region",
+        "data": "Der Bereitstellungstyp bestimmt, ob Azure die Anfrage weltweit, in einer Datenzone oder innerhalb einer Azure-Geografie verarbeitet.",
         "fit": "Ein Azure-Vertrag und geeignete Modelle verfügbar sind",
         "tradeoff": "Azure-Betrieb, Region und Modellverfügbarkeit müssen geprüft werden"
       },
@@ -428,7 +428,7 @@
         "model": "Selbst gehostet (Ollama, vLLM, LocalAI)",
         "data": "In Ihrer Infrastruktur",
         "fit": "Daten das Netz nicht verlassen dürfen",
-        "tradeoff": "Eigener Betrieb, eigene Hardware, eigene Modellpflege"
+        "tradeoff": "Eigener Betrieb und Modellpflege. Prüfen Sie auch Ersatzanbieter und angebundene Werkzeuge."
       },
       {
         "model": "Gemischt",
@@ -452,7 +452,7 @@
       },
       {
         "title": "Was am Limit passiert",
-        "body": "Die Anfrage wird mit einer typisierten BudgetExceededException abgelehnt. Wie das dargestellt wird, entscheidet die aufrufende Extension."
+        "body": "Wenn die Vorabprüfung ein überschrittenes Budget meldet, stoppt nr-llm den Aufruf mit einer BudgetExceededException. Die aufrufende Extension zeigt das Ergebnis an."
       },
       {
         "title": "Rückfall auf etwas Günstigeres",

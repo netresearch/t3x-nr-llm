@@ -15,7 +15,7 @@
       "Human-in-the-loop approval gate for actions with side effects",
       "71 built-in tools in fail-closed groups — 48 read-only, twenty-three writing and approval-gated — with fail-closed network egress",
       "Per-user budgets (requests, tokens, cost — daily and monthly) with usage analytics",
-      "Run entirely on local Ollama or any OpenAI-compatible endpoint — no data egress",
+      "Connect self-hosted models through Ollama or a compatible API",
       "Signed releases: SLSA Level 3 provenance, Cosign signatures, SPDX + CycloneDX SBOMs"
     ]
   },
@@ -69,8 +69,8 @@
       "id": "budgets",
       "heading": "Cost governance",
       "paragraphs": [
-        "Per-user budgets cap each backend user's AI spend independently of the per-configuration daily limits. A budget carries six independent ceilings — requests, tokens, and cost, each daily and monthly — and is a ceiling, not a counter: usage is aggregated on demand from the single usage table, so the two can never drift apart.",
-        "The check is a pure pre-flight run before each call; over budget produces an explicit denial that names the bucket it tripped, never silent throttling. Every request is attributed to the calling backend user and rolled up in an admin Analytics dashboard — cost and request trends, breakdowns by provider, model, and service, and each user's consumption against their monthly budget. Idempotent completions are cached, so a repeated call is not paid for twice."
+        "Set daily and monthly limits per backend user for requests, tokens and estimated cost. The check uses recorded usage and any known planned cost. It does not reserve funds. Concurrent requests and usage recorded after dispatch can exceed the limit.",
+        "When the preflight check denies a call, it reports the reason. Analytics shows recorded requests and estimated costs by provider, model, service and user. Daily limits for a particular configuration are checked separately."
       ],
       "adrs": [25, 52]
     },
@@ -78,7 +78,7 @@
       "id": "privacy",
       "heading": "Data residency & privacy",
       "paragraphs": [
-        "Where the model runs is your choice. nr-llm speaks to Ollama and any OpenAI-compatible endpoint — vLLM, LocalAI, LiteLLM — so an instance can run entirely on self-hosted, on-premises models with no prompt or content leaving your network, or use a hosted provider per configuration where that is acceptable.",
+        "nr-llm supports Ollama and OpenAI-compatible services such as vLLM and LocalAI. For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls.",
         "Because tool output and every model response go to the chosen provider, the extension treats both as untrusted: tool results are volume-capped and strip personally identifying fields, responses are rendered escaped, and any HTML is shown only inside a sandboxed preview."
       ],
       "adrs": [1]
@@ -117,7 +117,7 @@
       },
       {
         "q": "Can I run this without sending data to a third-party AI provider?",
-        "a": "Yes. Point a configuration at a self-hosted Ollama or OpenAI-compatible endpoint (vLLM, LocalAI, LiteLLM) and the request never leaves your network. Provider choice is per configuration, so data-sensitive workloads can stay local while others use a hosted provider."
+        "a": "Yes. For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls."
       },
       {
         "q": "What stops the AI agent from reading secrets or changing data?",
@@ -125,7 +125,7 @@
       },
       {
         "q": "How do I stop one editor from running up the bill?",
-        "a": "Give them a per-user budget with daily and monthly ceilings on requests, tokens, and cost. A pre-flight check denies the call with a clear reason when a ceiling is reached, and the Analytics dashboard shows each user's spend against their budget."
+        "a": "Set a per-user budget for the editor and follow their recorded usage in Analytics. The preflight check can deny further calls. Concurrent requests and costs recorded after dispatch can still exceed the budget."
       },
       {
         "q": "Could a model leak a secret it was given?",
