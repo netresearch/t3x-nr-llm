@@ -11,6 +11,41 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-50-0:
+
+Version 0.50.0 (2026-11-17)
+===========================
+
+An A2A task's file can be taken into a FAL inbox after an approval, a
+delegating run asks its initiator when the remote agent asks, two editorial
+A2A handlers, and a tool audit trail. Run the TYPO3 database schema update
+after updating.
+
+- **Client file into FAL:** the tool ``adopt_client_file`` (ships disabled)
+  stores a file an A2A client sent in the one non-public inbox folder its
+  publication profile names, as the client's technical user and after the
+  approval of a person of this installation (ADR-305). No folder: no
+  adoption. A taken name is never overwritten.
+- **Questions of a remote agent:** a delegating run no longer hands the
+  remote's question to the model; the backend user who started it answers in
+  the waiting runs' input form, and the answer goes to the task that asked
+  (ADR-311).
+- **Editorial texts:** ``nr_llm.editorial_text`` writes and
+  ``nr_llm.editorial_check`` checks a text for use outside TYPO3; the answer
+  is checked against the configuration's rules before it is stored, and a
+  ``report`` artifact carries the result (ADR-301, ADR-302).
+- **Runs:** a run that completes after an approval, an answer or a remote
+  agent keeps its answer, also without an origin;
+  ``AgentRuntimeInterface::cancelIfWaitingForDependency()`` cancels only a run
+  that still waits for its dependency. Delegation tools are offered with
+  nr-mcp-agent 0.39.0 or later.
+- **Tools module:** every switch of a tool or tool group is recorded in
+  ``tx_nrllm_tool_audit``; the group toggle works again.
+- **Breaking for implementers:** ``AgentRunRepositoryInterface::recordAnswer()``
+  takes an optional third parameter, and the interface is now ``@internal``.
+- **Fixed:** a scoped write the database committed before the call ended is
+  reported as written, so an A2A task's ``writes`` artifact names the draft.
+
 .. _version-0-49-1:
 
 Version 0.49.1 (2026-11-16)
@@ -1971,14 +2006,14 @@ and update its Composer constraint deliberately. See
 upgrade wizards. Review configuration and integrations before reopening
 editor access.
 
-The current package line is 0.43. For that line, for example:
+The current package line is 0.51. For that line, for example:
 
 .. code-block:: bash
-   :caption: Select the 0.43 release line
+   :caption: Select the 0.51 release line
 
-   composer require netresearch/nr-llm:^0.43 --with-all-dependencies
+   composer require netresearch/nr-llm:^0.51 --with-all-dependencies
 
-This does not select a future 0.44 release. Choose its constraint explicitly
+This does not select a future 0.52 release. Choose its constraint explicitly
 when following that release's migration notes.
 
 .. _breaking-changes:
