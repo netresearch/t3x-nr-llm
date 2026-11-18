@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Controller\Backend;
 
 use Netresearch\NrLlm\Controller\Backend\A2aTokenAjaxController;
+use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aAuthenticator;
 use Netresearch\NrLlm\Service\Agent\A2a\Server\A2aInboundClientRepository;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server\A2aSelfServiceFixture;
@@ -205,9 +206,31 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         self::assertIsArray($row);
         self::assertSame([1, hash('sha256', $payload['token'])], [(int) $row['enabled'], $row['token_hash']]);
 
-        $client = $this->getService(A2aInboundClientRepository::class)->findByTokenPrefix((string) A2aInboundClientRepository::prefixOf($payload['token']));
-        self::assertNotNull($client);
-        self::assertTrue($client->isActive(time()), 'the new token authenticates');
+        $request = (new ServerRequest('https://typo3-testing.local/a2a', 'POST'))->withHeader('Authorization', 'Bearer ' . $payload['token']);
+        self::assertSame(1, $this->getService(A2aAuthenticator::class)->authenticate($request, time())->uid, 'the new token authenticates');
+    }
+
+    #[Test]
+    public function aDisabledClientWithoutAUsableTechnicalUserIsNotEnabled(): void
+    {
+        $this->setUpBackendUser(1);
+        self::assertSame(200, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => 1]))->getStatusCode());
+
+        foreach ([0, 1] as $user) {
+            // No user, then an administrator: the record's save hook keeps such a record disabled too.
+            $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['be_user' => $user], ['uid' => 1]);
+
+            $refused = $this->controller()->issueAction($this->postTo('issue', ['uid' => 1, 'enable' => '1']));
+            $payload = $this->payload($refused);
+            self::assertSame(422, $refused->getStatusCode(), (string) $user);
+            self::assertArrayNotHasKey('token', $payload);
+            self::assertIsString($payload['error']);
+            self::assertStringContainsString('technical backend user', $payload['error']);
+
+            $row = $this->db('tx_nrllm_a2a_client')->select(['enabled', 'token_hash'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchAssociative();
+            self::assertIsArray($row);
+            self::assertSame([0, ''], [(int) $row['enabled'], $row['token_hash']], (string) $user);
+        }
     }
 
     #[Test]

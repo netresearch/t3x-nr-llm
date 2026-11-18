@@ -21,7 +21,6 @@ use PHPUnit\Framework\Attributes\Test;
 use Psr\Log\AbstractLogger;
 use Stringable;
 use TYPO3\CMS\Core\Cache\CacheManager;
-use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\RateLimiter\Storage\CachingFrameworkStorage;
 use TYPO3\CMS\Extbase\Persistence\PersistenceManagerInterface;
 
@@ -197,7 +196,7 @@ final class A2aEndpointTest extends AbstractFunctionalTestCase
                 $this->lines[] = $message . ' ' . json_encode($context);
             }
         };
-        $authenticator = new A2aAuthenticator($this->getService(A2aInboundClientRepository::class), $this->getService(ConnectionPool::class), $this->getService(CachingFrameworkStorage::class), $logger);
+        $authenticator = new A2aAuthenticator($this->getService(A2aInboundClientRepository::class), $this->getService(CachingFrameworkStorage::class), $logger);
         $wrong         = substr($this->tokens[1], 0, -4) . 'AAAA';
 
         $refusals = [];

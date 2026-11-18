@@ -224,7 +224,9 @@ client sends the token as ``Authorization: Bearer <token>``.
 
 The command does not change the record's :guilabel:`Enabled` flag. For a
 disabled record, a revoked one included, it prints the token and a warning
-on stderr: the token is refused until the record is enabled again.
+on stderr: the token is refused until the record is enabled again. The
+backend module refuses a token for a disabled record unless the
+administrator enables the record with it.
 
 In the backend the module :guilabel:`AI > A2A tokens` does the same without a
 shell: :guilabel:`Generate token` and :guilabel:`Rotate token` per record, and

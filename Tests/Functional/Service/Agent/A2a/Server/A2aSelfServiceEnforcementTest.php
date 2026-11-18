@@ -417,11 +417,16 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         $administration->issue($this->user(1), 1, true);
         $administration->issue($this->user(1), 1, true);
 
-        self::assertCount(3, $logger->lines);
+        // Switched off in the record, keeping its token.
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['enabled' => 0], ['uid' => 1]);
+        $administration->issue($this->user(1), 1, true);
+
+        self::assertCount(4, $logger->lines);
         self::assertStringContainsString('enabled and issued by an administrator', $logger->lines[1]);
         self::assertStringContainsString('"client":1', $logger->lines[1]);
         self::assertStringContainsString('rotated by an administrator', $logger->lines[2], 'an enabled record is not enabled again');
         self::assertStringNotContainsString('enabled', $logger->lines[2]);
+        self::assertStringContainsString('enabled and rotated by an administrator', $logger->lines[3]);
     }
 
     #[Test]

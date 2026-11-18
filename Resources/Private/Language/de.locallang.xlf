@@ -6551,8 +6551,8 @@
                 <target>Diesen Client aktivieren und ein Token erzeugen?</target>
             </trans-unit>
             <trans-unit id="a2aTokens.enable.confirmMessage">
-                <source>The client record is disabled, for example by a revoke. A token for it would be refused. This switches the record on again and issues a new token.</source>
-                <target>Der Client-Datensatz ist deaktiviert, zum Beispiel durch einen Widerruf. Ein Token dafür würde abgewiesen. Dies aktiviert den Datensatz wieder und stellt ein neues Token aus.</target>
+                <source>The client record is disabled, for example by a revoke. A token for it would be refused. This switches the record on again and issues a new token. To resume a client that keeps its token, tick Enabled in the record instead.</source>
+                <target>Der Client-Datensatz ist deaktiviert, zum Beispiel durch einen Widerruf. Ein Token dafür würde abgewiesen. Dies aktiviert den Datensatz wieder und stellt ein neues Token aus. Um einen Client mit seinem bisherigen Token fortzusetzen, setzen Sie stattdessen „Aktiv“ im Datensatz.</target>
             </trans-unit>
             <trans-unit id="a2aTokens.lastTask.note">
                 <source>Last task is the time the newest task of the token was created. A token that only reads existing tasks does not appear there.</source>

@@ -255,6 +255,36 @@ final readonly class A2aInboundClientRepository
     }
 
     /**
+     * ADR-280: whether a client's technical backend user may act now, an
+     * enabled backend user above 0 that is not an administrator, within its
+     * start and end time. The authenticator asks it on every request; the
+     * module asks it before it enables a record.
+     */
+    public function usableBackendUser(int $uid, int $now): bool
+    {
+        if ($uid < 1) {
+            return false;
+        }
+
+        $builder = $this->connectionPool->getQueryBuilderForTable('be_users');
+        $builder->getRestrictions()->removeAll();
+        $row = $builder->select('admin', 'disable', 'deleted', 'starttime', 'endtime')
+            ->from('be_users')
+            ->where($builder->expr()->eq('uid', $builder->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAssociative();
+        if (!is_array($row)) {
+            return false;
+        }
+
+        $int = static fn (string $key): int => is_numeric($row[$key] ?? null) ? (int) $row[$key] : 0;
+
+        return $int('admin') === 0 && $int('disable') === 0 && $int('deleted') === 0
+            && ($int('starttime') === 0 || $int('starttime') <= $now)
+            && ($int('endtime') === 0 || $int('endtime') > $now);
+    }
+
+    /**
      * Issue a new token for the record and return it in clear; this is the
      * only time it exists outside the client.
      *
