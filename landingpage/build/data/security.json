@@ -15,7 +15,7 @@
       "Human-in-the-loop approval gate for actions with side effects",
       "71 built-in tools in fail-closed groups — 48 read-only, twenty-three writing and approval-gated — with fail-closed network egress",
       "Per-user budgets (requests, tokens, cost — daily and monthly) with usage analytics",
-      "Run entirely on local Ollama or any OpenAI-compatible endpoint — no data egress",
+      "Connect self-hosted models through Ollama or a compatible API",
       "Signed releases: SLSA Level 3 provenance, Cosign signatures, SPDX + CycloneDX SBOMs"
     ]
   },
@@ -78,7 +78,7 @@
       "id": "privacy",
       "heading": "Data residency & privacy",
       "paragraphs": [
-        "Where the model runs is your choice. nr-llm speaks to Ollama and any OpenAI-compatible endpoint — vLLM, LocalAI, LiteLLM — so an instance can run entirely on self-hosted, on-premises models with no prompt or content leaving your network, or use a hosted provider per configuration where that is acceptable.",
+        "nr-llm supports Ollama and OpenAI-compatible services such as vLLM and LocalAI. For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls.",
         "Because tool output and every model response go to the chosen provider, the extension treats both as untrusted: tool results are volume-capped and strip personally identifying fields, responses are rendered escaped, and any HTML is shown only inside a sandboxed preview."
       ],
       "adrs": [1]
@@ -117,7 +117,7 @@
       },
       {
         "q": "Can I run this without sending data to a third-party AI provider?",
-        "a": "Yes. Point a configuration at a self-hosted Ollama or OpenAI-compatible endpoint (vLLM, LocalAI, LiteLLM) and the request never leaves your network. Provider choice is per configuration, so data-sensitive workloads can stay local while others use a hosted provider."
+        "a": "Yes. For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls."
       },
       {
         "q": "What stops the AI agent from reading secrets or changing data?",

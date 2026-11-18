@@ -15,7 +15,7 @@
       "Human-in-the-Loop-Freigabe für Aktionen mit Seiteneffekten",
       "71 Built-in-Tools in fail-closed-Gruppen — 48 nur lesend, dreiundzwanzig schreibend und freigabepflichtig — mit fail-closed-Netzwerkzugriff",
       "Budgets pro Benutzer (Requests, Tokens, Kosten — täglich und monatlich) samt Nutzungsanalyse",
-      "Vollständiger Betrieb auf lokalem Ollama oder jedem OpenAI-kompatiblen Endpoint — ohne Datenabfluss",
+      "Selbst gehostete Modelle über Ollama oder eine kompatible API anbinden",
       "Signierte Releases: SLSA-Level-3-Provenance, Cosign-Signaturen, SBOMs in SPDX + CycloneDX"
     ]
   },
@@ -78,7 +78,7 @@
       "id": "privacy",
       "heading": "Datenhaltung & Datenschutz",
       "paragraphs": [
-        "Wo das Modell läuft, ist deine Entscheidung. nr-llm spricht mit Ollama und jedem OpenAI-kompatiblen Endpoint — vLLM, LocalAI, LiteLLM —, sodass eine Instanz vollständig auf selbst gehosteten On-Premises-Modellen laufen kann, ohne dass Prompts oder Inhalte das Netzwerk verlassen, oder je Konfiguration einen gehosteten Provider nutzen kann, wo das vertretbar ist.",
+        "nr-llm unterstützt Ollama und OpenAI-kompatible Dienste wie vLLM und LocalAI. Für einen internen Ablauf prüfen Sie den Modellendpunkt, sämtliche Rückfallanbieter und die aufgerufenen Werkzeuge und Modelldienste.",
         "Weil Tool-Ausgaben und jede Modellantwort an den gewählten Provider gehen, behandelt die Extension beide als nicht vertrauenswürdig: Tool-Ergebnisse sind mengenbegrenzt und um personenbezogene Felder bereinigt, Antworten werden escaped gerendert, und HTML wird nur in einer Sandbox-Vorschau angezeigt."
       ],
       "adrs": [1]
@@ -117,7 +117,7 @@
       },
       {
         "q": "Kann ich das betreiben, ohne Daten an einen Drittanbieter-KI-Provider zu senden?",
-        "a": "Ja. Richte eine Konfiguration auf ein selbst gehostetes Ollama oder einen OpenAI-kompatiblen Endpoint (vLLM, LocalAI, LiteLLM) aus, und die Anfrage verlässt nie dein Netzwerk. Die Provider-Wahl erfolgt je Konfiguration, sodass datensensible Workloads lokal bleiben, während andere einen gehosteten Provider nutzen."
+        "a": "Ja. Für einen internen Ablauf prüfen Sie den Modellendpunkt, sämtliche Rückfallanbieter und die aufgerufenen Werkzeuge und Modelldienste."
       },
       {
         "q": "Was hindert den KI-Agenten daran, Secrets zu lesen oder Daten zu ändern?",
