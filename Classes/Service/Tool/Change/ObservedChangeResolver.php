@@ -264,7 +264,9 @@ final readonly class ObservedChangeResolver
 
         $row = $this->row($entry['table'], $entry['uid']);
         if ($row === null) {
-            return isset($confirmed[$entry['table'] . ':' . $entry['uid']]) ? $entry : null;
+            // A move whose row cannot be read is kept, so that the effect check
+            // judges it, and fails closed, as before a move was mapped here.
+            return $entry['action'] === ChangeAction::MOVED || isset($confirmed[$entry['table'] . ':' . $entry['uid']]) ? $entry : null;
         }
 
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
