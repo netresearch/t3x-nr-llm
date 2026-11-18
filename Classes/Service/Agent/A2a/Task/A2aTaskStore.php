@@ -564,6 +564,12 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * empty when the call was rolled back. A set whose capture missed writes
      * or was cut at its limit says so.
      *
+     * A completed call's `tool_changes` step can name records beside its
+     * announced write: what core wrote along with it, and what the listeners
+     * of the write stored after the call, such as AI Label's metadata and the
+     * versions core gave the translations in that run (#1432). Those are
+     * listed in a block of their own; a list cut at its limit says so.
+     *
      * @return array<string, mixed>|null
      */
     private function writesArtifact(int $runUid, bool $profileMayWrite): ?array
@@ -578,7 +584,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $steps  = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
         $failed = $this->changesOfFailedCalls($runUid);
         $beside = $this->changesBesideTheWrites($runUid, $rows);
-        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $beside === []) {
+        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $beside['lines'] === [] && !$beside['incomplete']) {
             return null;
         }
 
@@ -598,8 +604,12 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $parts[] = sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
         }
 
-        if ($beside !== []) {
-            $parts[] = sprintf("Further records the run's completed tool calls wrote (%d), each in the workspace named (0 is live), for example a version core gave a translation of a record written in a workspace:\n%s", count($beside), implode("\n", $beside));
+        if ($beside['lines'] !== []) {
+            $parts[] = sprintf("Further records the run's completed tool calls wrote (%d), each in the workspace named (0 is live), for example a version core gave a translation of a record written in a workspace:\n%s", count($beside['lines']), implode("\n", $beside['lines']));
+        }
+
+        if ($beside['incomplete']) {
+            $parts[] = 'A completed tool call wrote more records than its list keeps; check the run.';
         }
 
         if ($failed['lines'] !== []) {
@@ -634,7 +644,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $incomplete = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
             foreach ($set->changes as $change) {
                 // The line holds every part of its identity, so it is its own key.
-                $lines[self::changeLine($change)] = true;
+                $lines[$this->changeLine($change)] = true;
             }
         }
 
@@ -649,7 +659,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      *
      * @param list<array<string, mixed>> $rows the announced writes
      *
-     * @return list<string>
+     * @return array{lines: list<string>, incomplete: bool}
      */
     private function changesBesideTheWrites(int $runUid, array $rows): array
     {
@@ -658,20 +668,22 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $announced[sprintf('%s:%d:%d', is_string($row['record_table'] ?? null) ? $row['record_table'] : '', is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0, is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0)] = true;
         }
 
-        $lines = [];
+        $lines      = [];
+        $incomplete = false;
         foreach ($this->changeSetsOfCalls($runUid, false) as $set) {
+            $incomplete = $incomplete || $set->omitted > 0;
             foreach ($set->changes as $change) {
                 $uid = $change->liveUid ?? $change->record->uid;
                 if (!isset($announced[sprintf('%s:%d:%d', $change->record->table, $uid, $change->workspace)])) {
-                    $lines[self::changeLine($change)] = true;
+                    $lines[$this->changeLine($change)] = true;
                 }
             }
         }
 
-        return array_keys($lines);
+        return ['lines' => array_keys($lines), 'incomplete' => $incomplete];
     }
 
-    private static function changeLine(ObservedChange $change): string
+    private function changeLine(ObservedChange $change): string
     {
         return sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $change->liveUid ?? $change->record->uid, $change->workspace, $change->action->value);
     }

@@ -49,7 +49,9 @@ Decision
 **A run step lists what the DataHandler runs of one call wrote.**
 ``ToolLoopService`` arms ``ToolChangeCollector`` around
 ``ToolInterface::execute()`` and takes it afterwards, on every way out of the
-call. Two global DataHandler hooks feed it, ``processDatamap_afterDatabaseOperations``
+call; it arms it again around the dispatch of the call's write events and adds
+what their listeners wrote to the call's list (amended by
+:ref:`ADR-295 <adr-295>`, #1432). Two global DataHandler hooks feed it, ``processDatamap_afterDatabaseOperations``
 and ``processCmdmap_postProcess``; they run for the nested DataHandlers core
 creates for a copy or a translation, and do nothing while no call is armed.
 When the call ends, the records the hooks saw are joined with the

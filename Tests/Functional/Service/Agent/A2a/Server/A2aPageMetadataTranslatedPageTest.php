@@ -95,7 +95,8 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         $this->db('be_groups')->update('be_groups', ['tables_select' => 'pages', 'tables_modify' => 'pages', 'non_exclude_fields' => 'pages:description', 'pagetypes_select' => '1'], ['uid' => self::GROUP]);
         $user            = $this->setUpBackendUser(7);
         $user->workspace = self::WORKSPACE;
-        $dataHandler     = GeneralUtility::makeInstance(DataHandler::class);
+
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
         $dataHandler->start(['pages' => [self::PAGE => ['description' => 'Written by an editor']]], [], $user);
         $dataHandler->process_datamap();
 

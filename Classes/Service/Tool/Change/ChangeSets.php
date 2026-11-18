@@ -83,29 +83,34 @@ final class ChangeSets
     /**
      * The call's set with the records a later capture of the same call saw,
      * such as the DataHandler runs of the listeners of its write: a record
-     * both name is kept once, as the call's set states it, and a capture that
-     * missed writes makes the whole set one that did.
+     * both name is kept once, as the call's set states it, with the stronger
+     * of the two actions, and a capture that missed writes makes the whole set
+     * one that did.
      */
     public static function merged(ObservedChangeSet $set, ObservedChangeSet $later): ObservedChangeSet
     {
-        $changes = $set->changes;
-        $known   = [];
-        foreach ($changes as $change) {
-            $known[self::identity($change)] = true;
-        }
-
-        foreach ($later->changes as $change) {
-            if (!isset($known[self::identity($change)])) {
-                $known[self::identity($change)] = true;
-                $changes[]                      = $change;
-            }
+        $changes = [];
+        foreach ([...$set->changes, ...$later->changes] as $change) {
+            $key = self::identity($change);
+            $was = $changes[$key] ?? null;
+            // As the collector keeps it: the stronger of two actions on a record.
+            $changes[$key] = $was === null ? $change : new ObservedChange(
+                $was->record,
+                ToolChangeCollector::stronger($was->action, $change->action),
+                $was->workspace,
+                $was->liveUid,
+                $was->language,
+                $was->isWriteTarget,
+                $was->hidden,
+                $was->restrictions,
+            );
         }
 
         $coverage = $set->coverage === ChangeCoverage::DATAHANDLER && $later->coverage === ChangeCoverage::DATAHANDLER
             ? ChangeCoverage::DATAHANDLER
             : ChangeCoverage::NOT_CAPTURED;
 
-        return new ObservedChangeSet($changes, $coverage, $set->omitted + $later->omitted, [...$set->refused, ...$later->refused]);
+        return new ObservedChangeSet(array_values($changes), $coverage, $set->omitted + $later->omitted, [...$set->refused, ...$later->refused]);
     }
 
     /**

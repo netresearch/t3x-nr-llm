@@ -245,10 +245,17 @@ itself versions the translation, nr_llm does not suppress it; it reports it.
   write events (``AfterAiRecordWrittenEvent``, ``AiLabelWriteEvent``) and
   merges what their listeners' DataHandler runs wrote into the call's
   ``tool_changes`` set (``ChangeSets::merged()``: a record both name is kept
-  once; a capture that missed writes makes the set ``not_captured``).
+  once, with the stronger action; a capture that missed writes makes the set
+  ``not_captured``).
 - The ``writes`` artifact lists the records a completed call's
   ``tool_changes`` step names beside its announced writes, in a block of its
-  own ("Further records the run's completed tool calls wrote").
+  own ("Further records the run's completed tool calls wrote"), and says so
+  when such a list was cut at its limit.
+- A move in a draft workspace is listed as the version it wrote, in that
+  workspace, as a delete there already was; the live row it names in the
+  command was listed as moved in workspace 0 although live was untouched.
+  The effect check above reads the same entries and now judges that version,
+  which the history already named, without the unmoved live row.
 - Known limit: the dispatch still runs after the call's transaction is
   committed and outside the scope guard, so the effect check and the
   rollback do not cover what a listener writes, and a listener can write
