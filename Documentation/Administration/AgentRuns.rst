@@ -114,6 +114,11 @@ cost — and below it a single time-ordered list of everything the run produced:
   been purged, ``report=unknown`` that this could not be checked. The step
   names composed versions only; a loaded version, or one a resumed segment
   carries over, is left out (:ref:`ADR-322 <adr-322>`).
+  Where :ref:`content digests <administration-data-retention-content-digests>`
+  are on, a step at the ``metadata`` level shows them shortened:
+  ``messagesDigests=system@…, user@…``, ``requestDigest``, ``contentDigest``,
+  ``toolArgumentsDigest`` and ``toolResultDigest``. Two runs whose digests
+  differ in one part had a different input there (:ref:`ADR-323 <adr-323>`).
 - **Provider call** — a telemetry row: which provider and model served it, how
   long it took, whether a cache hit or a fallback was involved, and the error
   class when it failed. These are joined to the run because since

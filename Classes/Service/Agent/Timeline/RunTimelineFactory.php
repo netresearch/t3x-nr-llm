@@ -308,7 +308,45 @@ final readonly class RunTimelineFactory
             $facts['evidence'] = $evidence;
         }
 
-        return $this->join($facts);
+        return $this->join([...$facts, ...$this->contentDigests($payload)]);
+    }
+
+    /**
+     * The content digests a step kept (ADR-323), each shortened to its first
+     * twelve hex digits: enough to see which input of two runs differed, while
+     * the stored step keeps the whole digest. Messages as `role@digest`, in
+     * the order they were sent.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, string>
+     */
+    private function contentDigests(array $payload): array
+    {
+        $short = static fn (mixed $digest): ?string => is_string($digest) && preg_match('/^v1:([a-f0-9]{12})[a-f0-9]{52}$/D', $digest, $match) === 1 ? $match[1] : null;
+
+        $facts    = [];
+        $messages = [];
+        foreach (is_array($payload['messagesSentDigests'] ?? null) ? $payload['messagesSentDigests'] : [] as $message) {
+            $digest = is_array($message) ? $short($message['digest'] ?? null) : null;
+            $role   = is_array($message) && is_string($message['role'] ?? null) ? strtr($message['role'], [',' => '_', '@' => '_', ';' => '_', '=' => '_']) : '';
+            if ($digest !== null) {
+                $messages[] = $role . '@' . $digest;
+            }
+        }
+
+        if ($messages !== []) {
+            $facts['messagesDigests'] = implode(', ', $messages);
+        }
+
+        foreach (['requestDigest', 'contentDigest', 'toolArgumentsDigest', 'toolResultDigest'] as $key) {
+            $digest = $short($payload[$key] ?? null);
+            if ($digest !== null) {
+                $facts[$key] = $digest;
+            }
+        }
+
+        return $facts;
     }
 
     /**

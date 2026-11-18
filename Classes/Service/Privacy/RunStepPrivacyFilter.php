@@ -49,6 +49,21 @@ final readonly class RunStepPrivacyFilter
         'toolArguments',
         'toolResult',
         'toolArtifacts',
+        // The unkeyed identity of the request an answer is to (ADR-323): a
+        // hash of the content, so never stored as it is.
+        'requestIdentity',
+    ];
+
+    /**
+     * The keyed digests a step keeps of its content at the `metadata` level
+     * when the operator opted in (ADR-323); no other level keeps them.
+     */
+    private const DIGEST_KEYS = [
+        'messagesSentDigests',
+        'contentDigest',
+        'toolArgumentsDigest',
+        'toolResultDigest',
+        'requestDigest',
     ];
 
     public function __construct(
@@ -65,10 +80,68 @@ final readonly class RunStepPrivacyFilter
     public function filter(array $payload, ?PrivacyLevel $level = null): array
     {
         return match ($level ?? $this->policy->level()) {
-            PrivacyLevel::FULL                         => $payload,
-            PrivacyLevel::REDACTED                     => $this->redactPayload($payload),
-            PrivacyLevel::NONE, PrivacyLevel::METADATA => $this->metadataOnly($payload),
+            PrivacyLevel::FULL     => $payload,
+            PrivacyLevel::REDACTED => $this->withoutDigests($this->redactPayload($payload)),
+            PrivacyLevel::METADATA => $this->policy->inputDigests()
+                ? $this->withDigests($payload, $this->metadataOnly($payload))
+                : $this->withoutDigests($this->metadataOnly($payload)),
+            PrivacyLevel::NONE => $this->withoutDigests($this->metadataOnly($payload)),
         };
+    }
+
+    /**
+     * The step without content digests and without the request identity: what
+     * every level but an opted-in `metadata` keeps, including a payload filtered
+     * again at a stricter level after it was stored with digests.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function withoutDigests(array $payload): array
+    {
+        foreach ([...self::DIGEST_KEYS, 'requestIdentity'] as $key) {
+            unset($payload[$key]);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * The metadata-only step with a keyed digest of each part of the content
+     * it dropped (ADR-323). A payload stored before keeps the digests it has.
+     * A part without a digest (no encryption key) gets no key, never an
+     * unkeyed hash.
+     *
+     * @param array<string, mixed> $content the step before filtering
+     * @param array<string, mixed> $kept    the step as metadataOnly() keeps it
+     *
+     * @return array<string, mixed>
+     */
+    private function withDigests(array $content, array $kept): array
+    {
+        $messages = $content['messagesSent'] ?? null;
+        if (is_array($messages)) {
+            $digests = RunContentDigests::messages($messages);
+            if ($digests !== null) {
+                $kept['messagesSentDigests'] = $digests;
+            }
+        }
+
+        $parts = [
+            'contentDigest'       => is_string($content['content'] ?? null) ? $content['content'] : null,
+            'toolArgumentsDigest' => is_array($content['toolArguments'] ?? null) ? $content['toolArguments'] : null,
+            'toolResultDigest'    => is_string($content['toolResult'] ?? null) ? $content['toolResult'] : null,
+            'requestDigest'       => is_string($content['requestIdentity'] ?? null) && $content['requestIdentity'] !== '' ? $content['requestIdentity'] : null,
+        ];
+        foreach ($parts as $key => $part) {
+            $digest = $part === null ? null : RunContentDigests::of($part);
+            if ($digest !== null) {
+                $kept[$key] = $digest;
+            }
+        }
+
+        return $kept;
     }
 
     /**

@@ -49,6 +49,13 @@ final readonly class PrivacyPolicy implements PrivacyPolicyInterface
         return $days >= 1 ? $days : self::DEFAULT_RETENTION_DAYS;
     }
 
+    public function inputDigests(): bool
+    {
+        $configured = $this->privacyConfig()['inputDigests'] ?? null;
+
+        return in_array($configured, [true, 1, '1'], true);
+    }
+
     public function retentionDaysFor(PrivacyDataCategory $category): int
     {
         $retention = $this->privacyConfig()['retention'] ?? null;

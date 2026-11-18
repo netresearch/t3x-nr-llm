@@ -313,3 +313,4 @@ All decision records
    Adr320ARunShowsTheModelTheProviderReported
    Adr321ARunRecordsTheSkillVersionsItPassedToAModel
    Adr322ARunRecordsTheTestEvidenceOfTheSkillVersionsItUsed
+   Adr323ARunCanTellItsInputsApartWithoutKeepingThem

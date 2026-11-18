@@ -36,6 +36,14 @@ interface PrivacyPolicyInterface
     public function retentionDays(): int;
 
     /**
+     * Whether a run's step at the `metadata` level keeps a keyed digest of
+     * each part of its content it drops (ADR-323). Off by default: a digest
+     * of a short or predictable text lets a reader of the run confirm a
+     * guess at it.
+     */
+    public function inputDigests(): bool;
+
+    /**
      * Retention window in days for one data category, at least 1.
      *
      * Categories exist because the rows differ in sensitivity and in cost of

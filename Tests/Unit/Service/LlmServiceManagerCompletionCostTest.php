@@ -20,6 +20,7 @@ use Netresearch\NrLlm\Provider\Contract\ToolCapableInterface;
 use Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline;
 use Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface;
 use Netresearch\NrLlm\Service\CacheManagerInterface;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\LlmServiceManager;
 use Netresearch\NrLlm\Tests\LlmServiceManagerTestFactory;
 use Netresearch\NrLlm\Tests\Unit\AbstractUnitTestCase;
@@ -117,6 +118,30 @@ final class LlmServiceManagerCompletionCostTest extends AbstractUnitTestCase
             'complete' => $manager->completeWithConfiguration('Hello', $configuration),
             default    => self::fail('Unknown operation ' . $operation),
         };
+    }
+
+    /**
+     * ADR-323: a tool round names the request it sent, tool schemas included,
+     * so a run can tell two rounds' requests apart without keeping them.
+     */
+    #[Test]
+    public function aToolRoundNamesTheRequestItSent(): void
+    {
+        $identity = function (string $question, string $tool): string {
+            $response = $this->manager($this->adapter(UsageStatistics::fromTokens(1, 1)))->chatWithToolsForConfiguration(
+                [['role' => 'user', 'content' => $question]],
+                [new ToolSpec(name: $tool, description: 'sets categories', parameters: [])],
+                $this->configuration($this->model()),
+            );
+
+            return CompletionRequestIdentity::read($response->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null);
+        };
+
+        $first = $identity('Kategorien aus dem Bild setzen', 'set_file_categories');
+        self::assertMatchesRegularExpression('/^v1:[a-f0-9]{64}$/D', $first);
+        self::assertSame($first, $identity('Kategorien aus dem Bild setzen', 'set_file_categories'));
+        self::assertNotSame($first, $identity('Kategorien aus dem Text setzen', 'set_file_categories'));
+        self::assertNotSame($first, $identity('Kategorien aus dem Bild setzen', 'set_page_categories'));
     }
 
     /**

@@ -62,6 +62,38 @@ row under ``privacy.retention.agentRun``. The run's initiator, administrators an
 service accounts holding ``agent:read`` can read it, as they can the rest of
 the run.
 
+.. _administration-data-retention-content-digests:
+
+Content digests of agent runs
+-----------------------------
+
+:guilabel:`Run content digests` (``privacy.inputDigests``, off by default)
+lets an agent run step at the ``metadata`` level keep a keyed digest of each
+part of the content it drops (:ref:`ADR-323 <adr-323>`): each message sent,
+with its role, the model's answer, a tool's arguments and its result, and the
+whole request a model call answered. Two runs then show which input differed
+without the text being stored. The run timeline shows each digest by its first
+twelve hex digits.
+
+The digests are HMAC-SHA-256 keyed with the installation's encryption key and
+a purpose of their own; the key is never stored with them. They compare within
+one installation only. Tool-call ids, which a provider generates, are left out
+of a message's digest, so two runs that sent the same input show the same
+digests. An installation without an encryption key stores none.
+
+.. warning::
+
+   A digest does not hide a short or predictable text. Anyone who can read the
+   run and guesses the text — a yes or no, a record uid, a prompt built from a
+   template — can compute the same digest with the key and so confirm the
+   guess. Keep the setting off where a confirmed guess matters.
+
+No other level keeps digests: ``none`` keeps nothing, ``redacted`` would
+otherwise confirm a credential the redactor masked, and ``full`` stores the
+text itself. When a run's level is tightened later, the digests are removed
+with the rest. They go with the run's other events under
+``privacy.retention.agentRun``.
+
 .. _administration-data-retention-how-long:
 
 How long it is kept

@@ -360,6 +360,9 @@ privacy.retention.governance = 0
 # cat=privacy; type=int+; label=Retention override — Tool audit (days): Who switched a tool or a tool group in the Tools module on or off, and when — attributable metadata only. 0 uses the default retention window.
 privacy.retention.toolAudit = 0
 
+# cat=privacy; type=boolean; label=Run content digests (ADR-323): At the "Metadata" level an agent run step drops its content. With this on, it keeps a keyed digest (HMAC-SHA-256 with the installation's encryption key, never stored with the digests) of each part it drops (each message sent, the answer, a tool's arguments and result, the whole request) so two runs show which input differed without keeping the text. Limit: a digest of a short or predictable text (a yes/no answer, a record uid, a template prompt) lets anyone who can read the run and guess the text confirm the guess - leave this off where that matters. Not applied at "None" (nothing kept), "Redacted" (a digest of the unredacted text would confirm a masked secret) or "Full" (the text is stored). Off by default.
+privacy.inputDigests = 0
+
 # =============================================================================
 # Billing report (ADR-231)
 # =============================================================================
