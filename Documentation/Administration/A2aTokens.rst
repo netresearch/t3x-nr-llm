@@ -41,13 +41,30 @@ Revoke
    :guilabel:`Enabled` field of the record to switch a client off
    temporarily instead.
 
+Enable and generate token
+   Per row of a disabled technical client record (not an editor's own), in
+   place of :guilabel:`Generate token` or :guilabel:`Rotate token`. A
+   revoked record is disabled, and a token for a disabled record is refused
+   with ``401``, so the module does not issue one without switching the
+   record on: after a confirmation it enables the record and issues the
+   token in one step. A token the record still holds ends at once. The
+   record is enabled only when its technical backend user exists, is
+   enabled, is within its start and end time and is not an administrator,
+   as the server checks on every request; otherwise the module refuses and
+   names what to correct. Generating or rotating never enables a
+   record by itself; the server refuses a token for a disabled record unless
+   the request asks for the enabling. The status column shows such a record
+   as :guilabel:`Revoked or disabled`. To resume a client that keeps its
+   token, tick :guilabel:`Enabled` in the record instead. To issue a token
+   for a record that stays disabled, use ``nrllm:a2a:client:token``.
+
 An administrator cannot generate or rotate the token of an editor's own
 record, and ``nrllm:a2a:client:token`` refuses it as well. Such a token acts
 as the editor, and only the editor issues it. An editor holds at most ten
 active tokens (enabled, with a token, not expired); a revoked or expired token
 does not count.
 
-Every issuing, rotation and revocation is logged at level ``info`` by the
+Every issuing, rotation, enabling and revocation in this module is logged at level ``info`` by the
 channel of ``A2aTokenAudit`` with the actor, the record and the time. TYPO3
 drops that level by default, so the extension writes the channel to its own
 file, ``var/log/typo3_nrllm-a2a-token-audit_*.log``; an installation changes

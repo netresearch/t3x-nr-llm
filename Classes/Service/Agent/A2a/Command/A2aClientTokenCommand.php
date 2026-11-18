@@ -15,6 +15,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\ConsoleOutputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -57,7 +58,8 @@ final class A2aClientTokenCommand extends Command
         // The token of an editor's own record is issued by its owner (ADR-294):
         // an operator who could issue it would hold a credential that acts as
         // that editor, with no owner asking for it.
-        if ($this->clients->findRawByUid((int) $uid)?->selfService === true) {
+        $client = $this->clients->findRawByUid((int) $uid);
+        if ($client?->selfService === true) {
             $output->writeln("<error>This client record belongs to an editor's own account; its owner issues the token in the backend module.</error>");
 
             return Command::FAILURE;
@@ -72,6 +74,13 @@ final class A2aClientTokenCommand extends Command
         }
 
         $output->writeln($token, OutputInterface::OUTPUT_RAW);
+
+        // The token goes to stdout alone, so a script can capture it; the
+        // warning goes to stderr. The command keeps the record as it is.
+        if ($client?->enabled === false) {
+            $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
+            $errors->writeln('<comment>The client record is disabled: this token is refused until the record is enabled.</comment>');
+        }
 
         return Command::SUCCESS;
     }

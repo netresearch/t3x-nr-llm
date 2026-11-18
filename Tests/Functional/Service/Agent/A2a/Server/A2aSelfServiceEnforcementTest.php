@@ -400,6 +400,36 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function enablingADisabledClientWithItsTokenIsLoggedAsAnEnabling(): void
+    {
+        $logger = new class extends AbstractLogger {
+            /** @var list<string> */
+            public array $lines = [];
+
+            public function log($level, string|Stringable $message, array $context = []): void
+            {
+                $this->lines[] = $message . ' ' . json_encode($context);
+            }
+        };
+        $administration = new A2aClientTokenAdministration($this->getService(A2aInboundClientRepository::class), new A2aTokenAudit($logger));
+        $administration->revoke($this->user(1), 1);
+
+        $administration->issue($this->user(1), 1, true);
+        $administration->issue($this->user(1), 1, true);
+
+        // Switched off in the record, keeping its token.
+        $this->db('tx_nrllm_a2a_client')->update('tx_nrllm_a2a_client', ['enabled' => 0], ['uid' => 1]);
+        $administration->issue($this->user(1), 1, true);
+
+        self::assertCount(4, $logger->lines);
+        self::assertStringContainsString('enabled and issued by an administrator', $logger->lines[1]);
+        self::assertStringContainsString('"client":1', $logger->lines[1]);
+        self::assertStringContainsString('rotated by an administrator', $logger->lines[2], 'an enabled record is not enabled again');
+        self::assertStringNotContainsString('enabled', $logger->lines[2]);
+        self::assertStringContainsString('enabled and rotated by an administrator', $logger->lines[3]);
+    }
+
+    #[Test]
     public function anEditorHoldsAtMostTenActiveTokensAndARevokedOrExpiredOneFreesASlot(): void
     {
         $uids = [];
@@ -448,6 +478,21 @@ final class A2aSelfServiceEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(Command::SUCCESS, $tester->execute(['client' => '1']));
         $this->tokens[1] = trim($tester->getDisplay());
         self::assertTrue($this->accepted($this->send(1)), 'a technical client gets a working token');
+    }
+
+    #[Test]
+    public function theCommandWarnsOnStderrThatTheTokenOfADisabledClientIsRefused(): void
+    {
+        $repository = $this->getService(A2aInboundClientRepository::class);
+        $repository->revoke(1);
+
+        $tester = new CommandTester(new A2aClientTokenCommand($repository));
+
+        self::assertSame(Command::SUCCESS, $tester->execute(['client' => '1'], ['capture_stderr_separately' => true]));
+
+        self::assertMatchesRegularExpression('/^nra2a_[a-f0-9]{16}_[A-Za-z0-9_-]{43}$/', trim($tester->getDisplay()), 'stdout holds the token alone');
+        self::assertStringContainsString('disabled', $tester->getErrorOutput());
+        self::assertSame(0, (int) $this->db('tx_nrllm_a2a_client')->select(['enabled'], 'tx_nrllm_a2a_client', ['uid' => 1])->fetchOne(), 'the command does not enable the record');
     }
 
     #[Test]

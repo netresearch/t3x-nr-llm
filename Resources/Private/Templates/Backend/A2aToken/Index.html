@@ -22,6 +22,9 @@
          data-label-rotate-title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate.confirmTitle')}"
          data-label-rotate-message="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate.confirmMessage')}"
          data-label-rotate-button="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate')}"
+         data-label-enable-title="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.enable.confirmTitle')}"
+         data-label-enable-message="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.enable.confirmMessage')}"
+         data-label-enable-button="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.enableAndGenerate')}"
          data-label-cancel="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.cancel')}"
          data-label-copied="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.copied')}"
          data-label-copy-failed="{f:translate(key: 'LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.copyFailed')}">
@@ -116,10 +119,15 @@
                                     <td>
                                         <div class="btn-group" role="group" aria-label="{row.title}">
                                             <f:if condition="{row.canIssue}">
-                                                <button type="button" class="btn btn-default js-a2a-issue" data-uid="{row.uid}" data-title="{row.title}" data-has-token="{f:if(condition: row.hasToken, then: '1', else: '0')}">
-                                                    <f:if condition="{row.hasToken}">
-                                                        <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate" /></f:then>
-                                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.generate" /></f:else>
+                                                <button type="button" class="btn btn-default js-a2a-issue" data-uid="{row.uid}" data-title="{row.title}" data-has-token="{f:if(condition: row.hasToken, then: '1', else: '0')}" data-enable="{f:if(condition: row.enabled, then: '0', else: '1')}">
+                                                    <f:if condition="{row.enabled}">
+                                                        <f:then>
+                                                            <f:if condition="{row.hasToken}">
+                                                                <f:then><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.rotate" /></f:then>
+                                                                <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.generate" /></f:else>
+                                                            </f:if>
+                                                        </f:then>
+                                                        <f:else><f:translate key="LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:a2aTokens.enableAndGenerate" /></f:else>
                                                     </f:if>
                                                     <span class="visually-hidden">: {row.title}</span>
                                                 </button>

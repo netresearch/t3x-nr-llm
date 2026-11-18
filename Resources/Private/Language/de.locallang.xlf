@@ -6542,6 +6542,18 @@
                 <source>The current token stops working at once; the client keeps its tasks.</source>
                 <target>Das aktuelle Token funktioniert sofort nicht mehr; der Client behält seine Aufgaben.</target>
             </trans-unit>
+            <trans-unit id="a2aTokens.enableAndGenerate">
+                <source>Enable and generate token</source>
+                <target>Aktivieren und Token erzeugen</target>
+            </trans-unit>
+            <trans-unit id="a2aTokens.enable.confirmTitle">
+                <source>Enable this client and generate a token?</source>
+                <target>Diesen Client aktivieren und ein Token erzeugen?</target>
+            </trans-unit>
+            <trans-unit id="a2aTokens.enable.confirmMessage">
+                <source>The client record is disabled, for example by a revoke. A token for it would be refused. This switches the record on again and issues a new token. To resume a client that keeps its token, tick Enabled in the record instead.</source>
+                <target>Der Client-Datensatz ist deaktiviert, zum Beispiel durch einen Widerruf. Ein Token dafür würde abgewiesen. Dies aktiviert den Datensatz wieder und stellt ein neues Token aus. Um einen Client mit seinem bisherigen Token fortzusetzen, setzen Sie stattdessen „Aktiv“ im Datensatz.</target>
+            </trans-unit>
             <trans-unit id="a2aTokens.lastTask.note">
                 <source>Last task is the time the newest task of the token was created. A token that only reads existing tasks does not appear there.</source>
                 <target>Letzte Aufgabe ist der Zeitpunkt, zu dem die neueste Aufgabe des Tokens angelegt wurde. Ein Token, das nur bestehende Aufgaben liest, erscheint dort nicht.</target>

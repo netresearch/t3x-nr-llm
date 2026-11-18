@@ -80,36 +80,49 @@ class A2aTokens {
     }
 
     confirmIssue(btn) {
+        // A disabled record is switched on only after the administrator agreed
+        // to it here; the server refuses the token otherwise.
+        const enable = btn.dataset.enable === '1';
         // A first token replaces nothing; a rotation ends the old token at once.
-        if (btn.dataset.hasToken !== '1') {
-            this.issue(btn);
+        if (!enable && btn.dataset.hasToken !== '1') {
+            this.issue(btn, false);
             return;
         }
+        const kind = enable ? 'Enable' : 'Rotate';
+        const message = [this.label(`label${kind}Message`)];
+        // Enabling a record that still holds a token replaces that token too.
+        if (enable && btn.dataset.hasToken === '1') {
+            message.push(this.label('labelRotateMessage'));
+        }
+        message.push(btn.dataset.title || '');
         Modal.confirm(
-            this.label('labelRotateTitle'),
-            `${this.label('labelRotateMessage')} ${btn.dataset.title || ''}`.trim(),
+            this.label(`label${kind}Title`),
+            message.join(' ').trim(),
             Severity.warning,
             [
                 { text: this.label('labelCancel'), btnClass: 'btn-default', trigger: (_e, modal) => modal.hideModal() },
                 {
-                    text: this.label('labelRotateButton'),
+                    text: this.label(`label${kind}Button`),
                     btnClass: 'btn-warning',
                     trigger: (_e, modal) => {
                         modal.hideModal();
-                        this.issue(btn);
+                        this.issue(btn, enable);
                     },
                 },
             ],
         );
     }
 
-    issue(btn) {
+    issue(btn, enable) {
         const url = resolveAjaxUrl('nrllm_a2a_token_issue');
         if (!url || !this.beginIssuing()) {
             return;
         }
         const data = new FormData();
         data.append('uid', btn.dataset.uid);
+        if (enable) {
+            data.append('enable', '1');
+        }
         const release = () => this.endIssuing();
         post(url, data, btn, (response) => this.reveal(response.token), { onFailure: release, onError: release, reenableOnSuccess: false });
     }

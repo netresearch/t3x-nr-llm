@@ -137,6 +137,18 @@ final class A2aTokenControllerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aRevokedTechnicalClientIsShownAsDisabledAndOffersEnablingItWithANewToken(): void
+    {
+        $this->getService(A2aInboundClientRepository::class)->revoke(1);
+
+        $body = (string) $this->indexAs(1)->getBody();
+
+        self::assertMatchesRegularExpression('#<th scope="row">Client 1</th>(?:(?!</tr>).)*Revoked or disabled(?:(?!</tr>).)*</tr>#s', $body);
+        self::assertMatchesRegularExpression('#<button[^>]*js-a2a-issue[^>]*data-title="Client 1"[^>]*data-enable="1"[^>]*>\s*Enable and generate token#', $body);
+        self::assertMatchesRegularExpression('#<button[^>]*js-a2a-issue[^>]*data-title="Client 2"[^>]*data-enable="0"[^>]*>\s*Rotate token#', $body, 'an enabled client keeps the plain control');
+    }
+
+    #[Test]
     public function aWithdrawnTokenIsShownAsWithdrawnWithItsReason(): void
     {
         $this->db('be_groups')->update('be_groups', ['custom_options' => ''], ['uid' => 30]);
