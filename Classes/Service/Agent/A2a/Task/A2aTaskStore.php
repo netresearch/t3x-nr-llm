@@ -13,6 +13,7 @@ use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
@@ -554,6 +555,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * runs goes on, and its writes are then still the client's to read.
      * Null for a read-only profile whose run wrote nothing.
      *
+     * A call that ended in an error announces no write, yet what it changed
+     * can stand: a call the scope of the assignment refused a part of commits
+     * the rest (ADR-295), and so does a tool that fails after it wrote. Those
+     * records are listed apart, from the call's `tool_changes` step, which is
+     * empty when the call was rolled back. A record an announced write already
+     * names is not listed twice.
+     *
      * @return array<string, mixed>|null
      */
     private function writesArtifact(int $runUid, bool $profileMayWrite): ?array
@@ -581,14 +589,72 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             );
         }
 
-        $text = $lines === []
-            ? 'No write was executed.'
-            : sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
+        $failed = $this->changesOfFailedCalls($runUid, $rows);
+
+        $parts = [];
+        if ($lines !== []) {
+            $parts[] = sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
+        }
+
+        if ($failed !== []) {
+            $parts[] = sprintf("Records changed by tool calls that did not complete (%d), each in the workspace named (0 is live); check these records:\n%s", count($failed), implode("\n", $failed));
+        }
+
+        $text = $parts === [] ? 'No write was executed.' : implode("\n", $parts);
         if ($steps !== count($lines)) {
             $text .= sprintf("\nThe run recorded %d write step(s); this list may be incomplete.", $steps);
         }
 
         return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
+    }
+
+    /**
+     * The records the run's failed tool calls changed, as their `tool_changes`
+     * steps name them, one line each, without those an announced write names.
+     * A call's steps are recorded in order: its tool step, then its changes.
+     *
+     * @param list<array<string, mixed>> $announced the write rows of the run
+     *
+     * @return list<string>
+     */
+    private function changesOfFailedCalls(int $runUid, array $announced): array
+    {
+        $known = [];
+        foreach ($announced as $row) {
+            $known[sprintf('%s:%d:%d', is_string($row['record_table'] ?? null) ? $row['record_table'] : '', is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0, is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0)] = true;
+        }
+
+        $events = $this->connection()->executeQuery(
+            'SELECT kind, payload FROM tx_nrllm_agentrun_event WHERE run = ? AND kind IN (?, ?) ORDER BY sequence, uid',
+            [$runUid, 'tool', 'tool_changes'],
+            [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR],
+        )->fetchAllAssociative();
+
+        $lines  = [];
+        $failed = false;
+        foreach ($events as $event) {
+            $payload = is_string($event['payload'] ?? null) ? json_decode($event['payload'], true) : null;
+            $payload = is_array($payload) ? $payload : [];
+            if (($event['kind'] ?? null) === 'tool') {
+                $failed = ($payload['toolIsError'] ?? null) === true;
+
+                continue;
+            }
+
+            $set = $failed ? ObservedChangeSet::tryFromEventPayload($payload) : null;
+            foreach ($set instanceof ObservedChangeSet ? $set->changes : [] as $change) {
+                $uid = $change->liveUid ?? $change->record->uid;
+                $key = sprintf('%s:%d:%d', $change->record->table, $uid, $change->workspace);
+                if (!isset($known[$key])) {
+                    $known[$key] = true;
+                    $lines[]     = sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $uid, $change->workspace, $change->action->value);
+                }
+            }
+
+            $failed = false;
+        }
+
+        return $lines;
     }
 
     private function profileOf(int $runUid): int

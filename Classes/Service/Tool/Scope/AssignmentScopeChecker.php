@@ -215,6 +215,15 @@ final readonly class AssignmentScopeChecker
     }
 
     /**
+     * What is stored about a row in the workspace: its live uid and the
+     * default-language row it translates. Null when the row does not exist.
+     */
+    public function factsOf(string $table, int $uid, int $workspace): ?RecordFacts
+    {
+        return $this->topology->row($table, $uid, $workspace);
+    }
+
+    /**
      * Whether a copy of a page keeps to the languages of the scope: the page's
      * content and translations are copied with it.
      */

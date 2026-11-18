@@ -85,6 +85,7 @@ use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -136,6 +137,9 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     private const DRAFT = 1;
 
     private const GERMAN = 1;
+
+    /** The German overlay of the scoped page, where a test makes one. */
+    private const OVERLAY = 60;
 
     private ConnectionPool $connectionPool;
 
@@ -847,7 +851,168 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(2, (int) $this->scalar('SELECT COUNT(*) FROM tt_content WHERE header LIKE ? AND deleted = 0', ['Original 21%']), 'only the copy that leaves the translations behind was made');
     }
 
-    // --- the effect check, with the input check taken away --------------------
+    /**
+     * A write to a default-language page that has a translation, in a scope of
+     * that page and the default language only, as the A2A page metadata skill
+     * sets it. Core's data-map processor adds an entry for the translation to
+     * every such write, carrying the fields it synchronises from the page
+     * (`l10n_mode` `exclude`), whether they changed or not.
+     */
+    #[Test]
+    #[DataProvider('workspaces')]
+    public function aWriteToAPageWithATranslationIsNotRefusedForTheEntryCoreAddsForTheTranslation(bool $draft): void
+    {
+        $this->insertAGermanOverlayOfTheScopedPage();
+        $user = $this->setUpBackendUser(1);
+        if ($draft) {
+            self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        }
+
+        $before  = $this->pageRows(self::OVERLAY);
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)], [], false, 0),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['description' => 'Described']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0]),
+            user: $user,
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame('Described', $this->scalar('SELECT description FROM pages WHERE ' . ($draft ? 't3ver_oid' : 'uid') . ' = ? AND sys_language_uid = 0', [self::SCOPED]));
+        self::assertSame($before, $this->pageRows(self::OVERLAY), 'the translation is not written, and gets no version');
+    }
+
+    /**
+     * The same write when an editor has already changed the page in the draft
+     * workspace, so the page has a version there before the call, and core
+     * gave the translation one with it.
+     */
+    #[Test]
+    public function aWriteToAPageWithATranslationThatAlreadyHasADraftIsNotRefused(): void
+    {
+        $this->insertAGermanOverlayOfTheScopedPage();
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        $editor = GeneralUtility::makeInstance(DataHandler::class);
+        $editor->start(['pages' => [self::SCOPED => ['description' => 'By an editor']]], [], $user);
+        $editor->process_datamap();
+        self::assertSame('By an editor', $this->scalar('SELECT description FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::SCOPED, self::DRAFT]), 'the draft exists before the call');
+
+        $before  = $this->pageRows(self::OVERLAY);
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)], [], false, 0),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['description' => 'Described']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0]),
+            user: $user,
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame('Described', $this->scalar('SELECT description FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::SCOPED, self::DRAFT]));
+        self::assertSame($before, $this->pageRows(self::OVERLAY), 'the translation and its draft stay as they were');
+    }
+
+    /**
+     * An entry for the translation that the run submitted itself is judged as
+     * any other, even when it holds only fields core synchronises.
+     */
+    #[Test]
+    public function anEntryForTheTranslationThatTheRunSubmittedIsRefused(): void
+    {
+        $this->insertAGermanOverlayOfTheScopedPage();
+        $overlay = $this->pageRows(self::OVERLAY);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)], [], false, 0),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['description' => 'Described'], self::OVERLAY => ['nav_hide' => 1]]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0]),
+        );
+
+        self::assertSame(['update pages:60 language_not_allowed'], $this->refusals($outcome['trace']));
+        self::assertSame($overlay, $this->pageRows(self::OVERLAY));
+    }
+
+    /**
+     * A field core synchronises (`layout` is `l10n_mode` `exclude`) reaches
+     * the translation, so the write is refused at the page, and nothing is
+     * stored: neither the page nor its translation changes.
+     */
+    #[Test]
+    #[DataProvider('workspaces')]
+    public function aWriteOfASynchronisedFieldIsRefusedWhenATranslationIsInALanguageOutsideTheScope(bool $draft): void
+    {
+        $this->insertAGermanOverlayOfTheScopedPage();
+        $user = $this->setUpBackendUser(1);
+        if ($draft) {
+            self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        }
+
+        $page    = $this->pageRows(self::SCOPED);
+        $overlay = $this->pageRows(self::OVERLAY);
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)], [], false, 0),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['layout' => 2, 'description' => 'Described']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0]),
+            user: $user,
+        );
+
+        self::assertSame(['update pages:2 language_not_allowed', 'update pages:60 language_not_allowed'], $this->refusals($outcome['trace']));
+        self::assertStringStartsWith('Error: tool "scoped_probe" did not complete.', $outcome['toolResult']);
+        self::assertSame($page, $this->pageRows(self::SCOPED), 'the page is not written');
+        self::assertSame($overlay, $this->pageRows(self::OVERLAY), 'the translation is not written');
+
+        $admitted = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['layout' => 2]]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0, self::GERMAN]),
+            user: $user,
+        );
+        self::assertSame([], $this->refusals($admitted['trace']), 'with the language of the translation in scope core synchronises it');
+        self::assertSame(2, (int) $this->scalar('SELECT layout FROM pages WHERE ' . ($draft ? 't3ver_oid' : 'uid') . ' = ?', [self::OVERLAY]), 'the translation took the field');
+    }
+
+    /**
+     * The same holds for content: a write to an element with a translation in a
+     * language outside the scope is not refused for what core adds for it.
+     */
+    #[Test]
+    public function aWriteToAnElementWithATranslationIsNotRefusedForTheEntryCoreAddsForTheTranslation(): void
+    {
+        $this->connectionPool->getConnectionForTable('tt_content')->insert('tt_content', ['uid' => 41, 'pid' => self::SCOPED, 'colPos' => 0, 'CType' => 'text', 'header' => 'Uebersetzung', 'sys_language_uid' => self::GERMAN, 'l18n_parent' => self::IN_SCOPE_ELEMENT, 'sorting' => 1]);
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 1)], [], null, [0]),
+        );
+
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame('Changed in scope', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertSame('Uebersetzung', $this->header(41));
+    }
 
     /**
      * @return iterable<string, array{bool}>
@@ -2314,6 +2479,31 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     private function countPages(string $title): int
     {
         return (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE title = ?', [$title]);
+    }
+
+    /**
+     * A German overlay of the scoped page, beside it as core puts one.
+     */
+    private function insertAGermanOverlayOfTheScopedPage(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', [
+            'uid'              => self::OVERLAY, 'pid' => 1, 'title' => 'Seite 2', 'doktype' => 1, 'slug' => '/2',
+            'sys_language_uid' => self::GERMAN, 'l10n_parent' => self::SCOPED, 'l10n_source' => self::SCOPED, 'sorting' => self::SCOPED * 256,
+            'perms_userid'     => 1, 'perms_user' => Permission::ALL,
+            'perms_groupid'    => 0, 'perms_group' => 0, 'perms_everybody' => Permission::ALL,
+        ]);
+    }
+
+    /**
+     * The rows of a page and its workspace versions, as they are stored.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function pageRows(int $uid): array
+    {
+        return $this->connectionPool->getConnectionForTable('pages')
+            ->executeQuery('SELECT * FROM pages WHERE uid = ? OR t3ver_oid = ? ORDER BY uid', [$uid, $uid])
+            ->fetchAllAssociative();
     }
 
     private function translationsOf(int $uid): int

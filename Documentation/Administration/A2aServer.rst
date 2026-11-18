@@ -134,7 +134,12 @@ May write
    an approval in TYPO3.``. The result of a writing task carries a second
    artifact, ``writes``, that lists every write the run executed (table,
    record uid, workspace, kind), taken from the write events, not from the
-   model's answer; a run that wrote nothing says so.
+   model's answer; a run that wrote nothing says so. A tool call that ended
+   in an error announces no write, but what it changed before can stand: a
+   call the scope of the assignment refused a part of keeps the rest
+   (:ref:`ADR-295 <adr-295>`). Such records are listed in a second block,
+   "Records changed by tool calls that did not complete", to be checked; a
+   call that was rolled back lists nothing.
    The one exception to "drafts only" is ``adopt_client_file``, which
    stores a client's file in the skill's inbox folder as a new FAL file. A
    FAL file has no draft; nothing uses it until an editor references it in

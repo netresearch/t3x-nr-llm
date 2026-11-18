@@ -165,6 +165,48 @@ included:
   the scope stopped, and records it. A tool that threw keeps its own error and
   gets the same sentence.
 
+**Translations core synchronises** (amending this decision, 2026-11-18). Core's
+data-map processor (``DataMapProcessor``, run by ``process_datamap()`` after the
+``processDatamap_beforeStart`` hooks and before any entry is written) adds an
+entry for every translation of a record a run updates. The entry holds the
+fields core keeps equal in all languages (``l10n_mode`` ``exclude``, except type
+``none``, and ``allowLanguageSynchronization``) and ``l10n_state``, whether the
+run changed them or not; in a draft workspace it would also give the
+translation a version of its own. Under a scope of the default language only,
+the hook refused that entry for its language, so every write to a page with a
+translation was an error, although the page's draft was stored. The A2A
+acceptance of the page metadata skill on a page with a German translation
+showed exactly that: the draft of the page was stored, the call failed with
+``language_not_allowed`` on the translation, and the ``writes`` artifact said
+that no write was executed.
+
+The hook now keeps the datamap as the run submitted it, in
+``processDatamap_beforeStart``, and judges by it:
+
+- An update that names a synchronised field reaches the translations, so the
+  languages of all translations of the record have to be in scope, as for a
+  delete or a move (``language_not_allowed`` on the record). This errs on the
+  side of refusing: a translation whose ``l10n_state`` keeps the field custom
+  would not be changed.
+- An entry core added is skipped, without a refusal, where the scope refuses
+  it, when the run submitted nothing for that record, the record is a
+  translation, the run submitted the record it translates, that submitted
+  entry names no synchronised field, and the added entry holds nothing but
+  synchronised fields and ``l10n_state``. The run asked for nothing of it.
+  The translation is then not written and gets no version; a value of a
+  synchronised field that already differed from its source stays as it was.
+  Anything else is judged as before. The skip only ever leaves a write out, so
+  it cannot let a run write anything.
+
+**What stands of a failed call is reported** (same amendment). A call that had
+a write refused commits the rest of what it wrote, and a tool that fails after
+it wrote commits what it wrote; the model reads both in the call's error. The
+A2A ``writes`` artifact read only announced writes, which a failed call has
+none of, and said "No write was executed." beside a stored draft. It now also
+lists, in a block of its own, the records the ``tool_changes`` step of each
+failed call names and no announced write names. A call that was rolled back
+has an empty ``tool_changes`` step and lists nothing.
+
 **The input checks fail closed.** Both layers read the input of a write, and a
 third of the defects found in review were values the parser had skipped. A value
 of an entry that the hook cannot read into a definite target is therefore
