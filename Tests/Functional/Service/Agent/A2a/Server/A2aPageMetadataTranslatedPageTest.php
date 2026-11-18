@@ -108,8 +108,10 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         $writes = $this->writesOf($taskId);
         self::assertStringNotContainsString('No write was executed', $writes);
         self::assertStringContainsString('Records written by tool calls that did not complete (1)', $writes);
-        // The draft is a new version row of the page, so the change reads "created".
-        self::assertStringContainsString('- pages:' . self::PAGE . ' in workspace ' . self::WORKSPACE . ' (created)', $writes);
+        // The action names how core stored the draft: a new version row reads
+        // "created" on TYPO3 14 and "updated" on 13, so only the record and the
+        // workspace are asserted.
+        self::assertMatchesRegularExpression('/^- pages:' . self::PAGE . ' in workspace ' . self::WORKSPACE . ' \((created|updated)\)$/m', $writes);
     }
 
     /**
