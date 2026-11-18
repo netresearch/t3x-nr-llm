@@ -51,7 +51,13 @@ final class RunContentDigestsPersistenceTest extends AbstractFunctionalTestCase
         $connectionPool = $this->get(ConnectionPool::class);
         self::assertInstanceOf(ConnectionPool::class, $connectionPool);
         $this->connectionPool = $connectionPool;
-        $this->repository     = AgentRunRepositoryFactory::create($connectionPool, $this->get(AgentStateCodec::class));
+        // The guard filters each step a second time at the run's stored level,
+        // as on an installation: both passes run at `metadata` here.
+        $this->repository = AgentRunRepositoryFactory::create(
+            $connectionPool,
+            $this->get(AgentStateCodec::class),
+            new FixedPrivacyPolicy(PrivacyLevel::METADATA, 30, new ContentRedactor(), true),
+        );
     }
 
     #[Test]

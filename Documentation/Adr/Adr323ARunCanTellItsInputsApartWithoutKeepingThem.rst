@@ -136,4 +136,8 @@ a chat response (ADR-271), so a caller's idempotency cache
 (:php:`IdempotencyMiddleware`) holds it with the response, as it holds the
 answer.
 
+◑ A message whose text holds invalid UTF-8 (a legacy record read by a tool)
+has no canonical form, so its step keeps no message digests at all; the other
+parts are digested as usual.
+
 ◑ Digests compare within one installation only.

@@ -75,7 +75,10 @@ final class RunContentDigests
         $comparable = ['role' => $message['role'] ?? null, 'content' => $message['content'] ?? null];
         $calls      = $message['tool_calls'] ?? null;
         if (is_array($calls)) {
-            $comparable['tool_calls'] = array_map(self::comparableCall(...), array_values($calls));
+            $comparable['tool_calls'] = [];
+            foreach ($calls as $call) {
+                $comparable['tool_calls'][] = self::comparableCall($call);
+            }
         }
 
         return $comparable;

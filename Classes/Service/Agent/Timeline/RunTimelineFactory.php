@@ -323,30 +323,50 @@ final readonly class RunTimelineFactory
      */
     private function contentDigests(array $payload): array
     {
-        $short = static fn (mixed $digest): ?string => is_string($digest) && preg_match('/^v1:([a-f0-9]{12})[a-f0-9]{52}$/D', $digest, $match) === 1 ? $match[1] : null;
-
         $facts    = [];
-        $messages = [];
-        foreach (is_array($payload['messagesSentDigests'] ?? null) ? $payload['messagesSentDigests'] : [] as $message) {
-            $digest = is_array($message) ? $short($message['digest'] ?? null) : null;
-            $role   = is_array($message) && is_string($message['role'] ?? null) ? strtr($message['role'], [',' => '_', '@' => '_', ';' => '_', '=' => '_']) : '';
-            if ($digest !== null) {
-                $messages[] = $role . '@' . $digest;
-            }
-        }
-
-        if ($messages !== []) {
-            $facts['messagesDigests'] = implode(', ', $messages);
+        $messages = $this->messageDigests($payload['messagesSentDigests'] ?? null);
+        if ($messages !== '') {
+            $facts['messagesDigests'] = $messages;
         }
 
         foreach (['requestDigest', 'contentDigest', 'toolArgumentsDigest', 'toolResultDigest'] as $key) {
-            $digest = $short($payload[$key] ?? null);
+            $digest = $this->shortDigest($payload[$key] ?? null);
             if ($digest !== null) {
                 $facts[$key] = $digest;
             }
         }
 
         return $facts;
+    }
+
+    /**
+     * The message digests of a step as `role@digest, ...`; an entry without a
+     * readable digest is left out.
+     */
+    private function messageDigests(mixed $stored): string
+    {
+        $messages = [];
+        foreach (is_array($stored) ? $stored : [] as $message) {
+            if (!is_array($message)) {
+                continue;
+            }
+
+            $digest = $this->shortDigest($message['digest'] ?? null);
+            $role   = is_string($message['role'] ?? null) ? strtr($message['role'], [',' => '_', '@' => '_', ';' => '_', '=' => '_']) : '';
+            if ($digest !== null) {
+                $messages[] = $role . '@' . $digest;
+            }
+        }
+
+        return implode(', ', $messages);
+    }
+
+    /**
+     * The first twelve hex digits of a `v1:` digest, or null for anything else.
+     */
+    private function shortDigest(mixed $digest): ?string
+    {
+        return is_string($digest) && preg_match('/^v1:([a-f0-9]{12})[a-f0-9]{52}$/D', $digest, $match) === 1 ? $match[1] : null;
     }
 
     /**

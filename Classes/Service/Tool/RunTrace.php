@@ -274,19 +274,10 @@ final class RunTrace
                 ? $response->metadata[OpenAiCallMetadata::KEY_HTTP_MS]
                 : null,
             providerProcessingMs: $this->intMetadata($response, OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS),
-            requestIdentity: $this->requestIdentity($response),
+            // The identity of the request this answer is to (ADR-323), or
+            // null when the terminal attached none.
+            requestIdentity: CompletionRequestIdentity::read($response->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null) ?: null,
         ));
-    }
-
-    /**
-     * The identity of the request this answer is to (ADR-323), or null when
-     * the terminal attached none.
-     */
-    private function requestIdentity(CompletionResponse $response): ?string
-    {
-        $identity = CompletionRequestIdentity::read($response->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null);
-
-        return $identity === '' ? null : $identity;
     }
 
     private function intMetadata(CompletionResponse $response, string $key): ?int
