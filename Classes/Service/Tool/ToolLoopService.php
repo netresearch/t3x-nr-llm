@@ -3450,11 +3450,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $bounded = $bounded->withHookFailedAfterWrite();
             }
 
-            $this->announceWrite(
+            // What the listeners of the write store with DataHandler runs of
+            // their own (AI Label's metadata, and the versions core adds to such
+            // a run, #1432) is a write of this call too: it joins the call's set.
+            $announced = $this->announceWrite(
                 $bounded,
                 $context,
                 $tool instanceof CreateContentElementDraftTool && $bounded->writeCompleteness === WriteCompleteness::COMPLETE && is_string($call->arguments['bodytext'] ?? null) && trim($call->arguments['bodytext']) !== '',
             );
+            ToolChangeCollector::hold(ChangeSets::merged($changes, $announced));
 
             return $bounded;
         } finally {
@@ -3606,18 +3610,43 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * same reason (ADR-206).
      * Swallows, not hides: the full Throwable goes to the log.
      */
-    private function announceWrite(ToolResult $result, ToolExecutionContext $context, bool $generated = false): void
+    private function announceWrite(ToolResult $result, ToolExecutionContext $context, bool $generated = false): ObservedChangeSet
     {
+        $nothing = new ObservedChangeSet();
         if (!$this->eventDispatcher instanceof EventDispatcherInterface) {
-            return;
+            return $nothing;
         }
 
         if (!$result->writeTarget instanceof RecordReference || !$result->writeKind instanceof WriteKind) {
-            return;
+            return $nothing;
         }
 
         $correlationId = $context->run?->correlationId() ?? '';
         if ($correlationId === '') {
+            return $nothing;
+        }
+
+        // The listeners' DataHandler runs are recorded like the call's own,
+        // and the frame is taken on every way out.
+        $depth = ToolChangeCollector::depth();
+        ToolChangeCollector::arm();
+        try {
+            $this->dispatchWrite($result, $context, $correlationId, $generated);
+        } finally {
+            // A frame a listener left armed hands its records to this one.
+            while (ToolChangeCollector::depth() > $depth + 1) {
+                ToolChangeCollector::take();
+            }
+
+            $announced = ToolChangeCollector::take();
+        }
+
+        return $announced;
+    }
+
+    private function dispatchWrite(ToolResult $result, ToolExecutionContext $context, string $correlationId, bool $generated): void
+    {
+        if (!$result->writeTarget instanceof RecordReference || !$result->writeKind instanceof WriteKind || !$this->eventDispatcher instanceof EventDispatcherInterface) {
             return;
         }
 

@@ -15,6 +15,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ObservedChange;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Tool\Change\ChangeSets;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -143,6 +144,32 @@ final class ObservedChangeTest extends TestCase
         $marked = ChangeSets::withTargetMarked($set, new RecordReference('tt_content', 10));
         self::assertTrue($marked->changes[0]->isWriteTarget);
         self::assertFalse($marked->changes[1]->isWriteTarget, 'the same uid in another table is not the target');
+    }
+
+    #[Test]
+    public function aLaterCaptureAddsWhatTheCallsSetDoesNotName(): void
+    {
+        $page    = new ObservedChange(new RecordReference('pages', 153), ChangeAction::CREATED, 3, 42, isWriteTarget: true);
+        $refusal = new ScopeRefusal('update', 'pages', 50, 0, ScopeRefusal::OUTSIDE_SCOPE);
+        $set     = new ObservedChangeSet([$page], omitted: 1, refused: [$refusal]);
+        $again   = new ObservedChange(new RecordReference('pages', 153), ChangeAction::UPDATED, 3, 42);
+        $sameUid = new ObservedChange(new RecordReference('pages', 153), ChangeAction::UPDATED, 4, 42);
+        $version = new ObservedChange(new RecordReference('pages', 154), ChangeAction::CREATED, 3, 142);
+        $merged  = ChangeSets::merged($set, new ObservedChangeSet([$again, $sameUid, $version], omitted: 2));
+
+        self::assertEquals([$page, $sameUid, $version], $merged->changes, 'a record both name is kept once, as the call states it; another workspace is another row');
+        self::assertSame(3, $merged->omitted);
+        self::assertSame([$refusal], $merged->refused);
+        self::assertSame(ChangeCoverage::DATAHANDLER, $merged->coverage);
+
+        $deleted = ChangeSets::merged($set, new ObservedChangeSet([new ObservedChange(new RecordReference('pages', 153), ChangeAction::DELETED, 3)]))->changes;
+        self::assertCount(1, $deleted);
+        self::assertSame(ChangeAction::DELETED, $deleted[0]->action, 'the stronger action of the two');
+        self::assertSame(42, $deleted[0]->liveUid, "the rest as the call's set states it");
+        self::assertTrue($deleted[0]->isWriteTarget);
+
+        self::assertSame(ChangeCoverage::NOT_CAPTURED, ChangeSets::merged($set, new ObservedChangeSet([], ChangeCoverage::NOT_CAPTURED))->coverage, 'a later capture that missed writes says so');
+        self::assertSame(ChangeCoverage::NOT_CAPTURED, ChangeSets::merged(new ObservedChangeSet([], ChangeCoverage::NOT_CAPTURED), $set)->coverage);
     }
 
     #[Test]

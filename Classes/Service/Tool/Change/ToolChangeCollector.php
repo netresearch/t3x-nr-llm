@@ -25,8 +25,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * TYPO3 13.4 and 14.3 dispatch no PSR-14 event for a DataHandler record
  * operation, so the collector is fed by the hooks of {@see ObservedChangeHook}.
  * It records only while armed: the tool loop arms it around
- * `ToolInterface::execute()` and takes the result afterwards, so a backend
- * request outside a tool call is untouched.
+ * `ToolInterface::execute()` and takes the result afterwards, and again around
+ * the dispatch of the call's write events, whose listeners' writes join the
+ * call's list (#1432), so a backend request outside a tool call is untouched.
  *
  * Static, like the failure list of {@see \Netresearch\NrLlm\Service\Tool\Builtin\ToolDataHandler}:
  * every tool builds its own DataHandler, the hooks are global, and neither the

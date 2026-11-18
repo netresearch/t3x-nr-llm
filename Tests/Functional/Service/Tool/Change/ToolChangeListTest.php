@@ -360,6 +360,37 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A move core makes live from a draft workspace (a table without
+     * versioning, a workspace that allows live editing) has no version: the
+     * live row is named as moved, in workspace 0, so that neither the list
+     * nor the effect check of the scope loses it.
+     */
+    #[Test]
+    public function aLiveMoveByAUserInADraftWorkspaceIsListedAsLive(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_workspace')->insert('sys_workspace', ['uid' => 3, 'pid' => 0, 'title' => 'Live editing', 'members' => '', 'live_edit' => 1]);
+        $this->connectionPool->getConnectionForTable('fe_users')->insert('fe_users', ['uid' => 1, 'pid' => self::PAGE, 'username' => 'visitor', 'name' => 'Before']);
+        // Website users are allowed in a folder.
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', ['uid' => 90, 'pid' => self::ROOT, 'title' => 'Users', 'doktype' => 254]);
+        $admin = $this->useASessionlessAmbientUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace(3));
+
+        $trace = $this->runLoopWith($this->tool(static function (ToolExecutionContext $context): ToolResult {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([], ['fe_users' => [1 => ['move' => 90]]], $context->actingBackendUser());
+            $dataHandler->process_cmdmap();
+
+            return ToolResult::text('MOVED');
+        }), user: $admin);
+
+        $set = $this->changesStep($trace)->observedChanges;
+        self::assertInstanceOf(ObservedChangeSet::class, $set);
+        $listed = implode(', ', array_map(static fn (ObservedChange $change): string => $change->record . '@' . $change->workspace . '(' . $change->action->value . ')', $set->changes));
+        self::assertSame('fe_users:1@0(moved)', $listed);
+        self::assertSame(90, (int) $this->connectionPool->getConnectionForTable('fe_users')->select(['pid'], 'fe_users', ['uid' => 1])->fetchOne(), 'positive control: the move was made live');
+    }
+
+    /**
      * The DataHandler ran an update for the record although no column changed,
      * and that is what the list states; the tool named it and is not told it
      * was missed.
@@ -470,6 +501,39 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
         self::assertNotSame(self::ELEMENT, $set->changes[0]->record->uid);
         self::assertSame(self::DRAFT, $set->changes[0]->workspace);
         self::assertSame(0, $this->connectionPool->getConnectionForTable('tt_content')->count('uid', 'tt_content', ['uid' => self::ELEMENT, 'deleted' => 1]), 'positive control: live is untouched');
+    }
+
+    /**
+     * A move in a draft workspace writes a version of the live row too; the
+     * list names that version in its workspace, not the live row as moved
+     * live, so a reader does not take a draft for a live change.
+     */
+    #[Test]
+    public function aMoveInADraftWorkspaceNamesTheVersionAndTheWorkspace(): void
+    {
+        $admin = $this->useASessionlessAmbientUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace(self::DRAFT));
+        $before = $this->connectionPool->getConnectionForTable('tt_content')->select(['pid', 'sorting'], 'tt_content', ['uid' => self::ELEMENT])->fetchAssociative();
+
+        $trace = $this->runLoopWith($this->tool(static function (ToolExecutionContext $context): ToolResult {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([], ['tt_content' => [self::ELEMENT => ['move' => self::PAGE_TO_COPY]]], $context->actingBackendUser());
+            $dataHandler->process_cmdmap();
+
+            return ToolResult::text('MOVED');
+        }), user: $admin);
+
+        $set = $this->changesStep($trace)->observedChanges;
+        self::assertInstanceOf(ObservedChangeSet::class, $set);
+        $listed = implode(', ', array_map(static fn (ObservedChange $change): string => $change->record . '@' . $change->workspace . '(' . $change->action->value . ')', $set->changes));
+        self::assertNotSame([], $set->changes, $listed);
+        foreach ($set->changes as $change) {
+            self::assertSame(self::DRAFT, $change->workspace, 'nothing is named as live: ' . $listed);
+        }
+
+        self::assertContains(self::ELEMENT, array_map(static fn (ObservedChange $change): ?int => $change->liveUid, $set->changes), 'the version of the moved element is named: ' . $listed);
+
+        self::assertSame($before, $this->connectionPool->getConnectionForTable('tt_content')->select(['pid', 'sorting'], 'tt_content', ['uid' => self::ELEMENT])->fetchAssociative(), 'positive control: live is untouched');
     }
 
     /**
