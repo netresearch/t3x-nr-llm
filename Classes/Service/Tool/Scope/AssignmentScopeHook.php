@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\MathUtility;
+use WeakMap;
 
 /**
  * The second layer of the scope of an assignment (ADR-295): while the tool loop
@@ -29,6 +30,16 @@ use TYPO3\CMS\Core\Utility\MathUtility;
  * documents. Commands are vetoed in `processCmdmap_beforeStart`, which may remove
  * a command before any of them runs. A veto is recorded on the guard; the loop
  * turns it into the error the model reads. Inert while nothing is armed.
+ *
+ * Core's data-map processor adds an entry for every translation of a record a
+ * run updates, with the fields core synchronises from the record
+ * (`l10n_mode` `exclude`, `allowLanguageSynchronization`) and `l10n_state`,
+ * whether the run changed them or not. What the run submitted is kept in
+ * `processDatamap_beforeStart`, which core calls before that processor, so
+ * such an entry is told apart from one the run made. An update that names a
+ * synchronised field reaches the translations, and is judged with them; an
+ * entry core added for an update that names none is skipped where the scope
+ * refuses it, without a refusal: the run asked for nothing of it.
  *
  * @internal
  */
@@ -47,6 +58,24 @@ final class AssignmentScopeHook
     ];
 
     /**
+     * The datamap of each DataHandler run as it was submitted, before core's
+     * data-map processor added to it.
+     *
+     * @var WeakMap<DataHandler, array<array-key, mixed>>|null
+     */
+    private static ?WeakMap $submitted = null;
+
+    public function processDatamap_beforeStart(DataHandler $dataHandler): void
+    {
+        if (!AssignmentScopeGuard::scope() instanceof AssignmentScope) {
+            return;
+        }
+
+        self::$submitted ??= new WeakMap();
+        self::$submitted[$dataHandler] = $dataHandler->datamap;
+    }
+
+    /**
      * @param mixed $incomingFieldArray set to null to skip the record
      */
     public function processDatamap_preProcessFieldArray(mixed &$incomingFieldArray, string $table, int|string $id, DataHandler $dataHandler): void
@@ -57,12 +86,16 @@ final class AssignmentScopeHook
             return;
         }
 
-        $refusal = $this->datamapRefusal($scope, $checker, $table, $id, $incomingFieldArray, $dataHandler, $this->workspaceOf($dataHandler));
+        $workspace = $this->workspaceOf($dataHandler);
+        $refusal   = $this->datamapRefusal($scope, $checker, $table, $id, $incomingFieldArray, $dataHandler, $workspace);
         if (!$refusal instanceof ScopeRefusal) {
             return;
         }
 
-        $this->refuse($refusal, $dataHandler);
+        if (!$this->isAddedByCoreForAnUnsynchronisedUpdate($checker, $table, $id, $incomingFieldArray, $dataHandler, $workspace)) {
+            $this->refuse($refusal, $dataHandler);
+        }
+
         $incomingFieldArray = null;
     }
 
@@ -145,6 +178,19 @@ final class AssignmentScopeHook
                     return $refusal;
                 }
             }
+
+            // Core copies a synchronised field to the translations of the
+            // record, so their languages have to be in scope too. Read from the
+            // entry as the run submitted it: core's processor merges the
+            // synchronised fields into the entry of a submitted translation.
+            // The translations point at the live row, also when the entry names
+            // its workspace version.
+            if (array_intersect($this->names($this->submittedEntry($dataHandler, $table, $uid) ?? $fields), $this->synchronisedFields($table)) !== []) {
+                $refusal = $checker->synchronisedTranslationsRefusal($scope, $table, $checker->factsOf($table, $uid, $workspace)->liveUid ?? $uid, $workspace);
+                if ($refusal instanceof ScopeRefusal) {
+                    return $refusal;
+                }
+            }
         } else {
             $refusal = $this->newRowRefusal($scope, $checker, $table, $origin ?? 0, $host, $fields, $dataHandler, $workspace);
             if ($refusal instanceof ScopeRefusal) {
@@ -167,6 +213,138 @@ final class AssignmentScopeHook
         }
 
         return $this->childRefusal($scope, $checker, $table, $schema, $fields, $workspace);
+    }
+
+    /**
+     * Whether the entry is one core's data-map processor added for an existing
+     * translation, because the run updated the record it translates or was
+     * translated from in a way that synchronises nothing: its id was not
+     * submitted; the record it translates (`l10n_parent`) or its source
+     * (`l10n_source`) was, and no submitted entry of those two names a
+     * synchronised field; the entry holds nothing but synchronised fields and
+     * `l10n_state`; and no inline or file field in it lists a child, because
+     * core copies or localises children for such a field before any entry is
+     * judged. Any doubt is a no, and the entry is judged as any other.
+     *
+     * @param array<array-key, mixed> $fields
+     */
+    private function isAddedByCoreForAnUnsynchronisedUpdate(AssignmentScopeChecker $checker, string $table, int|string $id, array $fields, DataHandler $dataHandler, int $workspace): bool
+    {
+        $submitted = self::$submitted instanceof WeakMap && isset(self::$submitted[$dataHandler]) ? self::$submitted[$dataHandler] : null;
+        if (!is_array($submitted) || !MathUtility::canBeInterpretedAsInteger($id) || (int) $id < 1) {
+            return false;
+        }
+
+        $entries      = is_array($submitted[$table] ?? null) ? $submitted[$table] : [];
+        $synchronised = $this->synchronisedFields($table);
+        if ($synchronised === [] || array_key_exists((int) $id, $entries) || array_diff($this->names($fields), [...$synchronised, 'l10n_state']) !== [] || $this->listsAChild($table, $fields)) {
+            return false;
+        }
+
+        $facts   = $checker->factsOf($table, (int) $id, $workspace);
+        $origins = array_values(array_filter([$facts?->translationOf, $facts?->translationSource], static fn (?int $uid): bool => $uid !== null && $uid > 0));
+        if ($origins === []) {
+            return false;
+        }
+
+        return $this->originsWereSubmittedWithoutASynchronisedField($checker, $table, $entries, $origins, $synchronised, $workspace);
+    }
+
+    /**
+     * Whether the run submitted at least one of the records an added entry
+     * derives from, and none of them with a synchronised field.
+     *
+     * @param array<array-key, mixed> $entries      the submitted entries of the table
+     * @param list<int>               $origins      the live uids the entry derives from
+     * @param list<string>            $synchronised
+     */
+    private function originsWereSubmittedWithoutASynchronisedField(AssignmentScopeChecker $checker, string $table, array $entries, array $origins, array $synchronised, int $workspace): bool
+    {
+        $found = false;
+        foreach ($entries as $key => $entry) {
+            $isOrigin = is_array($entry) && MathUtility::canBeInterpretedAsInteger($key) && (int) $key > 0
+                && (in_array((int) $key, $origins, true) || in_array($checker->factsOf($table, (int) $key, $workspace)?->liveUid, $origins, true));
+            if (!$isOrigin) {
+                continue;
+            }
+
+            if (array_intersect($this->names($entry), $synchronised) !== []) {
+                return false;
+            }
+
+            $found = true;
+        }
+
+        return $found;
+    }
+
+    /**
+     * Whether an inline or file field of the entry lists anything.
+     *
+     * @param array<array-key, mixed> $fields
+     */
+    private function listsAChild(string $table, array $fields): bool
+    {
+        $tca     = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $schema  = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $columns = is_array($schema['columns'] ?? null) ? $schema['columns'] : [];
+        foreach ($fields as $name => $value) {
+            $column = is_array($columns[$name] ?? null) ? $columns[$name] : [];
+            $config = is_array($column['config'] ?? null) ? $column['config'] : [];
+            if (in_array($config['type'] ?? null, ['inline', 'file'], true) && !in_array($value, [null, '', 0, '0', []], true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The entry the run submitted for the record, or null when it submitted
+     * none or the datamap was not kept.
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function submittedEntry(DataHandler $dataHandler, string $table, int $uid): ?array
+    {
+        $submitted = self::$submitted instanceof WeakMap && isset(self::$submitted[$dataHandler]) ? self::$submitted[$dataHandler] : null;
+        $entries   = is_array($submitted) && is_array($submitted[$table] ?? null) ? $submitted[$table] : [];
+
+        return is_array($entries[$uid] ?? null) ? $entries[$uid] : null;
+    }
+
+    /**
+     * The columns core synchronises from a record to its translations, as its
+     * data-map processor selects them: `l10n_mode` `exclude` (except type
+     * `none`) and `allowLanguageSynchronization`.
+     *
+     * @return list<string>
+     */
+    private function synchronisedFields(string $table): array
+    {
+        $tca     = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $schema  = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $columns = is_array($schema['columns'] ?? null) ? $schema['columns'] : [];
+        $names   = [];
+        foreach ($columns as $name => $column) {
+            $config    = is_array($column) && is_array($column['config'] ?? null) ? $column['config'] : [];
+            $behaviour = is_array($config['behaviour'] ?? null) ? $config['behaviour'] : [];
+            if (is_array($column) && ($column['l10n_mode'] ?? null) === 'exclude' && ($config['type'] ?? null) !== 'none' || !empty($behaviour['allowLanguageSynchronization'])) {
+                $names[] = (string) $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * @param array<array-key, mixed> $fields
+     *
+     * @return list<string>
+     */
+    private function names(array $fields): array
+    {
+        return array_map(static fn (int|string $name): string => (string) $name, array_keys($fields));
     }
 
     /**

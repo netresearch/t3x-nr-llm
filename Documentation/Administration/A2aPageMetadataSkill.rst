@@ -161,6 +161,18 @@ A call aimed at a row the scope refuses (another page, table or language, a
 uid without a row) is refused by the scope with its own reason
 (``outside_scope``, ``language_not_allowed``, ``unresolvable``).
 
+A request for the default-language page (``"language": 0``) of a page that
+has translations writes that page only. TYPO3 adds the page's translations to
+every write of the page, with the fields it keeps equal in all languages
+(``l10n_mode`` ``exclude`` and ``allowLanguageSynchronization``). None of the
+fields this skill sets is one of them, so that addition is left out and the
+translations stay as they are, without a draft. The exception is a page
+with a file in one of its synchronised file fields (``media``, ``og_image``,
+``twitter_image``), on the page itself or on a translation that follows it:
+TYPO3 handles those files before the scope sees the write, so the write is
+refused unless the request's scope covers the languages of the
+translations, which a request for one language does not.
+
 ..  _a2a-page-metadata-skill-setup:
 
 Setting it up
@@ -201,3 +213,5 @@ The result
 The task ends with the model's answer as text and the ``writes`` artifact
 that lists the writes the run executed (:ref:`administration-a2a-server`).
 The model's answer is not evidence of a write; the ``writes`` artifact is.
+A record a failed call changed all the same is listed there in a block of
+its own.

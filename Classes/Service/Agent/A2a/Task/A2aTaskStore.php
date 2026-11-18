@@ -12,7 +12,9 @@ namespace Netresearch\NrLlm\Service\Agent\A2a\Task;
 use Closure;
 use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
+use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Service\Agent\A2a\Exception\A2aException;
@@ -554,6 +556,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * runs goes on, and its writes are then still the client's to read.
      * Null for a read-only profile whose run wrote nothing.
      *
+     * A call that ended in an error announces no write, yet what it changed
+     * can stand: a call the scope of the assignment refused a part of commits
+     * the rest (ADR-295), and so does a tool that fails after it wrote. Those
+     * records are listed apart, from the call's `tool_changes` step, which is
+     * empty when the call was rolled back. A set whose capture missed writes
+     * or was cut at its limit says so.
+     *
      * @return array<string, mixed>|null
      */
     private function writesArtifact(int $runUid, bool $profileMayWrite): ?array
@@ -565,30 +574,95 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             [$runUid],
             [Connection::PARAM_INT],
         )->fetchAllAssociative();
-        $steps = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
-        if (!$profileMayWrite && $rows === [] && $steps === 0) {
+        $steps  = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
+        $failed = $this->changesOfFailedCalls($runUid);
+        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete']) {
             return null;
         }
 
-        $lines = [];
-        foreach ($rows as $row) {
-            $lines[] = sprintf(
+        $lines = array_map(
+            static fn (array $row): string => sprintf(
                 '- %s:%d in workspace %d (%s)',
                 is_string($row['record_table'] ?? null) ? $row['record_table'] : '',
                 is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0,
                 is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0,
                 is_string($row['kind'] ?? null) ? $row['kind'] : '',
-            );
+            ),
+            $rows,
+        );
+
+        $parts = [];
+        if ($lines !== []) {
+            $parts[] = sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
         }
 
-        $text = $lines === []
-            ? 'No write was executed.'
-            : sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
+        if ($failed['lines'] !== []) {
+            $parts[] = sprintf("Records written by tool calls that did not complete (%d), each in the workspace named (0 is live); whether each change is stored has to be checked:\n%s", count($failed['lines']), implode("\n", $failed['lines']));
+        }
+
+        if ($failed['incomplete']) {
+            $parts[] = 'A tool call that did not complete may have written records this list does not name; check the run.';
+        }
+
+        $text = $parts === [] ? 'No write was executed.' : implode("\n", $parts);
         if ($steps !== count($lines)) {
             $text .= sprintf("\nThe run recorded %d write step(s); this list may be incomplete.", $steps);
         }
 
         return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
+    }
+
+    /**
+     * The records the run's failed tool calls wrote, as their `tool_changes`
+     * steps name them, one line each, and whether a step says it is not the
+     * whole list (a capture that missed writes, or a list cut at its limit).
+     * A call's steps are recorded in order: its tool step, then its changes.
+     *
+     * @return array{lines: list<string>, incomplete: bool}
+     */
+    private function changesOfFailedCalls(int $runUid): array
+    {
+        $lines      = [];
+        $incomplete = false;
+        foreach ($this->changeSetsOfFailedCalls($runUid) as $set) {
+            $incomplete = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
+            foreach ($set->changes as $change) {
+                // The line holds every part of its identity, so it is its own key.
+                $lines[sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $change->liveUid ?? $change->record->uid, $change->workspace, $change->action->value)] = true;
+            }
+        }
+
+        return ['lines' => array_keys($lines), 'incomplete' => $incomplete];
+    }
+
+    /**
+     * The `tool_changes` sets of the run's calls whose tool step was an error.
+     *
+     * @return list<ObservedChangeSet>
+     */
+    private function changeSetsOfFailedCalls(int $runUid): array
+    {
+        $events = $this->connection()->executeQuery(
+            'SELECT kind, payload FROM tx_nrllm_agentrun_event WHERE run = ? AND kind IN (?, ?) ORDER BY sequence, uid',
+            [$runUid, 'tool', 'tool_changes'],
+            [Connection::PARAM_INT, Connection::PARAM_STR, Connection::PARAM_STR],
+        )->fetchAllAssociative();
+
+        $sets   = [];
+        $failed = false;
+        foreach ($events as $event) {
+            $payload = is_string($event['payload'] ?? null) ? json_decode($event['payload'], true) : null;
+            $payload = is_array($payload) ? $payload : [];
+            $isTool  = ($event['kind'] ?? null) === 'tool';
+            $set     = !$isTool && $failed ? ObservedChangeSet::tryFromEventPayload($payload) : null;
+            if ($set instanceof ObservedChangeSet) {
+                $sets[] = $set;
+            }
+
+            $failed = $isTool && ($payload['toolIsError'] ?? null) === true;
+        }
+
+        return $sets;
     }
 
     private function profileOf(int $runUid): int

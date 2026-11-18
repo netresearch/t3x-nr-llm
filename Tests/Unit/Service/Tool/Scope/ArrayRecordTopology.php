@@ -89,6 +89,18 @@ class ArrayRecordTopology implements RecordTopologyInterface
         return array_values(array_unique($languages));
     }
 
+    public function sourcedTranslationLanguages(string $table, int $uid, int $workspace): array
+    {
+        $languages = [];
+        foreach ($this->rows as $key => $facts) {
+            if (str_starts_with($key, $table . ':') && $facts->translationSource === $uid) {
+                $languages[] = $facts->language;
+            }
+        }
+
+        return array_values(array_unique($languages));
+    }
+
     public function descendantPages(int $pageUid, int $workspace, int $limit): ?array
     {
         $found = [];
