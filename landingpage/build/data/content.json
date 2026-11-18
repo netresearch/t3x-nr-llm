@@ -215,7 +215,7 @@
       },
       {
         "q": "Is nr-llm GDPR-friendly, and can I keep data in the EU?",
-        "a": "For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls.For Azure, the deployment type determines where the request can be processed. Check the contract for each hosted service. nr-vault encrypts stored API keys."
+        "a": "For an internal workflow, check the model endpoint, every fallback provider, and each tool and additional model service it calls. For Azure, the deployment type determines where the request can be processed. Check the contract for each hosted service. nr-vault encrypts stored API keys."
       },
       {
         "q": "How is nr-llm different from other TYPO3 AI extensions?",
