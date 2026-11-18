@@ -255,7 +255,10 @@ itself versions the translation, nr_llm does not suppress it; it reports it.
   workspace, as a delete there already was; the live row it names in the
   command was listed as moved in workspace 0 although live was untouched.
   The effect check above reads the same entries and now judges that version,
-  which the history already named, without the unmoved live row.
+  which the history already named, without the unmoved live row. A move core
+  makes live from a draft workspace (a table without versioning, a workspace
+  that allows live editing) has no version; it is still listed and judged as
+  the live row.
 - Known limit: the dispatch still runs after the call's transaction is
   committed and outside the scope guard, so the effect check and the
   rollback do not cover what a listener writes, and a listener can write

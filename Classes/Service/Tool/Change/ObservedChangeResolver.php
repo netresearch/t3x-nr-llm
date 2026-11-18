@@ -246,9 +246,10 @@ final readonly class ObservedChangeResolver
      * The hook of a command hears of the command, not of its outcome: a delete
      * of a uid that no row bears reaches it all the same. A delete or undelete
      * of a row that is gone counts only where the DataHandler's own history
-     * names it. A delete or a move in a draft workspace counts when a version of
-     * the live row was written, and the entry then names that version: the
-     * live row is not moved or deleted.
+     * names it. A delete in a draft workspace counts when a version of the live
+     * row was written, and the entry then names that version. A move in a
+     * draft workspace names the version it wrote; without one, core moved the
+     * live row and the entry names it.
      *
      * @param array{table: string, uid: int, action: ChangeAction, workspace: int}                $entry
      * @param array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}> $confirmed the history's entries by `table:uid`
@@ -267,10 +268,18 @@ final readonly class ObservedChangeResolver
         }
 
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
-        if (in_array($entry['action'], [ChangeAction::DELETED, ChangeAction::MOVED], true) && $entry['workspace'] > 0 && $liveRow) {
+        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
             $version = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace']);
 
             return $version === null ? null : [...$entry, 'uid' => $version];
+        }
+
+        // A move core made live (a table without versioning, a workspace that
+        // allows live editing) has no version and keeps the live row.
+        if ($entry['action'] === ChangeAction::MOVED && $entry['workspace'] > 0 && $liveRow) {
+            $version = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace']);
+
+            return $version === null ? $entry : [...$entry, 'uid' => $version];
         }
 
         return $entry;

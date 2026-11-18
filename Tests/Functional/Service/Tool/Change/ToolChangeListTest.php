@@ -360,6 +360,37 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A move core makes live from a draft workspace (a table without
+     * versioning, a workspace that allows live editing) has no version: the
+     * live row is named as moved, in workspace 0, so that neither the list
+     * nor the effect check of the scope loses it.
+     */
+    #[Test]
+    public function aLiveMoveByAUserInADraftWorkspaceIsListedAsLive(): void
+    {
+        $this->connectionPool->getConnectionForTable('sys_workspace')->insert('sys_workspace', ['uid' => 3, 'pid' => 0, 'title' => 'Live editing', 'members' => '', 'live_edit' => 1]);
+        $this->connectionPool->getConnectionForTable('fe_users')->insert('fe_users', ['uid' => 1, 'pid' => self::PAGE, 'username' => 'visitor', 'name' => 'Before']);
+        // Website users are allowed in a folder.
+        $this->connectionPool->getConnectionForTable('pages')->insert('pages', ['uid' => 90, 'pid' => self::ROOT, 'title' => 'Users', 'doktype' => 254]);
+        $admin = $this->useASessionlessAmbientUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace(3));
+
+        $trace = $this->runLoopWith($this->tool(static function (ToolExecutionContext $context): ToolResult {
+            $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+            $dataHandler->start([], ['fe_users' => [1 => ['move' => 90]]], $context->actingBackendUser());
+            $dataHandler->process_cmdmap();
+
+            return ToolResult::text('MOVED');
+        }), user: $admin);
+
+        $set = $this->changesStep($trace)->observedChanges;
+        self::assertInstanceOf(ObservedChangeSet::class, $set);
+        $listed = implode(', ', array_map(static fn (ObservedChange $change): string => $change->record . '@' . $change->workspace . '(' . $change->action->value . ')', $set->changes));
+        self::assertSame('fe_users:1@0(moved)', $listed);
+        self::assertSame(90, (int) $this->connectionPool->getConnectionForTable('fe_users')->select(['pid'], 'fe_users', ['uid' => 1])->fetchOne(), 'positive control: the move was made live');
+    }
+
+    /**
      * The DataHandler ran an update for the record although no column changed,
      * and that is what the list states; the tool named it and is not told it
      * was missed.
