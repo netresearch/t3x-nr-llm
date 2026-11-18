@@ -105,6 +105,13 @@ final class A2aTokenAjaxControllerTest extends AbstractFunctionalTestCase
         }
 
         self::assertSame($hash, $this->db('tx_nrllm_a2a_client')->select(['token_hash'], 'tx_nrllm_a2a_client', ['uid' => $uid])->fetchOne());
+
+        // Revoked, a self-service record is not enabled by an administrator either.
+        self::assertSame(200, $this->controller()->revokeAction($this->postTo('revoke', ['uid' => $uid]))->getStatusCode());
+        $response = $this->controller()->issueAction($this->postTo('issue', ['uid' => $uid, 'enable' => '1']));
+        self::assertSame(422, $response->getStatusCode());
+        self::assertArrayNotHasKey('token', $this->payload($response));
+        self::assertSame(0, (int) $this->db('tx_nrllm_a2a_client')->select(['enabled'], 'tx_nrllm_a2a_client', ['uid' => $uid])->fetchOne());
     }
 
     #[Test]

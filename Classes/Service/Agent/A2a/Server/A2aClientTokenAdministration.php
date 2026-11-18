@@ -38,8 +38,8 @@ final readonly class A2aClientTokenAdministration
      * for a record that stays disabled would be refused at once. The issuing
      * never switches a record on by itself.
      *
-     * The record is enabled only with a usable technical backend user, the
-     * rule the record's save hook applies to the Enabled field.
+     * The record is enabled only with a technical backend user the
+     * authenticator accepts ({@see A2aInboundClientRepository::usableBackendUser()}).
      *
      * @throws A2aTokenRefusedException for a non-administrator, an unknown record, a self-service record, a disabled record without $enable or one whose technical backend user is not usable
      */
@@ -62,7 +62,7 @@ final readonly class A2aClientTokenAdministration
 
         $enabling = !$client->enabled;
         if ($enabling && !$this->clients->usableBackendUser($client->backendUserUid, time())) {
-            throw new A2aTokenRefusedException('The technical backend user of this client must exist, be enabled and not be an administrator; correct the record before enabling it.', 1799300316);
+            throw new A2aTokenRefusedException('The technical backend user of this client must exist, be enabled, be within its start and end time and not be an administrator; correct it before enabling the client.', 1799300316);
         }
 
         $rotation = $client->tokenHash !== '';

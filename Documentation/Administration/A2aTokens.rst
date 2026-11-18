@@ -49,8 +49,8 @@ Enable and generate token
    record on: after a confirmation it enables the record and issues the
    token in one step. A token the record still holds ends at once. The
    record is enabled only when its technical backend user exists, is
-   enabled and is not an administrator, the rule the record's
-   :guilabel:`Enabled` field follows. Generating or rotating never enables a
+   enabled, is within its start and end time and is not an administrator,
+   as the server checks on every request. Generating or rotating never enables a
    record by itself; the server refuses a token for a disabled record unless
    the request asks for the enabling. The status column shows such a record
    as :guilabel:`Revoked or disabled`. To resume a client that keeps its
