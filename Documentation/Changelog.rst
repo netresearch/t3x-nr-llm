@@ -32,7 +32,8 @@ remain within the minor series. Review migration notes before upgrading.
 Version 0.51.1 (2026-11-18)
 ===========================
 
-The A2A ``writes`` artifact names every record a run's tool calls wrote.
+The A2A ``writes`` artifact also names the records a completed call wrote
+beside its announced write, and says when such a list was cut at its limit.
 
 - **Writes artifact:** a completed call's records beside its announced
   write are listed in a block of their own: what core wrote along with it,
