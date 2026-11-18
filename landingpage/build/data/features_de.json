@@ -182,7 +182,7 @@
         "Es läuft keines davon: Der stets verfügbare Datenbank-Fallback über pages/tt_content antwortet trotzdem und wird im Evidence-Header entsprechend gekennzeichnet.",
         "Die Belege müssen auf das beschränkt sein, was ein anonymer Besucher lesen könnte – die Filterung auf Indexebene ist immer nur öffentlich (fail-closed ohne Backend-Nutzer).",
         "site_rag_query nutzen, um ein kuratiertes Evidence-Paket zu erhalten, dann site_fetch_source(source_id), um den vollständigen indizierten Text einer einzelnen Quelle zu lesen (begrenzt).",
-        "Für semantisches Retrieval mit persistentem Vector-Store, Chunking und Reindex-on-Change stattdessen nr_ai_search zusätzlich installieren – das liegt hier bewusst außerhalb des Umfangs (ADR-050)."
+        "Für einen dauerhaften Vektorindex mit Textabschnitten, die bei Änderungen neu indexiert werden, bietet Netresearch die separate Extension nr_ai_search als Beta auf Anfrage an (ADR-050)."
       ]
     },
     "technical": {
