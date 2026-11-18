@@ -9,16 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Functional\Service\Agent\A2a\Server;
 
-use Netresearch\NrLlm\Domain\Enum\AgentRunOutcome;
-use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
-use Netresearch\NrLlm\Domain\Model\CompletionResponse;
-use Netresearch\NrLlm\Domain\Model\UsageStatistics;
-use Netresearch\NrLlm\Domain\ValueObject\AgentRun;
-use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
-use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Service\Agent\A2a\Task\A2aTaskStore;
-use Netresearch\NrLlm\Service\Agent\ApprovalDecision;
-use Netresearch\NrLlm\Service\Agent\PendingTurnDigest;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
@@ -26,6 +17,8 @@ use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * An approved write of the page metadata skill to a default-language page
@@ -43,6 +36,7 @@ use ReflectionMethod;
 #[CoversClass(A2aTaskStore::class)]
 final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
 {
+    use A2aPageMetadataApprovedWrite;
     use A2aPageMetadataSkillFixture;
     use RegistersTheFailingHookTrait;
 
@@ -84,6 +78,31 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('pages:' . self::PAGE . ' in workspace ' . self::WORKSPACE, $writes);
         self::assertStringNotContainsString('No write was executed', $writes);
         self::assertStringNotContainsString('did not complete', $writes);
+    }
+
+    /**
+     * What core does with the same write when no run is involved: the
+     * technical user saves the page's description in the workspace through a
+     * plain DataHandler, with nothing armed, and core gives the translation it
+     * may edit a version of its own, which holds no changed value (#1432). The
+     * translation in a language the user may not edit is refused by core. The
+     * skill's own write differs only because the scope leaves core's entry for
+     * the translation out (ADR-295).
+     */
+    #[Test]
+    public function coreVersionsTheTranslationWhenTheUserWritesThePageInTheWorkspace(): void
+    {
+        $this->db('be_groups')->update('be_groups', ['tables_select' => 'pages', 'tables_modify' => 'pages', 'non_exclude_fields' => 'pages:description', 'pagetypes_select' => '1'], ['uid' => self::GROUP]);
+        $user            = $this->setUpBackendUser(7);
+        $user->workspace = self::WORKSPACE;
+        $dataHandler     = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['pages' => [self::PAGE => ['description' => 'Written by an editor']]], [], $user);
+        $dataHandler->process_datamap();
+
+        self::assertSame(['[1.2]: Attempt to modify record pages:' . self::FOREIGN_LANGUAGE_TRANSLATION . ' failed with: ERROR: Language was not allowed.'], $dataHandler->errorLog);
+        self::assertSame('Written by an editor', $this->draftDescription());
+        self::assertSame([self::PAGE, self::TRANSLATION], $this->versionedPages(), 'core versions the translation the user may edit');
+        self::assertSame('Old ' . self::TRANSLATION, $this->draftOf(self::TRANSLATION), 'with no changed value');
     }
 
     /**
@@ -136,8 +155,9 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
 
     /**
      * A failed call whose capture missed writes, or whose list was cut, is not
-     * reported as no write: the artifact says the list may miss records. Only
-     * the steps of a failed call count; a successful call's are left out.
+     * reported as no write: the artifact says the list may miss records. A
+     * completed call's record that no announced write names is listed in a
+     * block of its own (#1432), never among the failed calls' records.
      */
     #[Test]
     public function aFailedCallWhoseChangesWereNotAllCapturedIsNotReportedAsNoWrite(): void
@@ -160,54 +180,13 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         self::assertStringNotContainsString('No write was executed', $text);
         self::assertStringContainsString("did not complete (1), each in the workspace named (0 is live); whether each change is stored has to be checked:\n- pages:8 in workspace 3 (created)", $text);
         self::assertStringContainsString('may have written records this list does not name', $text);
-        self::assertStringNotContainsString('pages:7', $text, 'the changes of a call that succeeded are not listed');
-    }
-
-    /**
-     * Sends a request for the default-language page, runs it to the approval
-     * of `update_page_metadata` and approves it.
-     *
-     * @param class-string|null $hook a DataHandler hook registered for the run
-     *
-     * @return array{0: AgentRun, 1: string}
-     */
-    private function approvedWrite(?string $hook = null): array
-    {
-        if ($hook !== null) {
-            $this->registerHook('processDatamapClass', $hook);
-        }
-
-        $this->db('be_groups')->update('be_groups', ['tables_select' => 'pages', 'tables_modify' => 'pages', 'non_exclude_fields' => 'pages:description'], ['uid' => self::GROUP]);
-        $taskId = self::text($this->send(['page' => self::PAGE, 'language' => 0, 'fields' => ['description']])['id'] ?? '');
-        $run    = $this->runOf($taskId);
-
-        $this->responses = [
-            $this->callOf('get_page_content', ['uid' => self::PAGE, 'language' => 0]),
-            $this->callOf('check_page_metadata', ['uid' => self::PAGE, 'description' => 'Eine kurze Beschreibung.']),
-            $this->callOf('update_page_metadata', ['uid' => self::PAGE, 'description' => 'Eine kurze Beschreibung.']),
-        ];
-        $runtime = $this->runtime();
-        $runtime->runQueued($run->uuid);
-
-        $waiting = $this->stored($run);
-        self::assertSame(AgentRunStatus::WAITING_FOR_APPROVAL, $waiting->statusEnum());
-
-        $this->responses = [new CompletionResponse('Done.', 'fake', UsageStatistics::fromTokens(1, 1))];
-        $state           = SuspendedRunState::fromArray(self::objectOf(json_decode($waiting->suspendedState ?? '', true)));
-        $result          = $runtime->approve(AiActorContext::backendUser(1, isAdmin: true), $run->uuid, new ApprovalDecision(true, 1, (new PendingTurnDigest())->forState($state)));
-        self::assertSame(AgentRunOutcome::COMPLETED, $result->outcome, (string) $result->error?->getMessage());
-
-        return [$run, $taskId];
+        self::assertStringContainsString("completed tool calls wrote (1), each in the workspace named (0 is live), for example a version core gave a translation of a record written in a workspace:\n- pages:7 in workspace 0 (updated)\nRecords written by tool calls that did not complete (1)", $text, 'the record of a completed call is listed apart from those of the failed ones');
+        self::assertSame(1, substr_count($text, 'pages:7'));
     }
 
     private function draftDescription(): mixed
     {
         return $this->draftOf(self::PAGE);
-    }
-
-    private function draftOf(int $page): mixed
-    {
-        return $this->db('pages')->select(['description'], 'pages', ['t3ver_oid' => $page, 't3ver_wsid' => self::WORKSPACE])->fetchOne();
     }
 
     /**
@@ -220,17 +199,5 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         return $this->db('pages')
             ->executeQuery('SELECT * FROM pages WHERE l10n_parent = ? OR t3ver_oid IN (?, ?) ORDER BY uid', [self::PAGE, self::TRANSLATION, self::FOREIGN_LANGUAGE_TRANSLATION])
             ->fetchAllAssociative();
-    }
-
-    /**
-     * The `writes` artifact of the completed task, as the A2A client reads it.
-     */
-    private function writesOf(string $taskId): string
-    {
-        $task = $this->taskOf($this->call('GetTask', ['id' => $taskId]));
-        self::assertSame('TASK_STATE_COMPLETED', self::j($task, 'status.state'));
-        self::assertSame('writes', self::j($task, 'artifacts.1.name'));
-
-        return self::text(self::j($task, 'artifacts.1.parts.0.text'));
     }
 }

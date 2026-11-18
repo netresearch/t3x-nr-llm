@@ -134,7 +134,11 @@ May write
    an approval in TYPO3.``. The result of a writing task carries a second
    artifact, ``writes``, that lists every write the run executed (table,
    record uid, workspace, kind), taken from the write events, not from the
-   model's answer; a run that wrote nothing says so. A tool call that ended
+   model's answer; a run that wrote nothing says so. What a completed call
+   wrote beside its announced write, through a listener of the write such as
+   AI Label and the records core adds to that listener's DataHandler run (a
+   version of a translation, for example), is listed in a block of its own,
+   "Further records the run's completed tool calls wrote". A tool call that ended
    in an error announces no write, but what it changed before can stand: a
    call the scope of the assignment refused a part of keeps the rest
    (:ref:`ADR-295 <adr-295>`). Such records are listed in a second block,

@@ -164,9 +164,17 @@ uid without a row) is refused by the scope with its own reason
 A request for the default-language page (``"language": 0``) of a page that
 has translations writes that page only. TYPO3 adds the page's translations to
 every write of the page, with the fields it keeps equal in all languages
-(``l10n_mode`` ``exclude`` and ``allowLanguageSynchronization``). None of the
-fields this skill sets is one of them, so that addition is left out and the
-translations stay as they are, without a draft. The exception is a page
+(``l10n_mode`` ``exclude`` and ``allowLanguageSynchronization``). In a draft
+workspace that addition gives each translation the user may edit a version of
+its own, with no changed value; core does so for an editor who saves the
+page's description in the workspace too. None of the fields this skill sets is
+one of them, so in the skill's own write that addition is left out and the
+translations get no draft. A write that follows the skill's write outside of
+it, such as the metadata `AI Label <https://extensions.typo3.org/extension/ai_label>`__
+stores on the page's draft, is a plain write of core: the translations get
+their version there, as for an editor. The ``writes`` artifact names such
+records in a block of their own, "Further records the run's completed tool
+calls wrote". The exception is a page
 with a file in one of its synchronised file fields (``media``, ``og_image``,
 ``twitter_image``), on the page itself or on a translation that follows it:
 TYPO3 handles those files before the scope sees the write, so the write is

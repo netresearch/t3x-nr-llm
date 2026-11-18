@@ -81,6 +81,34 @@ final class ChangeSets
     }
 
     /**
+     * The call's set with the records a later capture of the same call saw,
+     * such as the DataHandler runs of the listeners of its write: a record
+     * both name is kept once, as the call's set states it, and a capture that
+     * missed writes makes the whole set one that did.
+     */
+    public static function merged(ObservedChangeSet $set, ObservedChangeSet $later): ObservedChangeSet
+    {
+        $changes = $set->changes;
+        $known   = [];
+        foreach ($changes as $change) {
+            $known[self::identity($change)] = true;
+        }
+
+        foreach ($later->changes as $change) {
+            if (!isset($known[self::identity($change)])) {
+                $known[self::identity($change)] = true;
+                $changes[]                      = $change;
+            }
+        }
+
+        $coverage = $set->coverage === ChangeCoverage::DATAHANDLER && $later->coverage === ChangeCoverage::DATAHANDLER
+            ? ChangeCoverage::DATAHANDLER
+            : ChangeCoverage::NOT_CAPTURED;
+
+        return new ObservedChangeSet($changes, $coverage, $set->omitted + $later->omitted, [...$set->refused, ...$later->refused]);
+    }
+
+    /**
      * The set with the writes the scope of the assignment refused in this call
      * (ADR-295).
      *
@@ -169,6 +197,11 @@ final class ChangeSets
                 ? 'All database changes of this call were rolled back.'
                 : 'These changes were NOT rolled back (no transaction held them, or it could not be rolled back) and have to be reviewed.',
         );
+    }
+
+    private static function identity(ObservedChange $change): string
+    {
+        return $change->record->table . ':' . $change->record->uid . ':' . $change->workspace;
     }
 
     private static function isTarget(ObservedChange $change, RecordReference $target): bool

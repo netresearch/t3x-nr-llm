@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\AgentRunStatus;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\Enum\PrivacyLevel;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChange;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
@@ -576,7 +577,8 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         )->fetchAllAssociative();
         $steps  = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
         $failed = $this->changesOfFailedCalls($runUid);
-        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete']) {
+        $beside = $this->changesBesideTheWrites($runUid, $rows);
+        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $beside === []) {
             return null;
         }
 
@@ -594,6 +596,10 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $parts = [];
         if ($lines !== []) {
             $parts[] = sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
+        }
+
+        if ($beside !== []) {
+            $parts[] = sprintf("Further records the run's completed tool calls wrote (%d), each in the workspace named (0 is live), for example a version core gave a translation of a record written in a workspace:\n%s", count($beside), implode("\n", $beside));
         }
 
         if ($failed['lines'] !== []) {
@@ -624,11 +630,11 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
     {
         $lines      = [];
         $incomplete = false;
-        foreach ($this->changeSetsOfFailedCalls($runUid) as $set) {
+        foreach ($this->changeSetsOfCalls($runUid, true) as $set) {
             $incomplete = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
             foreach ($set->changes as $change) {
                 // The line holds every part of its identity, so it is its own key.
-                $lines[sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $change->liveUid ?? $change->record->uid, $change->workspace, $change->action->value)] = true;
+                $lines[self::changeLine($change)] = true;
             }
         }
 
@@ -636,11 +642,47 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
     }
 
     /**
-     * The `tool_changes` sets of the run's calls whose tool step was an error.
+     * The records the run's completed tool calls wrote beside the writes they
+     * announced, as their `tool_changes` steps name them, one line each: what
+     * a listener of a write stored with a DataHandler run of its own, and what
+     * core added to such a run, such as the version of a translation (#1432).
+     *
+     * @param list<array<string, mixed>> $rows the announced writes
+     *
+     * @return list<string>
+     */
+    private function changesBesideTheWrites(int $runUid, array $rows): array
+    {
+        $announced = [];
+        foreach ($rows as $row) {
+            $announced[sprintf('%s:%d:%d', is_string($row['record_table'] ?? null) ? $row['record_table'] : '', is_numeric($row['record_uid'] ?? null) ? (int) $row['record_uid'] : 0, is_numeric($row['workspace'] ?? null) ? (int) $row['workspace'] : 0)] = true;
+        }
+
+        $lines = [];
+        foreach ($this->changeSetsOfCalls($runUid, false) as $set) {
+            foreach ($set->changes as $change) {
+                $uid = $change->liveUid ?? $change->record->uid;
+                if (!isset($announced[sprintf('%s:%d:%d', $change->record->table, $uid, $change->workspace)])) {
+                    $lines[self::changeLine($change)] = true;
+                }
+            }
+        }
+
+        return array_keys($lines);
+    }
+
+    private static function changeLine(ObservedChange $change): string
+    {
+        return sprintf('- %s:%d in workspace %d (%s)', $change->record->table, $change->liveUid ?? $change->record->uid, $change->workspace, $change->action->value);
+    }
+
+    /**
+     * The `tool_changes` sets of the run's calls whose tool step was an error,
+     * or of those whose tool step was none.
      *
      * @return list<ObservedChangeSet>
      */
-    private function changeSetsOfFailedCalls(int $runUid): array
+    private function changeSetsOfCalls(int $runUid, bool $failedOnes): array
     {
         $events = $this->connection()->executeQuery(
             'SELECT kind, payload FROM tx_nrllm_agentrun_event WHERE run = ? AND kind IN (?, ?) ORDER BY sequence, uid',
@@ -649,17 +691,18 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         )->fetchAllAssociative();
 
         $sets   = [];
-        $failed = false;
+        $failed = null;
         foreach ($events as $event) {
             $payload = is_string($event['payload'] ?? null) ? json_decode($event['payload'], true) : null;
             $payload = is_array($payload) ? $payload : [];
             $isTool  = ($event['kind'] ?? null) === 'tool';
-            $set     = !$isTool && $failed ? ObservedChangeSet::tryFromEventPayload($payload) : null;
+            $set     = !$isTool && $failed !== null && $failed === $failedOnes ? ObservedChangeSet::tryFromEventPayload($payload) : null;
             if ($set instanceof ObservedChangeSet) {
                 $sets[] = $set;
             }
 
-            $failed = $isTool && ($payload['toolIsError'] ?? null) === true;
+            // A call's changes follow its tool step; anything else belongs to none.
+            $failed = $isTool ? ($payload['toolIsError'] ?? null) === true : null;
         }
 
         return $sets;

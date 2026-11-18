@@ -227,6 +227,34 @@ or a list cut at its limit). A call that was rolled back has an empty
 ``tool_changes`` step and lists nothing. A dependency tool whose commit fails
 drops its change list, so its writes are not named there.
 
+**What the listeners of a write store is reported** (amending this decision,
+2026-11-18, #1432). The page metadata skill on the demo stored the page's
+draft and its ``writes`` artifact named only the page, but the client's
+workspace also held a version of the page's German translation, with no
+changed value. The skill's own write does not create it: the entry core adds
+for the translation is left out as described above, and a functional test
+without other extensions confirms it. AI Label, installed on the demo, stores
+its metadata on the draft after the call, with a DataHandler run of its own
+(``RecordAiLabelWrite`` on ``AiLabelWriteEvent``). That run is a plain run of
+core, and core gives every translation the user may edit a version there: a
+plain DataHandler write of the page's description by the same user in the same
+workspace, with nothing armed, does the same on TYPO3 14.3.12. Because core
+itself versions the translation, nr_llm does not suppress it; it reports it.
+
+- ``ToolLoopService`` arms the change collector around the dispatch of the
+  write events (``AfterAiRecordWrittenEvent``, ``AiLabelWriteEvent``) and
+  merges what their listeners' DataHandler runs wrote into the call's
+  ``tool_changes`` set (``ChangeSets::merged()``: a record both name is kept
+  once; a capture that missed writes makes the set ``not_captured``).
+- The ``writes`` artifact lists the records a completed call's
+  ``tool_changes`` step names beside its announced writes, in a block of its
+  own ("Further records the run's completed tool calls wrote").
+- Known limit: the dispatch still runs after the call's transaction is
+  committed and outside the scope guard, so the effect check and the
+  rollback do not cover what a listener writes, and a listener can write
+  outside the scope; it is reported, not prevented. Whether such writes
+  should run under the scope of the call is an open decision.
+
 **The input checks fail closed.** Both layers read the input of a write, and a
 third of the defects found in review were values the parser had skipped. A value
 of an entry that the hook cannot read into a definite target is therefore
