@@ -2294,6 +2294,39 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A delete from a draft workspace of a live row outside the scope that has
+     * a move draft there: core discards the draft and writes no version
+     * (`DataHandler::deleteAction()`). The effect check found no version and
+     * took the delete as one that did not happen, so the draft outside the
+     * scope was discarded. Only the hook layer is taken away, so the command
+     * reaches the DataHandler.
+     */
+    #[Test]
+    public function aDeleteThatDiscardsADraftOutsideTheScopeIsRolledBack(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['tt_content' => [self::OUTSIDE_ELEMENT => ['move' => self::OTHER]]], $user);
+        $dataHandler->process_cmdmap();
+        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT), 'positive control: the move draft exists');
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::OUTSIDE_ELEMENT => ['delete' => 1]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the move draft survives the rollback');
+    }
+
+    /**
      * Takes away the history rows of the call, inside its transaction: the
      * effect check then has only the hooks' records and the rows.
      */

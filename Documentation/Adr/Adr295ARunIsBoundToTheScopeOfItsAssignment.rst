@@ -384,9 +384,15 @@ and is judged as before, which fails closed. A row that was read and is not
 there is still no change. The version is looked up only for a table that keeps
 versions: a table without versioning has no version columns, so the query would
 always fail, and a move core makes live on such a table from a draft workspace
-would always be rolled back. A delete core makes live on such a table (from a
-workspace that allows live editing) has no version either and is judged by its
-live row; it was taken as a delete that did not happen and left out.
+would always be rolled back. A delete in a draft workspace that leaves no
+version is judged by its live row: core deletes the live row of a table
+without versioning (from a workspace that allows live editing), and it
+discards a move or new draft of a versioned row instead of writing a delete
+version (``DataHandler::deleteAction()`` in TYPO3 13.4.40 and 14.3.12). Both
+were taken as a delete that did not happen and left out.
+``versioningWS_alwaysAllowLiveEdit`` does not change this: core decides a
+delete by ``versioningWS`` alone, also on 13.4, where the flag makes it write
+the live row of a versioned table for an edit.
 
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:

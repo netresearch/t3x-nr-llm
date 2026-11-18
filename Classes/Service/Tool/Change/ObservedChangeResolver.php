@@ -249,8 +249,8 @@ final readonly class ObservedChangeResolver
      * The hook of a command hears of the command, not of its outcome: a delete
      * of a uid that no row bears reaches it all the same. A delete or undelete
      * of a row that is gone counts only where the DataHandler's own history
-     * names it. A delete in a draft workspace counts when a version of the live
-     * row was written, and the entry then names that version. A move in a
+     * names it. A delete in a draft workspace names the version of the live row
+     * it wrote; without one it names the live row. A move in a
      * draft workspace names the version it wrote; without one, core moved the
      * live row and the entry names it.
      *
@@ -282,13 +282,15 @@ final readonly class ObservedChangeResolver
         }
 
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
-        // A delete core made live (a table without versioning, a workspace that
-        // allows live editing) has no version and names the live row.
-        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow && $this->versioned($entry['table'])) {
+        // A delete in a draft workspace names the version it wrote. Without one,
+        // core deleted the live row (a table without versioning) or discarded
+        // a draft of it (a move or new placeholder), and the entry names the
+        // live row, so that the effect check judges it.
+        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
             $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
             $truncated = $truncated || $failed;
 
-            return $version === null ? null : [...$entry, 'uid' => $version];
+            return $version === null ? $entry : [...$entry, 'uid' => $version];
         }
 
         // A move core made live (a table without versioning, a workspace that
