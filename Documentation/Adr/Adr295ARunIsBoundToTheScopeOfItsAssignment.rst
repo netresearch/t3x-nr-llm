@@ -238,8 +238,11 @@ its metadata on the draft after the call, with a DataHandler run of its own
 (``RecordAiLabelWrite`` on ``AiLabelWriteEvent``). That run is a plain run of
 core, and core gives every translation the user may edit a version there: a
 plain DataHandler write of the page's description by the same user in the same
-workspace, with nothing armed, does the same on TYPO3 14.3.12. Because core
-itself versions the translation, nr_llm does not suppress it; it reports it.
+workspace, with nothing armed, does the same on TYPO3 14.3.12 and 13.4.40.
+AI Label's write names the page's version, and only 14.3 adds the
+translations' entry to such a write (13.4.40 does not), so on 13.4 the
+translation gets no version. Because core itself versions the translation,
+nr_llm does not suppress it; it reports it.
 
 - ``ToolLoopService`` arms the change collector around the dispatch of the
   write events (``AfterAiRecordWrittenEvent``, ``AiLabelWriteEvent``) and

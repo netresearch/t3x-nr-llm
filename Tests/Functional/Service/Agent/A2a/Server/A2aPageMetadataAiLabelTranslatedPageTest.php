@@ -17,6 +17,7 @@ use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use TYPO3\CMS\Core\Information\Typo3Version;
 
 /**
  * The approved page metadata write of {@see A2aPageMetadataTranslatedPageTest}
@@ -61,8 +62,15 @@ final class A2aPageMetadataAiLabelTranslatedPageTest extends AbstractFunctionalT
         self::assertSame(AiOrigin::Manipulated, AiMetadata::fromJsonString(is_string($label) ? $label : null)->getOrigin(), 'AI Label stored its metadata on the draft');
 
         $versioned = $this->versionedPages();
-        self::assertContains(self::TRANSLATION, $versioned, "core versioned the translation in AI Label's write");
-        self::assertSame('Old ' . self::TRANSLATION, $this->draftOf(self::TRANSLATION), 'with no changed value');
+        // TYPO3 13.4 adds no entry for the translations to a write that names
+        // the page's version (measured on 13.4.40); 14.3 versions them.
+        $versionsTheTranslation = (new Typo3Version())->getMajorVersion() >= 14;
+        if ($versionsTheTranslation) {
+            self::assertContains(self::TRANSLATION, $versioned, "core versioned the translation in AI Label's write");
+            self::assertSame('Old ' . self::TRANSLATION, $this->draftOf(self::TRANSLATION), 'with no changed value');
+        } else {
+            self::assertSame([self::PAGE], $versioned);
+        }
 
         $writes = $this->writesOf($taskId);
         foreach ($versioned as $uid) {
@@ -71,7 +79,11 @@ final class A2aPageMetadataAiLabelTranslatedPageTest extends AbstractFunctionalT
 
         self::assertStringNotContainsString('this list may be incomplete', $writes);
         self::assertStringContainsString("Writes executed (1), each in the workspace named (0 is live):\n- pages:" . self::PAGE . ' in workspace ' . self::WORKSPACE . ' (updated)', $writes);
-        self::assertMatchesRegularExpression("/Further records the run's completed tool calls wrote \\(1\\)[^\\n]*:\\n- pages:" . self::TRANSLATION . ' in workspace ' . self::WORKSPACE . ' \((created|updated)\)$/', $writes, 'the version of the translation, in a block of its own');
         self::assertSame(1, substr_count($writes, '- pages:' . self::PAGE . ' '), 'the page is named once');
+        if ($versionsTheTranslation) {
+            self::assertMatchesRegularExpression("/Further records the run's completed tool calls wrote \\(1\\)[^\\n]*:\\n- pages:" . self::TRANSLATION . ' in workspace ' . self::WORKSPACE . ' \((created|updated)\)$/', $writes, 'the version of the translation, in a block of its own');
+        } else {
+            self::assertStringNotContainsString('Further records', $writes);
+        }
     }
 }

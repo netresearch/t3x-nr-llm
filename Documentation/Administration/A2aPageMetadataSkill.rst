@@ -171,8 +171,8 @@ page's description in the workspace too. None of the fields this skill sets is
 one of them, so in the skill's own write that addition is left out and the
 translations get no draft. A write that follows the skill's write outside of
 it, such as the metadata `AI Label <https://extensions.typo3.org/extension/ai_label>`__
-stores on the page's draft, is a plain write of core: the translations get
-their version there, as for an editor. The ``writes`` artifact names such
+stores on the page's draft, is a plain write of core: on TYPO3 14 the
+translations get their version there, as for an editor. The ``writes`` artifact names such
 records in a block of their own, "Further records the run's completed tool
 calls wrote". The exception is a page
 with a file in one of its synchronised file fields (``media``, ``og_image``,
