@@ -25,6 +25,7 @@ final readonly class FixedPrivacyPolicy implements PrivacyPolicyInterface
         private PrivacyLevel $level = PrivacyLevel::FULL,
         private int $retentionDays = 30,
         private ContentRedactor $redactor = new ContentRedactor(),
+        private bool $inputDigests = false,
     ) {}
 
     /**
@@ -46,6 +47,11 @@ final readonly class FixedPrivacyPolicy implements PrivacyPolicyInterface
     public function retentionDays(): int
     {
         return $this->retentionDays;
+    }
+
+    public function inputDigests(): bool
+    {
+        return $this->inputDigests;
     }
 
     public function retentionDaysFor(PrivacyDataCategory $category): int

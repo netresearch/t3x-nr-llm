@@ -20,15 +20,17 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
 
 /**
  * Explicit full-content policy for existing repository fixtures, independent of installation defaults.
+ * A test of a stricter level passes its own policy, so the guard's second pass runs at that level.
  */
 final class AgentRunRepositoryFactory
 {
     public static function create(
         ConnectionPool $pool,
         AgentStateCodec $codec,
+        ?FixedPrivacyPolicy $policy = null,
     ): AgentRunRepository {
         $redactor = new ContentRedactor();
-        $policy   = new FixedPrivacyPolicy(PrivacyLevel::FULL, redactor: $redactor);
+        $policy ??= new FixedPrivacyPolicy(PrivacyLevel::FULL, redactor: $redactor);
 
         return new AgentRunRepository(
             $pool,

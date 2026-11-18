@@ -25,6 +25,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Tool\Change\ChangeSets;
 use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
 
@@ -273,6 +274,9 @@ final class RunTrace
                 ? $response->metadata[OpenAiCallMetadata::KEY_HTTP_MS]
                 : null,
             providerProcessingMs: $this->intMetadata($response, OpenAiCallMetadata::KEY_PROVIDER_PROCESSING_MS),
+            // The identity of the request this answer is to (ADR-323), or
+            // null when the terminal attached none.
+            requestIdentity: CompletionRequestIdentity::read($response->metadata[CompletionRequestIdentity::METADATA_KEY] ?? null) ?: null,
         ));
     }
 

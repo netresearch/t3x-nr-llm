@@ -257,7 +257,22 @@ final readonly class RunStep
          *                                    step states (ADR-322); null on every other kind
          */
         public ?array $skillEvidence = null,
+        /**
+         * @var string|null the unkeyed identity of the request a model call
+         *                  answered (ADR-323): `v1:` and a SHA-256. Never
+         *                  stored as it is, at `metadata` with the operator's
+         *                  opt-in only as a keyed digest; null on every other
+         *                  kind
+         */
+        public ?string $requestIdentity = null,
     ) {
+        if ($requestIdentity !== null && $kind !== self::KIND_LLM) {
+            throw new InvalidArgumentException(
+                sprintf('A %s step answers no request; only a model answer step names one.', $kind),
+                1795300323,
+            );
+        }
+
         if ($skillEvidence !== null && $kind !== self::KIND_SKILL_EVIDENCE) {
             throw new InvalidArgumentException(
                 sprintf('A %s step states no skill evidence; only a skill evidence step does.', $kind),
@@ -404,6 +419,7 @@ final readonly class RunStep
                 static fn (SkillEvidenceEntry $entry): array => $entry->toArray(),
                 $this->skillEvidence,
             ),
+            'requestIdentity' => $this->requestIdentity,
         ];
 
         foreach ($optional as $key => $value) {

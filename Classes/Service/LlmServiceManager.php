@@ -1124,20 +1124,20 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                 }
 
                 if (!$relay instanceof ToolRoundTextRelay) {
-                    return $this->pricedCompletion($adapter->chatCompletionWithTools(
+                    return $this->withRequestIdentity($this->pricedCompletion($adapter->chatCompletionWithTools(
                         $system,
                         $normalisedTools,
                         $callOptions,
-                    ), $llmModel);
+                    ), $llmModel), $system, $callOptions, $normalisedTools);
                 }
 
                 $relay->begin();
                 if (!$adapter instanceof ToolStreamingCapableInterface || !$adapter->streamsToolCalls($callOptions)) {
-                    return $this->pricedCompletion($adapter->chatCompletionWithTools(
+                    return $this->withRequestIdentity($this->pricedCompletion($adapter->chatCompletionWithTools(
                         $system,
                         $normalisedTools,
                         $callOptions,
-                    ), $llmModel);
+                    ), $llmModel), $system, $callOptions, $normalisedTools);
                 }
 
                 $response = $adapter->chatCompletionWithToolsStreamingText(
@@ -1151,7 +1151,7 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     $relay->firstTextMs(),
                 );
 
-                return $this->pricedCompletion($response, $llmModel);
+                return $this->withRequestIdentity($this->pricedCompletion($response, $llmModel), $system, $callOptions, $normalisedTools);
             },
             $this->metadata->budget(
                 $options->getBeUserUid(),
@@ -1168,6 +1168,42 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
                     ),
                 ),
             ),
+        );
+    }
+
+    /**
+     * The tool round's response with the identity of the request that was
+     * sent (ADR-323): the final messages, the call options and the tool
+     * schemas on the wire. Unkeyed, like every completion identity; a run
+     * persists it only as a keyed digest, and only where the operator opted
+     * in.
+     *
+     * @param list<ChatMessage|array<string, mixed>> $messages
+     * @param array<string, mixed>                   $callOptions
+     * @param list<ToolSpec>                         $tools
+     */
+    private function withRequestIdentity(CompletionResponse $response, array $messages, array $callOptions, array $tools): CompletionResponse
+    {
+        // A key with a leading underscore is a directive to this extension
+        // (`_capture_raw`, ...), never sent to the provider: it is not part of
+        // the request.
+        $wire = array_filter($callOptions, static fn (string|int $key): bool => !is_string($key) || !str_starts_with($key, '_'), ARRAY_FILTER_USE_KEY);
+
+        $metadata                                          = $response->metadata ?? [];
+        $metadata[CompletionRequestIdentity::METADATA_KEY] = CompletionRequestIdentity::fingerprint(
+            $messages,
+            $wire + ['tools' => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools)],
+        );
+
+        return new CompletionResponse(
+            $response->content,
+            $response->model,
+            $response->usage,
+            $response->finishReason,
+            $response->provider,
+            $response->toolCalls,
+            $metadata,
+            $response->thinking,
         );
     }
 

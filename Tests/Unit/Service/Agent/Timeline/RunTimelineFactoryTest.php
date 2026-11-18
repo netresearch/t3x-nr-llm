@@ -440,6 +440,32 @@ final class RunTimelineFactoryTest extends TestCase
     }
 
     /**
+     * ADR-323: a step's content digests show shortened, messages as
+     * `role@digest` in the order they were sent; a value that is no digest
+     * is left out.
+     */
+    #[Test]
+    public function aStepShowsTheContentDigestsItKept(): void
+    {
+        $digest  = static fn (string $hex): string => 'v1:' . str_repeat($hex, 64);
+        $payload = [
+            'kind'                => 'request',
+            'messagesSentDigests' => [
+                ['role' => 'system', 'digest' => $digest('a')],
+                ['role' => 'user', 'digest' => $digest('b')],
+                ['role' => 'user', 'digest' => 'not-a-digest'],
+            ],
+            'requestDigest'    => $digest('c'),
+            'toolResultDigest' => 'v1:short',
+        ];
+        $event = new AgentRunEvent(uid: 202, run: 7, sequence: 0, kind: 'request', round: 1, durationMs: 0.0, payload: $payload, crdate: 1_700_000_012);
+
+        $timeline = (new RunTimelineFactory(new InMemoryTelemetryRepository(), new InMemoryGovernanceEventRepository()))->build($this->agentRun(), [$event]);
+
+        self::assertSame('messagesDigests=system@aaaaaaaaaaaa, user@bbbbbbbbbbbb; requestDigest=cccccccccccc', $timeline[0]->detail);
+    }
+
+    /**
      * ADR-321: a skill usage step shows each version as identity, digest and
      * codes; a stored entry that does not read is left out, never shown half.
      */

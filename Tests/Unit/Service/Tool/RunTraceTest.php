@@ -22,6 +22,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolArtifact;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Provider\OpenAi\OpenAiCallMetadata;
+use Netresearch\NrLlm\Service\CompletionRequestIdentity;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -91,6 +92,27 @@ final class RunTraceTest extends TestCase
         self::assertArrayNotHasKey('cachedPromptTokens', $step);
         self::assertArrayNotHasKey('httpMs', $step);
         self::assertArrayNotHasKey('providerProcessingMs', $step);
+    }
+
+    /**
+     * ADR-323: the answer step names the request the terminal said it
+     * answered; a value that is no request identity is left out.
+     */
+    #[Test]
+    public function theAnswerStepNamesTheRequestItAnswered(): void
+    {
+        $identity = 'v1:' . str_repeat('ab', 32);
+        foreach ([$identity => $identity, 'not-an-identity' => null] as $attached => $expected) {
+            $trace = new RunTrace();
+            $trace->recordLlmCall(1, 10.0, new CompletionResponse(
+                content: 'hi',
+                model: 'm',
+                usage: UsageStatistics::fromTokens(1, 1),
+                metadata: [CompletionRequestIdentity::METADATA_KEY => $attached],
+            ));
+
+            self::assertSame($expected, $trace->getSteps()[0]->toArray()['requestIdentity'] ?? null);
+        }
     }
 
     #[Test]

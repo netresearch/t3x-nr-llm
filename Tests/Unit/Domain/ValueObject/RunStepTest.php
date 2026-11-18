@@ -253,6 +253,20 @@ final class RunStepTest extends TestCase
     }
 
     #[Test]
+    public function onlyAModelAnswerStepNamesARequest(): void
+    {
+        $identity = 'v1:' . str_repeat('ab', 32);
+        $step     = new RunStep(kind: RunStep::KIND_LLM, round: 1, durationMs: 0.0, requestIdentity: $identity);
+        self::assertSame($identity, $step->toArray()['requestIdentity'] ?? null);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionCode(1795300323);
+        $step = new RunStep(kind: RunStep::KIND_REQUEST, round: 1, durationMs: 0.0, requestIdentity: $identity);
+
+        self::fail('A request step named an answered request: ' . $step->requestIdentity);
+    }
+
+    #[Test]
     public function onlyASkillUsageStepNamesSkillUsage(): void
     {
         $step = new RunStep(kind: RunStep::KIND_SKILLS, round: 1, durationMs: 0.0, skillUsage: []);
