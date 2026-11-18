@@ -20,8 +20,7 @@ The shared workflow resolves the TYPO3 constraint per cell; a plain
 ``composer install`` under an unused matrix variable would not do that.
 
 The functional tests of that matrix run on SQLite. Two more calls run them on
-MariaDB 11.8 and on PostgreSQL 17 (PHP 8.4, TYPO3 ``^14.3``); both are required
-checks.
+MariaDB 11.8 and on PostgreSQL 17 (PHP 8.4, TYPO3 ``^14.3``).
 
 Local verification
 ==================

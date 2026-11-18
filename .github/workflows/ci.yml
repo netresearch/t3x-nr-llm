@@ -190,6 +190,7 @@ jobs:
       run-phpstan: false
       run-rector: false
       run-unit-tests: false
+      run-docs: false
 
   # Property-based (fuzzy) + mutation testing. Enabled here rather than in the
   # template-governed checks.yml because turning these on is a per-extension
