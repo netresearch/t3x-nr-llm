@@ -58,6 +58,13 @@ final readonly class RunStepPrivacyFilter
      * The keyed digests a step keeps of its content at the `metadata` level
      * when the operator opted in (ADR-323); no other level keeps them.
      */
+    /**
+     * Set on a payload filtered at `redacted`: its content is masked text,
+     * which a later `metadata` pass must not digest (ADR-323). Not shown in
+     * the run timeline.
+     */
+    private const MASKED = 'contentMasked';
+
     private const DIGEST_KEYS = [
         'messagesSentDigests',
         'contentDigest',
@@ -82,7 +89,11 @@ final readonly class RunStepPrivacyFilter
         return match ($level ?? $this->policy->level()) {
             PrivacyLevel::FULL     => $payload,
             PrivacyLevel::REDACTED => $this->withoutDigests($this->redactPayload($payload)),
-            PrivacyLevel::METADATA => $this->policy->inputDigests()
+            // A payload filtered at `redacted` before (the run's own level,
+            // then a stricter provider ceiling, ADR-270) holds masked and
+            // truncated text: a digest of it would make different inputs
+            // equal, so it gets none.
+            PrivacyLevel::METADATA => $this->policy->inputDigests() && ($payload[self::MASKED] ?? false) !== true
                 ? $this->withDigests($payload, $this->metadataOnly($payload))
                 : $this->withoutDigests($this->metadataOnly($payload)),
             PrivacyLevel::NONE => $this->withoutDigests($this->metadataOnly($payload)),
@@ -222,6 +233,8 @@ final readonly class RunStepPrivacyFilter
                 $out[$key] = $this->redactValue($out[$key]);
             }
         }
+
+        $out[self::MASKED] = true;
 
         return $out;
     }

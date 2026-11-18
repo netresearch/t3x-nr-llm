@@ -118,7 +118,9 @@ cost — and below it a single time-ordered list of everything the run produced:
   are on, a step at the ``metadata`` level shows them shortened:
   ``messagesDigests=system@…, user@…``, ``requestDigest``, ``contentDigest``,
   ``toolArgumentsDigest`` and ``toolResultDigest``. Two runs whose digests
-  differ in one part had a different input there (:ref:`ADR-323 <adr-323>`).
+  differ in one part had a different input there, unless that part carries a
+  random value of its own, as a ``fetch_external_url`` result does
+  (:ref:`ADR-323 <adr-323>`).
 - **Provider call** — a telemetry row: which provider and model served it, how
   long it took, whether a cache hit or a fallback was involved, and the error
   class when it failed. These are joined to the run because since

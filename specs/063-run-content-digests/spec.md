@@ -20,13 +20,15 @@ skill, a changed model and a changed input apart.
   encryption key there is no digest, never an unkeyed one.
 - **CD4 Same input, same digest.** Provider-generated ids (tool-call ids, a
   tool result's `tool_call_id`) and provider-owned items are left out of a
-  message's digest; tool arguments are digested decoded.
+  message's digest and of the request identity (ids there become ordinals);
+  tool arguments are digested decoded; `_`-prefixed directives that are not
+  sent are not part of the request.
 - **CD5 Request identity.** `CompletionRequestIdentity::fingerprint()` covers
   tool calls and provider items; every identity that existed keeps its bytes.
   The tool-call terminal attaches the identity of the request it sent, tool
   schemas included; a run stores it only as the keyed `requestDigest`.
-- **CD6 Levels.** Only `metadata` keeps digests. A step filtered again at a
-  stricter level, or with the setting off, loses them.
+- **CD6 Levels.** Only `metadata` keeps digests, and never of text masked at
+  `redacted` before. A step filtered again at a stricter level loses them.
 - **CD7 Retention.** The digests are part of the run's events and are purged
   with them.
 - **CD8 Readable.** The run timeline shows each digest by its first twelve
@@ -41,8 +43,9 @@ skill, a changed model and a changed input apart.
 ## Limits
 
 - A reader of the run can confirm a guessed short or predictable input.
-- A provider that changes the encoding of its own items changes the request
-  digest though the input did not change.
+- Requests that differ only in provider items look the same.
+- A tool result with a per-call random value (`fetch_external_url`'s fence
+  nonce) differs on every run.
 
 ## Verification
 
@@ -51,8 +54,8 @@ skill, a changed model and a changed input apart.
 | CD1 | `RunStepPrivacyFilterDigestsTest::withoutTheSettingAStepKeepsWhatItKeptBefore` |
 | CD2 | `RunStepPrivacyFilterDigestsTest::atTheMetadataLevelEachDroppedPartKeepsAKeyedDigest`, functional `RunContentDigestsPersistenceTest` |
 | CD3 | `RunStepPrivacyFilterDigestsTest::withoutAnEncryptionKeyThereIsNoDigest`, `InvocationDigestsTest` |
-| CD4 | `RunStepPrivacyFilterDigestsTest::aChangedInputChangesTheDigestOfThatPartOnly` |
+| CD4 | `RunStepPrivacyFilterDigestsTest::aChangedInputChangesTheDigestOfThatPartOnly`, `CompletionRequestIdentityTest::toolCallsAndProviderItemsHaveAnIdentity`, `LlmServiceManagerCompletionCostTest::aToolRoundNamesTheRequestItSent` |
 | CD5 | `CompletionRequestIdentityTest::identitiesThatExistedKeepTheirBytes`, `toolCallsAndProviderItemsHaveAnIdentity`, `LlmServiceManagerCompletionCostTest::aToolRoundNamesTheRequestItSent`, `RunTraceTest::theAnswerStepNamesTheRequestItAnswered` |
-| CD6 | `RunStepPrivacyFilterDigestsTest::noOtherLevelKeepsADigest`, `aStepFilteredAgainKeepsItsDigestsOnlyWhereTheyAreAllowed` |
+| CD6 | `RunStepPrivacyFilterDigestsTest::noOtherLevelKeepsADigest`, `aStepFilteredAgainKeepsItsDigestsOnlyWhereTheyAreAllowed`, `aStepRedactedBeforeGetsNoDigest` |
 | CD7 | functional `RunContentDigestsPersistenceTest::theDigestsAreStoredWithoutTheTextAndPurgedWithTheRun` |
 | CD8 | `RunTimelineFactoryTest::aStepShowsTheContentDigestsItKept` |

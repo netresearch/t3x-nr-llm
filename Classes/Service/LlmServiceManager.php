@@ -1184,10 +1184,15 @@ final readonly class LlmServiceManager implements LlmServiceManagerInterface, Si
      */
     private function withRequestIdentity(CompletionResponse $response, array $messages, array $callOptions, array $tools): CompletionResponse
     {
+        // A key with a leading underscore is a directive to this extension
+        // (`_capture_raw`, ...), never sent to the provider: it is not part of
+        // the request.
+        $wire = array_filter($callOptions, static fn (string|int $key): bool => !is_string($key) || !str_starts_with($key, '_'), ARRAY_FILTER_USE_KEY);
+
         $metadata                                          = $response->metadata ?? [];
         $metadata[CompletionRequestIdentity::METADATA_KEY] = CompletionRequestIdentity::fingerprint(
             $messages,
-            $callOptions + ['tools' => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools)],
+            $wire + ['tools' => array_map(static fn (ToolSpec $spec): array => $spec->toArray(), $tools)],
         );
 
         return new CompletionResponse(

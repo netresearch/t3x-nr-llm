@@ -195,9 +195,9 @@ final class CompletionRequestIdentityTest extends TestCase
 
     /**
      * ADR-323: a request that carries tool calls or provider items has an
-     * identity now. Decoded arguments make the order of their keys
-     * irrelevant; the call id, the arguments and the provider items each
-     * count.
+     * identity now. What a provider generates afresh for every run, the call
+     * ids and its own items, does not count, nor does the order of argument
+     * keys; the arguments and which result answers which call do.
      */
     #[Test]
     public function toolCallsAndProviderItemsHaveAnIdentity(): void
@@ -205,20 +205,26 @@ final class CompletionRequestIdentityTest extends TestCase
         $call = static fn (string $id, string $q): array => [
             ChatMessage::user('Q'),
             ChatMessage::assistantToolCalls([ToolCall::function($id, 'search', $q === 'reordered' ? ['limit' => 3, 'q' => 'x'] : ['q' => $q, 'limit' => 3])]),
+            new ChatMessage('tool', 'found', toolCallId: $id),
         ];
 
         $identity = CompletionRequestIdentity::fingerprint($call('call_1', 'x'), []);
         self::assertMatchesRegularExpression('/^v1:[a-f0-9]{64}$/D', $identity);
         self::assertSame($identity, CompletionRequestIdentity::fingerprint($call('call_1', 'reordered'), []));
+        self::assertSame($identity, CompletionRequestIdentity::fingerprint($call('toolu_9', 'x'), []), 'the call id a provider generated does not count');
         self::assertNotSame($identity, CompletionRequestIdentity::fingerprint($call('call_1', 'y'), []));
-        self::assertNotSame($identity, CompletionRequestIdentity::fingerprint($call('call_2', 'x'), []));
+
+        $answers = static fn (string $answered): string => CompletionRequestIdentity::fingerprint([
+            ChatMessage::assistantToolCalls([ToolCall::function('a', 'search', ['q' => 'x']), ToolCall::function('b', 'search', ['q' => 'y'])]),
+            new ChatMessage('tool', 'found', toolCallId: $answered),
+        ], []);
+        self::assertNotSame($answers('a'), $answers('b'), 'which call a result answers counts');
 
         $native = static fn (string $opaque): string => CompletionRequestIdentity::fingerprint(
             [new ChatMessage('assistant', 'ACK', providerItems: [['opaque' => $opaque]])],
             [],
         );
         self::assertMatchesRegularExpression('/^v1:[a-f0-9]{64}$/D', $native('provider-owned'));
-        self::assertNotSame($native('provider-owned'), $native('provider-changed'));
-        self::assertNotSame($native('provider-owned'), CompletionRequestIdentity::fingerprint([new ChatMessage('assistant', 'ACK')], []));
+        self::assertSame($native('provider-owned'), $native('signature-of-another-run'), 'provider items do not count');
     }
 }

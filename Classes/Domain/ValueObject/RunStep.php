@@ -260,8 +260,9 @@ final readonly class RunStep
         /**
          * @var string|null the unkeyed identity of the request a model call
          *                  answered (ADR-323): `v1:` and a SHA-256. Content in
-         *                  the privacy sense, so the filter never stores it
-         *                  as it is; null on every other kind
+         *                  the privacy sense: stored as it is only at `full`,
+         *                  at `metadata` only as a keyed digest; null on every
+         *                  other kind
          */
         public ?string $requestIdentity = null,
     ) {

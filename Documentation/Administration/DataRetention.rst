@@ -77,22 +77,28 @@ twelve hex digits.
 
 The digests are HMAC-SHA-256 keyed with the installation's encryption key and
 a purpose of their own; the key is never stored with them. They compare within
-one installation only. Tool-call ids, which a provider generates, are left out
-of a message's digest, so two runs that sent the same input show the same
-digests. An installation without an encryption key stores none.
+one installation only. Tool-call ids and the provider's own items, which a
+provider generates afresh for every run, are left out, so two runs that sent
+the same input show the same digests. A tool result that carries a random
+value of its own differs on every run: ``fetch_external_url`` fences each
+page with a fresh nonce. An installation without an encryption key stores
+none.
 
 .. warning::
 
    A digest does not hide a short or predictable text. Anyone who can read the
-   run and guesses the text — a yes or no, a record uid, a prompt built from a
-   template — can compute the same digest with the key and so confirm the
-   guess. Keep the setting off where a confirmed guess matters.
+   run and also start a run of their own can send a guessed text — a yes or
+   no, a record uid, a prompt built from a template — and compare the two
+   digests, and so confirm the guess without knowing the key. Keep the
+   setting off where a confirmed guess matters.
 
 No other level keeps digests: ``none`` keeps nothing, ``redacted`` would
 otherwise confirm a credential the redactor masked, and ``full`` stores the
-text itself. When a run's level is tightened later, the digests are removed
-with the rest. They go with the run's other events under
-``privacy.retention.agentRun``.
+text itself. A step first written at ``redacted`` and later held to
+``metadata`` by a provider's ceiling gets none, because its text is already
+masked. When a run's level is tightened later, the digests are removed with
+the rest. Switching the setting off removes no digest already stored; they go
+with the run's other events under ``privacy.retention.agentRun``.
 
 .. _administration-data-retention-how-long:
 

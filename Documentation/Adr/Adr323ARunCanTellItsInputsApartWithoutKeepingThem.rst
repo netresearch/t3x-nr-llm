@@ -55,27 +55,37 @@ Decision
    tool result) and without provider-owned items, and tool arguments are
    digested decoded, so the order of their keys does not count.
 3. **The request identity is widened and reaches a run only keyed.**
-   :php:`CompletionRequestIdentity::fingerprint()` now covers messages with
-   tool calls (id, type, name and decoded arguments) and provider items (as
-   the provider sent them). Every input that had an identity before keeps
-   exactly its bytes, so ADR-271's benchmark identity is unchanged. The
-   tool-call terminal attaches the identity of the request it sent, tool
-   schemas included (:php:`LlmServiceManager::chatWithToolsForConfiguration()`).
-   The answer step carries it as ``requestIdentity``; the privacy filter
-   treats it as content and stores only its keyed digest
-   (``requestDigest``).
-4. **Only at the ``metadata`` level.** ``none`` keeps nothing. ``redacted``
-   keeps no digest: a digest of the unredacted text would confirm a
-   credential the redactor masked. ``full`` stores the step as it is, the
-   text and the request identity with it. A step filtered again at a stricter
-   level, or with the setting off, loses its digests (ADR-270's refiltering).
+   :php:`CompletionRequestIdentity::fingerprint()` now covers requests with
+   tool calls or provider items, the requests that had no identity before.
+   For them it follows item 2: a tool-call id and the ``tool_call_id`` of
+   the result answering it become the call's ordinal in the request, which
+   keeps which result answers which call; tool arguments are taken decoded;
+   provider items are left out. Every request that had an identity before
+   keeps exactly its bytes, so ADR-271's benchmark identity is unchanged.
+   The tool-call terminal attaches the identity of the request it sent, tool
+   schemas included and the extension's own ``_``-prefixed directives
+   (``_capture_raw``) left out, because they are never sent
+   (:php:`LlmServiceManager::chatWithToolsForConfiguration()`). The answer
+   step carries it as ``requestIdentity``; the privacy filter treats it as
+   content and stores only its keyed digest (``requestDigest``).
+4. **Only at the ``metadata`` level, and only of unmasked text.** ``none``
+   keeps nothing. ``redacted`` keeps no digest: a digest of the unredacted
+   text would confirm a credential the redactor masked. ``full`` stores the
+   step as it is, the text and the request identity with it. A step written
+   at ``redacted`` and filtered again at ``metadata`` (a provider's stricter
+   ceiling, ADR-270) gets no digest either: its text is masked and
+   truncated, and digests of it would make different inputs equal. The
+   filter marks such a step (``contentMasked``). A step filtered again at a
+   stricter level loses its digests; switching the setting off removes no
+   digest already stored, which goes with retention or a later tightening.
 5. **Readable.** The run timeline shows each digest by its first twelve hex
    digits, messages as ``role@digest``.
 
 Two departures from the draft that preceded this record: the draft also
 digested at ``redacted`` (item 4 explains why not), and it recommended
-against widening the request identity; it is widened, but only the keyed
-digest of it is stored with a run (item 3).
+against widening the request identity; it is widened, without what a
+provider generates per run, and only the keyed digest of it is stored with
+a run (item 3).
 
 Consequences
 ============
@@ -96,8 +106,22 @@ predictable input (a yes or no, a record uid, a templated prompt) can confirm
 the guess, because the key is the installation's. The setting's label and the
 data-retention page say so.
 
-◑ A provider that changes the encoding of its own items changes the request
-identity, and with it ``requestDigest``, though the input did not change;
-message digests leave those items out and are not affected.
+◑ Provider items are left out of the identity and the digests, so two
+requests that differ only in them (a provider's replay of its own earlier
+reasoning) look the same.
+
+◑ A tool whose result carries a fresh random value differs on every run:
+``fetch_external_url`` fences the page with a per-call nonce, so its
+``toolResultDigest`` and the digest of the message that carries it differ
+for the same page.
+
+◑ A step stored at ``redacted`` before this change has no ``contentMasked``
+mark. If the setting is on and the run's level is later tightened to
+``metadata``, it gets digests of its masked text.
+
+◑ The unkeyed identity is on the response object of a tool round as it is on
+a chat response (ADR-271), so a caller's idempotency cache
+(:php:`IdempotencyMiddleware`) holds it with the response, as it holds the
+answer.
 
 ◑ Digests compare within one installation only.

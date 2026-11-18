@@ -156,6 +156,27 @@ final class RunStepPrivacyFilterDigestsTest extends TestCase
         }
     }
 
+    /**
+     * A step written at `redacted` and filtered again at `metadata` (a
+     * provider's ceiling, ADR-270) holds masked, truncated text: it gets no
+     * digest, which would make two different inputs equal.
+     */
+    #[Test]
+    public function aStepRedactedBeforeGetsNoDigest(): void
+    {
+        $long  = str_repeat('row ', 600);
+        $twice = fn (string $result): array => $this->filter(PrivacyLevel::METADATA, true)->filter(
+            $this->filter(PrivacyLevel::REDACTED, true)->filter($this->tool($long . $result)),
+        );
+
+        foreach ([$twice('first'), $twice('second')] as $kept) {
+            self::assertArrayNotHasKey('toolResult', $kept);
+            foreach (self::DIGEST_KEYS as $key) {
+                self::assertArrayNotHasKey($key, $kept);
+            }
+        }
+    }
+
     #[Test]
     public function withoutAnEncryptionKeyThereIsNoDigest(): void
     {

@@ -1,0 +1,1 @@
+- A custom implementation of `PrivacyPolicyInterface` must add `inputDigests(): bool` (return `false` to keep today's behaviour): the privacy filter asks it whether agent run steps at the `metadata` level keep keyed content digests (ADR-323).
