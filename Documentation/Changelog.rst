@@ -27,39 +27,31 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-50-0:
+.. _version-0-51-0:
 
-Version 0.50.0 (2026-11-17)
+Version 0.51.0 (2026-11-18)
 ===========================
 
-An A2A task's file can be taken into a FAL inbox after an approval, a
-delegating run asks its initiator when the remote agent asks, two editorial
-A2A handlers, and a tool audit trail. Run the TYPO3 database schema update
-after updating.
+Agent runs record the skill versions their model calls carried and the test
+evidence of those versions, PostgreSQL is a supported database, and an A2A
+page metadata write to a translated page is stored and reported. Run the
+TYPO3 database schema update after updating.
 
-- **Client file into FAL:** the tool ``adopt_client_file`` (ships disabled)
-  stores a file an A2A client sent in the one non-public inbox folder its
-  publication profile names, as the client's technical user and after the
-  approval of a person of this installation (ADR-305). No folder: no
-  adoption. A taken name is never overwritten.
-- **Questions of a remote agent:** a delegating run no longer hands the
-  remote's question to the model; the backend user who started it answers in
-  the waiting runs' input form, and the answer goes to the task that asked
-  (ADR-311).
-- **Editorial texts:** ``nr_llm.editorial_text`` writes and
-  ``nr_llm.editorial_check`` checks a text for use outside TYPO3; the answer
-  is checked against the configuration's rules before it is stored, and a
-  ``report`` artifact carries the result (ADR-301, ADR-302).
-- **Runs:** a run that completes after an approval, an answer or a remote
-  agent keeps its answer, also without an origin;
-  ``AgentRuntimeInterface::cancelIfWaitingForDependency()`` cancels only a run
-  that still waits for its dependency. Delegation tools are offered with
-  nr-mcp-agent 0.39.0 or later.
-- **Tools module:** every switch of a tool or tool group is recorded in
-  ``tx_nrllm_tool_audit``; the group toggle works again.
-- **Breaking for implementers:** ``AgentRunRepositoryInterface::recordAnswer()``
-  takes an optional third parameter, and the interface is now ``@internal``.
-- **Fixed:** a scoped write the database committed before the call ended is
-  reported as written, so an A2A task's ``writes`` artifact names the draft.
+- **Skill versions in runs:** a run records the skill versions each model
+  call carried for the first time (``skill_usage``, ADR-321) and the
+  evaluations that measured exactly those versions (``skill_evidence``,
+  ADR-322); both show in the run timeline.
+- **Input digests:** with ``privacy.inputDigests`` (off by default) a step
+  stored at the ``metadata`` level keeps keyed digests of the content it
+  drops, so two runs show which input differed (ADR-323).
+- **PostgreSQL:** supported beside MariaDB/MySQL and SQLite; CI runs the
+  functional tests on PostgreSQL 17. Six hash columns are now
+  ``varchar(64)``.
+- **A2A:** a page metadata write to a page with a translation is stored and
+  reported as written, and the ``writes`` artifact also lists records a
+  failed call wrote. The A2A tokens module offers
+  :guilabel:`Enable and generate token` for a disabled client.
+- **Breaking for implementers:** ``PrivacyPolicyInterface`` gains
+  ``inputDigests(): bool``.
 
 Details in the repository :file:`CHANGELOG.md`.

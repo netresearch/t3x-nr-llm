@@ -8,6 +8,36 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-18
+
+### Upgrading from 0.50
+
+- A custom implementation of `PrivacyPolicyInterface` must add `inputDigests(): bool` (return `false` to keep today's behaviour): the privacy filter asks it whether agent run steps at the `metadata` level keep keyed content digests (ADR-323).
+
+- Run the database analyzer: test evidence of skill versions adds the table `tx_nrllm_eval_skill_version` and the columns `tx_nrllm_eval_result.configuration_identifier` and `tx_nrllm_eval_result.grading_protocol` (both default empty). Evaluations stored before name no skill versions and are evidence for none (ADR-322).
+
+### Added
+
+- PostgreSQL is a supported database beside MariaDB/MySQL and SQLite: the installation requirements say so, and CI runs the functional tests on PostgreSQL 17 ([#1420](https://github.com/netresearch/t3x-nr-llm/issues/1420)).
+
+- Agent runs can keep keyed digests of the content they drop: with the new setting `privacy.inputDigests` (off by default), a step stored at the `metadata` level keeps an HMAC-SHA-256 digest, keyed with the installation's encryption key, of each message sent, the answer, a tool's arguments and result, and the request a model call answered. Two runs then show which input differed without the text being stored; the run timeline shows the digests shortened. A reader of the run can confirm a guessed short or predictable input, which the setting's label and the data-retention page state. No other level keeps digests, and a step stored at `redacted` now carries a `contentMasked` mark so a later `metadata` pass never digests masked text (ADR-323).
+- `CompletionRequestIdentity` covers requests with tool calls and provider items, and the tool-call terminal attaches the identity of the request it sent. Every identity that existed keeps its bytes (ADR-323).
+
+- Skill versions now carry their test evidence: an evaluation stores which skill versions the default configuration composed into every prompt's request (skill, source, digest, role), the configuration and the grading protocol version; an evaluation whose gradings do not share one yardstick names none. When an agent run's model call first carries a version, the run records the evaluations stored at that moment that measured exactly that digest (at most three, newest first) as a `skill_evidence` step, each marked `match`, `other_model` or `unknown` against the model that answered. A version no evaluation measured is recorded with no evidence. The run timeline shows the recorded snapshot and marks a purged evaluation as `report=gone`. Evaluations run one-shot completions, so the evidence names composed versions only: a skill loaded on demand, or a version a resumed run carries over, is left out. A lookup that fails is logged and records no evidence step; it does not stop the run (ADR-322).
+- `RunTrace::recordSkillEvidence()` (`@api`, additive): the step the loop records the evidence with (ADR-322).
+
+- Agent runs record the skill versions each model call carried for the first time in its segment, as a `skill_usage` step before the call: skill and source uid, version digest, identifier, role (instruction, process, context), inclusion (composed, loaded, carried) and the approval that held. A load is recorded as loaded and, at the next call, as passed; a skill that is only attached or only offered for loading is not recorded. The record holds no skill text, keeps its entries unchanged at every privacy level and after the run ends, and shows in the run timeline (ADR-321).
+- `RunTrace::recordSkillUsage()` (`@api`, additive): the step the loop records the skill usage with (ADR-321).
+
+### Fixed
+
+- The A2A tokens module shows a revoked or switched-off technical client as disabled and offers "Enable and generate token" in place of "Generate token": a token for a disabled client was issued all the same and answered `401`. Issuing never enables a record by itself; the server refuses a token for a disabled record unless the administrator confirms the enabling, which needs a technical backend user the server accepts (enabled, within its start and end time, not an administrator) and is logged in the token audit like the other actions. `nrllm:a2a:client:token` warns on stderr when it issues a token for a disabled record (ADR-294).
+
+- Queries that failed on PostgreSQL work there now. The indexed_search retrieval backend lost every search ("missing FROM-clause entry for table ig"), because the query builder quoted its table aliases in some places and not in others; the aliases are now lower case. The page tree of a batch and the user budget windows compared a column with `PHP_INT_MAX`, which PostgreSQL refuses for an integer column; the doktype bound is now left out when there is none, and an unset budget window counts from after the upper bound. A uid outside the 32-bit range from a request (toggling a model or provider, an MCP server action, the tool playground, the `a2a` command) is now "not found" instead of a database error. A second projection of the same A2A task revision no longer aborts the transaction on PostgreSQL. Six hash columns are `varchar(64)` instead of `char(64)`, so an empty hash no longer reads back as 64 spaces on PostgreSQL; run the database compare after the update ([#1420](https://github.com/netresearch/t3x-nr-llm/issues/1420)).
+
+- A write to a page or record with a translation, under the scope of an assignment that admits the default language only, is no longer an error. Core adds an entry for every translation to each such write, with the fields it keeps equal in all languages; the scope refused that entry, so the A2A page metadata skill reported a description of a translated page as not saved while its draft was stored. The entry is now left out when the run's write names none of those fields, also for a translation made from another translation, and the translations stay as they are. A write that names such a field needs the languages of all translations in scope. A page with a file in a synchronised file field (`media`, `og_image`, `twitter_image`) of the page or of a translation that follows it is still refused under such a scope (ADR-295).
+- The `writes` artifact of an A2A task also lists, in a block of its own, the records a tool call that ended in an error wrote all the same, for example the in-scope part of a call the scope partly refused, and says when that list may be incomplete. It said "No write was executed." beside a stored draft (ADR-295).
+
 ## [0.50.0] - 2026-11-17
 
 ### Upgrading from 0.49
@@ -5455,7 +5485,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.50.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.0...HEAD
+[0.51.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.50.0...v0.51.0
 [0.50.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.1...v0.50.0
 [0.49.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.0...v0.49.1
 [0.49.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.48.0...v0.49.0
