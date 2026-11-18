@@ -290,6 +290,15 @@ final readonly class ObservedChangeResolver
      */
     private function versionIn(string $table, int $uid, int $workspace): ?int
     {
+        // A table without versioning has no version columns, and a failed query
+        // would end an open transaction on PostgreSQL.
+        $tca    = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $schema = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $ctrl   = is_array($schema['ctrl'] ?? null) ? $schema['ctrl'] : [];
+        if (!(bool) ($ctrl['versioningWS'] ?? false)) {
+            return null;
+        }
+
         try {
             $query = $this->connectionPool->getQueryBuilderForTable($table);
             $query->getRestrictions()->removeAll();
