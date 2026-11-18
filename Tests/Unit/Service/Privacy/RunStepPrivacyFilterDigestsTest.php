@@ -134,7 +134,13 @@ final class RunStepPrivacyFilterDigestsTest extends TestCase
         }
 
         $answer = $this->answer('Three.');
-        self::assertSame($answer, $this->filter(PrivacyLevel::FULL, true)->filter($answer), 'full keeps the step as it is');
+        foreach ([true, false] as $enabled) {
+            $kept = $this->filter(PrivacyLevel::FULL, $enabled)->filter($answer);
+            self::assertArrayNotHasKey('requestIdentity', $kept, 'the unkeyed identity is never stored');
+            unset($answer['requestIdentity']);
+            self::assertSame($answer, $kept, 'full keeps the rest of the step as it is');
+            $answer = $this->answer('Three.');
+        }
     }
 
     /**

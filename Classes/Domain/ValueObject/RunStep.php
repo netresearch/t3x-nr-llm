@@ -259,10 +259,10 @@ final readonly class RunStep
         public ?array $skillEvidence = null,
         /**
          * @var string|null the unkeyed identity of the request a model call
-         *                  answered (ADR-323): `v1:` and a SHA-256. Content in
-         *                  the privacy sense: stored as it is only at `full`,
-         *                  at `metadata` only as a keyed digest; null on every
-         *                  other kind
+         *                  answered (ADR-323): `v1:` and a SHA-256. Never
+         *                  stored as it is, at `metadata` with the operator's
+         *                  opt-in only as a keyed digest; null on every other
+         *                  kind
          */
         public ?string $requestIdentity = null,
     ) {

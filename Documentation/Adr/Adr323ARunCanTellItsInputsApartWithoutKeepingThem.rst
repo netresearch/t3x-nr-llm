@@ -62,16 +62,20 @@ Decision
    keeps which result answers which call; tool arguments are taken decoded;
    provider items are left out. Every request that had an identity before
    keeps exactly its bytes, so ADR-271's benchmark identity is unchanged.
-   The tool-call terminal attaches the identity of the request it sent, tool
+   The renumbering applies to :php:`ChatMessage` objects, which is how the
+   extension builds every request; a caller passing raw message arrays with
+   tool calls keeps their ids, and so gets an identity per run. The
+   tool-call terminal attaches the identity of the request it sent, tool
    schemas included and the extension's own ``_``-prefixed directives
    (``_capture_raw``) left out, because they are never sent
    (:php:`LlmServiceManager::chatWithToolsForConfiguration()`). The answer
-   step carries it as ``requestIdentity``; the privacy filter treats it as
-   content and stores only its keyed digest (``requestDigest``).
+   step carries it as ``requestIdentity``; the privacy filter never stores it
+   as it is, at any level, ``full`` included, and at ``metadata`` with the
+   setting on stores its keyed digest (``requestDigest``).
 4. **Only at the ``metadata`` level, and only of unmasked text.** ``none``
    keeps nothing. ``redacted`` keeps no digest: a digest of the unredacted
    text would confirm a credential the redactor masked. ``full`` stores the
-   step as it is, the text and the request identity with it. A step written
+   step's text as before and no digest. A step written
    at ``redacted`` and filtered again at ``metadata`` (a provider's stricter
    ceiling, ADR-270) gets no digest either: its text is masked and
    truncated, and digests of it would make different inputs equal. The
@@ -98,8 +102,10 @@ for the part that differs, at the default level, without keeping the text
 tool-using requests can be identified by the same function.
 
 ◑ Off by default: an installation that does not opt in keeps the record it
-had. The step of a model call carries ``requestIdentity`` in memory and in
-the live playground, which shows the full content anyway.
+had, except that a step stored at ``redacted`` carries the ``contentMasked``
+mark, which the timeline does not show. The step of a model call carries
+``requestIdentity`` in memory and in the live playground, which shows the
+full content anyway.
 
 ✕ With the setting on, anyone who can read a run and guesses a short or
 predictable input (a yes or no, a record uid, a templated prompt) can confirm

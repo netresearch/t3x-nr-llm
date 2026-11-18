@@ -9,7 +9,8 @@ skill, a changed model and a changed input apart.
 ## Requirements
 
 - **CD1 Opt-in.** The extension setting `privacy.inputDigests` is off by
-  default. Off, a stored step is exactly what it was before.
+  default. Off, a stored step is what it was before, except that a step
+  stored at `redacted` carries the `contentMasked` mark (CD6).
 - **CD2 Digests of the dropped parts.** On, a step filtered at the
   `metadata` level keeps a keyed digest of each part it drops: each message
   sent (with its role, in order), the answer, a tool's arguments, a tool's
@@ -26,7 +27,8 @@ skill, a changed model and a changed input apart.
 - **CD5 Request identity.** `CompletionRequestIdentity::fingerprint()` covers
   tool calls and provider items; every identity that existed keeps its bytes.
   The tool-call terminal attaches the identity of the request it sent, tool
-  schemas included; a run stores it only as the keyed `requestDigest`.
+  schemas included; a run never stores it as it is, at any level, only as
+  the keyed `requestDigest`.
 - **CD6 Levels.** Only `metadata` keeps digests, and never of text masked at
   `redacted` before. A step filtered again at a stricter level loses them.
 - **CD7 Retention.** The digests are part of the run's events and are purged
@@ -51,7 +53,7 @@ skill, a changed model and a changed input apart.
 
 | Requirement | Evidence |
 | --- | --- |
-| CD1 | `RunStepPrivacyFilterDigestsTest::withoutTheSettingAStepKeepsWhatItKeptBefore` |
+| CD1 | `RunStepPrivacyFilterDigestsTest::withoutTheSettingAStepKeepsWhatItKeptBefore`, `noOtherLevelKeepsADigest` |
 | CD2 | `RunStepPrivacyFilterDigestsTest::atTheMetadataLevelEachDroppedPartKeepsAKeyedDigest`, functional `RunContentDigestsPersistenceTest` |
 | CD3 | `RunStepPrivacyFilterDigestsTest::withoutAnEncryptionKeyThereIsNoDigest`, `InvocationDigestsTest` |
 | CD4 | `RunStepPrivacyFilterDigestsTest::aChangedInputChangesTheDigestOfThatPartOnly`, `CompletionRequestIdentityTest::toolCallsAndProviderItemsHaveAnIdentity`, `LlmServiceManagerCompletionCostTest::aToolRoundNamesTheRequestItSent` |
