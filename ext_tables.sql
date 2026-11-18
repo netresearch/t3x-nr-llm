@@ -1133,9 +1133,9 @@ CREATE TABLE tx_nrllm_eval_result (
 
 #
 # The skill versions one evaluation measured (ADR-322): one row per version
-# every prompt's request carried. Identity and digest only, no text. A run
+# the request of every prompt carried. Identity and digest only, no text. A run
 # looks its evidence up here by skill and digest. Deleted with its evaluation
-# row by the same retention (run_date is the evaluation's).
+# row by the same retention (run_date is that of the evaluation).
 #
 CREATE TABLE tx_nrllm_eval_skill_version (
     uid int(11) unsigned NOT NULL auto_increment,

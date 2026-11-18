@@ -329,7 +329,7 @@ final readonly class RunTimelineFactory
                     'eval#%d %s %s pass=%.2f fit=%s%s',
                     $evidence->evaluationUid,
                     $evidence->setIdentifier,
-                    $evidence->reportedModelId !== '' ? $evidence->reportedModelId : ($evidence->modelId !== '' ? $evidence->modelId : '-'),
+                    $this->evaluatedModel($evidence),
                     $evidence->passRate,
                     $evidence->fit->value,
                     $this->availability($evidence),
@@ -345,6 +345,19 @@ final readonly class RunTimelineFactory
         }
 
         return implode(', ', $parts);
+    }
+
+    /**
+     * The model an evaluation names: the one its provider reported, else the
+     * one it asked for, else a placeholder.
+     */
+    private function evaluatedModel(SkillEvidence $evidence): string
+    {
+        if ($evidence->reportedModelId !== '') {
+            return $evidence->reportedModelId;
+        }
+
+        return $evidence->modelId !== '' ? $evidence->modelId : '-';
     }
 
     private function availability(SkillEvidence $evidence): string

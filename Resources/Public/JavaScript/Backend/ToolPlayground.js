@@ -410,7 +410,7 @@ class ToolPlayground {
         const rows = list.querySelectorAll('.nrllm-pg-slrow');
         if (rows.length > 0) {
             let pick = rows.length - 1;
-            while (pick > 0 && steps[pick] && steps[pick].kind === 'skill_evidence') {
+            while (pick > 0 && steps[pick]?.kind === 'skill_evidence') {
                 pick--;
             }
             rows[pick].click();

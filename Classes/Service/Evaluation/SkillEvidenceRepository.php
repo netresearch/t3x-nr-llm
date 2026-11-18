@@ -122,7 +122,11 @@ final readonly class SkillEvidenceRepository implements SkillEvidenceLookupInter
     {
         $value = $row[$column] ?? '';
 
-        return is_string($value) ? $value : (is_int($value) ? (string) $value : '');
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        return is_string($value) ? $value : '';
     }
 
     /**
