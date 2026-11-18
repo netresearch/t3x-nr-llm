@@ -42,7 +42,7 @@ Revoke
    temporarily instead.
 
 Enable and generate token
-   Per row of a disabled client record with a technical backend user, in
+   Per row of a disabled technical client record (not an editor's own), in
    place of :guilabel:`Generate token` or :guilabel:`Rotate token`. A
    revoked record is disabled, and a token for a disabled record is refused
    with ``401``, so the module does not issue one without switching the
@@ -50,7 +50,8 @@ Enable and generate token
    token in one step. A token the record still holds ends at once. The
    record is enabled only when its technical backend user exists, is
    enabled, is within its start and end time and is not an administrator,
-   as the server checks on every request. Generating or rotating never enables a
+   as the server checks on every request; otherwise the module refuses and
+   names what to correct. Generating or rotating never enables a
    record by itself; the server refuses a token for a disabled record unless
    the request asks for the enabling. The status column shows such a record
    as :guilabel:`Revoked or disabled`. To resume a client that keeps its
