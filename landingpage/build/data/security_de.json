@@ -69,8 +69,8 @@
       "id": "budgets",
       "heading": "Kosten-Governance",
       "paragraphs": [
-        "Budgets pro Benutzer deckeln die KI-Ausgaben jeder Backend-Benutzerin unabhängig von den täglichen Limits pro Konfiguration. Ein Budget trägt sechs unabhängige Obergrenzen — Requests, Tokens und Kosten, jeweils täglich und monatlich — und ist eine Obergrenze, kein Zähler: Die Nutzung wird bei Bedarf aus der einen Nutzungstabelle aggregiert, sodass beide nie auseinanderdriften können.",
-        "Die Prüfung ist ein reiner Pre-Flight vor jedem Aufruf; über dem Budget führt sie zu einer expliziten Ablehnung, die das überschrittene Limit benennt — nie zu stillem Throttling. Jeder Request wird der aufrufenden Backend-Benutzerin zugeordnet und in einem Analytics-Dashboard für Administratoren aufgerollt — Kosten- und Request-Trends, Aufschlüsselungen nach Provider, Modell und Dienst sowie der Verbrauch jeder Benutzerin gegen ihr Monatsbudget. Idempotente Completions werden gecacht, sodass ein wiederholter Aufruf nicht zweimal bezahlt wird."
+        "Pro Backend-Nutzer lassen sich tägliche und monatliche Grenzen für Anfragen, Tokens und geschätzte Kosten festlegen. Die Prüfung verwendet den erfassten Verbrauch und bekannte Plankosten. Sie reserviert kein Guthaben. Gleichzeitig laufende Anfragen und erst nachträglich erfasste Nutzung können das Limit überschreiten.",
+        "Lehnt die Vorabprüfung einen Aufruf ab, nennt sie den Grund. Die Nutzungsauswertung zeigt erfasste Anfragen und geschätzte Kosten nach Anbieter, Modell, Dienst und Nutzer. Tageslimits für eine einzelne Konfiguration werden gesondert geprüft."
       ],
       "adrs": [25, 52]
     },
@@ -125,7 +125,7 @@
       },
       {
         "q": "Wie verhindere ich, dass eine einzelne Redakteurin die Kosten in die Höhe treibt?",
-        "a": "Gib ihr ein Budget pro Benutzer mit täglichen und monatlichen Obergrenzen für Requests, Tokens und Kosten. Eine Pre-Flight-Prüfung lehnt den Aufruf mit klarer Begründung ab, sobald eine Obergrenze erreicht ist, und das Analytics-Dashboard zeigt die Ausgaben jeder Benutzerin gegen ihr Budget."
+        "a": "Richte ein Budget für die Redakteurin ein und verfolge den erfassten Verbrauch in der Nutzungsauswertung. Die Vorabprüfung kann weitere Aufrufe ablehnen. Parallel laufende Anfragen und später erfasste Kosten können das Budget dennoch überschreiten."
       },
       {
         "q": "Könnte ein Modell ein Secret preisgeben, das es erhalten hat?",
