@@ -89,11 +89,15 @@ class A2aTokens {
             return;
         }
         const kind = enable ? 'Enable' : 'Rotate';
+        const message = [this.label(`label${kind}Message`)];
         // Enabling a record that still holds a token replaces that token too.
-        const rotates = enable && btn.dataset.hasToken === '1' ? ` ${this.label('labelRotateMessage')}` : '';
+        if (enable && btn.dataset.hasToken === '1') {
+            message.push(this.label('labelRotateMessage'));
+        }
+        message.push(btn.dataset.title || '');
         Modal.confirm(
             this.label(`label${kind}Title`),
-            `${this.label(`label${kind}Message`)}${rotates} ${btn.dataset.title || ''}`.trim(),
+            message.join(' ').trim(),
             Severity.warning,
             [
                 { text: this.label('labelCancel'), btnClass: 'btn-default', trigger: (_e, modal) => modal.hideModal() },
