@@ -128,18 +128,24 @@ final class A2aTokenController extends ActionController
                 'canIssue'  => $isAdmin && !$record->selfService,
                 'canRevoke' => $record->enabled || $record->tokenHash !== '',
                 'hasToken'  => $record->tokenHash !== '',
+                'enabled'   => $record->enabled,
             ];
         }
 
         return $rows;
     }
 
+    /**
+     * A disabled record shows as disabled whether or not it holds a token: a
+     * revoke deletes the token too, and "No token" would hide that a new
+     * token needs the record switched on again.
+     */
     private function status(A2aInboundClient $client, int $now): string
     {
         return match (true) {
             $client->withdrawnReason !== null                => 'withdrawn',
-            $client->tokenHash === ''                        => 'noToken',
             !$client->enabled                                => 'disabled',
+            $client->tokenHash === ''                        => 'noToken',
             $client->expires > 0 && $client->expires <= $now => 'expired',
             default                                          => 'active',
         };

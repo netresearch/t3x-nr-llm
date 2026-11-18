@@ -222,6 +222,10 @@ command again rotates the token: the old one stops working at once, and the
 client keeps its tasks, which belong to the record, not to the token. The
 client sends the token as ``Authorization: Bearer <token>``.
 
+The command does not change the record's :guilabel:`Enabled` flag. For a
+disabled record, a revoked one included, it prints the token and a warning
+on stderr: the token is refused until the record is enabled again.
+
 In the backend the module :guilabel:`AI > A2A tokens` does the same without a
 shell: :guilabel:`Generate token` and :guilabel:`Rotate token` per record, and
 :guilabel:`Revoke`. Editors can also issue tokens that act as their own

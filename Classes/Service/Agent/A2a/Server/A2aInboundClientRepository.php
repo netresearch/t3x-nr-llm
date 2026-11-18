@@ -257,8 +257,12 @@ final readonly class A2aInboundClientRepository
     /**
      * Issue a new token for the record and return it in clear; this is the
      * only time it exists outside the client.
+     *
+     * The record keeps its enabled flag unless $enable asks to switch it on in
+     * the same update. A token issued for a disabled record is refused like an
+     * unknown one until the record is enabled.
      */
-    public function issueToken(int $uid): string
+    public function issueToken(int $uid, bool $enable = false): string
     {
         $previous = $this->findByUid($uid);
         if (!$previous instanceof A2aInboundClient) {
@@ -268,11 +272,12 @@ final readonly class A2aInboundClientRepository
         $prefix = bin2hex(random_bytes(8));
         $token  = self::TOKEN_PREFIX . $prefix . '_' . rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
 
-        $this->connectionPool->getConnectionForTable(self::TABLE)->update(
-            self::TABLE,
-            ['token_prefix' => $prefix, 'token_hash' => self::hash($token), 'token_issued' => time(), 'tstamp' => time()],
-            ['uid' => $uid],
-        );
+        $values = ['token_prefix' => $prefix, 'token_hash' => self::hash($token), 'token_issued' => time(), 'tstamp' => time()];
+        if ($enable) {
+            $values['enabled'] = 1;
+        }
+
+        $this->connectionPool->getConnectionForTable(self::TABLE)->update(self::TABLE, $values, ['uid' => $uid]);
 
         if ($previous->tokenHash !== '') {
             // A rotated token takes the push configs created with the old

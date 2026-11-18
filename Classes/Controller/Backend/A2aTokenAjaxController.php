@@ -89,6 +89,7 @@ final readonly class A2aTokenAjaxController
 
     /**
      * An administrator generates or rotates the token of a technical client.
+     * A disabled client is switched on only when the request says `enable=1`.
      */
     public function issueAction(ServerRequestInterface $request): ResponseInterface
     {
@@ -96,10 +97,11 @@ final readonly class A2aTokenAjaxController
             return $deny;
         }
 
-        $body = $request->getParsedBody();
+        $body   = $request->getParsedBody();
+        $enable = is_array($body) && ($body['enable'] ?? null) === '1';
 
         try {
-            $issued = $this->administration->issue($this->sessionUser(), $this->uid($body));
+            $issued = $this->administration->issue($this->sessionUser(), $this->uid($body), $enable);
         } catch (A2aTokenRefusedException $exception) {
             return $this->refused($exception);
         }

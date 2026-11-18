@@ -33,9 +33,14 @@ final readonly class A2aClientTokenAdministration
     ) {}
 
     /**
-     * @throws A2aTokenRefusedException for a non-administrator, an unknown record or a self-service record
+     * A disabled record (a revoked one, or one switched off in its record) gets
+     * a token only when $enable asks to switch it on with the issuing: a token
+     * for a record that stays disabled would be refused at once. The issuing
+     * never switches a record on by itself.
+     *
+     * @throws A2aTokenRefusedException for a non-administrator, an unknown record, a self-service record or a disabled record without $enable
      */
-    public function issue(BackendUserAuthentication $actor, int $clientUid): A2aIssuedToken
+    public function issue(BackendUserAuthentication $actor, int $clientUid, bool $enable = false): A2aIssuedToken
     {
         $this->assertAdministrator($actor);
 
@@ -48,9 +53,19 @@ final readonly class A2aClientTokenAdministration
             throw new A2aTokenRefusedException('The token of a self-service record is issued by its owner.', 1799300312);
         }
 
+        if (!$client->enabled && !$enable) {
+            throw new A2aTokenRefusedException('The client record is disabled; a token for it would be refused. Enable it together with the new token.', 1799300315);
+        }
+
+        $enabling = !$client->enabled;
         $rotation = $client->tokenHash !== '';
-        $token    = $this->clients->issueToken($clientUid);
-        $this->audit->record($rotation ? 'rotated by an administrator' : 'issued by an administrator', $actor, $clientUid);
+        $token    = $this->clients->issueToken($clientUid, $enabling);
+        $this->audit->record(match (true) {
+            $enabling && $rotation => 'enabled and rotated by an administrator',
+            $enabling              => 'enabled and issued by an administrator',
+            $rotation              => 'rotated by an administrator',
+            default                => 'issued by an administrator',
+        }, $actor, $clientUid);
 
         return new A2aIssuedToken($clientUid, $token, $client->expires);
     }

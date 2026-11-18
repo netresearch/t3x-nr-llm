@@ -4916,6 +4916,15 @@
             <trans-unit id="a2aTokens.rotate.confirmMessage">
                 <source>The current token stops working at once; the client keeps its tasks.</source>
             </trans-unit>
+            <trans-unit id="a2aTokens.enableAndGenerate">
+                <source>Enable and generate token</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.enable.confirmTitle">
+                <source>Enable this client and generate a token?</source>
+            </trans-unit>
+            <trans-unit id="a2aTokens.enable.confirmMessage">
+                <source>The client record is disabled, for example by a revoke. A token for it would be refused. This switches the record on again and issues a new token.</source>
+            </trans-unit>
             <trans-unit id="a2aTokens.lastTask.note">
                 <source>Last task is the time the newest task of the token was created. A token that only reads existing tasks does not appear there.</source>
             </trans-unit>
