@@ -284,20 +284,12 @@ final readonly class ObservedChangeResolver
         }
 
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
-        // A delete in a draft workspace names the version it wrote. Without one,
-        // core deleted the live row (a table without versioning) or discarded
-        // a draft of it (a move, new or delete placeholder), and the entry names the
-        // live row, so that the effect check judges it.
-        if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
-            $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
-            $truncated = $truncated || $failed;
-
-            return $version === null ? $entry : [...$entry, 'uid' => $version];
-        }
-
-        // A move core made live (a table without versioning, a workspace that
-        // allows live editing) has no version and keeps the live row.
-        if ($entry['action'] === ChangeAction::MOVED && $entry['workspace'] > 0 && $liveRow) {
+        // A delete or move in a draft workspace names the version it wrote.
+        // Without one, core wrote the live row (a table without versioning, a
+        // workspace that allows live editing) or, for a delete, discarded a
+        // draft of it (a move, new or delete placeholder), and the entry names
+        // the live row, so that the effect check judges it.
+        if (in_array($entry['action'], [ChangeAction::DELETED, ChangeAction::MOVED], true) && $entry['workspace'] > 0 && $liveRow) {
             $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
             $truncated = $truncated || $failed;
 

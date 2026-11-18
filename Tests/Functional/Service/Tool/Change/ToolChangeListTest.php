@@ -482,8 +482,11 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
     #[Test]
     public function aHistoryWhoseStartCannotBeReadLeavesTheListIncomplete(): void
     {
+        // What the effect check reads (the armed frame) and the set the run
+        // records (what take() hands over).
         $listed = static function (?ConnectionPool $pool): array {
             ToolChangeCollector::arm();
+            $set = null;
             try {
                 if ($pool instanceof ConnectionPool) {
                     GeneralUtility::addInstance(ConnectionPool::class, $pool);
@@ -491,14 +494,13 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
                 ToolChangeCollector::beforeWrite();
                 $frame = ToolChangeCollector::peek();
                 self::assertIsArray($frame);
+                $truncated = false;
+                (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
             } finally {
-                ToolChangeCollector::take();
+                $set = ToolChangeCollector::take();
             }
 
-            $truncated = false;
-            (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
-
-            return [$truncated, (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->resolve($frame['records'], $frame['scopes'], $frame['watermark'])->omitted];
+            return [$truncated, $set->omitted];
         };
 
         $pool = FailsOneReadConnectionPool::failing('sys_history');

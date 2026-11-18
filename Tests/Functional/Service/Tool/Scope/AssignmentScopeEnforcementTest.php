@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\Scope;
 use Closure;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
+use Netresearch\NrLlm\Domain\Enum\ChangeAction;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -45,6 +46,7 @@ use Netresearch\NrLlm\Service\Tool\Exception\ToolDependencyRequiredException;
 use Netresearch\NrLlm\Service\Tool\Rule\RequireAssignmentScopeRule;
 use Netresearch\NrLlm\Service\Tool\RunTrace;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeChecker;
+use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeEffect;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeHook;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
@@ -2324,6 +2326,39 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame($before, $this->fingerprint(), 'the move draft survives the rollback');
+    }
+
+    /**
+     * A call whose history cannot be read from its start is not cleared: the
+     * check does not know what the history would have named, so the call is
+     * rolled back, a write inside the scope included.
+     */
+    #[Test]
+    public function aCallWhoseHistoryStartCannotBeReadIsNotCleared(): void
+    {
+        $scope = new AssignmentScope([new ScopedPage(self::SCOPED, 2)]);
+
+        // A frame as a call's first write leaves it: the history start taken
+        // (or not) and one write inside the scope.
+        $violations = static function (?ConnectionPool $pool) use ($scope): array {
+            ToolChangeCollector::arm();
+            try {
+                if ($pool instanceof ConnectionPool) {
+                    GeneralUtility::addInstance(ConnectionPool::class, $pool);
+                }
+                ToolChangeCollector::beforeWrite();
+                ToolChangeCollector::record('tt_content', self::IN_SCOPE_ELEMENT, ChangeAction::UPDATED, 0, null);
+
+                return array_map(static fn (array $found): string => $found['refusal']->reason, AssignmentScopeEffect::violations($scope, new AssignmentScopeChecker(), 0));
+            } finally {
+                ToolChangeCollector::take();
+            }
+        };
+
+        $pool = FailsOneReadConnectionPool::failing('sys_history');
+        self::assertSame([ScopeRefusal::UNRESOLVABLE], $violations($pool), 'not judgeable, so rolled back');
+        self::assertSame(1, $pool->failed, 'the read of the history start failed');
+        self::assertSame([], $violations(null), 'positive control: the same write with its history start read is cleared');
     }
 
     /**
