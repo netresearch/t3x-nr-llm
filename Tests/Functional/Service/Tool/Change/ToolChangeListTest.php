@@ -460,6 +460,51 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
         $gone = (new ObservedChangeResolver($this->connectionPool))->resolve($records(ChangeAction::DELETED, 9999), []);
         self::assertSame([], $gone->changes);
         self::assertSame(0, $gone->omitted, 'a row that is confirmed missing is no change and leaves the list complete');
+
+        // In a draft workspace the version of a deleted or moved live row is
+        // looked up after the row (the second read of the table); a lookup
+        // that fails leaves the list incomplete.
+        $inDraft = static fn (ChangeAction $action): array => ['tt_content:' . self::ELEMENT => ['table' => 'tt_content', 'uid' => self::ELEMENT, 'action' => $action, 'workspace' => self::DRAFT]];
+        foreach ([ChangeAction::DELETED, ChangeAction::MOVED] as $action) {
+            $pool = FailsOneReadConnectionPool::failing('tt_content', 2, 2);
+            $set  = (new ObservedChangeResolver($pool))->resolve($inDraft($action), []);
+            self::assertSame(1, $pool->failed, $action->value . ': the version lookup failed');
+            self::assertSame(1, $set->omitted, $action->value . ': a version that cannot be looked up leaves the list incomplete');
+        }
+    }
+
+    /**
+     * The call's history is read from the uid `sys_history` had before its
+     * first write. Where that uid cannot be read, the history cannot be read
+     * either, and the list says it is not complete; a call with the uid read
+     * reads its history as before.
+     */
+    #[Test]
+    public function aHistoryWhoseStartCannotBeReadLeavesTheListIncomplete(): void
+    {
+        $listed = static function (?ConnectionPool $pool): array {
+            ToolChangeCollector::arm();
+            try {
+                if ($pool instanceof ConnectionPool) {
+                    GeneralUtility::addInstance(ConnectionPool::class, $pool);
+                }
+                ToolChangeCollector::beforeWrite();
+                $frame = ToolChangeCollector::peek();
+                self::assertIsArray($frame);
+            } finally {
+                ToolChangeCollector::take();
+            }
+
+            $truncated = false;
+            (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
+
+            return [$truncated, (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->resolve($frame['records'], $frame['scopes'], $frame['watermark'])->omitted];
+        };
+
+        $pool = FailsOneReadConnectionPool::failing('sys_history');
+        self::assertSame([true, 1], $listed($pool), 'the effect check and the list are told the history is incomplete');
+        self::assertSame(1, $pool->failed, 'the read of the start failed');
+        self::assertSame([false, 0], $listed(null), 'a start that was read leaves the list complete');
     }
 
     /**

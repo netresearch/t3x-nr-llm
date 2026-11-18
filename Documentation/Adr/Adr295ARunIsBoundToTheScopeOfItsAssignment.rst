@@ -387,9 +387,13 @@ always fail, and a move core makes live on such a table from a draft workspace
 would always be rolled back. A delete in a draft workspace that leaves no
 version is judged by its live row: core deletes the live row of a table
 without versioning (from a workspace that allows live editing), and it
-discards a move or new draft of a versioned row instead of writing a delete
-version (``DataHandler::deleteAction()`` in TYPO3 13.4.40 and 14.3.12). Both
-were taken as a delete that did not happen and left out.
+discards a move, new or delete draft of a versioned row instead of writing a
+delete version (``DataHandler::deleteAction()`` in TYPO3 13.4.40 and 14.3.12).
+Both were taken as a delete that did not happen and left out. The call's
+history is read from the uid ``sys_history`` had before its first write; a
+read of that uid that failed was taken as a call without history, so the
+history was not read and the check did not say so. It now marks the entries
+as incomplete, as a history read that fails does.
 ``versioningWS_alwaysAllowLiveEdit`` does not change this: core decides a
 delete by ``versioningWS`` alone, also on 13.4, where the flag makes it write
 the live row of a versioned table for an edit.

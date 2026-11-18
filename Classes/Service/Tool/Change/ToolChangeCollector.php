@@ -39,7 +39,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  * from the uid the table had when the first DataHandler run of the call began
  * (the watermark): a range of the primary key, as long as the call's own writes.
  * The first hook of a run takes it. A call whose DataHandler runs never reached
- * that hook has no watermark, and its history is not read.
+ * that hook has no watermark, and its history is not read. A watermark that
+ * cannot be read is {@see self::UNREADABLE}: the history is not read either,
+ * and the call's list is incomplete.
  *
  * What it sees is what goes through a DataHandler. It states that and nothing
  * more: see {@see ChangeCoverage}.
@@ -48,6 +50,9 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 final class ToolChangeCollector
 {
+    /** The watermark of a call whose read of it failed. */
+    public const UNREADABLE = -1;
+
     /** @var list<array{records: array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}>, scopes: array<string, true>, watermark: int|null, marked: bool}> */
     private static array $frames = [];
 
@@ -92,7 +97,8 @@ final class ToolChangeCollector
             $top   = $query->selectLiteral('MAX(uid)')->from('sys_history')->executeQuery()->fetchOne();
             $mark  = is_numeric($top) ? (int) $top : 0;
         } catch (Throwable) {
-            $mark = null;
+            // What could not be read is not "nothing was written".
+            $mark = self::UNREADABLE;
         }
 
         foreach (self::$frames as $index => $frame) {

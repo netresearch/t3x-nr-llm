@@ -65,7 +65,7 @@ final readonly class ObservedChangeResolver
     /**
      * @param array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}> $records the hooks' records by `table:uid`
      * @param list<string>                                                                        $scopes  the correlation scopes of the DataHandler chains that wrote them
-     * @param int|null                                                                            $after   the highest `sys_history` uid before the call; null reads no history
+     * @param int|null                                                                            $after   the highest `sys_history` uid before the call; null reads no history, {@see ToolChangeCollector::UNREADABLE} none and marks the list incomplete
      * @param RecordReference|null                                                                $target  the record the tool named: kept among the entries however many there are
      */
     public function resolve(array $records, array $scopes, ?int $after = null, ?RecordReference $target = null): ObservedChangeSet
@@ -92,7 +92,9 @@ final readonly class ObservedChangeResolver
      */
     public function entries(array $records, array $scopes, ?int $after, bool &$truncated = false): array
     {
-        $confirmed = $after === null ? [] : $this->fromHistory($scopes, $after, $truncated);
+        // A history whose start could not be read cannot be read either.
+        $truncated = $truncated || $after === ToolChangeCollector::UNREADABLE;
+        $confirmed = $after === null || $after === ToolChangeCollector::UNREADABLE ? [] : $this->fromHistory($scopes, $after, $truncated);
         foreach ($confirmed as $key => $entry) {
             $was           = $records[$key]['action'] ?? null;
             $records[$key] = $was instanceof ChangeAction ? [...$entry, 'action' => ToolChangeCollector::stronger($was, $entry['action'])] : $entry;
@@ -284,7 +286,7 @@ final readonly class ObservedChangeResolver
         $liveRow = !is_numeric($row['t3ver_wsid'] ?? null) || (int) $row['t3ver_wsid'] === 0;
         // A delete in a draft workspace names the version it wrote. Without one,
         // core deleted the live row (a table without versioning) or discarded
-        // a draft of it (a move or new placeholder), and the entry names the
+        // a draft of it (a move, new or delete placeholder), and the entry names the
         // live row, so that the effect check judges it.
         if ($entry['action'] === ChangeAction::DELETED && $entry['workspace'] > 0 && $liveRow) {
             $version   = $this->versionIn($entry['table'], $entry['uid'], $entry['workspace'], $failed);
