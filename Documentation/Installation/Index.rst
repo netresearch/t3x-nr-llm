@@ -48,6 +48,8 @@ Ensure your system meets these requirements:
 
 - PHP 8.2 or higher.
 - TYPO3 v13.4 LTS or v14.3 LTS.
+- A database TYPO3 supports: MariaDB or MySQL, PostgreSQL, or SQLite.
+  CI runs the functional tests on MariaDB, PostgreSQL and SQLite.
 - Composer 2.x.
 - :composer:`netresearch/nr-vault` ^1.5.1 (required for
   API key encryption; installed automatically via

@@ -1,0 +1,1 @@
+- PostgreSQL is a supported database beside MariaDB/MySQL and SQLite: the installation requirements say so, and CI runs the functional tests on PostgreSQL 17 ([#1420](https://github.com/netresearch/t3x-nr-llm/issues/1420)).
