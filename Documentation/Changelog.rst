@@ -47,9 +47,11 @@ TYPO3 database schema update after updating.
 - **PostgreSQL:** supported beside MariaDB/MySQL and SQLite; CI runs the
   functional tests on PostgreSQL 17. Six hash columns are now
   ``varchar(64)``.
-- **A2A:** a page metadata write to a page with a translation is stored and
-  reported as written, and the ``writes`` artifact also lists records a
-  failed call wrote. The A2A tokens module offers
+- **A2A:** a page metadata write to a page with a translation, under a scope
+  of the default language only, is stored and reported as written, and the
+  ``writes`` artifact also lists records a failed call wrote. A page with a
+  file in ``media``, ``og_image`` or ``twitter_image`` is still refused under
+  such a scope. The A2A tokens module offers
   :guilabel:`Enable and generate token` for a disabled client.
 - **Breaking for implementers:** ``PrivacyPolicyInterface`` gains
   ``inputDigests(): bool``.

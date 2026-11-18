@@ -2006,14 +2006,14 @@ and update its Composer constraint deliberately. See
 upgrade wizards. Review configuration and integrations before reopening
 editor access.
 
-The current package line is 0.43. For that line, for example:
+The current package line is 0.51. For that line, for example:
 
 .. code-block:: bash
-   :caption: Select the 0.43 release line
+   :caption: Select the 0.51 release line
 
-   composer require netresearch/nr-llm:^0.43 --with-all-dependencies
+   composer require netresearch/nr-llm:^0.51 --with-all-dependencies
 
-This does not select a future 0.44 release. Choose its constraint explicitly
+This does not select a future 0.52 release. Choose its constraint explicitly
 when following that release's migration notes.
 
 .. _breaking-changes:
