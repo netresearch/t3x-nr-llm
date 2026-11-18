@@ -599,26 +599,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $rows,
         );
 
-        $parts = [];
-        if ($lines !== []) {
-            $parts[] = sprintf("Writes executed (%d), each in the workspace named (0 is live):\n%s", count($lines), implode("\n", $lines));
-        }
-
-        if ($beside['lines'] !== []) {
-            $parts[] = sprintf("Further records the run's completed tool calls wrote (%d), each in the workspace named (0 is live), for example a version core gave a translation of a record written in a workspace:\n%s", count($beside['lines']), implode("\n", $beside['lines']));
-        }
-
-        if ($beside['incomplete']) {
-            $parts[] = 'A completed tool call wrote more records than its list keeps; check the run.';
-        }
-
-        if ($failed['lines'] !== []) {
-            $parts[] = sprintf("Records written by tool calls that did not complete (%d), each in the workspace named (0 is live); whether each change is stored has to be checked:\n%s", count($failed['lines']), implode("\n", $failed['lines']));
-        }
-
-        if ($failed['incomplete']) {
-            $parts[] = 'A tool call that did not complete may have written records this list does not name; check the run.';
-        }
+        $parts = [
+            ...$this->block("Writes executed (%d), each in the workspace named (0 is live):\n%s", $lines),
+            ...$this->block("Further records the run's completed tool calls wrote (%d), each in the workspace named (0 is live), for example a version core gave a translation of a record written in a workspace:\n%s", $beside['lines']),
+            ...($beside['incomplete'] ? ['A completed tool call wrote more records than its list keeps; check the run.'] : []),
+            ...$this->block("Records written by tool calls that did not complete (%d), each in the workspace named (0 is live); whether each change is stored has to be checked:\n%s", $failed['lines']),
+            ...($failed['incomplete'] ? ['A tool call that did not complete may have written records this list does not name; check the run.'] : []),
+        ];
 
         $text = $parts === [] ? 'No write was executed.' : implode("\n", $parts);
         if ($steps !== count($lines)) {
@@ -626,6 +613,19 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         }
 
         return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
+    }
+
+    /**
+     * One block of the `writes` artifact: its heading with the count, and its
+     * lines; nothing for no lines.
+     *
+     * @param list<string> $lines
+     *
+     * @return list<string>
+     */
+    private function block(string $format, array $lines): array
+    {
+        return $lines === [] ? [] : [sprintf($format, count($lines), implode("\n", $lines))];
     }
 
     /**
