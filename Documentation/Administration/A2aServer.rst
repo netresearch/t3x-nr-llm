@@ -140,7 +140,11 @@ May write
    core wrote along with the write (the children of a copied record, for
    example), and what a listener of the write, such as AI Label, stored after
    the call, with the records core added to that listener's DataHandler run
-   (a version of a translation, for example). A tool call that ended
+   (a version of a translation, for example). Discarding the page's draft in
+   the Workspaces module leaves such a version of a translation in place; it
+   is discarded on its own row, or with :guilabel:`Discard` in the workspace
+   preview of the page, which discards every other draft on the page too
+   (:ref:`a2a-page-metadata-skill-check`). A tool call that ended
    in an error announces no write, but what it changed before can stand: a
    call the scope of the assignment refused a part of keeps the rest
    (:ref:`ADR-295 <adr-295>`). Such records are listed in a further block,

@@ -181,6 +181,24 @@ TYPO3 handles those files before the scope sees the write, so the write is
 refused unless the request's scope covers the languages of the
 translations, which a request for one language does not.
 
+Discarding the page's draft does not discard such a version of a
+translation: an editor who rejects the change has to discard both. Core
+discards with a page's draft only the drafts whose translation parent is that
+draft, which holds for a page created in the workspace. The version of a
+translation of an existing page points at the live page, so it stays. In the
+:guilabel:`Workspaces` module, :guilabel:`Discard` on a row discards that row's
+record and its inline child records (file references, for example), and a
+discarded selection the records selected, so the translation's row is
+discarded on its own. :guilabel:`Discard` in the workspace preview of the page
+discards every draft on the page at once: the page's, its translations', and
+those of its content elements and other records. Discard the translation's row
+when other drafts on the page are to stay. This is read in the code of TYPO3
+14.3.12 and 13.4.40 (``DataHandler::discardLocalizationOverlayRecords()``,
+``DataHandler::discardRecordRelations()`` and the module's discard actions),
+and core's own test of a discarded page draft
+(``WorkspacesDiscard``, ``modifyPage``) expects the drafts of the page's
+translations to remain.
+
 ..  _a2a-page-metadata-skill-setup:
 
 Setting it up
