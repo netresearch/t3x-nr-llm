@@ -491,6 +491,7 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
                 if ($pool instanceof ConnectionPool) {
                     GeneralUtility::addInstance(ConnectionPool::class, $pool);
                 }
+
                 ToolChangeCollector::beforeWrite();
                 $frame = ToolChangeCollector::peek();
                 self::assertIsArray($frame);

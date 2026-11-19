@@ -2346,6 +2346,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
                 if ($pool instanceof ConnectionPool) {
                     GeneralUtility::addInstance(ConnectionPool::class, $pool);
                 }
+
                 ToolChangeCollector::beforeWrite();
                 ToolChangeCollector::record('tt_content', self::IN_SCOPE_ELEMENT, ChangeAction::UPDATED, 0, null);
 
