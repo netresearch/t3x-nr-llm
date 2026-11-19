@@ -78,7 +78,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 4. Pre-commit hooks via `Build/captainhook.json` (auto-installed by the captainhook composer plugin) run cgl + phpstan + commit-msg checks.
 5. Sign commits with `git commit -S --signoff` (DCO required).
 6. **Pre-push gate: `make gate`** — the six suites CI runs (cgl, phpstan, unit, fuzzy, rector `-n` pinned to PHP 8.2 as in CI, functional `-d sqlite`) plus the CHANGELOG check, as ONE command; invoking the six by hand is how `rector` and `fuzzy` get skipped. `make ci` is **not** this gate (older set: carries `integration`, omits `rector` and `functional`). Environment traps — stale `.Build`, the Rector PHP pin, the `platform_check.php` FATAL — are documented in `Tests/AGENTS.md`. Contract changes (setter clamps, validation ranges) have assertion twins in `Tests/Fuzzy/` — grep there before pushing.
-7. PRs target `main`. CI matrix: PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3` — a local gate run covers ONE of those eight cells, so local green means "no known failure", not "CI will pass". PRs are merged via `--merge` strategy (preserves signatures). Release and dependency automation: `.github/workflows/AGENTS.md`.
+7. PRs target `main`. CI matrix: PHP 8.2–8.6 × TYPO3 `^13.4` / `^14.3` — a local gate run covers ONE of those ten cells, so local green means "no known failure", not "CI will pass". PRs are merged via `--merge` strategy (preserves signatures). Release and dependency automation: `.github/workflows/AGENTS.md`.
 <!-- AGENTS-GENERATED:END development -->
 
 <!-- AGENTS-GENERATED:START code-style -->

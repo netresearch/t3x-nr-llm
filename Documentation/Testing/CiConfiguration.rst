@@ -13,7 +13,7 @@ CI configuration
 
 The actual workflow is `.github/workflows/ci.yml
 <https://github.com/netresearch/t3x-nr-llm/blob/main/.github/workflows/ci.yml>`__,
-which calls the shared Netresearch TYPO3 workflow. PHP 8.2–8.5 and TYPO3
+which calls the shared Netresearch TYPO3 workflow. PHP 8.2–8.6 and TYPO3
 ``^13.4`` / ``^14.3`` are the pull-request matrix. The merge queue uses the
 workflow's compact matrix rather than repeating every PR cell.
 The shared workflow resolves the TYPO3 constraint per cell; a plain

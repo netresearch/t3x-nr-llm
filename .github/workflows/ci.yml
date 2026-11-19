@@ -53,11 +53,11 @@ jobs:
       # still take [0].
       rector-php-version: '8.2'
       compact-jobs: true
-      functional-coverage-php-versions: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["8.2","8.3","8.4","8.5"]' || '["8.4"]' }}
+      functional-coverage-php-versions: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["8.2","8.3","8.4","8.5","8.6"]' || '["8.4"]' }}
       # The CHANGELOG and workflow checks run in the shared workflow's
       # repo-checks job rather than a job of our own — see AGENTS.md.
       run-repo-checks: true
-      php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
+      php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5","8.6"]' }}
       typo3-versions: '["^13.4","^14.3"]'
       # Coverage on every event with the reusable's default driver, Xdebug.
       # Line coverage only: path-coverage stays at its default false, because

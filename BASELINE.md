@@ -109,7 +109,7 @@ that endpoint alone and attested that neither reviews nor checks were required.
 | Static analysis (SAST) | PHPStan **level 10** across the matrix, with 26 suppression entries accounting for 40 findings in `Build/phpstan-baseline.neon`; required PHPStan contexts cover PHP 8.4 with both TYPO3 majors. Opengrep and CodeQL run through the security workflow; SonarCloud reports separately |
 | Test suites | Unit, integration, functional, fuzzy and E2E suites exist under `Tests/`. Selected unit/functional matrix cells, fuzzy and E2E contexts are required; this does not establish a coverage percentage or make every suite/cell a merge gate |
 | Mutation testing | Infection, **monitored not enforced**: `fuzz-mutation` runs fuzzy tests on each configured event, but enables `run-mutation-tests` on the weekly schedule only. Its Infection step is `continue-on-error`; MSI 70 / covered MSI 74 are configured targets |
-| Multi-version CI | PHP 8.2–8.5 × TYPO3 `^13.4` / `^14.3` matrix in `.github/workflows/ci.yml` (merge-queue runs narrow to PHP 8.2 / 8.4) |
+| Multi-version CI | PHP 8.2–8.6 × TYPO3 `^13.4` / `^14.3` matrix in `.github/workflows/ci.yml` (merge-queue runs narrow to PHP 8.2 / 8.4) |
 | Code style | PHP-CS-Fixer with `@PER-CS` ruleset enforced in CI |
 
 ## Project Governance
