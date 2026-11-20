@@ -11,6 +11,22 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-51-1:
+
+Version 0.51.1 (2026-11-18)
+===========================
+
+The A2A ``writes`` artifact also names the records a completed call wrote
+beside its announced write, and says when such a list was cut at its limit.
+
+- **Writes artifact:** a completed call's records beside its announced
+  write are listed in a block of their own: what core wrote along with it,
+  and what a listener of the write stored after the call. With AI Label
+  installed, a page metadata write to a translated page left a workspace
+  version of the translation (on TYPO3 14) that no list named (#1432).
+- **Change list:** a move in a draft workspace is named as the version it
+  wrote, not as a live move.
+
 .. _version-0-51-0:
 
 Version 0.51.0 (2026-11-18)
@@ -2035,14 +2051,14 @@ and update its Composer constraint deliberately. See
 upgrade wizards. Review configuration and integrations before reopening
 editor access.
 
-The current package line is 0.51. For that line, for example:
+The current package line is 0.52. For that line, for example:
 
 .. code-block:: bash
-   :caption: Select the 0.51 release line
+   :caption: Select the 0.52 release line
 
-   composer require netresearch/nr-llm:^0.51 --with-all-dependencies
+   composer require netresearch/nr-llm:^0.52 --with-all-dependencies
 
-This does not select a future 0.52 release. Choose its constraint explicitly
+This does not select a future 0.53 release. Choose its constraint explicitly
 when following that release's migration notes.
 
 .. _breaking-changes:

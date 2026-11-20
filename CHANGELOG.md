@@ -8,6 +8,30 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-20
+
+### Upgrading from 0.51
+
+- A listener of `AfterAiRecordWrittenEvent` now runs before the call's transaction is committed when the run has an assignment scope, and under that scope. Keep effects outside the database (a mail, a webhook, a queue message) out of such a listener, or make them tolerate a write that is rolled back afterwards. A DataHandler write of the listener outside the scope now rolls back the whole call, the call's own write included; a listener that has to write outside the scope wraps exactly that write in `WriteOutsideTheAssignmentScope::run()` with a reason (ADR-295).
+
+### Added
+
+- `WriteOutsideTheAssignmentScope::run()` (`@api`, additive): lets a listener of a scoped call's write events make one write outside the assignment scope, with a logged reason (ADR-295).
+
+### Fixed
+
+- Clarify on the product page how concurrent usage can exceed a budget and where a fallback can send a request.
+
+- Clarify how the site chat uses indexed content as context and how to request the separate AI Search beta.
+
+### Security
+
+- The scope of an assignment no longer clears a call whose delete or undelete it could not read. When the read of the record's row, or of the draft version of a live row, failed and the call's history named nothing, the effect check left the command out and committed the call without judging it. A failed read now makes the call not judgeable, so it is rolled back, and the call's change list counts the record as not listed; a delete of a uid that no row bears is still no change. A failed read of where the call's history starts no longer skips the history unnoticed either. A delete in a draft workspace that leaves no version is now judged by its live row too: core deletes the live row of a table without versioning from a workspace that allows live editing, and discards a move, new or delete draft of a versioned row; both were taken as a delete that did not happen (ADR-295, [#1434](https://github.com/netresearch/t3x-nr-llm/issues/1434)).
+
+- The listeners of a tool call's write events (`AfterAiRecordWrittenEvent`, `AiLabelWriteEvent`) now run under the scope of the run's assignment. They ran after the call was committed and outside the scope, so a listener's DataHandler write outside the scope was only listed in the A2A `writes` artifact. For a call with a scope the events are now dispatched before the commit, with the scope armed: a listener's DataHandler write outside the scope rolls the whole call back (unless a `TCEMAIN.clearCacheCmd` group flush on MySQL or MariaDB committed it early; see the known limits in ADR-295), and the model is told which record a listener wrote and by which rule; the A2A `writes` artifact gains a block naming each write the scope refused or rolled back, with its rule. AI Label's metadata on the draft the call wrote is inside the scope; the entry TYPO3 14 adds for a translation in a language the scope does not admit is left out as for the call's own write when the write synchronises nothing, so the translation no longer gets a version there; any other such entry is refused. An integrator can allow one specific listener write outside the scope with the new `WriteOutsideTheAssignmentScope::run()`, which works only during that dispatch and logs the reason; nothing is allowed by default (ADR-295, [#1438](https://github.com/netresearch/t3x-nr-llm/issues/1438)).
+
+- The scope of an assignment now judges a discard and a publish by what they change, not only by the draft the command names. A discard hard-deletes the draft and leaves nothing to read afterwards, so a discard of a draft whose live row lay outside the scope was committed when the draft itself lay inside it, and the drafts core discards along with a record (its translations, inline children, and the new pages and records below a new page) were never judged. Each discard core carries out, including the drafts it discards along with a record, and each publish is now judged right before core runs it: the live row at its live position and the draft at its position in the workspace both have to lie in the scope, and a row that cannot be read counts as outside it. A violation, a `version` action that neither core nor the workspaces extension knows, or a command whose key a later hook replaced with something other than one uid (on TYPO3 13.4 a stage change reads a list of uids from it), rolls the call back. A publish, judged by the record's destination in the live tree when the draft moved it, and a stage change are now listed in the call's change list as updates when core carried them out (ADR-295, [#1442](https://github.com/netresearch/t3x-nr-llm/issues/1442)).
+
 ## [0.51.1] - 2026-11-18
 
 ### Fixed
@@ -5492,7 +5516,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.0...HEAD
+[0.52.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.1...v0.52.0
 [0.51.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.0...v0.51.1
 [0.51.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.50.0...v0.51.0
 [0.50.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.49.1...v0.50.0

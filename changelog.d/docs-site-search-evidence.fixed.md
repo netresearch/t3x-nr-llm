@@ -1,1 +1,0 @@
-- Clarify how the site chat uses indexed content as context and how to request the separate AI Search beta.
