@@ -2755,6 +2755,68 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A record new in the draft, on a page the draft moved into the scope,
+     * lands where that page is live when it is published: outside the scope.
+     * The call is rolled back.
+     */
+    #[Test]
+    public function aPublishOfANewRecordOnAPageMovedIntoTheScopeIsRolledBack(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::OTHER => ['move' => self::SCOPED]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['tt_content' => ['NEW1' => ['pid' => self::OTHER, 'header' => 'New on the moved page', 'CType' => 'text']]], [], $user);
+        $dataHandler->process_datamap();
+
+        $new    = (int) ($dataHandler->substNEWwithIDs['NEW1'] ?? 0);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($new): void {
+                $this->command(['tt_content' => [$new => ['version' => ['action' => 'publish', 'swapWith' => $new]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_publish tt_content:' . $new . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint());
+    }
+
+    /**
+     * A publish of a page's delete draft deletes the pages below it live. The
+     * page lies in the scope; the page below it lies beyond the scope's
+     * depth, and its delete is found in the history: the call is rolled back.
+     */
+    #[Test]
+    public function aPublishOfAPageDeleteThatTakesAPageBeyondTheScopeAlongIsRolledBack(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::BELOW => ['delete' => 1]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $draft = (int) $this->scalar('SELECT uid FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::BELOW, self::DRAFT]);
+        self::assertGreaterThan(0, $draft, 'positive control: the delete draft exists');
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($draft): void {
+                $this->command(['pages' => [self::BELOW => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the pages stand');
+    }
+
+    /**
      * What the hook noted before a tool threw is judged on that way out of
      * the call too: the discard is rolled back.
      */

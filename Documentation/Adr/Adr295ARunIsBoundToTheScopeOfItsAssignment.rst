@@ -440,8 +440,10 @@ with the rest, and the call is rolled back:
   record on a page the draft had moved into the scope.
 - For each such row of a versioned table, the live row is judged at its live
   position and the draft at its position in the workspace; a draft with no
-  live row (a new record) is judged where the draft lies. A row that cannot
-  be read is outside the scope. A row that does not exist is no change.
+  live row (a new record) is judged where the draft lies, and a publish of it
+  also in the live tree, where it then stands: a draft can have moved its
+  page out of the scope there. A row that cannot be read is outside the
+  scope. A row that does not exist is no change.
 - A page the draft moved takes its subpages along: a publish puts them where
   the draft lies, a discard back where the live page is. Every page below it
   has to lie in the scope at both positions. A publish of a page's delete
@@ -466,7 +468,12 @@ Known limit: ``discard()`` also removes references to the discarded draft from
 other records with queries of its own (``discardCsvReferencesToRecord()``
 updates group fields found through ``sys_refindex``, ``discardMmRelations()``
 deletes MM rows). No hook hears of them and they write no history, so they are
-not judged; they remove a reference to a draft that no longer exists.
+not judged; they remove a reference to a draft that no longer exists. A
+publish likewise re-points the translations of the published record
+(``updateL10nOverlayRecordsOnPublish()``) and its MM rows with queries of its
+own. A discard that names a live row is judged at the call's workspace; a tool
+whose DataHandler runs in another workspace than the call's is refused by the
+built-in write path, not by this check.
 
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:

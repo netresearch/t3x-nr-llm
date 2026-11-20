@@ -215,7 +215,7 @@ final class AssignmentScopeHook
         }
 
         foreach ($uids as $uid) {
-            $this->observeDraftAndLive($scope, $checker, 'effect_publish', $table, $uid, null, $workspace);
+            $this->observeDraftAndLive($scope, $checker, 'effect_publish', $table, $uid, null, $workspace, true);
         }
     }
 
@@ -246,9 +246,14 @@ final class AssignmentScopeHook
      * no live row, a new record, is judged where the draft lies. A row that
      * does not exist is no change; a read that fails is unreadable.
      *
-     * @param array<array-key, mixed>|null $row the stored row when the caller has it
+     * A draft with no live row that is published becomes the live row where
+     * it lies, and is judged there too: in the live tree, which a draft can
+     * have moved its page out of.
+     *
+     * @param array<array-key, mixed>|null $row       the stored row when the caller has it
+     * @param bool                         $published whether a publish makes the draft live
      */
-    private function observeDraftAndLive(AssignmentScope $scope, AssignmentScopeChecker $checker, string $operation, string $table, int $uid, ?array $row, int $workspace): void
+    private function observeDraftAndLive(AssignmentScope $scope, AssignmentScopeChecker $checker, string $operation, string $table, int $uid, ?array $row, int $workspace, bool $published = false): void
     {
         try {
             if ($uid < 1) {
@@ -279,6 +284,8 @@ final class AssignmentScopeHook
             $refusals  = [];
             if ($live !== null) {
                 $refusals[] = $checker->recordRefusal($scope, $operation, $table, $live, 0);
+            } elseif ($published) {
+                $refusals[] = $checker->recordRefusal($scope, $operation, $table, $uid, 0);
             }
 
             if ($draftedIn > 0) {

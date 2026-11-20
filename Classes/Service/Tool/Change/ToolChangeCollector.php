@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Throwable;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -222,6 +223,46 @@ final class ToolChangeCollector
     {
         self::$frames = [];
         self::$held   = null;
+    }
+
+    /**
+     * Whether a publish took place (#1442): core deletes the draft it
+     * published into the live row, and a new record's draft becomes the live
+     * row. A publish core refused (no access, the wrong stage, a draft of
+     * another record) leaves both as they were. A read that fails counts as
+     * published, so the record is listed and judged.
+     */
+    public static function wasPublished(string $table, int $id, int $swapWith): bool
+    {
+        // @phpstan-ignore-next-line TCA access returns mixed at each nesting level
+        if (!(bool) ($GLOBALS['TCA'][$table]['ctrl']['versioningWS'] ?? false)) {
+            return false;
+        }
+
+        // The `t3ver_wsid` of each row, deleted ones included; no entry for
+        // a uid no row bears.
+        $stored = [];
+
+        try {
+            $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+            $query->getRestrictions()->removeAll();
+            $rows = $query
+                ->select('uid', 't3ver_wsid')
+                ->from($table)
+                ->where($query->expr()->in('uid', $query->createNamedParameter([$id, $swapWith], Connection::PARAM_INT_ARRAY)))
+                ->executeQuery()
+                ->fetchAllAssociative();
+        } catch (Throwable) {
+            return true;
+        }
+
+        foreach ($rows as $row) {
+            if (is_numeric($row['uid'] ?? null) && is_numeric($row['t3ver_wsid'] ?? null)) {
+                $stored[(int) $row['uid']] = (int) $row['t3ver_wsid'];
+            }
+        }
+
+        return ($stored[$id] ?? null) === 0 && ($swapWith < 1 || $swapWith === $id || !isset($stored[$swapWith]));
     }
 
     /**
