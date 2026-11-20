@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Upgrading from 0.51
 
-- A listener of `AfterAiRecordWrittenEvent` now runs before the call's transaction is committed when the run has an assignment scope, and under that scope. Keep effects outside the database (a mail, a webhook, a queue message) out of such a listener, or make them tolerate a write that is rolled back afterwards. A DataHandler write of the listener outside the scope now rolls back the whole call, the call's own write included; a listener that has to write outside the scope wraps exactly that write in `WriteOutsideTheAssignmentScope::run()` with a reason (ADR-295).
+- A listener of `AfterAiRecordWrittenEvent` now runs before the call's transaction is committed when the run has an assignment scope, and under that scope. Keep effects outside the database (a mail, a webhook, a queue message) out of such a listener, or make them tolerate a write that is rolled back afterwards. A DataHandler write of the listener outside the scope now rolls back the whole call, the call's own write included, unless a `TCEMAIN.clearCacheCmd` group flush on MySQL or MariaDB committed it early (see the known limits in ADR-295); a listener that has to write outside the scope wraps exactly that write in `WriteOutsideTheAssignmentScope::run()` with a reason (ADR-295).
 
 ### Added
 

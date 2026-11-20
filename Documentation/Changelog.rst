@@ -39,7 +39,9 @@ call whose delete it could not read.
 - **Listeners under the scope:** for a run with an assignment scope,
   ``AfterAiRecordWrittenEvent`` and ``AiLabelWriteEvent`` are dispatched
   before the commit with the scope armed; a listener's DataHandler write
-  outside the scope rolls the whole call back (#1438). AI Label's metadata
+  outside the scope rolls the whole call back, unless a
+  ``TCEMAIN.clearCacheCmd`` group flush on MySQL or MariaDB committed it
+  early (#1438). AI Label's metadata
   on the call's draft stays inside the scope, and a translation no longer
   gets a version from it when the write synchronises nothing.
 - **Discard and publish:** each discard and publish core carries out,

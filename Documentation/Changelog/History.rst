@@ -25,7 +25,8 @@ beside its announced write, and says when such a list was cut at its limit.
   installed, a page metadata write to a translated page left a workspace
   version of the translation (on TYPO3 14) that no list named (#1432).
 - **Change list:** a move in a draft workspace is named as the version it
-  wrote, not as a live move.
+  wrote, not as a live move. Where core wrote no version (a table without
+  versioning, a workspace that allows live editing), it names the live row.
 
 .. _version-0-51-0:
 
