@@ -55,6 +55,9 @@ cannot express a gap.
    * - 8.5
      - supported
      - 2029-12-31
+   * - 8.6
+     - supported
+     - 2030-12-31
 
 When a line ends
 ================
@@ -100,7 +103,7 @@ misleading a reader.
 :ext_emconf typo3: ``13.4.0-14.99.99``
 :ext_emconf php: ``8.2.0-8.99.99``
 :ci typo3-versions: ``^13.4``, ``^14.3``
-:ci php-versions: ``8.2``, ``8.3``, ``8.4``, ``8.5``
+:ci php-versions: ``8.2``, ``8.3``, ``8.4``, ``8.5``, ``8.6``
 
 .. support-matrix-end
 
