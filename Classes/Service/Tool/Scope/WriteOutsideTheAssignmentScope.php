@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Scope;
 
 use Closure;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChange;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Exception\InvalidArgumentException;
 use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
@@ -82,7 +83,7 @@ final class WriteOutsideTheAssignmentScope
             'A listener wrote outside the assignment scope of an AI run, allowed by the installation: {reason}',
             [
                 'reason'  => $reason,
-                'records' => array_map(static fn ($change): string => (string) $change->record, $written->changes),
+                'records' => array_map(static fn (ObservedChange $change): string => (string) $change->record, $written->changes),
             ],
         );
     }

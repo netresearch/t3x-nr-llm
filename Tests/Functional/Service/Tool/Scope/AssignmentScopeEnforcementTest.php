@@ -3636,10 +3636,10 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             $registry,
             $policy,
             $this->loggerOverride ?? new NullLogger(),
+            eventDispatcher: $this->eventDispatcherOverride,
             previewTranslator: new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
             invocationPolicy: new ToolInvocationPolicy([new RequireAssignmentScopeRule($registry, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]),
             writeEnvironment: $this->writeEnvironmentOverride,
-            eventDispatcher: $this->eventDispatcherOverride,
             scopeChecker: $this->checkerOverride,
         );
     }
