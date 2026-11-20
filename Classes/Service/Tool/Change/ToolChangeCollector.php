@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Throwable;
+use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Log\LogManager;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -55,6 +56,9 @@ final class ToolChangeCollector
 
     /** @var list<array{records: array<string, array{table: string, uid: int, action: ChangeAction, workspace: int}>, scopes: array<string, true>, watermark: int|null, marked: bool}> */
     private static array $frames = [];
+
+    /** @var array<string, array<int, array{workspace: int, stage: int}>|null> the rows a publish names, before it ran, by `table:uid` */
+    private static array $beforePublish = [];
 
     /** The set of the call that just ended, until the run trace records it. */
     private static ?ObservedChangeSet $held = null;
@@ -220,8 +224,117 @@ final class ToolChangeCollector
      */
     public static function reset(): void
     {
-        self::$frames = [];
-        self::$held   = null;
+        self::$frames        = [];
+        self::$held          = null;
+        self::$beforePublish = [];
+    }
+
+    /**
+     * The draft a publish swaps with, read as the workspaces extension reads
+     * it (`(int) $value['swapWith']`), so `'12abc'` is draft 12; 0 for none,
+     * null for a value that is no integer to it at all.
+     */
+    public static function swapWithOf(mixed $value): ?int
+    {
+        $swapWith = is_array($value) ? ($value['swapWith'] ?? null) : null;
+        if (is_array($swapWith)) {
+            return $swapWith === [] ? 0 : 1;
+        }
+
+        return $swapWith === null || is_scalar($swapWith) ? (int) $swapWith : null;
+    }
+
+    /**
+     * Note the rows a publish names, before core carries it out (#1442), for
+     * {@see self::wasPublished()}.
+     */
+    public static function beforePublish(string $table, int $id, int $swapWith): void
+    {
+        if (self::isArmed()) {
+            self::$beforePublish[$table . ':' . $id] = self::rowStates($table, [$id, $swapWith]);
+        }
+    }
+
+    /**
+     * Whether a publish took place: core deletes the draft it published into
+     * the live row (`swapWith`), or a new record's draft becomes the live row.
+     * A publish core refused (no access, the wrong stage, no draft to swap
+     * with) leaves both as they were. A read that fails counts as published,
+     * so the record is listed and judged.
+     */
+    public static function wasPublished(string $table, int $id, int $swapWith): bool
+    {
+        $before = self::$beforePublish[$table . ':' . $id] ?? null;
+        unset(self::$beforePublish[$table . ':' . $id]);
+        $after = self::rowStates($table, [$id, $swapWith]);
+        if ($before === null || $after === null) {
+            return true;
+        }
+
+        if (($after[$id]['workspace'] ?? null) !== 0) {
+            return false;
+        }
+
+        $swapped  = $swapWith > 0 && $swapWith !== $id && isset($before[$swapWith]) && !isset($after[$swapWith]);
+        $madeLive = ($before[$id]['workspace'] ?? 0) > 0;
+
+        return $swapped || $madeLive;
+    }
+
+    /**
+     * Whether a stage change took: the draft carries the stage asked for. A
+     * read that fails counts as taken, so the record is listed and judged.
+     */
+    public static function stageTook(string $table, int $id, mixed $stage): bool
+    {
+        $after = self::rowStates($table, [$id]);
+        if ($after === null) {
+            return true;
+        }
+
+        return isset($after[$id]) && $after[$id]['workspace'] > 0 && is_numeric($stage) && $after[$id]['stage'] === (int) $stage;
+    }
+
+    /**
+     * The workspace and stage of each row of a versioned table, deleted ones
+     * included, by uid; no entry for a uid no row bears. An empty list for a
+     * table without versioning, null when the read fails.
+     *
+     * @param list<int> $uids
+     *
+     * @return array<int, array{workspace: int, stage: int}>|null
+     */
+    public static function rowStates(string $table, array $uids): ?array
+    {
+        // @phpstan-ignore-next-line TCA access returns mixed at each nesting level
+        if (!(bool) ($GLOBALS['TCA'][$table]['ctrl']['versioningWS'] ?? false)) {
+            return [];
+        }
+
+        try {
+            $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+            $query->getRestrictions()->removeAll();
+            $rows = $query
+                ->select('uid', 't3ver_wsid', 't3ver_stage')
+                ->from($table)
+                ->where($query->expr()->in('uid', $query->createNamedParameter(array_values(array_filter($uids, static fn (int $uid): bool => $uid > 0)) ?: [0], Connection::PARAM_INT_ARRAY)))
+                ->executeQuery()
+                ->fetchAllAssociative();
+        } catch (Throwable) {
+            return null;
+        }
+
+        $states = [];
+        foreach ($rows as $row) {
+            if (is_numeric($row['uid'] ?? null)) {
+                $states[(int) $row['uid']] = [
+                    'workspace' => is_numeric($row['t3ver_wsid'] ?? null) ? (int) $row['t3ver_wsid'] : 0,
+                    'stage'     => is_numeric($row['t3ver_stage'] ?? null) ? (int) $row['t3ver_stage'] : 0,
+                ];
+            }
+        }
+
+        return $states;
     }
 
     /**

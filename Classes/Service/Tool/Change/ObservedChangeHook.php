@@ -36,11 +36,17 @@ final class ObservedChangeHook
     }
 
     /**
-     * Before a command is carried out: the same point for the command map.
+     * Before a command is carried out: the same point for the command map, and
+     * for a publish the state of the rows it names (#1442).
      */
-    public function processCmdmap_preProcess(): void
+    public function processCmdmap_preProcess(mixed $command = null, mixed $table = null, mixed $id = null, mixed $value = null): void
     {
         ToolChangeCollector::beforeWrite();
+
+        $action = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
+        if (($action === 'swap' || $action === 'publish') && is_string($table) && is_numeric($id)) {
+            ToolChangeCollector::beforePublish($table, (int) $id, ToolChangeCollector::swapWithOf($value) ?? 0);
+        }
     }
 
     /**
@@ -71,7 +77,7 @@ final class ObservedChangeHook
     /**
      * @param int|string $id
      */
-    public function processCmdmap_postProcess(string $command, string $table, $id, mixed $value, DataHandler $dataHandler, mixed $pasteUpdate = null, mixed $pasteDatamap = null): void
+    public function processCmdmap_postProcess(string $command, string $table, $id, mixed $value, DataHandler $dataHandler): void
     {
         if (!ToolChangeCollector::isArmed() || !is_numeric($id)) {
             return;
@@ -94,11 +100,26 @@ final class ObservedChangeHook
             return;
         }
 
+        // A publish writes the live row the command names, or makes a new
+        // record's draft its live row, and a stage change writes the draft
+        // (#1442). A discard is a hard delete the history names. A new version
+        // is named by the history and by the datamap entry that asked for it:
+        // core versions a live row through this command for every first edit
+        // in a draft, which names the live row, not the version.
+        $version = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
+        if ($version === 'swap' || $version === 'publish') {
+            if (ToolChangeCollector::wasPublished($table, (int) $id, ToolChangeCollector::swapWithOf($value) ?? 0)) {
+                ToolChangeCollector::record($table, (int) $id, ChangeAction::UPDATED, 0, $correlation);
+            }
+
+            return;
+        }
+
         $action = match ($command) {
             'move'     => ChangeAction::MOVED,
             'delete'   => ChangeAction::DELETED,
             'undelete' => ChangeAction::RESTORED,
-            default    => null,
+            default    => $version === 'setStage' && ToolChangeCollector::stageTook($table, (int) $id, $value['stageId'] ?? null) ? ChangeAction::UPDATED : null,
         };
         if ($action instanceof ChangeAction) {
             ToolChangeCollector::record($table, (int) $id, $action, $workspace, $correlation);

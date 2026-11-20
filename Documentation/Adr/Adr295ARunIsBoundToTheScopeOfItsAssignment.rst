@@ -398,6 +398,93 @@ as incomplete, as a history read that fails does.
 delete by ``versioningWS`` alone, also on 13.4, where the flag makes it write
 the live row of a versioned table for an edit.
 
+**A discard and a publish are judged before core carries them out** (amending
+this decision, 2026-11-20,
+`#1442 <https://github.com/netresearch/t3x-nr-llm/issues/1442>`__). Both
+change what stands at the live row: a discard puts the record back at its live
+position, and a publish puts the draft there. Both layers before the effect
+check read the draft the command names, at the draft's position, and the
+effect check found nothing to read afterwards: a discard hard-deletes the
+draft, and its history row names a uid that no row bears any more, which the
+check clears like any hard delete. A draft that moved a record from outside
+the scope onto a page inside it could therefore be discarded or published,
+and the call committed. The drafts core discards along with a record (its
+translations, its inline children, the new pages and records below a new
+page) were never judged at all.
+
+The DataHandler hook now judges them while the rows can still be read, and
+notes what lies outside the scope on the guard; the effect check reports it
+with the rest, and the call is rolled back:
+
+- Every discard core carries out, in ``processCmdmap_discardAction``, which
+  core calls at the start of ``DataHandler::discard()`` for the ``discard``
+  command (TYPO3 14 only; 13.4 has no such command), ``version`` with
+  ``clearWSID`` or ``flush``, a delete that discards a draft, and every
+  record discarded along with it (TYPO3 14.3.11 and 13.4.40). Core calls the
+  hook before its own access checks, so a discard core then does not make is
+  judged too.
+- Every publish, in ``processCmdmap_preProcess``, right before it runs, the
+  ones the workspaces extension adds for a publish included: ``version`` with
+  ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``,
+  read as the workspaces extension reads it: ``'12abc'`` is draft 12).
+  A ``version`` action neither core nor the workspaces extension knows is
+  judged as unreadable, and so is any command whose key is not one integer:
+  ``DataHandler::start()`` and the workspaces extension's own
+  ``processCmdmap_beforeStart`` refuse such a key, but a hook registered
+  after them can replace the public command map, and TYPO3 13.4 hands the key
+  to a ``setStage``, which reads a list of uids from it (14.3 casts it to its
+  first uid). A ``new`` version and a ``setStage`` write the draft
+  only, so they stay judged at the draft's position by the command check of
+  the hook, and a ``new`` version that a later hook puts into the map is
+  judged there before it runs; core makes a ``new`` version for every first
+  edit in a draft, and judging it at the live row rolled back the edit of a
+  record on a page the draft had moved into the scope.
+- For each such row of a versioned table, the live row is judged at its live
+  position and the draft at its position in the workspace; a draft with no
+  live row (a new record) is judged where the draft lies, and a publish of it
+  also in the live tree, where it then stands: a draft can have moved its
+  page out of the scope there. A row that cannot be read is outside the
+  scope. A row that does not exist is no change.
+- A page the draft moved takes its subpages along: a publish puts them where
+  the draft lies, a discard back where the live page is. Every page below it
+  has to lie in the scope at both positions. A publish of a page's delete
+  draft deletes the pages below it live; those deletes are written to the
+  history and judged by the effect check like any delete.
+- Core discards the drafts of a record in every workspace when the record is
+  deleted live, and each draft core hands over is judged in its own
+  workspace, so a live delete is rolled back when another workspace's draft
+  of the record lies outside the scope. A child core discards along with
+  such a draft by its live uid is judged at the call's workspace only.
+- A publish of a draft that moved a record puts the record on the draft's
+  page in the live tree, where a draft can have moved that page out of the
+  scope: the destination is judged there as for a ``move`` command, also
+  under a scope that names the record. A discard of such a draft is judged
+  by the record, which is in scope wherever it lies.
+- The built-in ``publish_record`` tool clears the hidden flag; it is a
+  datamap update and judged as one, not as a workspace publish.
+- What a call made inside another call noted is reported to the outer call,
+  as its refusals are, and rolls the outer call back too, even when the inner
+  call's own rollback already took the write back. This errs on the side of
+  rolling back.
+
+A publish that took place (its draft is gone, or a new record's draft is now
+the live row, read before and after the command) and a stage change that took
+(the draft carries the stage asked for) now count as updates of the record the
+command names in the call's change list, so the effect check also judges the published
+row where it lies afterwards. The effect check is asked before the guard of the
+call is taken, because it reads what the guard noted.
+
+Known limit: ``discard()`` also removes references to the discarded draft from
+other records with queries of its own (``discardCsvReferencesToRecord()``
+updates group fields found through ``sys_refindex``, ``discardMmRelations()``
+deletes MM rows). No hook hears of them and they write no history, so they are
+not judged; they remove a reference to a draft that no longer exists. A
+publish likewise re-points the translations of the published record
+(``updateL10nOverlayRecordsOnPublish()``) and its MM rows with queries of its
+own. A discard that names a live row is judged at the call's workspace; a tool
+whose DataHandler runs in another workspace than the call's is refused by the
+built-in write path, not by this check.
+
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:
 
@@ -506,7 +593,10 @@ one as for every rule.
      - record, subtree of a page, translations
    * - ``undelete``, ``discard``, ``version``
      - ``publish`` claims the record
-     - record (``discard`` also translations); cascades are an open limit
+     - record (``discard`` also translations); the effect check judges every
+       discard core makes, the drafts it discards along with a record
+       included, and every publish before it runs, at the live row and at the
+       draft
    * - New row (datamap)
      - destination page, anchor, language
      - ``pid`` resolved, language, table; a translation or a file reference is
@@ -597,8 +687,9 @@ Consequences
 - ◑ Core's cascades are judged on the record named, not on what core takes
   along: the children of an inline relation that move, are deleted or are
   restored with their parent (checked only where a child's ``pid`` differs from
-  its parent's, which no built-in tool produces), what ``discard`` removes along
-  with a record, and the translations of a record in a workspace delete. A
+  its parent's, which no built-in tool produces), and the translations of a
+  record in a workspace delete. What a discard removes along with a record is
+  judged by the effect check. A
   delete or move that takes translations along is refused when the scope lists
   languages and a translation lies in another one.
 - ◑ The ``pid`` and language of a new row are judged as the DataHandler is

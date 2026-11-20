@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeEffect;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeHook;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
+use Netresearch\NrLlm\Service\Tool\Scope\DatabaseRecordTopology;
 use Netresearch\NrLlm\Service\Tool\Scope\RecordFacts;
 use Netresearch\NrLlm\Service\Tool\Scope\RecordTopologyInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
@@ -67,6 +68,7 @@ use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Fixtures\Database\FailsOneReadConnectionPool;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ReplacesTheCommandMapHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingLogger;
@@ -89,6 +91,7 @@ use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Configuration\SiteWriter;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -202,6 +205,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $this->unregisterHook('processDatamapClass', RunsANestedToolDataHandlerHook::class);
         RunsANestedToolDataHandlerHook::reset();
+        $this->unregisterHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+        ReplacesTheCommandMapHook::$cmdmap = null;
         ToolChangeCollector::reset();
         AssignmentScopeGuard::reset();
         unset($GLOBALS['LANG']);
@@ -2369,6 +2374,663 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     private function forgetTheHistory(): void
     {
         $this->connectionPool->getConnectionForTable('sys_history')->executeStatement('DELETE FROM sys_history');
+    }
+
+    // --- discard, version and publish (#1442) --------------------------------
+
+    /**
+     * @return iterable<string, array{array<string, mixed>, bool}>
+     */
+    public static function discardsOfAMovedDraft(): iterable
+    {
+        // the command, and whether it names the draft (true) or the live row
+        yield 'discard command' => [['discard' => 1], false];
+        yield 'version clearWSID' => [['version' => ['action' => 'clearWSID']], false];
+        yield 'version flush' => [['version' => ['action' => 'flush']], false];
+        yield 'delete of the draft' => [['delete' => 1], true];
+    }
+
+    /**
+     * The case of the issue: a draft that moved a record outside the scope onto
+     * a page inside it. Both layers before the effect check read the draft's
+     * position and let the discard through; the discard puts the record back at
+     * its live row, outside the scope, and leaves nothing behind to read. The
+     * call is rolled back, and the draft survives.
+     *
+     * @param array<string, mixed> $command
+     */
+    #[Test]
+    #[DataProvider('discardsOfAMovedDraft')]
+    public function aDiscardOfADraftWhoseLiveRowIsOutsideTheScopeIsRolledBack(array $command, bool $namesTheDraft): void
+    {
+        $this->skipTheDiscardCommandBeforeTypo3Fourteen($command);
+        $user  = $this->userInTheDraft();
+        $draft = $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::SCOPED, $user);
+        self::assertSame(self::SCOPED, $this->pidOf('tt_content', $draft), 'positive control: the draft lies inside the scope');
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($command, $namesTheDraft, $draft): void {
+                $this->command(['tt_content' => [$namesTheDraft ? $draft : self::OUTSIDE_ELEMENT => $command]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_discard tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($outcome['trace']), 'judged by its live row');
+        self::assertSame([], array_values(array_filter($this->refusals($outcome['trace']), static fn (string $line): bool => !str_starts_with($line, 'effect_'))), 'the layers before the effect check let the discard through');
+        self::assertSame($before, $this->fingerprint(), 'the draft survives the rollback');
+        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT));
+    }
+
+    /**
+     * The control: the same discards of a draft whose live row lies inside the
+     * scope are kept.
+     *
+     * @param array<string, mixed> $command
+     */
+    #[Test]
+    #[DataProvider('discardsOfAMovedDraft')]
+    public function aDiscardOfADraftWhoseLiveRowIsInsideTheScopeIsKept(array $command, bool $namesTheDraft): void
+    {
+        $this->skipTheDiscardCommandBeforeTypo3Fourteen($command);
+        $user  = $this->userInTheDraft();
+        $draft = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::BELOW, $user);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($command, $namesTheDraft, $draft): void {
+                $this->command(['tt_content' => [$namesTheDraft ? $draft : self::IN_SCOPE_ELEMENT => $command]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(0, $this->versionsOf(self::IN_SCOPE_ELEMENT), 'the draft is discarded');
+    }
+
+    /**
+     * A discard of a new page in a draft takes the new pages below it along,
+     * which no command names and which are gone afterwards: the page two
+     * levels below the scoped one lies beyond a scope of depth 1. The discard
+     * is judged where core carries it out, before the rows are gone.
+     */
+    #[Test]
+    public function aDiscardThatTakesANewSubpageBeyondTheScopeAlongIsRolledBack(): void
+    {
+        $user               = $this->userInTheDraft();
+        [$parent, $subpage] = $this->newPageWithASubpageAsADraft($user);
+        $before             = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($parent): void {
+                $this->command(['pages' => [$parent => ['version' => ['action' => 'clearWSID']]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_discard pages:' . $subpage . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint(), 'both drafts survive the rollback');
+
+        // The control: a scope that reaches the subpage keeps the discard.
+        $kept = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($parent): void {
+                $this->command(['pages' => [$parent => ['version' => ['action' => 'clearWSID']]]], $context);
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 2)]),
+            user: $user,
+        );
+
+        self::assertSame('ok', $kept['toolResult']);
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE uid IN (?, ?)', [$parent, $subpage]), 'both drafts are discarded');
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function publishActions(): iterable
+    {
+        yield 'publish' => ['publish'];
+        yield 'swap' => ['swap'];
+    }
+
+    /**
+     * A publish puts the draft where the live row is. A draft that moved a
+     * record from outside the scope onto a page inside it takes the record away
+     * from its live position outside the scope, which no layer before the
+     * effect check reads. The call is rolled back; the control, a draft moved
+     * inside the scope, is published.
+     */
+    #[Test]
+    #[DataProvider('publishActions')]
+    public function aPublishOfADraftWhoseLiveRowIsOutsideTheScopeIsRolledBack(string $action): void
+    {
+        $user   = $this->userInTheDraft();
+        $draft  = $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::SCOPED, $user);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($draft, $action): void {
+                $this->command(['tt_content' => [self::OUTSIDE_ELEMENT => ['version' => ['action' => $action, 'swapWith' => $draft]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_publish tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint(), 'the record stays where it is live, and the draft survives');
+
+        $inside = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::BELOW, $user);
+        $kept   = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($inside, $action): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => $action, 'swapWith' => $inside]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $kept['toolResult']);
+        self::assertSame([], $this->refusals($kept['trace']));
+        self::assertSame(self::BELOW, $this->pidOf('tt_content', self::IN_SCOPE_ELEMENT), 'the move is published');
+        self::assertContains('tt_content:' . self::IN_SCOPE_ELEMENT . ' updated', $this->listedChanges($kept['trace']), 'the publish is listed as an update of the live row');
+    }
+
+    /**
+     * A stage change writes the draft. With the DataHandler layer taken away,
+     * one of a draft outside the scope is found by the effect check, through
+     * the record the change list keeps of the command, and rolled back.
+     */
+    #[Test]
+    public function aStageChangeOfADraftOutsideTheScopeIsRolledBackByTheEffectCheck(): void
+    {
+        $user  = $this->userInTheDraft();
+        $draft = $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::OTHER, $user);
+
+        $this->assertTheEffectCheckRollsBack(
+            function (ToolExecutionContext $context) use ($draft): void {
+                $this->command(['tt_content' => [$draft => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context);
+            },
+            true,
+        );
+    }
+
+    /**
+     * A `version` action neither core nor the workspaces extension knows is
+     * handled, if at all, by code nobody judged: the call is rolled back.
+     */
+    #[Test]
+    public function aVersionActionThatIsNotKnownIsRolledBack(): void
+    {
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'promote']]]], $context);
+            },
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_version tt_content:' . self::IN_SCOPE_ELEMENT . ' unresolvable', $this->refusals($outcome['trace']));
+        self::assertSame('Original ' . self::IN_SCOPE_ELEMENT, $this->header(self::IN_SCOPE_ELEMENT));
+    }
+
+    /**
+     * Core makes a version with a `version` command of its own for the first
+     * edit of a record in a draft. A record on a page that the draft moved
+     * into the scope lies in the scope there, and its first edit is kept,
+     * although its live row lies outside: a new version writes the draft only.
+     */
+    #[Test]
+    public function theFirstEditOfARecordOnAPageMovedIntoTheScopeIsKept(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::OTHER => ['move' => self::SCOPED]]], $user);
+        $dataHandler->process_cmdmap();
+        self::assertSame(0, $this->versionsOf(self::OUTSIDE_ELEMENT), 'positive control: the element has no draft yet');
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::OUTSIDE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Edited in the draft', $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT), 'the edit made a draft of the element');
+    }
+
+    /**
+     * A publish core refuses, here of a draft that belongs to another record,
+     * changes nothing, and is not listed as an update.
+     */
+    #[Test]
+    public function aPublishCoreRefusesIsNotListed(): void
+    {
+        $user  = $this->userInTheDraft();
+        $other = $this->moveAsADraft(self::BELOW_ELEMENT, self::SCOPED, $user);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($other): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $other]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame(1, $this->versionsOf(self::BELOW_ELEMENT), 'positive control: the draft was not published');
+        self::assertSame([], $this->listedChanges($outcome['trace']), 'nothing is listed');
+    }
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function waysToAKeyThatIsAList(): iterable
+    {
+        yield 'map written after start()' => [false];
+        yield 'map replaced by a later hook' => [true];
+    }
+
+    /**
+     * `DataHandler::start()` takes integer keys only, and the workspaces
+     * extension's `processCmdmap_beforeStart` fails on any other, also when
+     * code writes the public map after `start()`; but a hook
+     * registered after it can replace the public command map. TYPO3 13.4 hands
+     * a key that is a list of uids on as it is, and a stage change reads every
+     * uid from it, so the stage of a draft outside the scope changed beside one
+     * inside. TYPO3 14.3 reads the first uid only.
+     */
+    #[Test]
+    #[DataProvider('waysToAKeyThatIsAList')]
+    public function aCommandForAListOfUidsChangesNothingOutsideTheScope(bool $byALaterHook): void
+    {
+        $user    = $this->userInTheDraft();
+        $inside  = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::BELOW, $user);
+        $outside = $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::OTHER, $user);
+        $cmdmap  = ['tt_content' => [$inside . ',' . $outside => ['version' => ['action' => 'setStage', 'stageId' => 1]]]];
+        if ($byALaterHook) {
+            $this->registerHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+        }
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($inside, $cmdmap, $byALaterHook): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start([], ['tt_content' => [$inside => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context->actingBackendUser());
+                if ($byALaterHook) {
+                    ReplacesTheCommandMapHook::$cmdmap = $cmdmap;
+                } else {
+                    // The map is public: written after `start()` checked it.
+                    $dataHandler->cmdmap = $cmdmap;
+                }
+
+                $dataHandler->process_cmdmap();
+            },
+            user: $user,
+        );
+
+        self::assertSame(0, (int) $this->scalar('SELECT t3ver_stage FROM tt_content WHERE uid = ?', [$outside]), 'the stage outside the scope did not change');
+        // A key written after `start()` fails in the workspaces extension's
+        // own `processCmdmap_beforeStart` (13.4.40 and 14.3.11), so the call
+        // fails before core runs a command; a later hook's key reaches core.
+        if ($byALaterHook && (new Typo3Version())->getMajorVersion() < 14) {
+            self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+            self::assertContains('effect_command tt_content (on page 0) unresolvable', $this->refusals($outcome['trace']));
+        }
+    }
+
+    /**
+     * A publish of a page the draft moved deeper takes its subpages along. The
+     * page lies in the scope where it is live and where the draft put it, but
+     * its subpage lies beyond the scope's depth there: the call is rolled
+     * back. The control: a scope deep enough keeps it.
+     */
+    #[Test]
+    public function aPublishOfAPageMoveThatTakesASubpageBeyondTheScopeIsRolledBack(): void
+    {
+        $pages = $this->connectionPool->getConnectionForTable('pages');
+        foreach ([[70, self::SCOPED], [71, 70]] as [$uid, $pid]) {
+            $pages->insert('pages', ['uid' => $uid, 'pid' => $pid, 'title' => 'Page ' . $uid, 'doktype' => 1, 'slug' => '/' . $uid, 'sorting' => 256, 'perms_userid' => 1, 'perms_user' => Permission::ALL, 'perms_everybody' => Permission::ALL]);
+        }
+
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [70 => ['move' => self::BELOW]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $draft = (int) $this->scalar('SELECT uid FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [70, self::DRAFT]);
+        self::assertGreaterThan(0, $draft, 'positive control: the move draft exists');
+        $publish = function (ToolExecutionContext $context) use ($draft): void {
+            $this->command(['pages' => [70 => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+        };
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(static fn (): ScopedWrite => ScopedWrite::nothing(), $publish, scope: new AssignmentScope([new ScopedPage(self::SCOPED, 2)]), user: $user);
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_publish pages:71 subtree_outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint());
+
+        $kept = $this->call(static fn (): ScopedWrite => ScopedWrite::nothing(), $publish, scope: new AssignmentScope([new ScopedPage(self::SCOPED, 3)]), user: $user);
+
+        self::assertSame('ok', $kept['toolResult']);
+        self::assertSame(self::BELOW, $this->pidOf('pages', 70), 'the move is published');
+    }
+
+    /**
+     * A publish of a record new in the draft makes the draft its live row: it
+     * is listed as an update and kept when it lies in the scope.
+     */
+    #[Test]
+    public function aPublishOfANewRecordInsideTheScopeIsKeptAndListed(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['tt_content' => ['NEW1' => ['pid' => self::SCOPED, 'header' => 'New in the draft', 'CType' => 'text']]], [], $user);
+        $dataHandler->process_datamap();
+
+        $new = (int) ($dataHandler->substNEWwithIDs['NEW1'] ?? 0);
+        self::assertSame(self::DRAFT, (int) $this->scalar('SELECT t3ver_wsid FROM tt_content WHERE uid = ?', [$new]), 'positive control: a draft');
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($new): void {
+                $this->command(['tt_content' => [$new => ['version' => ['action' => 'publish', 'swapWith' => $new]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame(0, (int) $this->scalar('SELECT t3ver_wsid FROM tt_content WHERE uid = ?', [$new]), 'published');
+        self::assertContains('tt_content:' . $new . ' updated', $this->listedChanges($outcome['trace']));
+    }
+
+    /**
+     * A record new in the draft, on a page the draft moved into the scope,
+     * lands where that page is live when it is published: outside the scope.
+     * The call is rolled back.
+     */
+    #[Test]
+    public function aPublishOfANewRecordOnAPageMovedIntoTheScopeIsRolledBack(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::OTHER => ['move' => self::SCOPED]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['tt_content' => ['NEW1' => ['pid' => self::OTHER, 'header' => 'New on the moved page', 'CType' => 'text']]], [], $user);
+        $dataHandler->process_datamap();
+
+        $new    = (int) ($dataHandler->substNEWwithIDs['NEW1'] ?? 0);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($new): void {
+                $this->command(['tt_content' => [$new => ['version' => ['action' => 'publish', 'swapWith' => $new]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_publish tt_content:' . $new . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint());
+    }
+
+    /**
+     * A publish of a page's delete draft deletes the pages below it live. The
+     * page lies in the scope; the page below it lies beyond the scope's
+     * depth, and its delete is found in the history: the call is rolled back.
+     */
+    #[Test]
+    public function aPublishOfAPageDeleteThatTakesAPageBeyondTheScopeAlongIsRolledBack(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::BELOW => ['delete' => 1]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $draft = (int) $this->scalar('SELECT uid FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::BELOW, self::DRAFT]);
+        self::assertGreaterThan(0, $draft, 'positive control: the delete draft exists');
+        $before = $this->fingerprint();
+
+        $publish = function (ToolExecutionContext $context) use ($draft): void {
+            $this->command(['pages' => [self::BELOW => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+        };
+
+        $outcome = $this->call(static fn (): ScopedWrite => ScopedWrite::nothing(), $publish, user: $user);
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_deleted pages:' . self::TOO_DEEP . ' outside_scope', $this->refusals($outcome['trace']), 'the delete of the page below, from the history');
+        self::assertSame($before, $this->fingerprint(), 'the pages stand');
+
+        // The control: a scope that reaches the page below keeps the publish.
+        $kept = $this->call(static fn (): ScopedWrite => ScopedWrite::nothing(), $publish, scope: new AssignmentScope([new ScopedPage(self::SCOPED, 2)]), user: $user);
+
+        self::assertSame('ok', $kept['toolResult']);
+        self::assertSame(2, $this->goneCount('pages', [self::BELOW, self::TOO_DEEP]), 'both pages are deleted live');
+    }
+
+    /**
+     * A record the draft moved onto a page that the draft moved into the
+     * scope lands, when only the record is published, on that page where it
+     * is live: outside the scope. The call is rolled back.
+     */
+    #[Test]
+    public function aPublishOfAMoveOntoAPageMovedIntoTheScopeIsRolledBack(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::OTHER => ['move' => self::SCOPED]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $draft  = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::OTHER, $user);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($draft): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_publish tt_content (on page ' . self::OTHER . ') outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint());
+    }
+
+    /**
+     * The workspaces extension reads `swapWith` as an integer, so `'Nabc'`
+     * publishes draft N. A call in the live workspace that publishes a draft
+     * moving a record out of the scope that way is rolled back: the draft is
+     * judged as core reads it.
+     */
+    #[Test]
+    public function aPublishWhoseDraftIsNamedAsCoreReadsItIsJudged(): void
+    {
+        $draft  = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::OTHER, $this->userInTheDraft());
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($draft): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $draft . 'abc']]]], $context);
+            },
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the element stays where it is live');
+    }
+
+    /**
+     * A publish without a draft to swap with, and a stage change of a row that
+     * is no draft, are refused by core and change nothing: neither is listed.
+     */
+    #[Test]
+    public function aPublishOrStageChangeCoreRefusesIsNotListed(): void
+    {
+        $user = $this->userInTheDraft();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => 'invalid']]]], $context);
+                $this->command(['tt_content' => [self::BELOW_ELEMENT => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->listedChanges($outcome['trace']), 'nothing is listed');
+    }
+
+    /**
+     * What the hook noted before a tool threw is judged on that way out of
+     * the call too: the discard is rolled back.
+     */
+    #[Test]
+    public function aDiscardOutsideTheScopeBeforeTheToolThrowsIsRolledBack(): void
+    {
+        $user = $this->userInTheDraft();
+        $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::SCOPED, $user);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): never {
+                $this->command(['tt_content' => [self::OUTSIDE_ELEMENT => ['version' => ['action' => 'clearWSID']]]], $context);
+
+                throw new RuntimeException('after the discard', 1799990452);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the draft survives');
+    }
+
+    /**
+     * A row no uid bears has no stored value: the hook reads that as "no
+     * change" and not as a row it could not judge.
+     */
+    #[Test]
+    public function aStoredValueOfARowThatIsGoneIsNull(): void
+    {
+        $topology = new DatabaseRecordTopology($this->connectionPool);
+
+        self::assertNull($topology->storedValue('tt_content', 99999, 't3ver_wsid'));
+        self::assertSame('0', $topology->storedValue('tt_content', self::IN_SCOPE_ELEMENT, 't3ver_wsid'), 'positive control');
+    }
+
+    /**
+     * A new version a later hook put into the command map is judged where the
+     * draft lies, as the command check would: one of a record outside the
+     * scope is rolled back.
+     */
+    #[Test]
+    public function aNewVersionAHookAddsOutsideTheScopeIsRolledBack(): void
+    {
+        $user = $this->userInTheDraft();
+        $this->registerHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                ReplacesTheCommandMapHook::$cmdmap = ['tt_content' => [self::OUTSIDE_ELEMENT => ['version' => ['action' => 'new']]]];
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_version tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame(0, $this->versionsOf(self::OUTSIDE_ELEMENT));
+    }
+
+    /**
+     * The records the run's changes steps list, with their action.
+     *
+     * @return list<string>
+     */
+    private function listedChanges(RunTrace $trace): array
+    {
+        $listed = [];
+        foreach ($trace->getSteps() as $step) {
+            foreach ($step->kind === RunStep::KIND_CHANGES && $step->observedChanges instanceof ObservedChangeSet ? $step->observedChanges->changes : [] as $change) {
+                $listed[] = $change->record . ' ' . $change->action->value;
+            }
+        }
+
+        return $listed;
+    }
+
+    /**
+     * @param array<string, mixed> $command
+     */
+    private function skipTheDiscardCommandBeforeTypo3Fourteen(array $command): void
+    {
+        if (array_key_exists('discard', $command) && (new Typo3Version())->getMajorVersion() < 14) {
+            self::markTestSkipped('TYPO3 13.4 has no discard command.');
+        }
+    }
+
+    private function userInTheDraft(): BackendUserAuthentication
+    {
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+
+        return $user;
+    }
+
+    /**
+     * Moves an element in the draft workspace, outside any call, and returns
+     * the uid of the draft.
+     */
+    private function moveAsADraft(int $element, int $page, BackendUserAuthentication $user): int
+    {
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['tt_content' => [$element => ['move' => $page]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $draft = (int) $this->scalar('SELECT uid FROM tt_content WHERE t3ver_oid = ? AND t3ver_wsid = ?', [$element, self::DRAFT]);
+        self::assertGreaterThan(0, $draft, 'positive control: the move draft exists');
+
+        return $draft;
+    }
+
+    /**
+     * A new page under the scoped page and a new page below it, both in the
+     * draft workspace, made outside any call.
+     *
+     * @return array{int, int} the two pages
+     */
+    private function newPageWithASubpageAsADraft(BackendUserAuthentication $user): array
+    {
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start(['pages' => [
+            'NEW1' => ['pid' => self::SCOPED, 'title' => 'New in the draft', 'doktype' => 1],
+            'NEW2' => ['pid' => 'NEW1', 'title' => 'New below it', 'doktype' => 1],
+        ]], [], $user);
+        $dataHandler->process_datamap();
+
+        $parent  = (int) ($dataHandler->substNEWwithIDs['NEW1'] ?? 0);
+        $subpage = (int) ($dataHandler->substNEWwithIDs['NEW2'] ?? 0);
+        self::assertGreaterThan(0, $parent);
+        self::assertSame($parent, $this->pidOf('pages', $subpage), 'positive control: the subpage lies below the new page');
+        self::assertSame(self::DRAFT, (int) $this->scalar('SELECT t3ver_wsid FROM pages WHERE uid = ?', [$subpage]), 'positive control: both are drafts');
+
+        return [$parent, $subpage];
     }
 
     // --- cache flushes wait for the commit ------------------------------------
