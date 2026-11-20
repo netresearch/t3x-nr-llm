@@ -12,7 +12,9 @@ namespace Netresearch\NrLlm\Service\Tool\Scope;
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
+use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 use WeakMap;
 
@@ -41,10 +43,21 @@ use WeakMap;
  * entry core added for an update that names none is skipped where the scope
  * refuses it, without a refusal: the run asked for nothing of it.
  *
+ * A discard, a publish and the other `version` actions are judged again for the
+ * effect check (#1442), while the rows can still be read: every discard core
+ * carries out, cascades included, in `processCmdmap_discardAction`, and every
+ * `version` command in `processCmdmap_preProcess`, right before it runs. Both
+ * the live row, at its live position, and the draft, at its position in the
+ * workspace, have to lie in the scope; what does not, or cannot be read, is
+ * noted on the guard and rolls the call back.
+ *
  * @internal
  */
 final class AssignmentScopeHook
 {
+    /** The `version` actions core and the workspaces extension know. */
+    private const VERSION_ACTIONS = ['new', 'swap', 'publish', 'setStage', 'clearWSID', 'flush'];
+
     private const OPERATIONS = [
         'move'                      => 'move',
         'copy'                      => 'copy',
@@ -133,6 +146,132 @@ final class AssignmentScopeHook
                 unset($dataHandler->cmdmap[$table]);
             }
         }
+    }
+
+    /**
+     * A `version` command, right before core carries it out: a publish puts the
+     * draft where the live row is, a new version and a stage change write the
+     * draft, and an action that is not known is judged as unreadable. A discard
+     * (`clearWSID`, `flush`) is judged where core discards.
+     */
+    public function processCmdmap_preProcess(mixed $command, mixed $table, mixed $id, mixed $value, DataHandler $dataHandler): void
+    {
+        $scope   = AssignmentScopeGuard::scope();
+        $checker = AssignmentScopeGuard::checker();
+        if ($command !== 'version' || !$scope instanceof AssignmentScope || !$checker instanceof AssignmentScopeChecker || !is_string($table)) {
+            return;
+        }
+
+        $workspace = $this->workspaceOf($dataHandler);
+        $action    = is_array($value) ? ($value['action'] ?? null) : null;
+        if (!in_array($action, self::VERSION_ACTIONS, true)) {
+            AssignmentScopeGuard::observe(new ScopeRefusal('effect_version', $table, is_int($id) ? max(0, $id) : 0, 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+
+            return;
+        }
+
+        if ($action === 'clearWSID' || $action === 'flush') {
+            return;
+        }
+
+        $uids = $action === 'setStage' ? GeneralUtility::intExplode(',', is_scalar($id) ? (string) $id : '', true) : [is_numeric($id) ? (int) $id : 0];
+        if (in_array($action, ['swap', 'publish'], true) && is_array($value) && is_numeric($value['swapWith'] ?? null)) {
+            $uids[] = (int) $value['swapWith'];
+        }
+
+        foreach ($uids as $uid) {
+            $this->observeDraftAndLive($scope, $checker, $action === 'swap' || $action === 'publish' ? 'effect_publish' : 'effect_version', $table, $uid, null, $workspace);
+        }
+    }
+
+    /**
+     * Every discard core carries out, before it hard-deletes the draft: the
+     * one a command asks for, the one a delete of a draft turns into, and the
+     * translations, children, subpages and records core discards along with
+     * it. Core calls this before its own checks, so a discard core then does
+     * not make is judged too.
+     *
+     * @param array<string, mixed> $record the row core discards, live or a version
+     */
+    public function processCmdmap_discardAction(mixed $table, mixed $uid, mixed $record): void
+    {
+        $scope   = AssignmentScopeGuard::scope();
+        $checker = AssignmentScopeGuard::checker();
+        if (!$scope instanceof AssignmentScope || !$checker instanceof AssignmentScopeChecker || !is_string($table) || !is_array($record) || !$this->versioned($table)) {
+            return;
+        }
+
+        $this->observeDraftAndLive($scope, $checker, 'effect_discard', $table, is_numeric($uid) ? (int) $uid : 0, $record, AssignmentScopeGuard::workspace());
+    }
+
+    /**
+     * Judges a row of a versioned table as a discard or publish touches it: its
+     * live row at the live position, and the draft at its position in the
+     * workspace (the row's own, or the call's for a live row). A draft that has
+     * no live row, a new record, is judged where the draft lies. A row that
+     * does not exist is no change; a read that fails is unreadable.
+     *
+     * @param array<array-key, mixed>|null $row the stored row when the caller has it
+     */
+    private function observeDraftAndLive(AssignmentScope $scope, AssignmentScopeChecker $checker, string $operation, string $table, int $uid, ?array $row, int $workspace): void
+    {
+        try {
+            if ($uid < 1) {
+                AssignmentScopeGuard::observe(new ScopeRefusal($operation, $table, 0, 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+
+                return;
+            }
+
+            if (!$this->versioned($table)) {
+                $wsid = 0;
+                $oid  = 0;
+            } elseif ($row !== null) {
+                $wsid = $this->number($row['t3ver_wsid'] ?? 0);
+                $oid  = $this->number($row['t3ver_oid'] ?? 0);
+            } else {
+                $stored = $checker->storedValue($table, $uid, 't3ver_wsid');
+                if ($stored === null) {
+                    // No row: the command changes nothing.
+                    return;
+                }
+
+                $wsid = $this->number($stored);
+                $oid  = $this->number($checker->storedValue($table, $uid, 't3ver_oid'));
+            }
+
+            $live      = $wsid === 0 ? $uid : ($oid > 0 ? $oid : null);
+            $draftedIn = $wsid > 0 ? $wsid : $workspace;
+            $refusals  = [];
+            if ($live !== null) {
+                $refusals[] = $checker->recordRefusal($scope, $operation, $table, $live, 0);
+            }
+
+            if ($draftedIn > 0) {
+                $refusals[] = $checker->recordRefusal($scope, $operation, $table, $live ?? $uid, $draftedIn);
+            }
+
+            foreach ($refusals as $refusal) {
+                if ($refusal instanceof ScopeRefusal) {
+                    AssignmentScopeGuard::observe($refusal, $draftedIn);
+                }
+            }
+        } catch (Throwable) {
+            AssignmentScopeGuard::observe(new ScopeRefusal($operation, $table, max(0, $uid), 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+        }
+    }
+
+    /**
+     * Whether the table keeps workspace versions, and so has the version
+     * columns: a query for them on another table fails, and on PostgreSQL a
+     * failed query ends the call's transaction.
+     */
+    private function versioned(string $table): bool
+    {
+        $tca    = is_array($GLOBALS['TCA'] ?? null) ? $GLOBALS['TCA'] : [];
+        $schema = is_array($tca[$table] ?? null) ? $tca[$table] : [];
+        $ctrl   = is_array($schema['ctrl'] ?? null) ? $schema['ctrl'] : [];
+
+        return (bool) ($ctrl['versioningWS'] ?? false);
     }
 
     /**

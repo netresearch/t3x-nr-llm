@@ -398,6 +398,47 @@ as incomplete, as a history read that fails does.
 delete by ``versioningWS`` alone, also on 13.4, where the flag makes it write
 the live row of a versioned table for an edit.
 
+**A discard and a publish are judged before core carries them out** (amending
+this decision, 2026-11-20,
+`#1442 <https://github.com/netresearch/t3x-nr-llm/issues/1442>`__). Both
+change what stands at the live row: a discard puts the record back at its live
+position, and a publish puts the draft there. Both layers before the effect
+check read the draft the command names, at the draft's position, and the
+effect check found nothing to read afterwards: a discard hard-deletes the
+draft, and its history row names a uid that no row bears any more, which the
+check clears like any hard delete. A draft that moved a record from outside
+the scope onto a page inside it could therefore be discarded or published,
+and the call committed. The drafts core discards along with a record (its
+translations, its inline children, the new pages and records below a new
+page) were never judged at all.
+
+The DataHandler hook now judges them while the rows can still be read, and
+notes what lies outside the scope on the guard; the effect check reports it
+with the rest, and the call is rolled back:
+
+- Every discard core carries out, in ``processCmdmap_discardAction``, which
+  core calls at the start of ``DataHandler::discard()`` for the ``discard``
+  command (TYPO3 14 only; 13.4 has no such command), ``version`` with
+  ``clearWSID`` or ``flush``, a delete that discards a draft, and every
+  record discarded along with it (TYPO3 14.3.11 and 13.4.40). Core calls the
+  hook before its own access checks, so a discard core then does not make is
+  judged too.
+- Every ``version`` command, in ``processCmdmap_preProcess``, right before it
+  runs, the ones the workspaces extension adds for a publish included: a
+  ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``),
+  a ``setStage`` and a ``new`` version. An action neither core nor the
+  workspaces extension knows is judged as unreadable.
+- For each such row of a versioned table, the live row is judged at its live
+  position and the draft at its position in the workspace; a draft with no
+  live row (a new record) is judged where the draft lies. A row that cannot
+  be read is outside the scope. A row that does not exist is no change.
+
+A publish and a stage change now count as updates of the record the command
+names in the call's change list, so the effect check also judges the published
+row where it lies afterwards. The effect check
+is asked before the guard of the call is taken, because it reads what the guard
+noted.
+
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:
 
@@ -506,7 +547,9 @@ one as for every rule.
      - record, subtree of a page, translations
    * - ``undelete``, ``discard``, ``version``
      - ``publish`` claims the record
-     - record (``discard`` also translations); cascades are an open limit
+     - record (``discard`` also translations); the effect check judges every
+       discard core makes, cascades included, and every ``version`` command
+       before it runs, at the live row and at the draft
    * - New row (datamap)
      - destination page, anchor, language
      - ``pid`` resolved, language, table; a translation or a file reference is
@@ -597,8 +640,9 @@ Consequences
 - ◑ Core's cascades are judged on the record named, not on what core takes
   along: the children of an inline relation that move, are deleted or are
   restored with their parent (checked only where a child's ``pid`` differs from
-  its parent's, which no built-in tool produces), what ``discard`` removes along
-  with a record, and the translations of a record in a workspace delete. A
+  its parent's, which no built-in tool produces), and the translations of a
+  record in a workspace delete. What a discard removes along with a record is
+  judged by the effect check. A
   delete or move that takes translations along is refused when the scope lists
   languages and a translation lies in another one.
 - ◑ The ``pid`` and language of a new row are judged as the DataHandler is

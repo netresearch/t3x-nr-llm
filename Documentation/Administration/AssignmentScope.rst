@@ -132,7 +132,12 @@ rules. A violation rolls the whole call back, rows and history included.
      - The record is not in scope, or the language of the translation is not
        allowed. A record that is created as a translation of a record outside
        the scope is refused the same way.
-   * - Publish, attach a file
+   * - Publish, discard a draft
+     - The record is not in scope where it is live, or its draft is not in
+       scope where the draft lies. A discard includes everything core
+       discards along with the record: its translations, its inline children,
+       and the new pages and records below a new page.
+   * - Attach a file
      - The record is not in scope.
    * - A tool outside TYPO3
      - Always, while a scope applies (reason ``scope_remote_write``): an MCP

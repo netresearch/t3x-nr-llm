@@ -94,11 +94,24 @@ final class ObservedChangeHook
             return;
         }
 
+        // A publish writes the live row the command names, or makes a new
+        // record's draft its live row, and a stage change writes the draft
+        // (#1442). A discard is a hard delete the history names. A new version
+        // is named by the history and by the datamap entry that asked for it:
+        // core versions a live row through this command for every first edit
+        // in a draft, which names the live row, not the version.
+        $version = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
+        if ($version === 'swap' || $version === 'publish') {
+            ToolChangeCollector::record($table, (int) $id, ChangeAction::UPDATED, 0, $correlation);
+
+            return;
+        }
+
         $action = match ($command) {
             'move'     => ChangeAction::MOVED,
             'delete'   => ChangeAction::DELETED,
             'undelete' => ChangeAction::RESTORED,
-            default    => null,
+            default    => $version === 'setStage' ? ChangeAction::UPDATED : null,
         };
         if ($action instanceof ChangeAction) {
             ToolChangeCollector::record($table, (int) $id, $action, $workspace, $correlation);

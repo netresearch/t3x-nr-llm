@@ -3314,7 +3314,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // The scope, for the DataHandler layer: armed beside the collector and
             // taken on every way out.
             if ($scope instanceof AssignmentScope) {
-                AssignmentScopeGuard::arm($scope, $scopeChecker);
+                AssignmentScopeGuard::arm($scope, $scopeChecker, $workspace);
             }
 
             try {
@@ -3327,8 +3327,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // any other call's (ADR-295): a write outside the scope is rolled
                 // back and the hand-over is not honoured, so nothing out of scope
                 // is committed on this way out.
-                $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+                // The effect check first: it reads what the guard noted.
                 $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
+                $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
                 if ($scope instanceof AssignmentScope && ($violations !== [] || $refused !== [])) {
                     $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
                     $rolledBack = $violations !== [] && $transaction instanceof AssignmentScopeTransaction;
@@ -3375,8 +3376,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 // The result stays an error and carries no target (ADR-182); what
                 // the call wrote before it failed is recorded beside it and named
                 // to the model, which would otherwise retry a half-done write.
-                $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+                // The effect check first: it reads what the guard noted.
                 $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
+                $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
                 $changes    = ChangeSets::withRefused(ToolChangeCollector::take(), [...$refused, ...array_column($violations, 'refusal')]);
                 $rolledBack = $violations !== [] && $transaction instanceof AssignmentScopeTransaction;
                 $ended      = $this->endTransaction($transaction, $violations !== [], $context->actingBackendUser());
@@ -3397,8 +3399,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // A DataHandler run the scope refused part of reports nothing of that
             // to a tool that did not look: the call is an error whatever the tool
             // says, and the model reads which writes the scope stopped (ADR-295).
-            $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
             $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
+            $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
             if ($scope instanceof AssignmentScope && $refused !== []) {
                 $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::refusalNote($scope, $refused)));
             }
