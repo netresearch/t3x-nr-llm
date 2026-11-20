@@ -3189,6 +3189,32 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A call whose own write the scope refused announces nothing: its
+     * listeners do not run.
+     */
+    #[Test]
+    public function aCallWithARefusedWriteDispatchesNothing(): void
+    {
+        $user     = $this->useASessionlessAmbientUser(1);
+        $listened = false;
+        $this->listenToTheWrite(function () use (&$listened): void {
+            $listened = true;
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertFalse($listened, 'no listener ran');
+    }
+
+    /**
      * What AI Label does: a listener stores a field on the draft the call
      * wrote, naming the draft's uid, in a scope of the default language on a
      * page with a German translation. TYPO3 14 adds an entry for the

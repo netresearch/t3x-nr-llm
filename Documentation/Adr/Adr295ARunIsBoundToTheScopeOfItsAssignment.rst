@@ -290,8 +290,8 @@ writes, while the guard is still armed and before the transaction is ended:
   ``WriteOutsideTheAssignmentScope::run($reason, $write)`` (``@api``). During
   the dispatch it suspends the scope for that write only, keeps its records
   out of the effect check, lists them with the call's changes and logs the
-  reason as a warning. Anywhere else it runs the write as it is, so a tool
-  cannot use it to leave its scope. Nothing in nr_llm calls it.
+  reason as a warning. Anywhere else, the tool's own execution included, it
+  runs the write as it is. Nothing in nr_llm calls it.
 - A call without a scope dispatches as before, after its transaction.
 - Known limit: like the call's own writes, only what a listener writes through
   the DataHandler is judged. A listener that writes with a query or through

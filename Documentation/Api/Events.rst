@@ -128,7 +128,9 @@ event promises is on the event.
 **A listener that throws is logged, not propagated.** The write has already
 landed and a human has already approved it, so a broken listener does not fail
 the run — it produces an ``error``-level log entry naming the record. Do not
-rely on an exception to signal anything back to the extension.
+rely on an exception to signal anything back to the extension. In a run with
+an assignment scope, a DataHandler write of the listener outside the scope
+does fail the call (see below).
 
 **It can fire twice for one record.** The agent queue is at-least-once: a run
 whose lease is lost may be re-executed, and an idempotent write that runs twice
@@ -144,7 +146,11 @@ A listener of a run with an assignment scope
 A run can be bound to the scope of its assignment
 (:ref:`ADR-295 <adr-295>`). Its write events, this one and the internal
 ``AiLabelWriteEvent``, are then dispatched while the scope holds the call and
-before its transaction is committed. A DataHandler write of a listener is held
+before its transaction is committed: the write the event names can still be
+rolled back after your listener ran, by another listener's write outside the
+scope or by a failed commit. Keep effects outside the database (a mail, a
+webhook, a queue message) out of such a listener, or make them tolerate a
+write that did not stay. A DataHandler write of a listener is held
 to the scope like the call's own write: a write outside the scope rolls back
 the whole call, the call's own write included, and the model is told which
 record and which rule. A write of the record the call wrote, or of its draft,

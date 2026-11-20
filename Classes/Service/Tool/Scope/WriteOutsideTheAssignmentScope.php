@@ -29,8 +29,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *     WriteOutsideTheAssignmentScope::run('audit log of AI writes', fn () => $this->log($event));
  *
  * Only while a scoped call dispatches those events does this change anything.
- * Anywhere else, during a tool's own execution too, the write runs as it would
- * without this class and is held to the scope like any other. Nothing in
+ * Anywhere else, during the tool's own execution too, the write runs as it
+ * would without this class and is held to the scope like any other. Nothing in
  * nr_llm calls it, so no write leaves the scope unless an integrator's code
  * asks for it. The write is still listed in the call's changes and logged as a
  * warning with the reason; the call's rollback takes it back like the rest.
