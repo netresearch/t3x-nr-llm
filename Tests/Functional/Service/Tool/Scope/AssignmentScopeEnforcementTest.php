@@ -2804,16 +2804,21 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertGreaterThan(0, $draft, 'positive control: the delete draft exists');
         $before = $this->fingerprint();
 
-        $outcome = $this->call(
-            static fn (): ScopedWrite => ScopedWrite::nothing(),
-            function (ToolExecutionContext $context) use ($draft): void {
-                $this->command(['pages' => [self::BELOW => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
-            },
-            user: $user,
-        );
+        $publish = function (ToolExecutionContext $context) use ($draft): void {
+            $this->command(['pages' => [self::BELOW => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+        };
+
+        $outcome = $this->call(static fn (): ScopedWrite => ScopedWrite::nothing(), $publish, user: $user);
 
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_deleted pages:' . self::TOO_DEEP . ' outside_scope', $this->refusals($outcome['trace']), 'the delete of the page below, from the history');
         self::assertSame($before, $this->fingerprint(), 'the pages stand');
+
+        // The control: a scope that reaches the page below keeps the publish.
+        $kept = $this->call(static fn (): ScopedWrite => ScopedWrite::nothing(), $publish, scope: new AssignmentScope([new ScopedPage(self::SCOPED, 2)]), user: $user);
+
+        self::assertSame('ok', $kept['toolResult']);
+        self::assertSame(2, $this->goneCount('pages', [self::BELOW, self::TOO_DEEP]), 'both pages are deleted live');
     }
 
     /**
