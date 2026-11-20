@@ -162,7 +162,12 @@ final class ToolChangeCollector
         return ['records' => $frame['records'], 'scopes' => array_keys($frame['scopes']), 'watermark' => $frame['watermark']];
     }
 
-    public static function take(?RecordReference $writeTarget = null): ObservedChangeSet
+    /**
+     * @param bool $intoOuter false keeps the records out of the frame around
+     *                        this one, for writes the effect check of that
+     *                        frame must not judge (ADR-295, #1438)
+     */
+    public static function take(?RecordReference $writeTarget = null, bool $intoOuter = true): ObservedChangeSet
     {
         $frame = array_pop(self::$frames);
         if ($frame === null) {
@@ -170,7 +175,7 @@ final class ToolChangeCollector
         }
 
         $outer = array_key_last(self::$frames);
-        if ($outer !== null) {
+        if ($outer !== null && $intoOuter) {
             foreach ($frame['records'] as $key => $entry) {
                 $was                                   = self::$frames[$outer]['records'][$key]['action'] ?? null;
                 self::$frames[$outer]['records'][$key] = $was instanceof ChangeAction ? [...$entry, 'action' => self::stronger($was, $entry['action'])] : $entry;

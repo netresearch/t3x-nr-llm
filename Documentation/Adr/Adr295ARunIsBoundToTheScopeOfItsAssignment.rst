@@ -262,11 +262,42 @@ nr_llm does not suppress it; it reports it.
   makes live from a draft workspace (a table without versioning, a workspace
   that allows live editing) has no version; it is still listed and judged as
   the live row.
-- Known limit: the dispatch still runs after the call's transaction is
-  committed and outside the scope guard, so the effect check and the
-  rollback do not cover what a listener writes, and a listener can write
-  outside the scope; it is reported, not prevented. Whether such writes
-  should run under the scope of the call is an open decision.
+- The dispatch ran after the call's transaction was committed and outside
+  the scope guard, so a listener could write outside the scope; it was
+  reported, not prevented. The amendment below puts it under the scope.
+
+**The listeners of a write run under the scope** (amending this decision,
+2026-11-20, `#1438 <https://github.com/netresearch/t3x-nr-llm/issues/1438>`__;
+owner decision of 2026-11-19). A listener of the call's write events stores
+its write on behalf of the call, so it is held to the call's scope. For a call
+with a scope, ``ToolLoopService`` dispatches ``AfterAiRecordWrittenEvent`` and
+``AiLabelWriteEvent`` after the effect check has cleared the call's own
+writes, while the guard is still armed and before the transaction is ended:
+
+- A listener's DataHandler run meets the hook and its records meet the effect
+  check, read in a collector frame of their own and joined to the call's set
+  afterwards. A write the hook refuses, or the effect check finds outside the
+  scope, rolls the whole call back, the call's own write included; the model
+  reads that the call's write was in scope and which record a listener wrote
+  outside it, by which rule. A call that already wrote outside the scope, or
+  had a write refused, dispatches nothing, as an error result did not before.
+- A same-draft write stays possible: AI Label's metadata on the page's draft
+  is a write of a record the call wrote. The entry TYPO3 14 adds for a
+  translation to such a write is left out as for the call's own write (see
+  "Translations core synchronises"), so under a scope of the default language
+  the translation now gets no version where #1432 measured one.
+- An integrator who needs a listener to write elsewhere wraps that write in
+  ``WriteOutsideTheAssignmentScope::run($reason, $write)`` (``@api``). During
+  the dispatch it suspends the scope for that write only, keeps its records
+  out of the effect check, lists them with the call's changes and logs the
+  reason as a warning. Anywhere else it runs the write as it is, so a tool
+  cannot use it to leave its scope. Nothing in nr_llm calls it.
+- A call without a scope dispatches as before, after its transaction.
+- Known limit: a listener's DataHandler that is the outermost of its run (AI
+  Label's is) runs a ``TCEMAIN.clearCacheCmd`` group flush itself, inside the
+  call's transaction; on MySQL and MariaDB its ``TRUNCATE`` commits the call
+  early, which the marker reports as a call that could not be rolled back.
+  No ``clearCacheCmd`` is set by default.
 
 **The input checks fail closed.** Both layers read the input of a write, and a
 third of the defects found in review were values the parser had skipped. A value

@@ -76,6 +76,10 @@ Writes use AI Label's public API with the acting backend user's permissions
 and workspace. Hidden and scheduled drafts receive labels too. A draft's label
 stays in that draft. A failed label write is
 logged; the content write remains successful and the built-in marker remains.
+In a run with an assignment scope the label write is held to that scope and
+made before the call is committed: a label on the record the call wrote is
+inside it, and the version TYPO3 14 would give a translation in a language the
+scope does not admit is left out (:ref:`api-events-assignment-scope`).
 Check TYPO3's error log if a record has the built-in marker but lacks the
 expected AI Label origin.
 

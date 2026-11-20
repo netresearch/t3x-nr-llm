@@ -204,6 +204,37 @@ final class ChangeSets
         );
     }
 
+    /**
+     * What the model reads when a listener of the call's write (AI Label, a
+     * provenance marker, an installation's own) wrote outside the scope of the
+     * run's assignment (ADR-295, #1438): which records, by which rule, and what
+     * became of the call.
+     *
+     * @param list<array{refusal: ScopeRefusal, workspace: int}> $violations
+     */
+    public static function listenerEffectNote(AssignmentScope $scope, array $violations, bool $rolledBack): string
+    {
+        if ($violations === []) {
+            return '';
+        }
+
+        $parts = array_map(
+            static fn (array $violation): string => sprintf('%s (%s)', $violation['refusal']->subject(), $violation['refusal']->reason),
+            array_slice($violations, 0, self::NOTE_LIMIT),
+        );
+        $more = max(0, count($violations) - self::NOTE_LIMIT);
+
+        return sprintf(
+            'The write of this call was inside the assignment of this run (%s), but code of this TYPO3 installation that runs after such a write wrote outside it: %s%s. %s An administrator can allow such a write; until then the call cannot be made as it is.',
+            $scope->describe(),
+            implode(', ', $parts),
+            $more > 0 ? sprintf(' and %d more', $more) : '',
+            $rolledBack
+                ? 'All database changes of this call were rolled back.'
+                : 'These changes were NOT rolled back (no transaction held them, or it could not be rolled back) and have to be reviewed.',
+        );
+    }
+
     private static function identity(ObservedChange $change): string
     {
         return $change->record->table . ':' . $change->record->uid . ':' . $change->workspace;

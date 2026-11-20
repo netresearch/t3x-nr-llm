@@ -22,8 +22,9 @@ AfterAiRecordWrittenEvent
 :php:`Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent`
 
 Dispatched once per successful editorial write, after the write has landed and
-been read back by the tool that made it. It answers three questions and no
-fourth.
+been read back by the tool that made it. For a run with an assignment scope it
+is dispatched before the call's transaction is committed, under that scope (see
+below). It answers three questions and no fourth.
 
 .. confval:: correlationId
 
@@ -134,3 +135,38 @@ whose lease is lost may be re-executed, and an idempotent write that runs twice
 dispatches twice with the same :confval:`correlationId` and :confval:`record`.
 Deduplicate on that pair if your listener must act once per record. A
 non-idempotent write is never auto-retried, so it cannot double this way.
+
+.. _api-events-assignment-scope:
+
+A listener of a run with an assignment scope
+--------------------------------------------
+
+A run can be bound to the scope of its assignment
+(:ref:`ADR-295 <adr-295>`). Its write events, this one and the internal
+``AiLabelWriteEvent``, are then dispatched while the scope holds the call and
+before its transaction is committed. A DataHandler write of a listener is held
+to the scope like the call's own write: a write outside the scope rolls back
+the whole call, the call's own write included, and the model is told which
+record and which rule. A write of the record the call wrote, or of its draft,
+is inside the scope. When TYPO3 adds an entry for a translation in a language
+the scope does not admit to such a write, the entry is left out without a
+refusal, as for the call's own write, and the translation gets no version.
+
+A listener that has to write outside the scope, a log record on a storage page
+for example, wraps exactly that write and gives the reason:
+
+.. code-block:: php
+
+   use Netresearch\NrLlm\Service\Tool\Scope\WriteOutsideTheAssignmentScope;
+
+   WriteOutsideTheAssignmentScope::run(
+       'editorial audit log of AI writes',
+       fn () => $this->auditLog->record($event),
+   );
+
+The write is not judged, is listed with the call's changes, and is logged as a
+warning with the reason; a rollback of the call takes it back with the rest.
+This works only while such an event is dispatched: called anywhere else, during
+a tool's own execution too, the write is held to the scope as before. Nothing
+in nr_llm calls it, so without an integrator's code no listener write leaves the
+scope.

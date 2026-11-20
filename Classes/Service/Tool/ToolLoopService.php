@@ -31,6 +31,7 @@ use Netresearch\NrLlm\Domain\ValueObject\GovernanceEvent;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\RunStep;
+use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use Netresearch\NrLlm\Domain\ValueObject\SkillApproval;
 use Netresearch\NrLlm\Domain\ValueObject\SkillCatalogue;
 use Netresearch\NrLlm\Domain\ValueObject\SkillEvidence;
@@ -96,6 +97,7 @@ use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeEffect;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
 use Netresearch\NrLlm\Service\Tool\Scope\EffectiveAssignmentScope;
+use Netresearch\NrLlm\Service\Tool\Scope\WriteOutsideTheAssignmentScope;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -3400,7 +3402,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // to a tool that did not look: the call is an error whatever the tool
             // says, and the model reads which writes the scope stopped (ADR-295).
             $violations = $scope instanceof AssignmentScope ? AssignmentScopeEffect::violations($scope, $scopeChecker, $workspace) : [];
-            $refused    = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+            $generated  = $tool instanceof CreateContentElementDraftTool && $result->writeCompleteness === WriteCompleteness::COMPLETE && is_string($call->arguments['bodytext'] ?? null) && trim($call->arguments['bodytext']) !== '';
+
+            // The listeners of the call's write store their writes on behalf of
+            // the call, so a scoped call dispatches its write events here, under
+            // the scope and inside its transaction (ADR-295, #1438): a listener
+            // write outside the scope rolls the whole call back. A call that
+            // already wrote outside it, or had a write refused, announces nothing.
+            $listeners = null;
+            if ($scope instanceof AssignmentScope && $violations === [] && AssignmentScopeGuard::refusals() === []) {
+                $listeners  = $this->announceWriteUnderScope($result, $context, $generated, $scope, $scopeChecker, $workspace);
+                $violations = $listeners['violations'];
+            }
+
+            $refused = $scope instanceof AssignmentScope ? AssignmentScopeGuard::take() : [];
+            if ($listeners !== null && $refused !== []) {
+                // The DataHandler layer skipped a listener's write: the call is
+                // rolled back as for any other listener write outside the scope.
+                $violations = [...$violations, ...array_map(static fn (ScopeRefusal $refusal): array => ['refusal' => $refusal, 'workspace' => $workspace], $refused)];
+                $refused    = [];
+            }
+
             if ($scope instanceof AssignmentScope && $refused !== []) {
                 $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::refusalNote($scope, $refused)));
             }
@@ -3418,7 +3440,11 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
                 }
 
-                $result = ToolResult::error(sprintf('Error: tool "%s" did not complete. %s', $call->name, ChangeSets::effectNote($scope, $violations, $rolledBack)));
+                $result = ToolResult::error(sprintf(
+                    'Error: tool "%s" did not complete. %s',
+                    $call->name,
+                    $listeners !== null ? ChangeSets::listenerEffectNote($scope, $violations, $rolledBack) : ChangeSets::effectNote($scope, $violations, $rolledBack),
+                ));
             } elseif (!$this->endTransaction($transaction, false, $context->actingBackendUser())) {
                 // The commit did not end as asked (a lost connection, or the database
                 // rolled the transaction back; a commit by the database counts as
@@ -3455,11 +3481,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // What the listeners of the write store with DataHandler runs of
             // their own (AI Label's metadata, and the versions core adds to such
             // a run, #1432) is a write of this call too: it joins the call's set.
-            $announced = $this->announceWrite(
-                $bounded,
-                $context,
-                $tool instanceof CreateContentElementDraftTool && $bounded->writeCompleteness === WriteCompleteness::COMPLETE && is_string($call->arguments['bodytext'] ?? null) && trim($call->arguments['bodytext']) !== '',
-            );
+            // A scoped call announced its write above; what its listeners wrote is
+            // in the call's set already, except writes an integrator allowed
+            // outside the scope, which no check judged.
+            $announced = $listeners !== null ? $listeners['allowed'] : $this->announceWrite($bounded, $context, $generated);
             ToolChangeCollector::hold(ChangeSets::merged($changes, $announced));
 
             return $bounded;
@@ -3644,6 +3669,46 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         }
 
         return $announced;
+    }
+
+    /**
+     * Dispatch the write events of a scoped call while its scope is armed and
+     * its transaction open (ADR-295, #1438). Their listeners' DataHandler runs
+     * are held to the scope by the hook and read back by the effect check, as
+     * the call's own writes are; they join the call's set when the frame is
+     * taken. A write an integrator allowed outside the scope
+     * ({@see WriteOutsideTheAssignmentScope}) is listed, not judged.
+     *
+     * @return array{violations: list<array{refusal: ScopeRefusal, workspace: int}>, allowed: ObservedChangeSet}
+     */
+    private function announceWriteUnderScope(ToolResult $result, ToolExecutionContext $context, bool $generated, AssignmentScope $scope, AssignmentScopeChecker $checker, int $workspace): array
+    {
+        $allowed       = new ObservedChangeSet();
+        $correlationId = $context->run?->correlationId() ?? '';
+        if (!$this->eventDispatcher instanceof EventDispatcherInterface || !$result->writeTarget instanceof RecordReference || !$result->writeKind instanceof WriteKind || $correlationId === '') {
+            return ['violations' => [], 'allowed' => $allowed];
+        }
+
+        $depth = ToolChangeCollector::depth();
+        ToolChangeCollector::arm();
+        AssignmentScopeGuard::openListenerDispatch();
+        try {
+            $this->dispatchWrite($result, $context, $correlationId, $generated);
+        } finally {
+            foreach (AssignmentScopeGuard::closeListenerDispatch() as $written) {
+                $allowed = ChangeSets::merged($allowed, $written);
+            }
+
+            while (ToolChangeCollector::depth() > $depth + 1) {
+                ToolChangeCollector::take();
+            }
+
+            $violations = AssignmentScopeEffect::violations($scope, $checker, $workspace);
+            // Into the call's frame, which the run step lists.
+            ToolChangeCollector::take();
+        }
+
+        return ['violations' => $violations, 'allowed' => $allowed];
     }
 
     private function dispatchWrite(ToolResult $result, ToolExecutionContext $context, string $correlationId, bool $generated): void

@@ -137,7 +137,8 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
     /**
      * The same hook with the DataHandler layer of the scope taken away: the
      * check of the effect finds the write outside the scope and rolls the call
-     * back, the draft included, and the `writes` artifact names nothing.
+     * back, the draft included, and the `writes` artifact names no write, but
+     * the record the scope rolled the call back for and its rule (#1438).
      */
     #[Test]
     public function aCallThatIsRolledBackStoresNothingAndIsReportedAsNoWrite(): void
@@ -151,7 +152,10 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         self::assertFalse($this->draftDescription(), 'the rollback took the draft');
         self::assertFalse($this->draftOf(self::NEIGHBOUR), 'and the write of the hook');
         self::assertStringContainsString('All database changes of this call were rolled back.', $this->toolResultOf($this->stored($run)));
-        self::assertStringStartsWith('No write was executed.', $this->writesOf($taskId));
+        $writes = $this->writesOf($taskId);
+        self::assertStringStartsWith('No write was executed.', $writes);
+        // The draft the hook wrote of the neighbouring page, by its version's uid.
+        self::assertMatchesRegularExpression("/\\nWrites the scope of the task's assignment refused or rolled back \\(\\d+\\), each with the rule it broke:\\n(- .+\\n)*- effect_created of pages:\\d+ \\(outside_scope\\)/", $writes);
     }
 
     /**
