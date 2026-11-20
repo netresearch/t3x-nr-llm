@@ -368,6 +368,36 @@ hard-deleted row is gone and unreadable. A check that cannot read what was
 written (a database error while reading it) counts as a violation, so the call is
 rolled back and the transaction is ended on every way out of the call.
 
+**A row the effect check cannot read is not a row that is gone** (amending
+this decision, 2026-11-18,
+`#1434 <https://github.com/netresearch/t3x-nr-llm/issues/1434>`__). The hook
+of a command hears of the command, not of its outcome, so the check takes a
+delete or undelete only where the stored row or the history bears it out: a
+command for a uid that no row bears is no change. A read of the row that failed
+was taken the same way. A delete or undelete outside the scope whose row could
+not be read, and whose history was gone, was left out, and the check cleared
+the call without judging it. A read that fails, of the row of a delete or
+undelete or of the version a draft workspace holds of a row, now marks the
+entries as incomplete, as a history read that fails does, and the call is
+rolled back as not judgeable. A move whose row cannot be read stays an entry
+and is judged as before, which fails closed. A row that was read and is not
+there is still no change. The version is looked up only for a table that keeps
+versions: a table without versioning has no version columns, so the query would
+always fail, and a move core makes live on such a table from a draft workspace
+would always be rolled back. A delete in a draft workspace that leaves no
+version is judged by its live row: core deletes the live row of a table
+without versioning (from a workspace that allows live editing), and it
+discards a move, new or delete draft of a versioned row instead of writing a
+delete version (``DataHandler::deleteAction()`` in TYPO3 13.4.40 and 14.3.12).
+Both were taken as a delete that did not happen and left out. The call's
+history is read from the uid ``sys_history`` had before its first write; a
+read of that uid that failed was taken as a call without history, so the
+history was not read and the check did not say so. It now marks the entries
+as incomplete, as a history read that fails does.
+``versioningWS_alwaysAllowLiveEdit`` does not change this: core decides a
+delete by ``versioningWS`` alone, also on 13.4, where the flag makes it write
+the live row of a versioned table for an edit.
+
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:
 
@@ -418,8 +448,9 @@ checks let through:
 - A cache flush that fails after the commit is logged as a warning; the tool's
   result has already said it flushed.
 - The effect check reads at most 5000 history rows of one call, and a call that
-  reaches that number (a bulk copy of a page tree) or whose history cannot be read
-  is rolled back as not judgeable.
+  reaches that number (a bulk copy of a page tree), whose history cannot be read,
+  or one of whose rows cannot be read where the check needs it (see above) is
+  rolled back as not judgeable.
 - The anchor of a move ("after record X") is judged like a moved record: its own
   language and, for a page, its subtree must lie in the scope. A move after an
   anchor with a translation or a deep subtree outside the scope is refused

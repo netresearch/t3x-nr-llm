@@ -48,6 +48,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Tests\Fixtures\Database\FailsOneReadConnectionPool;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -432,6 +433,81 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
 
         self::assertSame([], $resolver->resolve([], ['scope1'])->changes, 'without a watermark no history is read');
         self::assertSame([], $resolver->resolve([], ['otherscope'], 0)->changes, "another chain's rows are not this call's");
+    }
+
+    /**
+     * A row that cannot be read is not a row that is gone. A move is listed
+     * as the hooks heard of it, and the list stays complete; a delete or
+     * undelete, which would be listed
+     * only if its row or the history bore it out, is counted as a record the
+     * list could not settle, so the list does not read as complete. A delete of
+     * a uid that no row bears, read without a failure, is still no change.
+     */
+    #[Test]
+    public function aCommandWhoseRowCannotBeReadIsNotDroppedSilently(): void
+    {
+        $records = static fn (ChangeAction $action, int $uid = self::ELEMENT): array => ['tt_content:' . $uid => ['table' => 'tt_content', 'uid' => $uid, 'action' => $action, 'workspace' => 0]];
+
+        $moved = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records(ChangeAction::MOVED), []);
+        self::assertSame(['tt_content:' . self::ELEMENT], array_map(static fn (ObservedChange $change): string => (string) $change->record, $moved->changes), 'the move is listed');
+        self::assertSame(0, $moved->omitted, 'the listed move is not also counted as left out');
+
+        foreach ([ChangeAction::DELETED, ChangeAction::RESTORED] as $action) {
+            $set = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records($action), []);
+            self::assertSame(1, $set->omitted, $action->value . ': the list says it is not complete');
+        }
+
+        $gone = (new ObservedChangeResolver($this->connectionPool))->resolve($records(ChangeAction::DELETED, 9999), []);
+        self::assertSame([], $gone->changes);
+        self::assertSame(0, $gone->omitted, 'a row that is confirmed missing is no change and leaves the list complete');
+
+        // In a draft workspace the version of a deleted or moved live row is
+        // looked up after the row (the second read of the table); a lookup
+        // that fails leaves the list incomplete.
+        $inDraft = static fn (ChangeAction $action): array => ['tt_content:' . self::ELEMENT => ['table' => 'tt_content', 'uid' => self::ELEMENT, 'action' => $action, 'workspace' => self::DRAFT]];
+        foreach ([ChangeAction::DELETED, ChangeAction::MOVED] as $action) {
+            $pool = FailsOneReadConnectionPool::failing('tt_content', 2, 2);
+            $set  = (new ObservedChangeResolver($pool))->resolve($inDraft($action), []);
+            self::assertSame(1, $pool->failed, $action->value . ': the version lookup failed');
+            self::assertSame(1, $set->omitted, $action->value . ': a version that cannot be looked up leaves the list incomplete');
+        }
+    }
+
+    /**
+     * The call's history is read from the uid `sys_history` had before its
+     * first write. Where that uid cannot be read, the history cannot be read
+     * either, and the list says it is not complete; a call with the uid read
+     * reads its history as before.
+     */
+    #[Test]
+    public function aHistoryWhoseStartCannotBeReadLeavesTheListIncomplete(): void
+    {
+        // What the effect check reads (the armed frame) and the set the run
+        // records (what take() hands over).
+        $listed = static function (?ConnectionPool $pool): array {
+            ToolChangeCollector::arm();
+            $set = null;
+            try {
+                if ($pool instanceof ConnectionPool) {
+                    GeneralUtility::addInstance(ConnectionPool::class, $pool);
+                }
+
+                ToolChangeCollector::beforeWrite();
+                $frame = ToolChangeCollector::peek();
+                self::assertIsArray($frame);
+                $truncated = false;
+                (new ObservedChangeResolver(GeneralUtility::makeInstance(ConnectionPool::class)))->entries($frame['records'], $frame['scopes'], $frame['watermark'], $truncated);
+            } finally {
+                $set = ToolChangeCollector::take();
+            }
+
+            return [$truncated, $set->omitted];
+        };
+
+        $pool = FailsOneReadConnectionPool::failing('sys_history');
+        self::assertSame([true, 1], $listed($pool), 'the effect check and the list are told the history is incomplete');
+        self::assertSame(1, $pool->failed, 'the read of the start failed');
+        self::assertSame([false, 0], $listed(null), 'a start that was read leaves the list complete');
     }
 
     /**
