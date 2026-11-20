@@ -14,6 +14,8 @@ use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Netresearch\NrLlm\Domain\Enum\ChangeAction;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
+use Netresearch\NrLlm\Domain\Enum\WriteCompleteness;
+use Netresearch\NrLlm\Domain\Enum\WriteKind;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
 use Netresearch\NrLlm\Domain\Model\Model;
@@ -30,6 +32,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolLoopResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
+use Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent;
 use Netresearch\NrLlm\Service\Governance\DataClassEnforcementResolver;
 use Netresearch\NrLlm\Service\Governance\TrustZoneResolver;
 use Netresearch\NrLlm\Service\LlmServiceManagerInterface;
@@ -55,6 +58,7 @@ use Netresearch\NrLlm\Service\Tool\Scope\RecordFacts;
 use Netresearch\NrLlm\Service\Tool\Scope\RecordTopologyInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite;
+use Netresearch\NrLlm\Service\Tool\Scope\WriteOutsideTheAssignmentScope;
 use Netresearch\NrLlm\Service\Tool\ToolAvailabilityService;
 use Netresearch\NrLlm\Service\Tool\ToolCallPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
@@ -77,6 +81,7 @@ use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Log\AbstractLogger;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -157,6 +162,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     private ?LoggerInterface $loggerOverride = null;
 
     private ?WorkerWriteEnvironment $writeEnvironmentOverride = null;
+
+    private ?EventDispatcherInterface $eventDispatcherOverride = null;
 
     protected function setUp(): void
     {
@@ -3033,6 +3040,272 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         return [$parent, $subpage];
     }
 
+    // --- the listeners of a write run under the scope (#1438) ---------------
+
+    /**
+     * @return iterable<string, array{bool}>
+     */
+    public static function withAndWithoutTheDataHandlerLayer(): iterable
+    {
+        yield 'DataHandler layer registered' => [true];
+        yield 'effect check alone' => [false];
+    }
+
+    /**
+     * A listener of the call's write event stores a record outside the scope
+     * with a DataHandler run of its own, as AI Label stores its metadata. The
+     * listener ran after the commit and outside the scope, so its write stood.
+     * It now runs under the scope, inside the call's transaction: the whole call
+     * is rolled back, and the model is told which record and which rule.
+     */
+    #[Test]
+    #[DataProvider('withAndWithoutTheDataHandlerLayer')]
+    public function aListenerWriteOutsideTheScopeRollsTheCallBack(bool $dataHandlerLayer): void
+    {
+        if (!$dataHandlerLayer) {
+            $this->unregisterTheDataHandlerLayer();
+        }
+
+        $user = $this->useASessionlessAmbientUser(1);
+        $this->listenToTheWrite(function () use ($user): void {
+            $this->updateHeaderAs(self::OUTSIDE_ELEMENT, 'By a listener', $user);
+        });
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertStringContainsString('code of this TYPO3 installation that runs after such a write wrote or tried to write outside it: tt_content:' . self::OUTSIDE_ELEMENT . ' (outside_scope)', $outcome['toolResult']);
+        self::assertStringContainsString('Only the developer of that code can allow such a write', $outcome['toolResult'], 'no setting an administrator could change is promised');
+        self::assertSame($before, $this->fingerprint(), "the call's own write in scope is gone with the listener's");
+        self::assertSame('Original ' . self::OUTSIDE_ELEMENT, $this->header(self::OUTSIDE_ELEMENT));
+    }
+
+    /**
+     * The control: a listener write inside the scope is kept and listed with
+     * the call's changes.
+     */
+    #[Test]
+    public function aListenerWriteInsideTheScopeIsKeptAndListed(): void
+    {
+        $user = $this->useASessionlessAmbientUser(1);
+        $this->listenToTheWrite(function () use ($user): void {
+            $this->updateHeaderAs(self::BELOW_ELEMENT, 'By a listener', $user);
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('By a listener', $this->header(self::BELOW_ELEMENT));
+        self::assertContains('tt_content:' . self::BELOW_ELEMENT, $this->listed($outcome['trace']));
+    }
+
+    /**
+     * An integrator allows one listener write outside the scope explicitly. It
+     * is kept, listed and not judged. The same allowance in the tool's own
+     * execution changes nothing: the write is refused there as any other.
+     */
+    #[Test]
+    public function aListenerWriteAllowedOutsideTheScopeIsKeptAndTheAllowanceHoldsForListenersOnly(): void
+    {
+        $user = $this->useASessionlessAmbientUser(1);
+        $this->listenToTheWrite(function () use ($user): void {
+            WriteOutsideTheAssignmentScope::run('test log outside the assignment', function () use ($user): void {
+                $this->updateHeaderAs(self::OUTSIDE_ELEMENT, 'Allowed by the installation', $user);
+            });
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('Allowed by the installation', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertSame('Changed in scope', $this->header(self::IN_SCOPE_ELEMENT));
+        self::assertContains('tt_content:' . self::OUTSIDE_ELEMENT, $this->listed($outcome['trace']), 'the allowed write is listed');
+
+        $this->eventDispatcherOverride = null;
+        $inTheTool                     = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                WriteOutsideTheAssignmentScope::run('not a listener', function () use ($context): void {
+                    $this->updateHeader(self::OUTSIDE_ELEMENT, 'From the tool', $context);
+                });
+            },
+            user: $user,
+        );
+
+        self::assertContains('update tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($inTheTool['trace']));
+        self::assertSame('Allowed by the installation', $this->header(self::OUTSIDE_ELEMENT));
+    }
+
+    /**
+     * A write allowed outside the scope goes with the rollback when another
+     * listener write is outside the scope, and is no longer listed.
+     */
+    #[Test]
+    public function aListenerWriteAllowedOutsideTheScopeIsNotListedWhenTheCallIsRolledBack(): void
+    {
+        $user = $this->useASessionlessAmbientUser(1);
+        $this->listenToTheWrite(function () use ($user): void {
+            WriteOutsideTheAssignmentScope::run('test log outside the assignment', function () use ($user): void {
+                $this->updateHeaderAs(self::DEEP_ELEMENT, 'Allowed by the installation', $user);
+            });
+            $this->updateHeaderAs(self::OUTSIDE_ELEMENT, 'Not allowed', $user);
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame('Original ' . self::DEEP_ELEMENT, $this->header(self::DEEP_ELEMENT), 'the allowed write went with the rollback');
+        self::assertNotContains('tt_content:' . self::DEEP_ELEMENT, $this->listed($outcome['trace']));
+    }
+
+    /**
+     * A call whose own write the scope refused, or the effect check found
+     * outside it, announces nothing: its listeners do not run.
+     */
+    #[Test]
+    #[DataProvider('withAndWithoutTheDataHandlerLayer')]
+    public function aCallWithARefusedWriteDispatchesNothing(bool $dataHandlerLayer): void
+    {
+        if (!$dataHandlerLayer) {
+            $this->unregisterTheDataHandlerLayer();
+        }
+
+        $user     = $this->useASessionlessAmbientUser(1);
+        $listened = false;
+        $this->listenToTheWrite(function () use (&$listened): void {
+            $listened = true;
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Outside', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertNotSame([], $this->refusals($outcome['trace']));
+        self::assertFalse($listened, 'no listener ran');
+    }
+
+    /**
+     * What AI Label does: a listener stores a field on the draft the call
+     * wrote, naming the draft's uid, in a scope of the default language on a
+     * page with a German translation. TYPO3 14 adds an entry for the
+     * translation to that write; it is left out as for the call's own write,
+     * and the call is kept.
+     */
+    #[Test]
+    public function aListenerWriteToTheDraftTheCallWroteIsKept(): void
+    {
+        $this->insertAGermanOverlayOfTheScopedPage();
+        $user = $this->setUpBackendUser(1);
+        self::assertTrue($user->setTemporaryWorkspace(self::DRAFT));
+        $this->listenToTheWrite(function () use ($user): void {
+            $draft       = (int) $this->scalar('SELECT uid FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::SCOPED, self::DRAFT]);
+            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+            $dataHandler->start(['pages' => [$draft => ['abstract' => 'Stored by a listener']]], [], $user);
+            $dataHandler->process_datamap();
+        });
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => new ScopedWrite('update', [new RecordReference('pages', self::SCOPED)]),
+            function (ToolExecutionContext $context): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start(['pages' => [self::SCOPED => ['description' => 'Written by the call']]], [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+            scope: new AssignmentScope([new ScopedPage(self::SCOPED, 0)], [], ['pages'], [0]),
+            user: $user,
+            wrote: new RecordReference('pages', self::SCOPED),
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame('Stored by a listener', $this->scalar('SELECT abstract FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [self::SCOPED, self::DRAFT]));
+        self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM pages WHERE t3ver_oid = ?', [self::OVERLAY]), 'the translation got no version');
+    }
+
+    /**
+     * A dispatcher that hands the call's write event to $listener.
+     *
+     * @param Closure(AfterAiRecordWrittenEvent): void $listener
+     */
+    private function listenToTheWrite(Closure $listener): void
+    {
+        $this->eventDispatcherOverride = new class ($listener) implements EventDispatcherInterface {
+            /**
+             * @param Closure(AfterAiRecordWrittenEvent): void $listener
+             */
+            public function __construct(private readonly Closure $listener) {}
+
+            public function dispatch(object $event): object
+            {
+                if ($event instanceof AfterAiRecordWrittenEvent) {
+                    ($this->listener)($event);
+                }
+
+                return $event;
+            }
+        };
+    }
+
+    private function updateHeaderAs(int $uid, string $header, BackendUserAuthentication $user): void
+    {
+        $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+        $dataHandler->start(['tt_content' => [$uid => ['header' => $header]]], [], $user);
+        $dataHandler->process_datamap();
+    }
+
+    /**
+     * The records the run's changes steps list.
+     *
+     * @return list<string>
+     */
+    private function listed(RunTrace $trace): array
+    {
+        $listed = [];
+        foreach ($trace->getSteps() as $step) {
+            foreach ($step->kind === RunStep::KIND_CHANGES && $step->observedChanges instanceof ObservedChangeSet ? $step->observedChanges->changes : [] as $change) {
+                $listed[] = (string) $change->record;
+            }
+        }
+
+        return $listed;
+    }
+
     // --- cache flushes wait for the commit ------------------------------------
 
     /**
@@ -3264,16 +3537,17 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
      *
      * @param Closure(array<string, mixed>): ?ScopedWrite $claim
      * @param Closure(ToolExecutionContext): void         $act
+     * @param RecordReference|null                        $wrote the record the tool reports as written, which the loop announces
      *
      * @return array{trace: RunTrace, toolResult: string, suspendedForDependency: bool}
      */
-    private function call(Closure $claim, Closure $act, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(self::SCOPED, 1)]), bool $required = false, bool $approve = true, ?BackendUserAuthentication $user = null, bool $dependencyTool = false): array
+    private function call(Closure $claim, Closure $act, ?AssignmentScope $scope = new AssignmentScope([new ScopedPage(self::SCOPED, 1)]), bool $required = false, bool $approve = true, ?BackendUserAuthentication $user = null, bool $dependencyTool = false, ?RecordReference $wrote = null): array
     {
         $user ??= $this->useASessionlessAmbientUser(1);
-        $run = static function (array $arguments, ToolExecutionContext $context) use ($act): ToolResult {
+        $run = static function (array $arguments, ToolExecutionContext $context) use ($act, $wrote): ToolResult {
             $act($context);
 
-            return ToolResult::text('ok');
+            return $wrote instanceof RecordReference ? ToolResult::text('ok')->withWriteTarget($wrote, WriteKind::UPDATED, WriteCompleteness::COMPLETE) : ToolResult::text('ok');
         };
         $tool = $dependencyTool ? new ScopedWriteFakeDependencyTool('scoped_probe', $claim, $run) : new ScopedWriteFakeTool('scoped_probe', $claim, $run);
 
@@ -3362,6 +3636,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             $registry,
             $policy,
             $this->loggerOverride ?? new NullLogger(),
+            eventDispatcher: $this->eventDispatcherOverride,
             previewTranslator: new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)),
             invocationPolicy: new ToolInvocationPolicy([new RequireAssignmentScopeRule($registry, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]),
             writeEnvironment: $this->writeEnvironmentOverride,

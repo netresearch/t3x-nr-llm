@@ -2549,6 +2549,9 @@ Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite (class)
 Netresearch\NrLlm\Service\Tool\Scope\ScopedWriteInterface (interface)
   method scopedWrite(array $arguments): ?Netresearch\NrLlm\Service\Tool\Scope\ScopedWrite
 
+Netresearch\NrLlm\Service\Tool\Scope\WriteOutsideTheAssignmentScope (class)
+  method static run(string $reason, Closure $write): mixed
+
 Netresearch\NrLlm\Service\Tool\StructuredPreviewInterface (interface)
   method structuredPreview(array $arguments, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $reader): array
 

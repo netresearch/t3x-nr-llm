@@ -11,6 +11,7 @@ namespace Netresearch\NrLlm\Tests\Unit\Domain\ValueObject;
 
 use Netresearch\NrLlm\Domain\Enum\ChangeAction;
 use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
+use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChange;
 use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
@@ -195,5 +196,26 @@ final class ObservedChangeTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         self::assertSame(RunStep::KIND_TOOL, (new RunStep(kind: RunStep::KIND_TOOL, round: 1, durationMs: 0.0, observedChanges: new ObservedChangeSet()))->kind);
+    }
+
+    /**
+     * A listener write the effect check could not read is not reported as a
+     * write outside the scope, and the model may try the call again.
+     */
+    #[Test]
+    public function aListenerWriteThatCouldNotBeCheckedIsReportedAsSuch(): void
+    {
+        $scope      = AssignmentScope::forPage(2, 1);
+        $unreadable = [['refusal' => new ScopeRefusal('effect_written', 'pages', 0, 0, ScopeRefusal::UNRESOLVABLE), 'workspace' => 0]];
+        $outside    = [['refusal' => new ScopeRefusal('effect_updated', 'tt_content', 23, 0, ScopeRefusal::OUTSIDE_SCOPE), 'workspace' => 0]];
+
+        $note = ChangeSets::listenerEffectNote($scope, $unreadable, true);
+        self::assertStringContainsString('could not be checked', $note);
+        self::assertStringContainsString('The call can be tried again.', $note);
+        self::assertStringNotContainsString('wrote or tried to write outside it', $note);
+
+        $note = ChangeSets::listenerEffectNote($scope, [...$unreadable, ...$outside], true);
+        self::assertStringContainsString('wrote or tried to write outside it', $note, 'one write outside the scope is named as such');
+        self::assertStringContainsString('tt_content:23 (outside_scope)', $note);
     }
 }

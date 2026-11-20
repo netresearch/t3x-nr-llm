@@ -139,6 +139,13 @@ rules. A violation rolls the whole call back, rows and history included.
        and the new pages and records below a new page.
    * - Attach a file
      - The record is not in scope.
+   * - A listener of the call's write (AI Label, an extension's own)
+     - What the listener writes through the DataHandler is not in scope. A
+       listener write that does not go through the DataHandler (a query,
+       Extbase persistence) is not checked. The whole call is rolled
+       back, its own write included. An integrator can allow one specific
+       listener write outside the scope in code
+       (:ref:`api-events-assignment-scope`); nothing is allowed by default.
    * - A tool outside TYPO3
      - Always, while a scope applies (reason ``scope_remote_write``): an MCP
        server or a remote agent cannot be held to a scope.

@@ -138,9 +138,11 @@ May write
    completed call wrote beside its announced write is listed in a block of
    its own, "Further records the run's completed tool calls wrote": records
    core wrote along with the write (the children of a copied record, for
-   example), and what a listener of the write, such as AI Label, stored after
-   the call, with the records core added to that listener's DataHandler run
-   (a version of a translation, for example). Discarding the page's draft in
+   example), and what a listener of the write, such as AI Label, stored for
+   the call, with the records core added to that listener's DataHandler run.
+   Under the scope of the task's assignment such a listener write is held to
+   the scope; a version of a translation in a language the scope does not
+   admit is no longer made. Discarding the page's draft in
    the Workspaces module leaves such a version of a translation in place; it
    is discarded on its own row, or with :guilabel:`Discard` in the workspace
    preview of the page, which discards every other draft on the page too
@@ -150,7 +152,10 @@ May write
    (:ref:`ADR-295 <adr-295>`). Such records are listed in a further block,
    "Records written by tool calls that did not complete", to be checked, and
    a line says when that list may be incomplete; a call that was rolled back
-   lists nothing.
+   lists no record there. A last block, "Writes the scope of the task's
+   assignment refused or rolled back", names each write the scope refused
+   or rolled back, the call's own and its listeners', with the rule it
+   broke.
    The one exception to "drafts only" is ``adopt_client_file``, which
    stores a client's file in the skill's inbox folder as a new FAL file. A
    FAL file has no draft; nothing uses it until an editor references it in

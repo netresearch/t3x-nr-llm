@@ -22,8 +22,9 @@ AfterAiRecordWrittenEvent
 :php:`Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent`
 
 Dispatched once per successful editorial write, after the write has landed and
-been read back by the tool that made it. It answers three questions and no
-fourth.
+been read back by the tool that made it. For a run with an assignment scope it
+is dispatched before the call's transaction is committed, under that scope (see
+below). It answers three questions and no fourth.
 
 .. confval:: correlationId
 
@@ -127,10 +128,58 @@ event promises is on the event.
 **A listener that throws is logged, not propagated.** The write has already
 landed and a human has already approved it, so a broken listener does not fail
 the run — it produces an ``error``-level log entry naming the record. Do not
-rely on an exception to signal anything back to the extension.
+rely on an exception to signal anything back to the extension. In a run with
+an assignment scope, a DataHandler write of the listener outside the scope
+does fail the call (see below).
 
 **It can fire twice for one record.** The agent queue is at-least-once: a run
 whose lease is lost may be re-executed, and an idempotent write that runs twice
 dispatches twice with the same :confval:`correlationId` and :confval:`record`.
 Deduplicate on that pair if your listener must act once per record. A
 non-idempotent write is never auto-retried, so it cannot double this way.
+
+.. _api-events-assignment-scope:
+
+A listener of a run with an assignment scope
+--------------------------------------------
+
+A run can be bound to the scope of its assignment
+(:ref:`ADR-295 <adr-295>`). Its write events, this one and the internal
+``AiLabelWriteEvent``, are then dispatched while the scope holds the call and
+before its transaction is committed: the write the event names can still be
+rolled back after your listener ran, by another listener's write outside the
+scope or by a failed commit. Keep effects outside the database (a mail, a
+webhook, a queue message) out of such a listener, or make them tolerate a
+write that did not stay. A DataHandler write of a listener is held
+to the scope like the call's own write: a write outside the scope rolls back
+the whole call, the call's own write included, and the model is told which
+record and which rule. A write of the record the call wrote, or of its draft,
+is inside the scope. When TYPO3 adds an entry for a translation in a language
+the scope does not admit to such a write, the entry is left out without a
+refusal, as for the call's own write, and the translation gets no version,
+when the write synchronises nothing: the added entry holds only synchronised
+fields and ``l10n_state``, no submitted entry names a synchronised field, and
+no inline or file field in it lists a child record. Any other such entry is
+judged as before; the scope refuses it and the call fails. On MySQL and
+MariaDB a ``TCEMAIN.clearCacheCmd`` group flush in a listener's run commits
+the call early, and a later violation can no longer roll it back
+(:ref:`ADR-295 <adr-295>`).
+
+A listener that has to write outside the scope, a log record on a storage page
+for example, wraps exactly that write and gives the reason:
+
+.. code-block:: php
+
+   use Netresearch\NrLlm\Service\Tool\Scope\WriteOutsideTheAssignmentScope;
+
+   WriteOutsideTheAssignmentScope::run(
+       'editorial audit log of AI writes',
+       fn () => $this->auditLog->record($event),
+   );
+
+The write is not judged, is listed with the call's changes, and is logged as a
+warning with the reason; a rollback of the call takes it back with the rest.
+This works only while such an event is dispatched: called anywhere else, during
+a tool's own execution too, the write is held to the scope as before. Nothing
+in nr_llm calls it, so without an integrator's code no listener write leaves the
+scope.

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Scope;
 
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
+use Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 
 /**
@@ -33,7 +34,7 @@ use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
  */
 final class AssignmentScopeGuard
 {
-    /** @var list<array{scope: AssignmentScope, checker: AssignmentScopeChecker, workspace: int, refusals: list<ScopeRefusal>, observed: list<array{refusal: ScopeRefusal, workspace: int}>}> */
+    /** @var list<array{scope: AssignmentScope, checker: AssignmentScopeChecker, workspace: int, refusals: list<ScopeRefusal>, observed: list<array{refusal: ScopeRefusal, workspace: int}>, suspended: int, dispatching: bool, allowed: list<ObservedChangeSet>}> */
     private static array $frames = [];
 
     /**
@@ -41,7 +42,7 @@ final class AssignmentScopeGuard
      */
     public static function arm(AssignmentScope $scope, ?AssignmentScopeChecker $checker = null, int $workspace = 0): void
     {
-        self::$frames[] = ['scope' => $scope, 'checker' => $checker ?? new AssignmentScopeChecker(), 'workspace' => max(0, $workspace), 'refusals' => [], 'observed' => []];
+        self::$frames[] = ['scope' => $scope, 'checker' => $checker ?? new AssignmentScopeChecker(), 'workspace' => max(0, $workspace), 'refusals' => [], 'observed' => [], 'suspended' => 0, 'dispatching' => false, 'allowed' => []];
     }
 
     /**
@@ -57,18 +58,109 @@ final class AssignmentScopeGuard
         return self::$frames !== [];
     }
 
+    /**
+     * The scope the DataHandler hook holds writes to; null while nothing is
+     * armed, or while the innermost frame is suspended for a write an
+     * integrator allowed outside the scope ({@see WriteOutsideTheAssignmentScope}).
+     */
     public static function scope(): ?AssignmentScope
     {
         $last = array_key_last(self::$frames);
 
-        return $last === null ? null : self::$frames[$last]['scope'];
+        return $last === null || self::$frames[$last]['suspended'] > 0 ? null : self::$frames[$last]['scope'];
     }
 
     public static function checker(): ?AssignmentScopeChecker
     {
         $last = array_key_last(self::$frames);
 
-        return $last === null ? null : self::$frames[$last]['checker'];
+        return $last === null || self::$frames[$last]['suspended'] > 0 ? null : self::$frames[$last]['checker'];
+    }
+
+    /**
+     * Stop holding the innermost frame's writes to its scope until
+     * {@see self::resume()}. False when nothing is armed.
+     */
+    public static function suspend(): bool
+    {
+        $last = array_key_last(self::$frames);
+        if ($last === null) {
+            return false;
+        }
+
+        ++self::$frames[$last]['suspended'];
+
+        return true;
+    }
+
+    public static function resume(): void
+    {
+        $last = array_key_last(self::$frames);
+        if ($last !== null && self::$frames[$last]['suspended'] > 0) {
+            --self::$frames[$last]['suspended'];
+        }
+    }
+
+    /**
+     * The innermost frame dispatches the write events of its call
+     * (`AfterAiRecordWrittenEvent`, `AiLabelWriteEvent`): their listeners'
+     * writes are held to the scope, and only there may an integrator allow one
+     * outside it ({@see WriteOutsideTheAssignmentScope}).
+     */
+    public static function openListenerDispatch(): void
+    {
+        $last = array_key_last(self::$frames);
+        if ($last !== null) {
+            self::$frames[$last]['dispatching'] = true;
+            self::$frames[$last]['allowed']     = [];
+        }
+    }
+
+    /**
+     * End the dispatch of the innermost frame and return what was written
+     * outside the scope with an integrator's allowance.
+     *
+     * @return list<ObservedChangeSet>
+     */
+    public static function closeListenerDispatch(): array
+    {
+        $last = array_key_last(self::$frames);
+        if ($last === null) {
+            return [];
+        }
+
+        $allowed                            = self::$frames[$last]['allowed'];
+        self::$frames[$last]['dispatching'] = false;
+        self::$frames[$last]['allowed']     = [];
+
+        return $allowed;
+    }
+
+    public static function isDispatchingListeners(): bool
+    {
+        $last = array_key_last(self::$frames);
+
+        return $last !== null && self::$frames[$last]['dispatching'] && self::$frames[$last]['suspended'] === 0;
+    }
+
+    public static function allowed(ObservedChangeSet $written): void
+    {
+        $last = array_key_last(self::$frames);
+        if ($last !== null) {
+            self::$frames[$last]['allowed'][] = $written;
+        }
+    }
+
+    /**
+     * What the innermost frame refused so far, without disarming it.
+     *
+     * @return list<ScopeRefusal>
+     */
+    public static function refusals(): array
+    {
+        $last = array_key_last(self::$frames);
+
+        return $last === null ? [] : self::$frames[$last]['refusals'];
     }
 
     /**

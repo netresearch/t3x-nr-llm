@@ -570,6 +570,11 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * versions core gave the translations in that run (#1432). Those are
      * listed in a block of their own; a list cut at its limit says so.
      *
+     * What the scope of the assignment refused or rolled back is named last,
+     * record by record with its rule, also for a call that was rolled back
+     * whole: a listener of the call's write that wrote outside the scope rolls
+     * back a call whose own write was in scope (#1438).
+     *
      * @return array<string, mixed>|null
      */
     private function writesArtifact(int $runUid, bool $profileMayWrite): ?array
@@ -584,7 +589,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $steps  = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
         $failed = $this->changesOfFailedCalls($runUid);
         $beside = $this->changesBesideTheWrites($runUid, $rows);
-        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $beside['lines'] === [] && !$beside['incomplete']) {
+        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $failed['refused'] === [] && $beside['lines'] === [] && !$beside['incomplete']) {
             return null;
         }
 
@@ -612,6 +617,10 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $text .= sprintf("\nThe run recorded %d write step(s); this list may be incomplete.", $steps);
         }
 
+        foreach ($this->block("Writes the scope of the task's assignment refused or rolled back (%d), each with the rule it broke:\n%s", $failed['refused']) as $refused) {
+            $text .= "\n" . $refused;
+        }
+
         return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
     }
 
@@ -634,11 +643,12 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * whole list (a capture that missed writes, or a list cut at its limit).
      * A call's steps are recorded in order: its tool step, then its changes.
      *
-     * @return array{lines: list<string>, incomplete: bool}
+     * @return array{lines: list<string>, incomplete: bool, refused: list<string>}
      */
     private function changesOfFailedCalls(int $runUid): array
     {
         $lines      = [];
+        $refused    = [];
         $incomplete = false;
         foreach ($this->changeSetsOfCalls($runUid, true) as $set) {
             $incomplete = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
@@ -646,9 +656,13 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
                 // The line holds every part of its identity, so it is its own key.
                 $lines[$this->changeLine($change)] = true;
             }
+
+            foreach ($set->refused as $refusal) {
+                $refused[sprintf('- %s of %s (%s)', $refusal->operation, $refusal->subject(), $refusal->reason)] = true;
+            }
         }
 
-        return ['lines' => array_keys($lines), 'incomplete' => $incomplete];
+        return ['lines' => array_keys($lines), 'incomplete' => $incomplete, 'refused' => array_keys($refused)];
     }
 
     /**
