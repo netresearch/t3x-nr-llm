@@ -3485,7 +3485,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // A scoped call announced its write above; what its listeners wrote is
             // in the call's set already, except writes an integrator allowed
             // outside the scope, which no check judged; a rollback took them too.
-            $announced = $listeners !== null ? ($rolledBack ? new ObservedChangeSet() : $listeners['allowed']) : $this->announceWrite($bounded, $context, $generated);
+            if ($listeners === null) {
+                $announced = $this->announceWrite($bounded, $context, $generated);
+            } else {
+                $announced = $rolledBack ? new ObservedChangeSet() : $listeners['allowed'];
+            }
+
             ToolChangeCollector::hold(ChangeSets::merged($changes, $announced));
 
             return $bounded;

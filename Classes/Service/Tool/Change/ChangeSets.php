@@ -183,25 +183,7 @@ final class ChangeSets
      */
     public static function effectNote(AssignmentScope $scope, array $violations, bool $rolledBack): string
     {
-        if ($violations === []) {
-            return '';
-        }
-
-        $parts = array_map(
-            static fn (array $violation): string => sprintf('%s (%s)', $violation['refusal']->subject(), $violation['refusal']->reason),
-            array_slice($violations, 0, self::NOTE_LIMIT),
-        );
-        $more = max(0, count($violations) - self::NOTE_LIMIT);
-
-        return sprintf(
-            'This call wrote outside the assignment of this run (%s): %s%s. %s Work only inside the assignment.',
-            $scope->describe(),
-            implode(', ', $parts),
-            $more > 0 ? sprintf(' and %d more', $more) : '',
-            $rolledBack
-                ? 'All database changes of this call were rolled back.'
-                : 'These changes were NOT rolled back (no transaction held them, or it could not be rolled back) and have to be reviewed.',
-        );
+        return self::violationNote('This call wrote outside the assignment of this run (%s): %s. %s Work only inside the assignment.', $scope, $violations, $rolledBack);
     }
 
     /**
@@ -214,6 +196,17 @@ final class ChangeSets
      */
     public static function listenerEffectNote(AssignmentScope $scope, array $violations, bool $rolledBack): string
     {
+        return self::violationNote('The write of this call was inside the assignment of this run (%s), but code of this TYPO3 installation that runs after such a write wrote or tried to write outside it: %s. %s Only the developer of that code can allow such a write, in the code; until then the call cannot be made as it is.', $scope, $violations, $rolledBack);
+    }
+
+    /**
+     * A note in $format with the scope, the records and their rule, and what
+     * became of the call; empty for no violation.
+     *
+     * @param list<array{refusal: ScopeRefusal, workspace: int}> $violations
+     */
+    private static function violationNote(string $format, AssignmentScope $scope, array $violations, bool $rolledBack): string
+    {
         if ($violations === []) {
             return '';
         }
@@ -225,10 +218,9 @@ final class ChangeSets
         $more = max(0, count($violations) - self::NOTE_LIMIT);
 
         return sprintf(
-            'The write of this call was inside the assignment of this run (%s), but code of this TYPO3 installation that runs after such a write wrote or tried to write outside it: %s%s. %s Only the developer of that code can allow such a write, in the code; until then the call cannot be made as it is.',
+            $format,
             $scope->describe(),
-            implode(', ', $parts),
-            $more > 0 ? sprintf(' and %d more', $more) : '',
+            implode(', ', $parts) . ($more > 0 ? sprintf(' and %d more', $more) : ''),
             $rolledBack
                 ? 'All database changes of this call were rolled back.'
                 : 'These changes were NOT rolled back (no transaction held them, or it could not be rolled back) and have to be reviewed.',
