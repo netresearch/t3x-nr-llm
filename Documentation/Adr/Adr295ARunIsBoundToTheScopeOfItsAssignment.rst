@@ -423,21 +423,31 @@ with the rest, and the call is rolled back:
   record discarded along with it (TYPO3 14.3.11 and 13.4.40). Core calls the
   hook before its own access checks, so a discard core then does not make is
   judged too.
-- Every ``version`` command, in ``processCmdmap_preProcess``, right before it
-  runs, the ones the workspaces extension adds for a publish included: a
-  ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``),
-  a ``setStage`` and a ``new`` version. An action neither core nor the
-  workspaces extension knows is judged as unreadable.
+- Every publish, in ``processCmdmap_preProcess``, right before it runs, the
+  ones the workspaces extension adds for a publish included: ``version`` with
+  ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``).
+  A ``version`` action neither core nor the workspaces extension knows is
+  judged as unreadable. A ``new`` version and a ``setStage`` write the draft
+  only, so they stay judged at the draft's position by the command check of
+  the hook; core makes a ``new`` version for every first edit in a draft, and
+  judging it at the live row rolled back the edit of a record on a page the
+  draft had moved into the scope.
 - For each such row of a versioned table, the live row is judged at its live
   position and the draft at its position in the workspace; a draft with no
   live row (a new record) is judged where the draft lies. A row that cannot
   be read is outside the scope. A row that does not exist is no change.
 
-A publish and a stage change now count as updates of the record the command
+A publish that took place (its draft is gone, or a new record's draft is now
+the live row) and a stage change now count as updates of the record the command
 names in the call's change list, so the effect check also judges the published
-row where it lies afterwards. The effect check
-is asked before the guard of the call is taken, because it reads what the guard
-noted.
+row where it lies afterwards. The effect check is asked before the guard of the
+call is taken, because it reads what the guard noted.
+
+Known limit: ``discard()`` also removes references to the discarded draft from
+other records with queries of its own (``discardCsvReferencesToRecord()``
+updates group fields found through ``sys_refindex``, ``discardMmRelations()``
+deletes MM rows). No hook hears of them and they write no history, so they are
+not judged; they remove a reference to a draft that no longer exists.
 
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:
@@ -548,8 +558,9 @@ one as for every rule.
    * - ``undelete``, ``discard``, ``version``
      - ``publish`` claims the record
      - record (``discard`` also translations); the effect check judges every
-       discard core makes, cascades included, and every ``version`` command
-       before it runs, at the live row and at the draft
+       discard core makes, the drafts it discards along with a record
+       included, and every publish before it runs, at the live row and at the
+       draft
    * - New row (datamap)
      - destination page, anchor, language
      - ``pid`` resolved, language, table; a translation or a file reference is

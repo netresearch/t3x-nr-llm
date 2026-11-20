@@ -2414,6 +2414,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         );
 
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_discard tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($outcome['trace']), 'judged by its live row');
         self::assertSame([], array_values(array_filter($this->refusals($outcome['trace']), static fn (string $line): bool => !str_starts_with($line, 'effect_'))), 'the layers before the effect check let the discard through');
         self::assertSame($before, $this->fingerprint(), 'the draft survives the rollback');
         self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT));
@@ -2492,8 +2493,18 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
      * effect check reads. The call is rolled back; the control, a draft moved
      * inside the scope, is published.
      */
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function publishActions(): iterable
+    {
+        yield 'publish' => ['publish'];
+        yield 'swap' => ['swap'];
+    }
+
     #[Test]
-    public function aPublishOfADraftWhoseLiveRowIsOutsideTheScopeIsRolledBack(): void
+    #[DataProvider('publishActions')]
+    public function aPublishOfADraftWhoseLiveRowIsOutsideTheScopeIsRolledBack(string $action): void
     {
         $user   = $this->userInTheDraft();
         $draft  = $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::SCOPED, $user);
@@ -2501,8 +2512,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         $outcome = $this->call(
             static fn (): ScopedWrite => ScopedWrite::nothing(),
-            function (ToolExecutionContext $context) use ($draft): void {
-                $this->command(['tt_content' => [self::OUTSIDE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+            function (ToolExecutionContext $context) use ($draft, $action): void {
+                $this->command(['tt_content' => [self::OUTSIDE_ELEMENT => ['version' => ['action' => $action, 'swapWith' => $draft]]]], $context);
             },
             user: $user,
         );
@@ -2514,8 +2525,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $inside = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::BELOW, $user);
         $kept   = $this->call(
             static fn (): ScopedWrite => ScopedWrite::nothing(),
-            function (ToolExecutionContext $context) use ($inside): void {
-                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $inside]]]], $context);
+            function (ToolExecutionContext $context) use ($inside, $action): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => $action, 'swapWith' => $inside]]]], $context);
             },
             user: $user,
         );
@@ -2523,20 +2534,13 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame('ok', $kept['toolResult']);
         self::assertSame([], $this->refusals($kept['trace']));
         self::assertSame(self::BELOW, $this->pidOf('tt_content', self::IN_SCOPE_ELEMENT), 'the move is published');
-        $listed = [];
-        foreach ($kept['trace']->getSteps() as $step) {
-            foreach ($step->kind === RunStep::KIND_CHANGES && $step->observedChanges instanceof ObservedChangeSet ? $step->observedChanges->changes : [] as $change) {
-                $listed[] = $change->record . ' ' . $change->action->value;
-            }
-        }
-
-        self::assertContains('tt_content:' . self::IN_SCOPE_ELEMENT . ' updated', $listed, 'the publish is listed as an update of the live row');
+        self::assertContains('tt_content:' . self::IN_SCOPE_ELEMENT . ' updated', $this->listedChanges($kept['trace']), 'the publish is listed as an update of the live row');
     }
 
     /**
      * A stage change writes the draft. With the DataHandler layer taken away,
-     * one of a draft outside the scope is found by the effect check and rolled
-     * back.
+     * one of a draft outside the scope is found by the effect check, through
+     * the record the change list keeps of the command, and rolled back.
      */
     #[Test]
     public function aStageChangeOfADraftOutsideTheScopeIsRolledBackByTheEffectCheck(): void
@@ -2550,6 +2554,94 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             },
             true,
         );
+    }
+
+    /**
+     * A `version` action neither core nor the workspaces extension knows is
+     * handled, if at all, by code nobody judged: the call is rolled back.
+     */
+    #[Test]
+    public function aVersionActionThatIsNotKnownIsRolledBack(): void
+    {
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'promote']]]], $context);
+            },
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_version tt_content:' . self::IN_SCOPE_ELEMENT . ' unresolvable', $this->refusals($outcome['trace']));
+        self::assertSame('Original ' . self::IN_SCOPE_ELEMENT, $this->header(self::IN_SCOPE_ELEMENT));
+    }
+
+    /**
+     * Core makes a version with a `version` command of its own for the first
+     * edit of a record in a draft. A record on a page that the draft moved
+     * into the scope lies in the scope there, and its first edit is kept,
+     * although its live row lies outside: a new version writes the draft only.
+     */
+    #[Test]
+    public function theFirstEditOfARecordOnAPageMovedIntoTheScopeIsKept(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::OTHER => ['move' => self::SCOPED]]], $user);
+        $dataHandler->process_cmdmap();
+        self::assertSame(0, $this->versionsOf(self::OUTSIDE_ELEMENT), 'positive control: the element has no draft yet');
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::OUTSIDE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Edited in the draft', $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->refusals($outcome['trace']));
+        self::assertSame(1, $this->versionsOf(self::OUTSIDE_ELEMENT), 'the edit made a draft of the element');
+    }
+
+    /**
+     * A publish core refuses, here of a draft that belongs to another record,
+     * changes nothing, and is not listed as an update.
+     */
+    #[Test]
+    public function aPublishCoreRefusesIsNotListed(): void
+    {
+        $user  = $this->userInTheDraft();
+        $other = $this->moveAsADraft(self::BELOW_ELEMENT, self::SCOPED, $user);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($other): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $other]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame(1, $this->versionsOf(self::BELOW_ELEMENT), 'positive control: the draft was not published');
+        self::assertSame([], $this->listedChanges($outcome['trace']), 'nothing is listed');
+    }
+
+    /**
+     * The records the run's changes steps list, with their action.
+     *
+     * @return list<string>
+     */
+    private function listedChanges(RunTrace $trace): array
+    {
+        $listed = [];
+        foreach ($trace->getSteps() as $step) {
+            foreach ($step->kind === RunStep::KIND_CHANGES && $step->observedChanges instanceof ObservedChangeSet ? $step->observedChanges->changes : [] as $change) {
+                $listed[] = $change->record . ' ' . $change->action->value;
+            }
+        }
+
+        return $listed;
     }
 
     /**

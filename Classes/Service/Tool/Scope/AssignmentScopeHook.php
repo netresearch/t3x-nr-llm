@@ -14,7 +14,6 @@ use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
 use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\MathUtility;
 use WeakMap;
 
@@ -43,13 +42,15 @@ use WeakMap;
  * entry core added for an update that names none is skipped where the scope
  * refuses it, without a refusal: the run asked for nothing of it.
  *
- * A discard, a publish and the other `version` actions are judged again for the
- * effect check (#1442), while the rows can still be read: every discard core
- * carries out, cascades included, in `processCmdmap_discardAction`, and every
- * `version` command in `processCmdmap_preProcess`, right before it runs. Both
- * the live row, at its live position, and the draft, at its position in the
- * workspace, have to lie in the scope; what does not, or cannot be read, is
- * noted on the guard and rolls the call back.
+ * A discard and a publish are judged again for the effect check (#1442),
+ * while the rows can still be read: every discard core carries out, the ones
+ * it makes along with a record included, in `processCmdmap_discardAction`, and
+ * every publish in `processCmdmap_preProcess`, right before it runs. Both
+ * change what stands at the live row, so the live row, at its live position,
+ * and the draft, at its position in the workspace, have to lie in the scope;
+ * what does not, or cannot be read, is noted on the guard and rolls the call
+ * back. A new version and a stage change write the draft only, and are judged
+ * by the command check above at the draft's position.
  *
  * @internal
  */
@@ -149,10 +150,11 @@ final class AssignmentScopeHook
     }
 
     /**
-     * A `version` command, right before core carries it out: a publish puts the
-     * draft where the live row is, a new version and a stage change write the
-     * draft, and an action that is not known is judged as unreadable. A discard
-     * (`clearWSID`, `flush`) is judged where core discards.
+     * A `version` command, right before core carries it out, the ones the
+     * workspaces extension adds for a publish included: a publish puts the
+     * draft where the live row is, and an action that is not known is judged as
+     * unreadable. A discard (`clearWSID`, `flush`) is judged where core
+     * discards; a new version and a stage change write the draft only.
      */
     public function processCmdmap_preProcess(mixed $command, mixed $table, mixed $id, mixed $value, DataHandler $dataHandler): void
     {
@@ -170,17 +172,17 @@ final class AssignmentScopeHook
             return;
         }
 
-        if ($action === 'clearWSID' || $action === 'flush') {
+        if ($action !== 'swap' && $action !== 'publish') {
             return;
         }
 
-        $uids = $action === 'setStage' ? GeneralUtility::intExplode(',', is_scalar($id) ? (string) $id : '', true) : [is_numeric($id) ? (int) $id : 0];
-        if (in_array($action, ['swap', 'publish'], true) && is_array($value) && is_numeric($value['swapWith'] ?? null)) {
+        $uids = [is_numeric($id) ? (int) $id : 0];
+        if (is_array($value) && is_numeric($value['swapWith'] ?? null)) {
             $uids[] = (int) $value['swapWith'];
         }
 
         foreach ($uids as $uid) {
-            $this->observeDraftAndLive($scope, $checker, $action === 'swap' || $action === 'publish' ? 'effect_publish' : 'effect_version', $table, $uid, null, $workspace);
+            $this->observeDraftAndLive($scope, $checker, 'effect_publish', $table, $uid, null, $workspace);
         }
     }
 

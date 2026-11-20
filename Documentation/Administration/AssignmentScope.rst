@@ -134,7 +134,7 @@ rules. A violation rolls the whole call back, rows and history included.
        the scope is refused the same way.
    * - Publish, discard a draft
      - The record is not in scope where it is live, or its draft is not in
-       scope where the draft lies. A discard includes everything core
+       scope where the draft lies. A discard includes the drafts core
        discards along with the record: its translations, its inline children,
        and the new pages and records below a new page.
    * - Attach a file

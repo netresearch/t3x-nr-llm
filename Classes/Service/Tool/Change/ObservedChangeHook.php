@@ -10,7 +10,11 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Change;
 
 use Netresearch\NrLlm\Domain\Enum\ChangeAction;
+use Throwable;
+use TYPO3\CMS\Core\Database\Connection;
+use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * Feeds {@see ToolChangeCollector} from every DataHandler run (ADR-292).
@@ -102,7 +106,9 @@ final class ObservedChangeHook
         // in a draft, which names the live row, not the version.
         $version = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
         if ($version === 'swap' || $version === 'publish') {
-            ToolChangeCollector::record($table, (int) $id, ChangeAction::UPDATED, 0, $correlation);
+            if ($this->wasPublished($table, (int) $id, is_numeric($value['swapWith'] ?? null) ? (int) $value['swapWith'] : 0)) {
+                ToolChangeCollector::record($table, (int) $id, ChangeAction::UPDATED, 0, $correlation);
+            }
 
             return;
         }
@@ -116,6 +122,50 @@ final class ObservedChangeHook
         if ($action instanceof ChangeAction) {
             ToolChangeCollector::record($table, (int) $id, $action, $workspace, $correlation);
         }
+    }
+
+    /**
+     * Whether a publish took place: core deletes the draft it published into
+     * the live row, and a new record's draft becomes the live row. A publish
+     * core refused (no access, the wrong stage, a draft of another record)
+     * leaves both as they were. A read that fails counts as published, so the
+     * record is listed and judged.
+     */
+    private function wasPublished(string $table, int $id, int $swapWith): bool
+    {
+        // @phpstan-ignore-next-line TCA access returns mixed at each nesting level
+        if (!(bool) ($GLOBALS['TCA'][$table]['ctrl']['versioningWS'] ?? false)) {
+            return false;
+        }
+
+        try {
+            $workspace = $this->stored($table, $id);
+            if ($workspace !== 0) {
+                return false;
+            }
+
+            return $swapWith < 1 || $swapWith === $id || $this->stored($table, $swapWith) === null;
+        } catch (Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * The `t3ver_wsid` of a row, deleted ones included, or null where no row
+     * bears the uid.
+     */
+    private function stored(string $table, int $uid): ?int
+    {
+        $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
+        $query->getRestrictions()->removeAll();
+        $value = $query
+            ->select('t3ver_wsid')
+            ->from($table)
+            ->where($query->expr()->eq('uid', $query->createNamedParameter($uid, Connection::PARAM_INT)))
+            ->executeQuery()
+            ->fetchOne();
+
+        return is_numeric($value) ? (int) $value : null;
     }
 
     /**
