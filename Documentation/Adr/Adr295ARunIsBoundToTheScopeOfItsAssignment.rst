@@ -427,7 +427,12 @@ with the rest, and the call is rolled back:
   ones the workspaces extension adds for a publish included: ``version`` with
   ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``).
   A ``version`` action neither core nor the workspaces extension knows is
-  judged as unreadable. A ``new`` version and a ``setStage`` write the draft
+  judged as unreadable, and so is any command whose key is not one integer:
+  ``DataHandler::start()`` and the workspaces extension's own
+  ``processCmdmap_beforeStart`` refuse such a key, but a hook registered
+  after them can replace the public command map, and TYPO3 13.4 hands the key
+  to a ``setStage``, which reads a list of uids from it (14.3 casts it to its
+  first uid). A ``new`` version and a ``setStage`` write the draft
   only, so they stay judged at the draft's position by the command check of
   the hook; core makes a ``new`` version for every first edit in a draft, and
   judging it at the live row rolled back the edit of a record on a page the

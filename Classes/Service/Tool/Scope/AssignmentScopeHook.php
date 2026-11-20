@@ -150,7 +150,8 @@ final class AssignmentScopeHook
     }
 
     /**
-     * A `version` command, right before core carries it out, the ones the
+     * A command whose key is not one uid is judged as unreadable. A `version`
+     * command, right before core carries it out, the ones the
      * workspaces extension adds for a publish included: a publish puts the
      * draft where the live row is, and an action that is not known is judged as
      * unreadable. A discard (`clearWSID`, `flush`) is judged where core
@@ -160,14 +161,30 @@ final class AssignmentScopeHook
     {
         $scope   = AssignmentScopeGuard::scope();
         $checker = AssignmentScopeGuard::checker();
-        if ($command !== 'version' || !$scope instanceof AssignmentScope || !$checker instanceof AssignmentScopeChecker || !is_string($table)) {
+        if (!$scope instanceof AssignmentScope || !$checker instanceof AssignmentScopeChecker || !is_string($table)) {
             return;
         }
 
         $workspace = $this->workspaceOf($dataHandler);
-        $action    = is_array($value) ? ($value['action'] ?? null) : null;
+
+        // `DataHandler::start()` takes integer keys only, and the workspaces
+        // extension's own `processCmdmap_beforeStart` fails on any other. A hook
+        // registered after it can still replace the public map: TYPO3 13.4 hands
+        // such a key on as it is, and a stage change reads a list of uids from
+        // it, so a key that is not one uid is unreadable.
+        if (!is_int($id)) {
+            AssignmentScopeGuard::observe(new ScopeRefusal('effect_command', $table === '' ? 'unknown' : $table, 0, 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+
+            return;
+        }
+
+        if ($command !== 'version') {
+            return;
+        }
+
+        $action = is_array($value) ? ($value['action'] ?? null) : null;
         if (!in_array($action, self::VERSION_ACTIONS, true)) {
-            AssignmentScopeGuard::observe(new ScopeRefusal('effect_version', $table, is_int($id) ? max(0, $id) : 0, 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+            AssignmentScopeGuard::observe(new ScopeRefusal('effect_version', $table, max(0, $id), 0, ScopeRefusal::UNRESOLVABLE), $workspace);
 
             return;
         }
@@ -176,7 +193,7 @@ final class AssignmentScopeHook
             return;
         }
 
-        $uids = [is_numeric($id) ? (int) $id : 0];
+        $uids = [$id];
         if (is_array($value) && is_numeric($value['swapWith'] ?? null)) {
             $uids[] = (int) $value['swapWith'];
         }

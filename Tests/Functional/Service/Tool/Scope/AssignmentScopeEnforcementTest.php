@@ -67,6 +67,7 @@ use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
 use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Fixtures\Database\FailsOneReadConnectionPool;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
+use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ReplacesTheCommandMapHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingLogger;
@@ -203,6 +204,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     {
         $this->unregisterHook('processDatamapClass', RunsANestedToolDataHandlerHook::class);
         RunsANestedToolDataHandlerHook::reset();
+        $this->unregisterHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+        ReplacesTheCommandMapHook::$cmdmap = null;
         ToolChangeCollector::reset();
         AssignmentScopeGuard::reset();
         unset($GLOBALS['LANG']);
@@ -2625,6 +2628,38 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame('ok', $outcome['toolResult']);
         self::assertSame(1, $this->versionsOf(self::BELOW_ELEMENT), 'positive control: the draft was not published');
         self::assertSame([], $this->listedChanges($outcome['trace']), 'nothing is listed');
+    }
+
+    /**
+     * `DataHandler::start()` takes integer keys only, and the workspaces
+     * extension's `processCmdmap_beforeStart` fails on any other, but a hook
+     * registered after it can replace the public command map. TYPO3 13.4 hands
+     * a key that is a list of uids on as it is, and a stage change reads every
+     * uid from it, so the stage of a draft outside the scope changed beside one
+     * inside. TYPO3 14.3 reads the first uid only.
+     */
+    #[Test]
+    public function aCommandForAListOfUidsChangesNothingOutsideTheScope(): void
+    {
+        $user    = $this->userInTheDraft();
+        $inside  = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::BELOW, $user);
+        $outside = $this->moveAsADraft(self::OUTSIDE_ELEMENT, self::OTHER, $user);
+        $this->registerHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($inside, $outside): void {
+                ReplacesTheCommandMapHook::$cmdmap = ['tt_content' => [$inside . ',' . $outside => ['version' => ['action' => 'setStage', 'stageId' => 1]]]];
+                $this->command(['tt_content' => [$inside => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame(0, (int) $this->scalar('SELECT t3ver_stage FROM tt_content WHERE uid = ?', [$outside]), 'the stage outside the scope did not change');
+        if ((new Typo3Version())->getMajorVersion() < 14) {
+            self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+            self::assertContains('effect_command tt_content (on page 0) unresolvable', $this->refusals($outcome['trace']));
+        }
     }
 
     /**
