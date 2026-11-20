@@ -77,6 +77,13 @@ jobs:
       # hence the higher limit.
       upload-coverage: true
       functional-timeout-minutes: 60
+      # The PHP 8.6 cells collect unit coverage with Xdebug 3.6.0 pre-releases
+      # (3.5.x does not install on 8.6). With them the unit suite takes about
+      # 22min (13831 tests, measured on core-testing-php86, Xdebug
+      # 3.6.0alpha1), against about 3min with Xdebug 3.5.3 on 8.5, and timed
+      # out at the reusable's default 15min. Drop this once a stable Xdebug
+      # 3.6 brings the 8.6 cells back near the others.
+      unit-timeout-minutes: 35
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without
