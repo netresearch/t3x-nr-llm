@@ -27,7 +27,13 @@ final class AutotranslateCompilerPassTest extends TestCase
     #[Test]
     public function installedClassesAloneDoNotActivateTheIntegration(): void
     {
-        self::assertTrue(class_exists(BatchTranslation::class), 'Development dependency must be installed.');
+        // autotranslate caps at PHP <= 8.5.99 and is removed from the PHP 8.6
+        // matrix cells (remove-dev-deps in ci.yml); the other cells carry this
+        // proof. The remaining tests only use the class name and run everywhere.
+        if (!class_exists(BatchTranslation::class)) {
+            self::markTestSkipped('thieleundklose/autotranslate is not installed in this environment (PHP 8.6 cell).');
+        }
+
         $container = new ContainerBuilder();
 
         (new AutotranslateCompilerPass())->process($container);

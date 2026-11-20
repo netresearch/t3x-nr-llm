@@ -144,7 +144,7 @@
         "ci:test:php:lint": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then find Classes Configuration Tests -name \"*.php\" -print0 | xargs -0 -n1 -P$(nproc 2>/dev/null || echo 4) php -l >/dev/null; else ./Build/Scripts/runTests.sh -s lint; fi'",
         "ci:test:php:mutation": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then infection --configuration=infection.json.dist --threads=4 -s --no-progress \"$@\"; else ./Build/Scripts/runTests.sh -s mutation \"$@\"; fi' --",
         "ci:test:php:mutation:ci": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then infection --configuration=infection.json.dist --threads=4 --no-progress \"$@\"; else ./Build/Scripts/runTests.sh -s mutation \"$@\"; fi' --",
-        "ci:test:php:phpstan": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpstan analyse -c Build/phpstan/phpstan.neon \"$@\"; else ./Build/Scripts/runTests.sh -s phpstan \"$@\"; fi' --",
+        "ci:test:php:phpstan": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpstan analyse -c Build/phpstan/phpstan-installed-dev-deps.php \"$@\"; else ./Build/Scripts/runTests.sh -s phpstan \"$@\"; fi' --",
         "ci:test:php:phpstan:baseline": "phpstan analyse -c Build/phpstan/phpstan.neon --generate-baseline Build/phpstan-baseline.neon",
         "ci:test:php:rector": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then rector process --config Build/rector/rector.php --dry-run \"$@\"; else ./Build/Scripts/runTests.sh -s rector -n \"$@\"; fi' --",
         "ci:test:php:unit": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite unit \"$@\"; else ./Build/Scripts/runTests.sh -s unit \"$@\"; fi' --",

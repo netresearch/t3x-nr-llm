@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Exception;
 
+use DeepL\Translator;
 use Netresearch\NrLlm\Domain\ValueObject\ChatMessage;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -42,12 +43,28 @@ final class NrLlmExceptionInterfaceTest extends TestCase
 {
     private const EXCEPTION_DIRS = [__DIR__ . '/../../../Classes'];
 
+    /**
+     * Source files that extend a class of an optional dev dependency, keyed by
+     * path below Classes/, with that class. A matrix cell that removes the
+     * dependency (remove-dev-deps in ci.yml) cannot load them; none declares
+     * an exception, and the cells with the dependency load them.
+     */
+    private const FILES_NEEDING_OPTIONAL_PACKAGE = [
+        // thieleundklose/autotranslate brings deeplcom/deepl-php and caps at
+        // PHP <= 8.5.99, so the PHP 8.6 cells remove it.
+        'Integration/Autotranslate/AutotranslateTranslator.php' => Translator::class, // @phpstan-ignore classConstant.deprecatedClass, class.notFound (autotranslate's type; absent on the PHP 8.6 cells)
+    ];
+
     #[Test]
     public function everyExceptionClassImplementsTheMarkerInterface(): void
     {
         $checked = [];
         $finder  = new NodeFinder();
         foreach ($this->sourceAsts() as [$path, $ast]) {
+            if ($this->isUnloadable($path)) {
+                continue;
+            }
+
             require_once $path;
             foreach ($finder->findInstanceOf($ast, Class_::class) as $declaration) {
                 if ($declaration->namespacedName === null) {
@@ -118,6 +135,17 @@ final class NrLlmExceptionInterfaceTest extends TestCase
         } catch (Throwable $e) {
             self::assertInstanceOf(NrLlmExceptionInterface::class, $e);
         }
+    }
+
+    private function isUnloadable(string $path): bool
+    {
+        foreach (self::FILES_NEEDING_OPTIONAL_PACKAGE as $file => $parent) {
+            if (str_ends_with($path, '/Classes/' . $file) && !class_exists($parent)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

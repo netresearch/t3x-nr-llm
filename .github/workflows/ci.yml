@@ -59,6 +59,12 @@ jobs:
       run-repo-checks: true
       php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5","8.6"]' }}
       typo3-versions: '["^13.4","^14.3"]'
+      # thieleundklose/autotranslate (v3.6.0) caps at PHP <= 8.5.99, so the 8.6
+      # cells remove it. Its tests skip themselves there, and PHPStan excludes
+      # the files that reference its classes
+      # (Build/phpstan/phpstan-installed-dev-deps.php). remove-for-php names
+      # the PHP versions the dep is removed on.
+      remove-dev-deps: '[{"dep":"thieleundklose/autotranslate","remove-for-php":"8.6"}]'
       # Coverage on every event with the reusable's default driver, Xdebug.
       # Line coverage only: path-coverage stays at its default false, because
       # Xdebug 3.5.x crashed with a segmentation fault under --path-coverage on

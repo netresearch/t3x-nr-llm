@@ -38,6 +38,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 ## Workflow files
 - One file per concern; the Key Files table above lists all of them.
 - `ci.yml` is the intentional-drift file: the per-extension test matrix (PHP 8.2–8.6 × TYPO3 `^13.4`/`^14.3` on the weekly schedule, on manual runs and on PRs, reduced to PHP 8.2/8.4 in the merge queue), `rector-php-version: '8.2'`, the MariaDB functional leg, and fuzz/mutation toggles all live in its `with:` block — read its comments before touching it.
+- `remove-dev-deps: [{"dep":"thieleundklose/autotranslate","remove-for-php":"8.6"}]` — autotranslate caps at PHP <= 8.5.99, so the 8.6 cells remove it. Its tests skip themselves there, and `Build/phpstan/phpstan-installed-dev-deps.php` (the PHPStan config of `composer ci:test:php:phpstan` in CI) excludes the files that reference its classes. A new dev dependency that not every matrix cell can install gets an entry here and in that file in the same PR.
 <!-- AGENTS-GENERATED:END golden-samples -->
 
 <!-- AGENTS-GENERATED:START structure -->

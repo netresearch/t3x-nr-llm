@@ -46,6 +46,15 @@ final class AutotranslateIntegrationTest extends AbstractFunctionalTestCase
 
     protected function setUp(): void
     {
+        // autotranslate caps at PHP <= 8.5.99 and is removed from the PHP 8.6
+        // matrix cells (remove-dev-deps in ci.yml); the other cells carry this
+        // proof. The skip precedes parent::setUp(), which would load the
+        // missing extension; AbstractFunctionalTestCase::tearDown() then
+        // returns early.
+        if (!class_exists(Records::class)) {
+            self::markTestSkipped('thieleundklose/autotranslate is not installed in this environment (PHP 8.6 cell).');
+        }
+
         parent::setUp();
         $this->importFixture('Autotranslate/Translation.csv');
         $this->routeThroughNrLlm(true);

@@ -19,6 +19,11 @@ workflow's compact matrix rather than repeating every PR cell.
 The shared workflow resolves the TYPO3 constraint per cell; a plain
 ``composer install`` under an unused matrix variable would not do that.
 
+The PHP 8.6 cells remove the dev dependency ``thieleundklose/autotranslate``,
+which does not install on PHP 8.6. Its tests skip themselves there, and
+PHPStan excludes the files that reference its classes
+(``Build/phpstan/phpstan-installed-dev-deps.php``).
+
 The functional tests of that matrix run on SQLite. Two more calls run them on
 MariaDB 11.8 and on PostgreSQL 17 (PHP 8.4, TYPO3 ``^14.3``).
 

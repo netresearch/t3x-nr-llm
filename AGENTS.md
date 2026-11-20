@@ -51,7 +51,7 @@ ALWAYS use the Docker test runner; never invoke `phpunit` / `phpstan` / `rector`
 | A subset of a suite | `./Build/Scripts/runTests.sh -s unit -- --filter '<regex>'` — the runner has short options only; everything after `--` goes to the tool (there is no `-e`) |
 | Integration tests | `./Build/Scripts/runTests.sh -s integration` |
 | Functional tests | `./Build/Scripts/runTests.sh -s functional` |
-| Static analysis (PHPStan level 10) | `./Build/Scripts/runTests.sh -s phpstan` |
+| Static analysis (PHPStan level 10) | `./Build/Scripts/runTests.sh -s phpstan` — uses `Build/phpstan/phpstan.neon`; CI's `composer ci:test:php:phpstan` uses `Build/phpstan/phpstan-installed-dev-deps.php`, which also excludes the files of an optional dev dependency a matrix cell removed (`thieleundklose/autotranslate` on PHP 8.6) |
 | Code style (fix) | `./Build/Scripts/runTests.sh -s cgl` |
 | Code style (dry-run) | `./Build/Scripts/runTests.sh -s cgl -n` |
 | Rector (dry-run) | `./Build/Scripts/runTests.sh -s rector -n` |

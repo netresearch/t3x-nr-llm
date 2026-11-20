@@ -31,7 +31,15 @@ final class MarkAutotranslatedRecordTest extends AbstractUnitTestCase
     {
         parent::setUp();
         $this->tcaBackup = $GLOBALS['TCA'] ?? null;
-        $columns         = [
+        // autotranslate caps at PHP <= 8.5.99 and is removed from the PHP 8.6
+        // matrix cells (remove-dev-deps in ci.yml); the other cells carry this
+        // proof. The skip comes after the backup, so tearDown() restores the
+        // TCA it found.
+        if (!class_exists(AfterTranslateEvent::class)) {
+            self::markTestSkipped('thieleundklose/autotranslate is not installed in this environment (PHP 8.6 cell).');
+        }
+
+        $columns = [
             'header'      => ['config' => ['type' => 'input']],
             'bodytext'    => ['config' => ['type' => 'text']],
             'pi_flexform' => ['config' => ['type' => 'flex']],
