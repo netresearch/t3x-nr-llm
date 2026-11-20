@@ -441,6 +441,17 @@ with the rest, and the call is rolled back:
   position and the draft at its position in the workspace; a draft with no
   live row (a new record) is judged where the draft lies. A row that cannot
   be read is outside the scope. A row that does not exist is no change.
+- A page the draft moved takes its subpages along: a publish puts them where
+  the draft lies, a discard back where the live page is. Every page below it
+  has to lie in the scope at both positions.
+- Core discards the drafts of a record in every workspace when the record is
+  deleted live, and each of them is judged in its own workspace, so a live
+  delete is rolled back when another workspace's draft of the record lies
+  outside the scope.
+- What a call made inside another call noted is reported to the outer call,
+  as its refusals are, and rolls the outer call back too, even when the inner
+  call's own rollback already took the write back. This errs on the side of
+  rolling back.
 
 A publish that took place (its draft is gone, or a new record's draft is now
 the live row) and a stage change now count as updates of the record the command

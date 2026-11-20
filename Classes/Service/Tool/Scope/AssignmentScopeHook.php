@@ -269,6 +269,14 @@ final class AssignmentScopeHook
                 $refusals[] = $checker->recordRefusal($scope, $operation, $table, $live ?? $uid, $draftedIn);
             }
 
+            // A page the draft moved takes its subpages along: a publish puts
+            // them where the draft lies, a discard back where the live page is.
+            // Each of them has to lie in the scope at both.
+            if ($table === 'pages' && $live !== null && $draftedIn > 0 && $checker->pidOfRecord('pages', $live, 0) !== $checker->pidOfRecord('pages', $live, $draftedIn)) {
+                $refusals[] = $checker->subtreeRefusal($scope, $operation, $live, 0);
+                $refusals[] = $checker->subtreeRefusal($scope, $operation, $live, $draftedIn);
+            }
+
             foreach ($refusals as $refusal) {
                 if ($refusal instanceof ScopeRefusal) {
                     AssignmentScopeGuard::observe($refusal, $draftedIn);
