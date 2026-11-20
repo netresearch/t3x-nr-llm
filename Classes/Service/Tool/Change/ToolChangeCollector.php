@@ -230,6 +230,21 @@ final class ToolChangeCollector
     }
 
     /**
+     * The draft a publish swaps with, read as the workspaces extension reads
+     * it (`(int) $value['swapWith']`), so `'12abc'` is draft 12; 0 for none,
+     * null for a value that is no integer to it at all.
+     */
+    public static function swapWithOf(mixed $value): ?int
+    {
+        $swapWith = is_array($value) ? ($value['swapWith'] ?? null) : null;
+        if (is_array($swapWith)) {
+            return $swapWith === [] ? 0 : 1;
+        }
+
+        return $swapWith === null || is_scalar($swapWith) ? (int) $swapWith : null;
+    }
+
+    /**
      * Note the rows a publish names, before core carries it out (#1442), for
      * {@see self::wasPublished()}.
      */

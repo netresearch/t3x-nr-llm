@@ -425,7 +425,8 @@ with the rest, and the call is rolled back:
   judged too.
 - Every publish, in ``processCmdmap_preProcess``, right before it runs, the
   ones the workspaces extension adds for a publish included: ``version`` with
-  ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``).
+  ``publish`` or ``swap`` (the live row and the draft named by ``swapWith``,
+  read as the workspaces extension reads it: ``'12abc'`` is draft 12).
   A ``version`` action neither core nor the workspaces extension knows is
   judged as unreadable, and so is any command whose key is not one integer:
   ``DataHandler::start()`` and the workspaces extension's own

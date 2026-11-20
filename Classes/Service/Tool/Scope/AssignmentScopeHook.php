@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Service\Tool\Scope;
 use Netresearch\NrLlm\Domain\ValueObject\AssignmentScope;
 use Netresearch\NrLlm\Domain\ValueObject\RecordReference;
 use Netresearch\NrLlm\Domain\ValueObject\ScopeRefusal;
+use Netresearch\NrLlm\Service\Tool\Change\ToolChangeCollector;
 use Throwable;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\MathUtility;
@@ -210,8 +211,16 @@ final class AssignmentScopeHook
         }
 
         $uids = [$id];
-        if (is_array($value) && is_numeric($value['swapWith'] ?? null)) {
-            $uids[] = (int) $value['swapWith'];
+        // As the workspaces extension reads it: `'12abc'` publishes draft 12.
+        $swapWith = ToolChangeCollector::swapWithOf($value);
+        if ($swapWith === null) {
+            AssignmentScopeGuard::observe(new ScopeRefusal('effect_publish', $table, $id, 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+
+            return;
+        }
+
+        if ($swapWith > 0) {
+            $uids[] = $swapWith;
         }
 
         foreach ($uids as $uid) {

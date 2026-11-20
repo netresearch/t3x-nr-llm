@@ -2851,6 +2851,29 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * The workspaces extension reads `swapWith` as an integer, so `'Nabc'`
+     * publishes draft N. A call in the live workspace that publishes a draft
+     * moving a record out of the scope that way is rolled back: the draft is
+     * judged as core reads it.
+     */
+    #[Test]
+    public function aPublishWhoseDraftIsNamedAsCoreReadsItIsJudged(): void
+    {
+        $draft  = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::OTHER, $this->userInTheDraft());
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($draft): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $draft . 'abc']]]], $context);
+            },
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame($before, $this->fingerprint(), 'the element stays where it is live');
+    }
+
+    /**
      * A publish without a draft to swap with, and a stage change of a row that
      * is no draft, are refused by core and change nothing: neither is listed.
      */

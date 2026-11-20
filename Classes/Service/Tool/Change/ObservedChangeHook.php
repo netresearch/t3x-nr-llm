@@ -45,7 +45,7 @@ final class ObservedChangeHook
 
         $action = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
         if (($action === 'swap' || $action === 'publish') && is_string($table) && is_numeric($id)) {
-            ToolChangeCollector::beforePublish($table, (int) $id, is_numeric($value['swapWith'] ?? null) ? (int) $value['swapWith'] : 0);
+            ToolChangeCollector::beforePublish($table, (int) $id, ToolChangeCollector::swapWithOf($value) ?? 0);
         }
     }
 
@@ -108,7 +108,7 @@ final class ObservedChangeHook
         // in a draft, which names the live row, not the version.
         $version = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
         if ($version === 'swap' || $version === 'publish') {
-            if (ToolChangeCollector::wasPublished($table, (int) $id, is_numeric($value['swapWith'] ?? null) ? (int) $value['swapWith'] : 0)) {
+            if (ToolChangeCollector::wasPublished($table, (int) $id, ToolChangeCollector::swapWithOf($value) ?? 0)) {
                 ToolChangeCollector::record($table, (int) $id, ChangeAction::UPDATED, 0, $correlation);
             }
 
