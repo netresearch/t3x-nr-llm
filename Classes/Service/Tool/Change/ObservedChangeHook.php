@@ -75,7 +75,7 @@ final class ObservedChangeHook
     /**
      * @param int|string $id
      */
-    public function processCmdmap_postProcess(string $command, string $table, $id, mixed $value, DataHandler $dataHandler, mixed $pasteUpdate = null, mixed $pasteDatamap = null): void
+    public function processCmdmap_postProcess(string $command, string $table, $id, mixed $value, DataHandler $dataHandler): void
     {
         if (!ToolChangeCollector::isArmed() || !is_numeric($id)) {
             return;
@@ -106,7 +106,7 @@ final class ObservedChangeHook
         // in a draft, which names the live row, not the version.
         $version = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
         if ($version === 'swap' || $version === 'publish') {
-            if ($this->wasPublished($table, (int) $id, is_numeric($value['swapWith'] ?? null) ? (int) $value['swapWith'] : 0)) {
+            if (self::wasPublished($table, (int) $id, is_numeric($value['swapWith'] ?? null) ? (int) $value['swapWith'] : 0)) {
                 ToolChangeCollector::record($table, (int) $id, ChangeAction::UPDATED, 0, $correlation);
             }
 
@@ -131,7 +131,7 @@ final class ObservedChangeHook
      * leaves both as they were. A read that fails counts as published, so the
      * record is listed and judged.
      */
-    private function wasPublished(string $table, int $id, int $swapWith): bool
+    private static function wasPublished(string $table, int $id, int $swapWith): bool
     {
         // @phpstan-ignore-next-line TCA access returns mixed at each nesting level
         if (!(bool) ($GLOBALS['TCA'][$table]['ctrl']['versioningWS'] ?? false)) {
@@ -139,12 +139,12 @@ final class ObservedChangeHook
         }
 
         try {
-            $workspace = $this->stored($table, $id);
+            $workspace = self::stored($table, $id);
             if ($workspace !== 0) {
                 return false;
             }
 
-            return $swapWith < 1 || $swapWith === $id || $this->stored($table, $swapWith) === null;
+            return $swapWith < 1 || $swapWith === $id || self::stored($table, $swapWith) === null;
         } catch (Throwable) {
             return true;
         }
@@ -154,7 +154,7 @@ final class ObservedChangeHook
      * The `t3ver_wsid` of a row, deleted ones included, or null where no row
      * bears the uid.
      */
-    private function stored(string $table, int $uid): ?int
+    private static function stored(string $table, int $uid): ?int
     {
         $query = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($table);
         $query->getRestrictions()->removeAll();

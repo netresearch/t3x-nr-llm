@@ -2706,6 +2706,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start([], ['pages' => [70 => ['move' => self::BELOW]]], $user);
         $dataHandler->process_cmdmap();
+
         $draft = (int) $this->scalar('SELECT uid FROM pages WHERE t3ver_oid = ? AND t3ver_wsid = ?', [70, self::DRAFT]);
         self::assertGreaterThan(0, $draft, 'positive control: the move draft exists');
         $publish = function (ToolExecutionContext $context) use ($draft): void {
@@ -2736,6 +2737,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->start(['tt_content' => ['NEW1' => ['pid' => self::SCOPED, 'header' => 'New in the draft', 'CType' => 'text']]], [], $user);
         $dataHandler->process_datamap();
+
         $new = (int) ($dataHandler->substNEWwithIDs['NEW1'] ?? 0);
         self::assertSame(self::DRAFT, (int) $this->scalar('SELECT t3ver_wsid FROM tt_content WHERE uid = ?', [$new]), 'positive control: a draft');
 
