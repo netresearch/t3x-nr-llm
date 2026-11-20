@@ -156,7 +156,14 @@ the whole call, the call's own write included, and the model is told which
 record and which rule. A write of the record the call wrote, or of its draft,
 is inside the scope. When TYPO3 adds an entry for a translation in a language
 the scope does not admit to such a write, the entry is left out without a
-refusal, as for the call's own write, and the translation gets no version.
+refusal, as for the call's own write, and the translation gets no version,
+when the write synchronises nothing: the added entry holds only synchronised
+fields and ``l10n_state``, no submitted entry names a synchronised field, and
+no inline or file field in it lists a child record. Any other such entry is
+judged as before; the scope refuses it and the call fails. On MySQL and
+MariaDB a ``TCEMAIN.clearCacheCmd`` group flush in a listener's run commits
+the call early, and a later violation can no longer roll it back
+(:ref:`ADR-295 <adr-295>`).
 
 A listener that has to write outside the scope, a log record on a storage page
 for example, wraps exactly that write and gives the reason:
