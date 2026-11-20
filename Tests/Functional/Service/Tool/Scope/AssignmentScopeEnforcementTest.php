@@ -3082,7 +3082,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         );
 
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
-        self::assertStringContainsString('code of this TYPO3 installation that runs after such a write wrote outside it: tt_content:' . self::OUTSIDE_ELEMENT . ' (outside_scope)', $outcome['toolResult']);
+        self::assertStringContainsString('code of this TYPO3 installation that runs after such a write wrote or tried to write outside it: tt_content:' . self::OUTSIDE_ELEMENT . ' (outside_scope)', $outcome['toolResult']);
         self::assertSame($before, $this->fingerprint(), "the call's own write in scope is gone with the listener's");
         self::assertSame('Original ' . self::OUTSIDE_ELEMENT, $this->header(self::OUTSIDE_ELEMENT));
     }
@@ -3189,12 +3189,17 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
-     * A call whose own write the scope refused announces nothing: its
-     * listeners do not run.
+     * A call whose own write the scope refused, or the effect check found
+     * outside it, announces nothing: its listeners do not run.
      */
     #[Test]
-    public function aCallWithARefusedWriteDispatchesNothing(): void
+    #[DataProvider('withAndWithoutTheDataHandlerLayer')]
+    public function aCallWithARefusedWriteDispatchesNothing(bool $dataHandlerLayer): void
     {
+        if (!$dataHandlerLayer) {
+            $this->unregisterTheDataHandlerLayer();
+        }
+
         $user     = $this->useASessionlessAmbientUser(1);
         $listened = false;
         $this->listenToTheWrite(function () use (&$listened): void {

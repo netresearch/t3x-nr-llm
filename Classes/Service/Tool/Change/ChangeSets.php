@@ -225,7 +225,7 @@ final class ChangeSets
         $more = max(0, count($violations) - self::NOTE_LIMIT);
 
         return sprintf(
-            'The write of this call was inside the assignment of this run (%s), but code of this TYPO3 installation that runs after such a write wrote outside it: %s%s. %s An administrator can allow such a write; until then the call cannot be made as it is.',
+            'The write of this call was inside the assignment of this run (%s), but code of this TYPO3 installation that runs after such a write wrote or tried to write outside it: %s%s. %s An administrator can allow such a write; until then the call cannot be made as it is.',
             $scope->describe(),
             implode(', ', $parts),
             $more > 0 ? sprintf(' and %d more', $more) : '',
