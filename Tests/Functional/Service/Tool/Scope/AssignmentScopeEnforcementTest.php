@@ -3160,6 +3160,35 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A write allowed outside the scope goes with the rollback when another
+     * listener write is outside the scope, and is no longer listed.
+     */
+    #[Test]
+    public function aListenerWriteAllowedOutsideTheScopeIsNotListedWhenTheCallIsRolledBack(): void
+    {
+        $user = $this->useASessionlessAmbientUser(1);
+        $this->listenToTheWrite(function () use ($user): void {
+            WriteOutsideTheAssignmentScope::run('test log outside the assignment', function () use ($user): void {
+                $this->updateHeaderAs(self::DEEP_ELEMENT, 'Allowed by the installation', $user);
+            });
+            $this->updateHeaderAs(self::OUTSIDE_ELEMENT, 'Not allowed', $user);
+        });
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::IN_SCOPE_ELEMENT, 'Changed in scope', $context);
+            },
+            user: $user,
+            wrote: new RecordReference('tt_content', self::IN_SCOPE_ELEMENT),
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertSame('Original ' . self::DEEP_ELEMENT, $this->header(self::DEEP_ELEMENT), 'the allowed write went with the rollback');
+        self::assertNotContains('tt_content:' . self::DEEP_ELEMENT, $this->listed($outcome['trace']));
+    }
+
+    /**
      * What AI Label does: a listener stores a field on the draft the call
      * wrote, naming the draft's uid, in a scope of the default language on a
      * page with a German translation. TYPO3 14 adds an entry for the

@@ -293,11 +293,26 @@ writes, while the guard is still armed and before the transaction is ended:
   reason as a warning. Anywhere else it runs the write as it is, so a tool
   cannot use it to leave its scope. Nothing in nr_llm calls it.
 - A call without a scope dispatches as before, after its transaction.
+- Known limit: like the call's own writes, only what a listener writes through
+  the DataHandler is judged. A listener that writes with a query or through
+  Extbase persistence writes inside the call's transaction unjudged, and the
+  commit keeps it.
+- Known limit: the allowance holds for any code that runs during the
+  dispatch, a DataHandler hook inside a listener's run included; it is code
+  of the installation, which can write past the scope by other means too. A
+  write allowed in a call nested in another call is kept out of the outer
+  call's check as well.
+- Known limit: on PostgreSQL a listener statement that fails aborts the
+  call's transaction. The effect check then cannot read what was written,
+  and the call is rolled back and reported as not judgeable, although the
+  listener failed rather than wrote outside the scope.
 - Known limit: a listener's DataHandler that is the outermost of its run (AI
   Label's is) runs a ``TCEMAIN.clearCacheCmd`` group flush itself, inside the
   call's transaction; on MySQL and MariaDB its ``TRUNCATE`` commits the call
   early, which the marker reports as a call that could not be rolled back.
-  No ``clearCacheCmd`` is set by default.
+  No ``clearCacheCmd`` is set by default. Its cache flush by tag also runs
+  before the commit, so a frontend request between the two can cache the
+  page as it was until the next flush.
 
 **The input checks fail closed.** Both layers read the input of a write, and a
 third of the defects found in review were values the parser had skipped. A value

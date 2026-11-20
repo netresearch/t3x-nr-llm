@@ -3434,6 +3434,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // What the call really wrote, read back from the database before the
             // commit: a write that neither check before it recognised is found here
             // and the call's transaction is rolled back (ADR-295).
+            $rolledBack = false;
             if ($scope instanceof AssignmentScope && $violations !== []) {
                 $rolledBack = $this->endTransaction($transaction, true, $context->actingBackendUser()) && $transaction instanceof AssignmentScopeTransaction;
                 if ($rolledBack) {
@@ -3483,8 +3484,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             // a run, #1432) is a write of this call too: it joins the call's set.
             // A scoped call announced its write above; what its listeners wrote is
             // in the call's set already, except writes an integrator allowed
-            // outside the scope, which no check judged.
-            $announced = $listeners !== null ? $listeners['allowed'] : $this->announceWrite($bounded, $context, $generated);
+            // outside the scope, which no check judged; a rollback took them too.
+            $announced = $listeners !== null ? ($rolledBack ? new ObservedChangeSet() : $listeners['allowed']) : $this->announceWrite($bounded, $context, $generated);
             ToolChangeCollector::hold(ChangeSets::merged($changes, $announced));
 
             return $bounded;
