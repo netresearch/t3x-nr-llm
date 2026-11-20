@@ -9,7 +9,9 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Api;
 
+use DeepL\Translator;
 use FilesystemIterator;
+use Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceDiff;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceRenderer;
 use PHPUnit\Framework\Attributes\CoversNothing;
@@ -70,6 +72,19 @@ final class ApiSurfaceSnapshotTest extends TestCase
 
     private const NAMESPACE_PREFIX = 'Netresearch\\NrLlm\\';
 
+    /**
+     * `@api` classes that extend a class of an optional dev dependency, keyed
+     * by that class. A matrix cell that removes the dependency
+     * (remove-dev-deps in ci.yml) cannot load them, so there they are left
+     * out of both the rendered surface and the committed snapshot; the cells
+     * with the dependency check them.
+     */
+    private const API_CLASSES_NEEDING_OPTIONAL_PACKAGE = [
+        // thieleundklose/autotranslate brings deeplcom/deepl-php and caps at
+        // PHP <= 8.5.99, so the PHP 8.6 cells remove it.
+        AutotranslateTranslator::class => Translator::class, // @phpstan-ignore classConstant.deprecatedClass, class.notFound (autotranslate's type; absent on the PHP 8.6 cells)
+    ];
+
     #[Test]
     public function renderedApiSurfaceMatchesTheCommittedSnapshot(): void
     {
@@ -89,6 +104,7 @@ final class ApiSurfaceSnapshotTest extends TestCase
 
         $expected = file_get_contents(self::SNAPSHOT_PATH);
         self::assertNotFalse($expected);
+        $expected = $this->withoutUnloadableClasses($expected);
 
         $diff = ApiSurfaceDiff::between($expected, $rendered);
 
@@ -169,6 +185,10 @@ final class ApiSurfaceSnapshotTest extends TestCase
 
             $relative = substr($file->getPathname(), strlen(self::CLASSES_DIR) + 1, -4);
             $fqcn     = self::NAMESPACE_PREFIX . str_replace('/', '\\', $relative);
+            if ($this->isUnloadable($fqcn)) {
+                continue;
+            }
+
             self::assertTrue(
                 class_exists($fqcn) || interface_exists($fqcn) || trait_exists($fqcn) || enum_exists($fqcn),
                 sprintf('@api-marked file does not autoload as %s', $fqcn),
@@ -180,6 +200,28 @@ final class ApiSurfaceSnapshotTest extends TestCase
 
         /** @var list<class-string> $classes */
         return $classes;
+    }
+
+    private function isUnloadable(string $fqcn): bool
+    {
+        $parent = self::API_CLASSES_NEEDING_OPTIONAL_PACKAGE[$fqcn] ?? null;
+
+        return $parent !== null && !class_exists($parent);
+    }
+
+    /**
+     * The snapshot without the blocks of the classes this environment cannot
+     * load; unchanged where every optional package is installed.
+     */
+    private function withoutUnloadableClasses(string $snapshot): string
+    {
+        $blocks = explode("\n\n", rtrim($snapshot, "\n"));
+        $kept   = array_filter(
+            $blocks,
+            fn (string $block): bool => !$this->isUnloadable(explode(' ', $block, 2)[0]),
+        );
+
+        return count($kept) === count($blocks) ? $snapshot : implode("\n\n", $kept) . "\n";
     }
 
     // ==================== closure ====================

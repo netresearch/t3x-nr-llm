@@ -59,6 +59,15 @@ final class AutotranslateEndToEndTest extends AbstractFunctionalTestCase
 
     protected function setUp(): void
     {
+        // autotranslate caps at PHP <= 8.5.99 and is removed from the PHP 8.6
+        // matrix cells (remove-dev-deps in ci.yml); the other cells carry this
+        // proof. The skip precedes parent::setUp(), which would load the
+        // missing extension; AbstractFunctionalTestCase::tearDown() then
+        // returns early.
+        if (!class_exists(DeeplApiHelper::class)) {
+            self::markTestSkipped('thieleundklose/autotranslate is not installed in this environment (PHP 8.6 cell).');
+        }
+
         parent::setUp();
         if (!method_exists(DeeplApiHelper::class, 'hasConfiguredTranslator')) {
             self::markTestSkipped('The installed autotranslate does not read translatorClass (thieleundklose/tk-typo3-autotranslate#175).');

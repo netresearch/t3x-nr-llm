@@ -53,12 +53,18 @@ jobs:
       # still take [0].
       rector-php-version: '8.2'
       compact-jobs: true
-      functional-coverage-php-versions: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["8.2","8.3","8.4","8.5"]' || '["8.4"]' }}
+      functional-coverage-php-versions: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["8.2","8.3","8.4","8.5","8.6"]' || '["8.4"]' }}
       # The CHANGELOG and workflow checks run in the shared workflow's
       # repo-checks job rather than a job of our own — see AGENTS.md.
       run-repo-checks: true
-      php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5"]' }}
+      php-versions: ${{ github.event_name == 'merge_group' && '["8.2","8.4"]' || '["8.2","8.3","8.4","8.5","8.6"]' }}
       typo3-versions: '["^13.4","^14.3"]'
+      # thieleundklose/autotranslate (v3.6.0) caps at PHP <= 8.5.99, so the 8.6
+      # cells remove it. Its tests skip themselves there, and PHPStan excludes
+      # the files that reference its classes
+      # (Build/phpstan/phpstan-installed-dev-deps.php). remove-for-php names
+      # the PHP versions the dep is removed on.
+      remove-dev-deps: '[{"dep":"thieleundklose/autotranslate","remove-for-php":"8.6"}]'
       # Coverage on every event with the reusable's default driver, Xdebug.
       # Line coverage only: path-coverage stays at its default false, because
       # Xdebug 3.5.x crashed with a segmentation fault under --path-coverage on
@@ -71,6 +77,13 @@ jobs:
       # hence the higher limit.
       upload-coverage: true
       functional-timeout-minutes: 60
+      # The PHP 8.6 cells collect unit coverage with Xdebug 3.6.0 pre-releases
+      # (3.5.x does not install on 8.6). With them the unit suite takes about
+      # 22min (13831 tests, measured on core-testing-php86, Xdebug
+      # 3.6.0alpha1), against about 3min with Xdebug 3.5.3 on 8.5, and timed
+      # out at the reusable's default 15min. Drop this once a stable Xdebug
+      # 3.6 brings the 8.6 cells back near the others.
+      unit-timeout-minutes: 35
       # Run PHPUnit functional tests (default is false in the reusable workflow).
       # composer ci:test:php:functional invokes the full Build/FunctionalTests.xml,
       # which covers BOTH the `functional` and `e2e-backend` testsuites — without

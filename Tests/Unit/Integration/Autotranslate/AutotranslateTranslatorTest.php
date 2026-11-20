@@ -13,6 +13,7 @@ use DeepL\ConnectionException;
 use DeepL\Language;
 use DeepL\TextResult;
 use DeepL\TranslateTextOptions;
+use DeepL\Translator;
 use Netresearch\NrLlm\Exception\RuntimeException;
 use Netresearch\NrLlm\Integration\Autotranslate\AutotranslateSettings;
 use Netresearch\NrLlm\Integration\Autotranslate\AutotranslateTranslator;
@@ -36,6 +37,18 @@ final class AutotranslateTranslatorTest extends AbstractUnitTestCase
 {
     /** @var list<array{texts: array<mixed>, target: string, source: ?string, options: ?TranslationOptions}> */
     private array $calls = [];
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // AutotranslateTranslator extends DeepL\Translator, which comes with
+        // thieleundklose/autotranslate. That package caps at PHP <= 8.5.99 and
+        // is removed from the PHP 8.6 matrix cells (remove-dev-deps in ci.yml);
+        // the other cells carry this proof.
+        if (!class_exists(Translator::class)) { // @phpstan-ignore classConstant.deprecatedClass (autotranslate's type)
+            self::markTestSkipped('thieleundklose/autotranslate is not installed in this environment (PHP 8.6 cell).');
+        }
+    }
 
     #[Test]
     public function sendsTheTextsInOneBatchAndAnswersEachInItsPlace(): void
