@@ -450,9 +450,16 @@ with the rest, and the call is rolled back:
   draft deletes the pages below it live; those deletes are written to the
   history and judged by the effect check like any delete.
 - Core discards the drafts of a record in every workspace when the record is
-  deleted live, and each of them is judged in its own workspace, so a live
-  delete is rolled back when another workspace's draft of the record lies
-  outside the scope.
+  deleted live, and each draft core hands over is judged in its own
+  workspace, so a live delete is rolled back when another workspace's draft
+  of the record lies outside the scope. A child core discards along with
+  such a draft by its live uid is judged at the call's workspace only.
+- Under a scope that names a record, a publish or discard of a draft that
+  moved that record is judged by the record, not by the page the move puts it
+  on: the record is in scope wherever it lies, as for any other write of it.
+  A ``move`` command is judged by its destination as well.
+- The built-in ``publish_record`` tool clears the hidden flag; it is a
+  datamap update and judged as one, not as a workspace publish.
 - What a call made inside another call noted is reported to the outer call,
   as its refusals are, and rolls the outer call back too, even when the inner
   call's own rollback already took the write back. This errs on the side of
