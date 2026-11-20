@@ -298,10 +298,12 @@ writes, while the guard is still armed and before the transaction is ended:
   Extbase persistence writes inside the call's transaction unjudged, and the
   commit keeps it.
 - Known limit: the allowance holds for any code that runs during the
-  dispatch, a DataHandler hook inside a listener's run included; it is code
+  dispatch and wraps its write in it; it is code
   of the installation, which can write past the scope by other means too. A
   write allowed in a call nested in another call is kept out of the outer
-  call's check as well.
+  call's check as well. A DataHandler run started inside the allowance that
+  shares the correlation id of the listener's run (core's own sub-instances)
+  is read from the history with that run and judged: the call is rolled back.
 - Known limit: on PostgreSQL a listener statement that fails aborts the
   call's transaction. The effect check then cannot read what was written,
   and the call is rolled back and reported as not judgeable, although the
