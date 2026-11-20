@@ -116,7 +116,8 @@ final readonly class DatabaseRecordTopology implements RecordTopologyInterface
         $query->getRestrictions()->removeAll();
         $value = $query->select($field)->from($table)->where($query->expr()->eq('uid', $query->createNamedParameter($uid, Connection::PARAM_INT)))->executeQuery()->fetchOne();
 
-        return is_scalar($value) ? (string) $value : null;
+        // `fetchOne()` gives false for no row, which is a scalar.
+        return $value !== false && is_scalar($value) ? (string) $value : null;
     }
 
     public function translationLanguages(string $table, int $uid, int $workspace): array

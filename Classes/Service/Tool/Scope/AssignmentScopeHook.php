@@ -189,6 +189,22 @@ final class AssignmentScopeHook
             return;
         }
 
+        // A new version writes the draft: judged there, as the command check
+        // judges it, for a command a later hook put into the map.
+        if ($action === 'new') {
+            try {
+                $refusal = $checker->recordRefusal($scope, 'effect_version', $table, $id, $workspace);
+            } catch (Throwable) {
+                $refusal = new ScopeRefusal('effect_version', $table, max(0, $id), 0, ScopeRefusal::UNRESOLVABLE);
+            }
+
+            if ($refusal instanceof ScopeRefusal) {
+                AssignmentScopeGuard::observe($refusal, $workspace);
+            }
+
+            return;
+        }
+
         if ($action !== 'swap' && $action !== 'publish') {
             return;
         }

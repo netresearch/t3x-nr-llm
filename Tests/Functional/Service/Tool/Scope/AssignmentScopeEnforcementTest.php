@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeEffect;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeGuard;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeHook;
 use Netresearch\NrLlm\Service\Tool\Scope\AssignmentScopeTransaction;
+use Netresearch\NrLlm\Service\Tool\Scope\DatabaseRecordTopology;
 use Netresearch\NrLlm\Service\Tool\Scope\RecordFacts;
 use Netresearch\NrLlm\Service\Tool\Scope\RecordTopologyInterface;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
@@ -2774,6 +2775,44 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame($before, $this->fingerprint(), 'the draft survives');
+    }
+
+    /**
+     * A row no uid bears has no stored value: the hook reads that as "no
+     * change" and not as a row it could not judge.
+     */
+    #[Test]
+    public function aStoredValueOfARowThatIsGoneIsNull(): void
+    {
+        $topology = new DatabaseRecordTopology($this->connectionPool);
+
+        self::assertNull($topology->storedValue('tt_content', 99999, 't3ver_wsid'));
+        self::assertSame('0', $topology->storedValue('tt_content', self::IN_SCOPE_ELEMENT, 't3ver_wsid'), 'positive control');
+    }
+
+    /**
+     * A new version a later hook put into the command map is judged where the
+     * draft lies, as the command check would: one of a record outside the
+     * scope is rolled back.
+     */
+    #[Test]
+    public function aNewVersionAHookAddsOutsideTheScopeIsRolledBack(): void
+    {
+        $user = $this->userInTheDraft();
+        $this->registerHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                ReplacesTheCommandMapHook::$cmdmap = ['tt_content' => [self::OUTSIDE_ELEMENT => ['version' => ['action' => 'new']]]];
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_version tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame(0, $this->versionsOf(self::OUTSIDE_ELEMENT));
     }
 
     /**

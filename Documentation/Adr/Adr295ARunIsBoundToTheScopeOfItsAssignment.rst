@@ -434,16 +434,19 @@ with the rest, and the call is rolled back:
   to a ``setStage``, which reads a list of uids from it (14.3 casts it to its
   first uid). A ``new`` version and a ``setStage`` write the draft
   only, so they stay judged at the draft's position by the command check of
-  the hook; core makes a ``new`` version for every first edit in a draft, and
-  judging it at the live row rolled back the edit of a record on a page the
-  draft had moved into the scope.
+  the hook, and a ``new`` version that a later hook puts into the map is
+  judged there before it runs; core makes a ``new`` version for every first
+  edit in a draft, and judging it at the live row rolled back the edit of a
+  record on a page the draft had moved into the scope.
 - For each such row of a versioned table, the live row is judged at its live
   position and the draft at its position in the workspace; a draft with no
   live row (a new record) is judged where the draft lies. A row that cannot
   be read is outside the scope. A row that does not exist is no change.
 - A page the draft moved takes its subpages along: a publish puts them where
   the draft lies, a discard back where the live page is. Every page below it
-  has to lie in the scope at both positions.
+  has to lie in the scope at both positions. A publish of a page's delete
+  draft deletes the pages below it live; those deletes are written to the
+  history and judged by the effect check like any delete.
 - Core discards the drafts of a record in every workspace when the record is
   deleted live, and each of them is judged in its own workspace, so a live
   delete is rolled back when another workspace's draft of the record lies
