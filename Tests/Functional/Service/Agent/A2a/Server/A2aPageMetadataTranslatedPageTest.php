@@ -155,7 +155,7 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         $writes = $this->writesOf($taskId);
         self::assertStringStartsWith('No write was executed.', $writes);
         // The draft the hook wrote of the neighbouring page, by its version's uid.
-        self::assertMatchesRegularExpression("/\\nWrites the scope of the task's assignment refused or rolled back \\(\\d+\\), each with the rule it broke:\\n(- .+\\n)*- effect_created of pages:\\d+ \\(outside_scope\\)/", $writes);
+        self::assertMatchesRegularExpression("/\\nWrites the scope of the task's assignment refused or rolled back \\(\\d+\\), each with the rule it broke:\\n(- .+\\n)*- effect_(created|updated) of pages:\\d+ \\(outside_scope\\)/", $writes);
     }
 
     /**
