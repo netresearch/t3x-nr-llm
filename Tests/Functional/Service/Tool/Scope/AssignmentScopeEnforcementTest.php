@@ -3083,6 +3083,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertStringContainsString('code of this TYPO3 installation that runs after such a write wrote or tried to write outside it: tt_content:' . self::OUTSIDE_ELEMENT . ' (outside_scope)', $outcome['toolResult']);
+        self::assertStringContainsString('Only the developer of that code can allow such a write', $outcome['toolResult'], 'no setting an administrator could change is promised');
         self::assertSame($before, $this->fingerprint(), "the call's own write in scope is gone with the listener's");
         self::assertSame('Original ' . self::OUTSIDE_ELEMENT, $this->header(self::OUTSIDE_ELEMENT));
     }
