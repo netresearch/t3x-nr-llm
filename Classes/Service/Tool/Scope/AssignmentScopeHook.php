@@ -288,6 +288,18 @@ final class AssignmentScopeHook
                 $refusals[] = $checker->recordRefusal($scope, $operation, $table, $uid, 0);
             }
 
+            // A publish of a draft that moved the record puts it on the
+            // draft's page in the live tree, which a draft can have moved into
+            // the scope only in the workspace: judged there as a move is.
+            if ($published && $live !== null && $draftedIn > 0) {
+                $target = $checker->pidOfRecord($table, $live, $draftedIn);
+                if ($target !== null && $target !== $checker->pidOfRecord($table, $live, 0)) {
+                    $refusals[] = $table === 'pages'
+                        ? $checker->movePageRefusal($scope, $operation, $live, $target, 0)
+                        : $checker->destinationRefusal($scope, $operation, $table, $target, 0);
+                }
+            }
+
             if ($draftedIn > 0) {
                 $refusals[] = $checker->recordRefusal($scope, $operation, $table, $live ?? $uid, $draftedIn);
             }

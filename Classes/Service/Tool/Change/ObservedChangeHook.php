@@ -36,11 +36,17 @@ final class ObservedChangeHook
     }
 
     /**
-     * Before a command is carried out: the same point for the command map.
+     * Before a command is carried out: the same point for the command map, and
+     * for a publish the state of the rows it names (#1442).
      */
-    public function processCmdmap_preProcess(): void
+    public function processCmdmap_preProcess(mixed $command = null, mixed $table = null, mixed $id = null, mixed $value = null): void
     {
         ToolChangeCollector::beforeWrite();
+
+        $action = $command === 'version' && is_array($value) ? ($value['action'] ?? null) : null;
+        if (($action === 'swap' || $action === 'publish') && is_string($table) && is_numeric($id)) {
+            ToolChangeCollector::beforePublish($table, (int) $id, is_numeric($value['swapWith'] ?? null) ? (int) $value['swapWith'] : 0);
+        }
     }
 
     /**
@@ -113,7 +119,7 @@ final class ObservedChangeHook
             'move'     => ChangeAction::MOVED,
             'delete'   => ChangeAction::DELETED,
             'undelete' => ChangeAction::RESTORED,
-            default    => $version === 'setStage' ? ChangeAction::UPDATED : null,
+            default    => $version === 'setStage' && ToolChangeCollector::stageTook($table, (int) $id, $value['stageId'] ?? null) ? ChangeAction::UPDATED : null,
         };
         if ($action instanceof ChangeAction) {
             ToolChangeCollector::record($table, (int) $id, $action, $workspace, $correlation);

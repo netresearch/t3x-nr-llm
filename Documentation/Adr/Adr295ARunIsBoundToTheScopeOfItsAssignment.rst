@@ -454,10 +454,11 @@ with the rest, and the call is rolled back:
   workspace, so a live delete is rolled back when another workspace's draft
   of the record lies outside the scope. A child core discards along with
   such a draft by its live uid is judged at the call's workspace only.
-- Under a scope that names a record, a publish or discard of a draft that
-  moved that record is judged by the record, not by the page the move puts it
-  on: the record is in scope wherever it lies, as for any other write of it.
-  A ``move`` command is judged by its destination as well.
+- A publish of a draft that moved a record puts the record on the draft's
+  page in the live tree, where a draft can have moved that page out of the
+  scope: the destination is judged there as for a ``move`` command, also
+  under a scope that names the record. A discard of such a draft is judged
+  by the record, which is in scope wherever it lies.
 - The built-in ``publish_record`` tool clears the hidden flag; it is a
   datamap update and judged as one, not as a workspace publish.
 - What a call made inside another call noted is reported to the outer call,
@@ -466,8 +467,9 @@ with the rest, and the call is rolled back:
   rolling back.
 
 A publish that took place (its draft is gone, or a new record's draft is now
-the live row) and a stage change now count as updates of the record the command
-names in the call's change list, so the effect check also judges the published
+the live row, read before and after the command) and a stage change that took
+(the draft carries the stage asked for) now count as updates of the record the
+command names in the call's change list, so the effect check also judges the published
 row where it lies afterwards. The effect check is asked before the guard of the
 call is taken, because it reads what the guard noted.
 

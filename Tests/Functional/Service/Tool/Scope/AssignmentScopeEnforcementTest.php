@@ -2822,6 +2822,57 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * A record the draft moved onto a page that the draft moved into the
+     * scope lands, when only the record is published, on that page where it
+     * is live: outside the scope. The call is rolled back.
+     */
+    #[Test]
+    public function aPublishOfAMoveOntoAPageMovedIntoTheScopeIsRolledBack(): void
+    {
+        $user        = $this->userInTheDraft();
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], ['pages' => [self::OTHER => ['move' => self::SCOPED]]], $user);
+        $dataHandler->process_cmdmap();
+
+        $draft  = $this->moveAsADraft(self::IN_SCOPE_ELEMENT, self::OTHER, $user);
+        $before = $this->fingerprint();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($draft): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => $draft]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_publish tt_content (on page ' . self::OTHER . ') outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame($before, $this->fingerprint());
+    }
+
+    /**
+     * A publish without a draft to swap with, and a stage change of a row that
+     * is no draft, are refused by core and change nothing: neither is listed.
+     */
+    #[Test]
+    public function aPublishOrStageChangeCoreRefusesIsNotListed(): void
+    {
+        $user = $this->userInTheDraft();
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['version' => ['action' => 'publish', 'swapWith' => 'invalid']]]], $context);
+                $this->command(['tt_content' => [self::BELOW_ELEMENT => ['version' => ['action' => 'setStage', 'stageId' => 1]]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertSame('ok', $outcome['toolResult']);
+        self::assertSame([], $this->listedChanges($outcome['trace']), 'nothing is listed');
+    }
+
+    /**
      * What the hook noted before a tool threw is judged on that way out of
      * the call too: the discard is rolled back.
      */
