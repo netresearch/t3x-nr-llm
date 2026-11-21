@@ -39,7 +39,9 @@ use TYPO3\CMS\Core\Database\ConnectionPool;
  *
  * The stored state — workspace, live uid, language, the disable flag and the
  * row's own time and group restrictions — is read from the row, not from what
- * the tool said, and is null where the row no longer exists. No other column
+ * the tool said, and is null where the row no longer exists. A row whose read
+ * fails there is listed the same way, and the list is marked incomplete, so
+ * that the missing facts are not taken for a missing row. No other column
  * is kept, and no value of the record reaches the set.
  *
  * @internal not part of the @api surface; may change without notice (ADR-127)
@@ -72,12 +74,18 @@ final readonly class ObservedChangeResolver
     {
         $truncated = false;
         $entries   = $this->entries($records, $scopes, $after, $truncated);
-        $changes   = array_map($this->change(...), array_slice($entries, 0, ObservedChangeSet::LIMIT));
-        if ($target instanceof RecordReference && count($entries) > count($changes)) {
-            $changes = $this->keepingTarget($changes, array_slice($entries, count($changes)), $target);
+        $changes   = [];
+        foreach (array_slice($entries, 0, ObservedChangeSet::LIMIT) as $entry) {
+            $changes[] = $this->change($entry, $truncated);
         }
 
-        // A history read that stopped at its cap lost rows nobody can count.
+        if ($target instanceof RecordReference && count($entries) > count($changes)) {
+            $changes = $this->keepingTarget($changes, array_slice($entries, count($changes)), $target, $truncated);
+        }
+
+        // A history read that stopped at its cap lost rows nobody can count,
+        // and a listed change whose row could not be read lacks facts nobody
+        // can tell from those of a row that is gone.
         return new ObservedChangeSet($changes, ChangeCoverage::DATAHANDLER, count($entries) - count($changes) + ($truncated ? 1 : 0));
     }
 
@@ -128,7 +136,7 @@ final readonly class ObservedChangeResolver
      *
      * @return list<ObservedChange>
      */
-    private function keepingTarget(array $changes, array $rest, RecordReference $target): array
+    private function keepingTarget(array $changes, array $rest, RecordReference $target, bool &$failed): array
     {
         foreach ($changes as $change) {
             if ($change->record->table === $target->table && ($change->record->uid === $target->uid || $change->liveUid === $target->uid)) {
@@ -141,8 +149,12 @@ final readonly class ObservedChangeResolver
                 continue;
             }
 
-            $change = $this->change($entry);
+            // Only the read of the change that is kept counts: the others are
+            // not listed and already counted as left out.
+            $unread = false;
+            $change = $this->change($entry, $unread);
             if ($change->record->uid === $target->uid || $change->liveUid === $target->uid) {
+                $failed = $failed || $unread;
                 array_pop($changes);
                 $changes[] = $change;
 
@@ -341,12 +353,16 @@ final readonly class ObservedChangeResolver
     }
 
     /**
+     * The change with the facts its stored row bears. A row read that fails
+     * sets $failed: the change is listed with the writer's workspace only, as
+     * one whose row is gone, and the caller marks the list incomplete.
+     *
      * @param array{table: string, uid: int, action: ChangeAction, workspace: int} $entry
      */
-    private function change(array $entry): ObservedChange
+    private function change(array $entry, bool &$failed): ObservedChange
     {
         $record = new RecordReference($entry['table'], $entry['uid']);
-        $row    = $this->row($entry['table'], $entry['uid']);
+        $row    = $this->row($entry['table'], $entry['uid'], $failed);
 
         // Without the row only the writer's workspace is known.
         if ($row === null) {
