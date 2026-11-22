@@ -75,13 +75,20 @@ final readonly class ObservedChangeResolver
         $truncated = false;
         $entries   = $this->entries($records, $scopes, $after, $truncated);
         $changes   = [];
+        $unread    = [];
         foreach (array_slice($entries, 0, ObservedChangeSet::LIMIT) as $entry) {
-            $changes[] = $this->change($entry, $truncated);
+            $failed    = false;
+            $changes[] = $this->change($entry, $failed);
+            $unread[]  = $failed;
         }
 
         if ($target instanceof RecordReference && count($entries) > count($changes)) {
-            $changes = $this->keepingTarget($changes, array_slice($entries, count($changes)), $target, $truncated);
+            $changes = $this->keepingTarget($changes, $unread, array_slice($entries, count($changes)), $target);
         }
+
+        // Only a change that stays listed counts: one the target replaced is
+        // counted as left out already.
+        $truncated = $truncated || in_array(true, $unread, true);
 
         // A history read that stopped at its cap lost rows nobody can count,
         // and a listed change whose row could not be read lacks facts nobody
@@ -132,11 +139,12 @@ final readonly class ObservedChangeResolver
      * the last one. Only entries of the target's table are looked at.
      *
      * @param list<ObservedChange>                                                       $changes
+     * @param list<bool>                                                                 $unread  whether each change's row read failed, kept in step with $changes
      * @param list<array{table: string, uid: int, action: ChangeAction, workspace: int}> $rest
      *
      * @return list<ObservedChange>
      */
-    private function keepingTarget(array $changes, array $rest, RecordReference $target, bool &$failed): array
+    private function keepingTarget(array $changes, array &$unread, array $rest, RecordReference $target): array
     {
         foreach ($changes as $change) {
             if ($change->record->table === $target->table && ($change->record->uid === $target->uid || $change->liveUid === $target->uid)) {
@@ -149,14 +157,13 @@ final readonly class ObservedChangeResolver
                 continue;
             }
 
-            // Only the read of the change that is kept counts: the others are
-            // not listed and already counted as left out.
-            $unread = false;
-            $change = $this->change($entry, $unread);
+            $failed = false;
+            $change = $this->change($entry, $failed);
             if ($change->record->uid === $target->uid || $change->liveUid === $target->uid) {
-                $failed = $failed || $unread;
                 array_pop($changes);
+                array_pop($unread);
                 $changes[] = $change;
+                $unread[]  = $failed;
 
                 return $changes;
             }

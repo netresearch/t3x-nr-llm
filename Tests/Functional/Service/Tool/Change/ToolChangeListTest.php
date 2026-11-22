@@ -721,9 +721,17 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
         self::assertContains('tt_content:1059', array_map(static fn (ObservedChange $change): string => (string) $change->record, $set->changes));
 
         // The fifty listed rows are read first, then the rest in order until
-        // the target: read 51 is a change that stays left out, read 60 the
-        // target that is kept. Only a failed read of a listed change marks the
-        // list incomplete.
+        // the target: read 1 is a change that stays listed, read 50 the one
+        // the target replaces, read 51 a change that stays left out, read 60
+        // the target that is kept. Only a failed read of a change that ends up
+        // listed marks the list incomplete.
+        $retained = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 1, 1)))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+        self::assertSame(11, $retained->omitted, 'a failed read of a change that stays listed marks the list');
+
+        $replaced = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 50, 50)))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+        self::assertNotContains('tt_content:1049', array_map(static fn (ObservedChange $change): string => (string) $change->record, $replaced->changes), 'the target took its place');
+        self::assertSame(10, $replaced->omitted, 'a failed read of the change the target replaced adds nothing');
+
         $leftOut = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 51, 51)))->resolve($records, [], null, new RecordReference('tt_content', 1059));
         self::assertSame(10, $leftOut->omitted, 'a failed read of a change that is not listed adds nothing');
 
