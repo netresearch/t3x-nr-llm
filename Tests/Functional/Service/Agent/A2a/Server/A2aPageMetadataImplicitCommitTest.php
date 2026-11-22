@@ -134,6 +134,12 @@ final class A2aPageMetadataImplicitCommitTest extends AbstractFunctionalTestCase
 
         $writes = $this->writesOf($taskId);
         self::assertStringNotContainsString('pages:' . self::TRANSLATION . ' in workspace', $writes);
+        // What the scope found it could not read is not called rolled back:
+        // the call could not confirm its rollback, and the client is told to
+        // check, as the model is (#1448).
+        self::assertStringNotContainsString('refused or rolled back', $writes);
+        self::assertStringContainsString("Writes the scope of the task's assignment refused or found outside it", $writes);
+        self::assertStringContainsString('The rollback of a tool call that wrote outside the scope could not be confirmed', $writes);
 
         self::assertSame(0, $this->rows('sys_registry', ['entry_namespace' => 'tx_nrllm_scope']), 'no marker of the call stays behind');
     }

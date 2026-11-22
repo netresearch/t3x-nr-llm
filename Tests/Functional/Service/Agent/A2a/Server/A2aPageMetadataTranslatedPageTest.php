@@ -189,6 +189,49 @@ final class A2aPageMetadataTranslatedPageTest extends AbstractFunctionalTestCase
         self::assertSame(1, substr_count($text, 'pages:7'));
     }
 
+    /**
+     * The refusals of a failed call are cut at the limit of its set like its
+     * records, and the artifact says so as it does for them. A call that wrote
+     * outside the scope and whose rollback could not be confirmed (the database
+     * ended the transaction itself) may have kept those writes: the heading
+     * does not call them rolled back, and a line says what to check (#1448).
+     */
+    #[Test]
+    public function theRefusedBlockSaysWhenItIsCutAndWhenARollbackIsUnconfirmed(): void
+    {
+        $refused = static fn (int $from, int $count): array => array_map(static fn (int $uid): array => ['operation' => 'effect_updated', 'table' => 'pages', 'uid' => $uid, 'pid' => 0, 'reason' => 'outside_scope'], range($from, $from + $count - 1));
+        $runs    = [
+            901 => ['changes' => [], 'changeCount' => 0, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0, 'refused' => $refused(100, 50), 'refusedOmitted' => 7],
+            902 => ['changes' => [['table' => 'pages', 'uid' => 7, 'action' => 'updated', 'workspace' => 0]], 'changeCount' => 1, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0, 'refused' => $refused(200, 1), 'rollbackUnconfirmed' => true],
+            903 => ['changes' => [], 'changeCount' => 0, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0, 'refused' => $refused(300, 1)],
+        ];
+        $sequence = 0;
+        foreach ($runs as $run => $changes) {
+            foreach ([['tool', ['toolIsError' => true]], ['tool_changes', $changes]] as [$kind, $payload]) {
+                $this->db('tx_nrllm_agentrun_event')->insert('tx_nrllm_agentrun_event', ['run' => $run, 'sequence' => ++$sequence, 'kind' => $kind, 'payload' => json_encode($payload, JSON_THROW_ON_ERROR)]);
+            }
+        }
+
+        $text = fn (int $run): string => self::text(self::j(self::objectOf((new ReflectionMethod(A2aTaskStore::class, 'writesArtifact'))->invoke($this->getService(A2aTaskStore::class), $run, false)), 'parts.0.text'));
+
+        $cut = $text(901);
+        self::assertStringContainsString("Writes the scope of the task's assignment refused or rolled back (50)", $cut);
+        self::assertStringContainsString('more writes refused or found outside the scope than its list keeps; this list may be incomplete.', $cut);
+        self::assertStringNotContainsString('could not be confirmed', $cut);
+
+        $kept = $text(902);
+        self::assertStringNotContainsString('refused or rolled back', $kept, 'a write that may stand is not called rolled back');
+        self::assertStringContainsString("Writes the scope of the task's assignment refused or found outside it (1), each with the rule it broke:\n- effect_updated of pages:200 (outside_scope)", $kept);
+        self::assertStringContainsString('The rollback of a tool call that wrote outside the scope could not be confirmed: what it wrote may stand. Check the records.', $kept);
+        self::assertStringNotContainsString('may be incomplete', $kept);
+
+        // The control: a call that was rolled back.
+        $rolledBack = $text(903);
+        self::assertStringContainsString("Writes the scope of the task's assignment refused or rolled back (1), each with the rule it broke:\n- effect_updated of pages:300 (outside_scope)", $rolledBack);
+        self::assertStringNotContainsString('could not be confirmed', $rolledBack);
+        self::assertStringNotContainsString('may be incomplete', $rolledBack);
+    }
+
     private function draftDescription(): mixed
     {
         return $this->draftOf(self::PAGE);

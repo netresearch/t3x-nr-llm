@@ -328,6 +328,36 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('refused update of tt_content:23 (outside_scope)', $outcome['toolResult']);
         self::assertStringContainsString('These writes did not happen', $outcome['toolResult']);
         self::assertFalse(AssignmentScopeGuard::isArmed());
+        self::assertFalse($this->rollbackUnconfirmed($outcome['trace']), 'refused writes did not happen: there is nothing to roll back');
+    }
+
+    /**
+     * A call that has more writes refused than its set keeps: the set keeps
+     * the limit and counts the rest, so that a reader of the run is not handed
+     * a list that looks complete (#1448).
+     */
+    #[Test]
+    public function moreRefusalsThanTheSetKeepsAreCounted(): void
+    {
+        $content = $this->connectionPool->getConnectionForTable('tt_content');
+        $datamap = [];
+        for ($uid = 1000; $uid < 1000 + ObservedChangeSet::LIMIT + 10; ++$uid) {
+            $content->insert('tt_content', ['uid' => $uid, 'pid' => self::OTHER, 'colPos' => 0, 'CType' => 'text', 'header' => 'Original ' . $uid, 'sorting' => $uid * 256]);
+            $datamap['tt_content'][$uid] = ['header' => 'Outside'];
+        }
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            static function (ToolExecutionContext $context) use ($datamap): void {
+                $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+                $dataHandler->start($datamap, [], $context->actingBackendUser());
+                $dataHandler->process_datamap();
+            },
+        );
+
+        self::assertCount(ObservedChangeSet::LIMIT, $this->refusals($outcome['trace']));
+        self::assertSame(10, $this->refusalsLeftOut($outcome['trace']));
+        self::assertSame('Original 1059', $this->header(1059), 'the refused writes did not happen');
     }
 
     /**
@@ -352,6 +382,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertSame(['effect_updated tt_content:23 outside_scope'], $this->refusals($outcome['trace']));
         self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertFalse($this->rollbackUnconfirmed($outcome['trace']), 'the rollback happened');
     }
 
     /**
@@ -1759,6 +1790,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('were NOT rolled back', $outcome['toolResult']);
         self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT), 'what the database committed stands, and the result says so');
+        self::assertTrue($this->rollbackUnconfirmed($outcome['trace']), 'and so does the set the run records (#1448)');
         self::assertFalse($this->transactionIsOpen());
         self::assertSame(0, (int) $this->scalar('SELECT COUNT(*) FROM sys_registry WHERE entry_namespace = ?', ['tx_nrllm_scope']), 'the committed marker does not stay behind');
     }
@@ -1977,6 +2009,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('were NOT rolled back', $outcome['toolResult']);
         self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertTrue($this->rollbackUnconfirmed($outcome['trace']), 'the set the run records says so too (#1448)');
         $this->assertNothingLeftArmed();
     }
 
@@ -1998,6 +2031,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('were NOT rolled back', $outcome['toolResult']);
         self::assertStringNotContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertSame('Outside', $this->header(self::OUTSIDE_ELEMENT));
+        self::assertTrue($this->rollbackUnconfirmed($outcome['trace']), 'the set the run records says so too (#1448)');
         $this->assertNothingLeftArmed();
     }
 
@@ -3644,6 +3678,36 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertNotSame([], $steps, 'the call was traced');
 
         return ['trace' => $trace, 'toolResult' => (string) $steps[0]->toolResult, 'suspendedForDependency' => $suspendedForDependency];
+    }
+
+    /**
+     * Whether a changes step of the run says the rollback of its call could
+     * not be confirmed.
+     */
+    private function rollbackUnconfirmed(RunTrace $trace): bool
+    {
+        foreach ($trace->getSteps() as $step) {
+            if ($step->kind === RunStep::KIND_CHANGES && $step->observedChanges instanceof ObservedChangeSet && $step->observedChanges->rollbackUnconfirmed) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * How many refusals the changes steps of the run left out.
+     */
+    private function refusalsLeftOut(RunTrace $trace): int
+    {
+        $left = 0;
+        foreach ($trace->getSteps() as $step) {
+            if ($step->kind === RunStep::KIND_CHANGES && $step->observedChanges instanceof ObservedChangeSet) {
+                $left += $step->observedChanges->refusedOmitted;
+            }
+        }
+
+        return $left;
     }
 
     /**

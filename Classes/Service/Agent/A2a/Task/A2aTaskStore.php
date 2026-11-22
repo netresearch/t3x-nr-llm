@@ -589,7 +589,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
         $steps  = $connection->count('uid', 'tx_nrllm_agentrun_event', ['run' => $runUid, 'kind' => 'tool_write']);
         $failed = $this->changesOfFailedCalls($runUid);
         $beside = $this->changesBesideTheWrites($runUid, $rows);
-        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $failed['refused'] === [] && $beside['lines'] === [] && !$beside['incomplete']) {
+        if (!$profileMayWrite && $rows === [] && $steps === 0 && $failed['lines'] === [] && !$failed['incomplete'] && $failed['refused'] === [] && !$failed['refusedIncomplete'] && $beside['lines'] === [] && !$beside['incomplete']) {
             return null;
         }
 
@@ -617,11 +617,31 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $text .= sprintf("\nThe run recorded %d write step(s); this list may be incomplete.", $steps);
         }
 
-        foreach ($this->block("Writes the scope of the task's assignment refused or rolled back (%d), each with the rule it broke:\n%s", $failed['refused']) as $refused) {
-            $text .= "\n" . $refused;
-        }
+        return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text . $this->refusedText($failed)]]];
+    }
 
-        return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
+    /**
+     * The last block of the `writes` artifact: what the scope of the task's
+     * assignment refused or rolled back, and whether that list is cut. A call
+     * whose rollback could not be confirmed (the database ended the
+     * transaction itself, or the rollback failed) may have kept what the scope
+     * found outside it: the heading does not say rolled back then, and a line
+     * says what to check (#1448). Empty for nothing refused.
+     *
+     * @param array{refused: list<string>, refusedIncomplete: bool, unconfirmed: bool} $failed
+     */
+    private function refusedText(array $failed): string
+    {
+        $heading = $failed['unconfirmed']
+            ? "Writes the scope of the task's assignment refused or found outside it (%d), each with the rule it broke:\n%s"
+            : "Writes the scope of the task's assignment refused or rolled back (%d), each with the rule it broke:\n%s";
+        $lines = [
+            ...$this->block($heading, $failed['refused']),
+            ...($failed['refusedIncomplete'] ? ['A tool call had more writes refused or found outside the scope than its list keeps; this list may be incomplete.'] : []),
+            ...($failed['unconfirmed'] ? ['The rollback of a tool call that wrote outside the scope could not be confirmed: what it wrote may stand. Check the records.'] : []),
+        ];
+
+        return $lines === [] ? '' : "\n" . implode("\n", $lines);
     }
 
     /**
@@ -641,17 +661,23 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
      * The records the run's failed tool calls wrote, as their `tool_changes`
      * steps name them, one line each, and whether a step says it is not the
      * whole list (a capture that missed writes, or a list cut at its limit).
-     * A call's steps are recorded in order: its tool step, then its changes.
+     * The same for the refusals, and whether a call's rollback could not be
+     * confirmed. A call's steps are recorded in order: its tool step, then its
+     * changes.
      *
-     * @return array{lines: list<string>, incomplete: bool, refused: list<string>}
+     * @return array{lines: list<string>, incomplete: bool, refused: list<string>, refusedIncomplete: bool, unconfirmed: bool}
      */
     private function changesOfFailedCalls(int $runUid): array
     {
-        $lines      = [];
-        $refused    = [];
-        $incomplete = false;
+        $lines             = [];
+        $refused           = [];
+        $incomplete        = false;
+        $refusedIncomplete = false;
+        $unconfirmed       = false;
         foreach ($this->changeSetsOfCalls($runUid, true) as $set) {
-            $incomplete = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
+            $incomplete        = $incomplete || $set->coverage !== ChangeCoverage::DATAHANDLER || $set->omitted > 0;
+            $refusedIncomplete = $refusedIncomplete || $set->refusedOmitted > 0;
+            $unconfirmed       = $unconfirmed || $set->rollbackUnconfirmed && $set->refused !== [];
             foreach ($set->changes as $change) {
                 // The line holds every part of its identity, so it is its own key.
                 $lines[$this->changeLine($change)] = true;
@@ -662,7 +688,7 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             }
         }
 
-        return ['lines' => array_keys($lines), 'incomplete' => $incomplete, 'refused' => array_keys($refused)];
+        return ['lines' => array_keys($lines), 'incomplete' => $incomplete, 'refused' => array_keys($refused), 'refusedIncomplete' => $refusedIncomplete, 'unconfirmed' => $unconfirmed];
     }
 
     /**

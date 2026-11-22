@@ -17,7 +17,9 @@ use Netresearch\NrLlm\Domain\Enum\ChangeCoverage;
  *
  * Bounded: at most {@see self::LIMIT} changes are kept, and `omitted` counts
  * the rest, so a call that copies a large page tree cannot flood the run's
- * event stream. A consumer that needs every row reads `sys_history`.
+ * event stream. A consumer that needs every row reads `sys_history`. The
+ * refusals of the scope of an assignment are bounded the same way, and
+ * `refusedOmitted` counts the rest.
  *
  * The set states its coverage and never completeness: see
  * {@see ChangeCoverage}. An empty set is no statement that nothing was written.
@@ -37,22 +39,33 @@ final readonly class ObservedChangeSet
     /** @var list<ScopeRefusal> the writes the scope of the assignment refused in this call (ADR-295), at most {@see self::LIMIT} */
     public array $refused;
 
+    /** The refusals left out: the `$refusedOmitted` argument and every refusal past the limit. */
+    public int $refusedOmitted;
+
     /**
      * @param list<ObservedChange> $changes
-     * @param list<ScopeRefusal>   $refused the writes the scope of the assignment refused (ADR-295)
+     * @param list<ScopeRefusal>   $refused             the writes the scope of the assignment refused (ADR-295)
+     * @param bool                 $rollbackUnconfirmed the call wrote outside the scope and its rollback could not be confirmed: what `refused` names may stand
      */
     public function __construct(
         array $changes = [],
         public ChangeCoverage $coverage = ChangeCoverage::DATAHANDLER,
         int $omitted = 0,
         array $refused = [],
+        int $refusedOmitted = 0,
+        public bool $rollbackUnconfirmed = false,
     ) {
-        $this->refused = array_slice(array_values(array_filter($refused, static fn (mixed $refusal): bool => $refusal instanceof ScopeRefusal)), 0, self::LIMIT);
-        $this->changes = array_slice($changes, 0, self::LIMIT);
-        $this->omitted = max(0, $omitted) + max(0, count($changes) - self::LIMIT);
+        $refusals             = array_values(array_filter($refused, static fn (mixed $refusal): bool => $refusal instanceof ScopeRefusal));
+        $this->refused        = array_slice($refusals, 0, self::LIMIT);
+        $this->refusedOmitted = max(0, $refusedOmitted) + max(0, count($refusals) - self::LIMIT);
+        $this->changes        = array_slice($changes, 0, self::LIMIT);
+        $this->omitted        = max(0, $omitted) + max(0, count($changes) - self::LIMIT);
     }
 
     /**
+     * The keys `refused`, `refusedOmitted` and `rollbackUnconfirmed` are
+     * present only where they say something.
+     *
      * @return array{changes: list<array<string, mixed>>, changeCount: int, changeCoverage: string, changesOmitted: int}
      */
     public function toArray(): array
@@ -62,7 +75,9 @@ final readonly class ObservedChangeSet
             'changeCount'    => count($this->changes),
             'changeCoverage' => $this->coverage->value,
             'changesOmitted' => $this->omitted,
-        ] + ($this->refused === [] ? [] : ['refused' => array_map(static fn (ScopeRefusal $refusal): array => $refusal->toArray(), $this->refused)]);
+        ] + ($this->refused === [] ? [] : ['refused' => array_map(static fn (ScopeRefusal $refusal): array => $refusal->toArray(), $this->refused)])
+            + ($this->refusedOmitted === 0 ? [] : ['refusedOmitted' => $this->refusedOmitted])
+            + ($this->rollbackUnconfirmed ? ['rollbackUnconfirmed' => true] : []);
     }
 
     /**
@@ -104,6 +119,8 @@ final readonly class ObservedChangeSet
             $coverage ?? ChangeCoverage::NOT_CAPTURED,
             is_int($payload['changesOmitted'] ?? null) ? max(0, $payload['changesOmitted']) : 0,
             $refused,
+            is_int($payload['refusedOmitted'] ?? null) ? max(0, $payload['refusedOmitted']) : 0,
+            ($payload['rollbackUnconfirmed'] ?? false) === true,
         );
     }
 }
