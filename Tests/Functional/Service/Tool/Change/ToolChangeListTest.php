@@ -448,7 +448,9 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
     {
         $records = static fn (ChangeAction $action, int $uid = self::ELEMENT): array => ['tt_content:' . $uid => ['table' => 'tt_content', 'uid' => $uid, 'action' => $action, 'workspace' => 0]];
 
-        $moved = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records(ChangeAction::MOVED), []);
+        // Only the read that settles the entry fails; the row is read again
+        // for the list and found.
+        $moved = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 1, 1)))->resolve($records(ChangeAction::MOVED), []);
         self::assertSame(['tt_content:' . self::ELEMENT], array_map(static fn (ObservedChange $change): string => (string) $change->record, $moved->changes), 'the move is listed');
         self::assertSame(0, $moved->omitted, 'the listed move is not also counted as left out');
 
@@ -471,6 +473,58 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
             self::assertSame(1, $pool->failed, $action->value . ': the version lookup failed');
             self::assertSame(1, $set->omitted, $action->value . ': a version that cannot be looked up leaves the list incomplete');
         }
+    }
+
+    /**
+     * The list reads each row it names for the facts it states (workspace,
+     * live uid, language, hidden state, restrictions). A row whose read fails
+     * there is listed with the writer's workspace only, as a row that is gone
+     * is; the list then says it is not complete, so that a reader does not take
+     * the missing facts for a missing row. One marker, however many reads fail.
+     */
+    #[Test]
+    public function aListedChangeWhoseRowCannotBeReadLeavesTheListIncomplete(): void
+    {
+        $records = static fn (ChangeAction $action, int $workspace = 0): array => ['tt_content:' . self::ELEMENT => ['table' => 'tt_content', 'uid' => self::ELEMENT, 'action' => $action, 'workspace' => $workspace]];
+
+        // An update and a creation are not read before the list: the list's
+        // read is the first and only one.
+        foreach ([ChangeAction::UPDATED, ChangeAction::CREATED] as $action) {
+            $pool = FailsOneReadConnectionPool::failing('tt_content');
+            $set  = (new ObservedChangeResolver($pool))->resolve($records($action), []);
+            self::assertSame(1, $pool->failed, $action->value . ': the row read failed');
+            self::assertSame(['tt_content:' . self::ELEMENT], array_map(static fn (ObservedChange $change): string => (string) $change->record, $set->changes), $action->value . ': the change is listed');
+            self::assertSame(1, $set->omitted, $action->value . ': the list says it is not complete');
+        }
+
+        // A move, delete or undelete is read once to settle it and once more
+        // for the list; only the second read fails.
+        foreach ([ChangeAction::MOVED, ChangeAction::DELETED, ChangeAction::RESTORED] as $action) {
+            $pool = FailsOneReadConnectionPool::failing('tt_content', 2, 2);
+            $set  = (new ObservedChangeResolver($pool))->resolve($records($action), []);
+            self::assertSame(1, $pool->failed, $action->value . ': the second read failed');
+            self::assertCount(1, $set->changes, $action->value . ': the change is listed');
+            self::assertSame(1, $set->omitted, $action->value . ': the list says it is not complete');
+        }
+
+        // A move whose every read fails is listed and marked once.
+        $moved = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content')))->resolve($records(ChangeAction::MOVED), []);
+        self::assertCount(1, $moved->changes, 'the move is listed');
+        self::assertSame(1, $moved->omitted, 'the move with no readable row leaves the list incomplete');
+
+        // Two changes whose reads fail mark the list once.
+        $two = [
+            'tt_content:' . self::ELEMENT                 => ['table' => 'tt_content', 'uid' => self::ELEMENT, 'action' => ChangeAction::UPDATED, 'workspace' => 0],
+            'tt_content:' . self::ELEMENT_ON_PAGE_TO_COPY => ['table' => 'tt_content', 'uid' => self::ELEMENT_ON_PAGE_TO_COPY, 'action' => ChangeAction::UPDATED, 'workspace' => 0],
+        ];
+        $pool = FailsOneReadConnectionPool::failing('tt_content');
+        $both = (new ObservedChangeResolver($pool))->resolve($two, []);
+        self::assertSame(2, $pool->failed, 'both reads failed');
+        self::assertCount(2, $both->changes, 'both changes are listed');
+        self::assertSame(1, $both->omitted, 'two failed reads, one marker');
+
+        // Read without a failure, the list is complete.
+        self::assertSame(0, (new ObservedChangeResolver($this->connectionPool))->resolve($records(ChangeAction::UPDATED), [])->omitted, 'a row that was read leaves the list complete');
     }
 
     /**
@@ -665,6 +719,27 @@ final class ToolChangeListTest extends AbstractFunctionalTestCase
         self::assertCount(ObservedChangeSet::LIMIT, $set->changes);
         self::assertSame(10, $set->omitted);
         self::assertContains('tt_content:1059', array_map(static fn (ObservedChange $change): string => (string) $change->record, $set->changes));
+
+        // The fifty listed rows are read first, then the rest in order until
+        // the target: read 1 is a change that stays listed, read 50 the one
+        // the target replaces, read 51 a change that stays left out, read 60
+        // the target that is kept. Only a failed read of a change that ends up
+        // listed marks the list incomplete.
+        $retained = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 1, 1)))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+        self::assertSame(11, $retained->omitted, 'a failed read of a change that stays listed marks the list');
+
+        $replaced = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 50, 50)))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+        self::assertNotContains('tt_content:1049', array_map(static fn (ObservedChange $change): string => (string) $change->record, $replaced->changes), 'the target took its place');
+        self::assertSame(10, $replaced->omitted, 'a failed read of the change the target replaced adds nothing');
+
+        $leftOut = (new ObservedChangeResolver(FailsOneReadConnectionPool::failing('tt_content', 51, 51)))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+        self::assertSame(10, $leftOut->omitted, 'a failed read of a change that is not listed adds nothing');
+
+        $pool   = FailsOneReadConnectionPool::failing('tt_content', 60, 60);
+        $target = (new ObservedChangeResolver($pool))->resolve($records, [], null, new RecordReference('tt_content', 1059));
+        self::assertSame(1, $pool->failed, 'the read of the target failed');
+        self::assertContains('tt_content:1059', array_map(static fn (ObservedChange $change): string => (string) $change->record, $target->changes));
+        self::assertSame(11, $target->omitted, 'the kept target whose row could not be read marks the list incomplete');
     }
 
     /**

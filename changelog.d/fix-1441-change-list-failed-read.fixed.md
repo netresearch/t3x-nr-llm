@@ -1,0 +1,1 @@
+- The list of records a tool call changed no longer reads as complete when the row of a listed record could not be read: such an entry carries only the writer's workspace, as one whose row is gone does, and the list now counts it as possibly incomplete (`changesOmitted`), as it already did for a failed history read (#1441).

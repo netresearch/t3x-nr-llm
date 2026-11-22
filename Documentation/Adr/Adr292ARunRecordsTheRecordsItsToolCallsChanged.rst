@@ -79,7 +79,9 @@ most 50 entries, keeps the tool's own target among them, and counts the rest in
 ``changesOmitted``; a history chain of more than 5000 rows is cut off and counted
 as at least one more, and so is a history read that fails (its start included), a delete or
 undelete whose row cannot be read, and a draft version that cannot be looked up
-(:ref:`ADR-295 <adr-295>`, 2026-11-18). No title and no
+(:ref:`ADR-295 <adr-295>`, 2026-11-18). A listed entry whose row cannot be read
+for these facts carries the writer's workspace only, as one whose row is gone,
+and counts as one more too, however many such reads fail (#1441, 2026-11-22). No title and no
 field value is stored, so the run-step privacy filter has nothing to strip at
 any level, and the step is persisted as it is.
 
