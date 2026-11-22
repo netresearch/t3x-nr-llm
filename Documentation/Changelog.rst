@@ -27,30 +27,24 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-52-0:
+.. _version-0-52-1:
 
-Version 0.52.0 (2026-11-20)
+Version 0.52.1 (2026-11-22)
 ===========================
 
-The scope of an assignment now also holds the listeners of a call's write
-events, judges a discard and a publish by what they change, and rolls back a
-call whose delete it could not read.
+The scope of an assignment judges a move where the record lay before it, and
+the lists a run reports about its writes say when they may be incomplete.
 
-- **Listeners under the scope:** for a run with an assignment scope,
-  ``AfterAiRecordWrittenEvent`` and ``AiLabelWriteEvent`` are dispatched
-  before the commit with the scope armed; a listener's DataHandler write
-  outside the scope rolls the whole call back, unless a
-  ``TCEMAIN.clearCacheCmd`` group flush on MySQL or MariaDB committed it
-  early (#1438). AI Label's metadata
-  on the call's draft stays inside the scope, and a translation no longer
-  gets a version from it when the write synchronises nothing.
-- **Discard and publish:** each discard and publish core carries out,
-  including the drafts discarded along with a record, is judged by its live
-  row and its draft before core runs it (#1442).
-- **Unreadable rows:** a delete or undelete whose row the scope cannot read
-  rolls the call back instead of being committed unjudged (#1434).
-- **Breaking for listeners:** see "Upgrading from 0.51" in the
-  :file:`CHANGELOG.md`. A listener that has to write outside the scope wraps
-  that write in ``WriteOutsideTheAssignmentScope::run()`` (new, ``@api``).
+- **Moves under the scope:** a move is judged at the record's position before
+  core moves it; a move from outside the scope into it, or of a record that
+  cannot be read, rolls the call back (#1443).
+- **Change list:** an entry whose row could not be read marks the list as
+  possibly incomplete (``changesOmitted``) instead of reading as complete
+  (#1441).
+- **A2A writes artifact:** a refused block cut at 50 entries says it may be
+  incomplete, and writes whose rollback could not be confirmed are no longer
+  called rolled back (#1448). ``ObservedChangeSet`` gains the optional
+  ``refusedOmitted`` and ``rollbackUnconfirmed`` (additive, ``@api``).
+- **PHP 8.6:** listed as supported and tested in CI (#1444).
 
 Details in the repository :file:`CHANGELOG.md`.

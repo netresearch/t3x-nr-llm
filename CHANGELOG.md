@@ -8,6 +8,24 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.52.1] - 2026-11-22
+
+### Added
+
+- PHP 8.6 is listed as supported in the support matrix and runs in the CI test matrix ([#1444](https://github.com/netresearch/t3x-nr-llm/pull/1444)).
+
+- `ObservedChangeSet` counts the refusals it cut at its limit (`refusedOmitted`) and states when the rollback of its call could not be confirmed (`rollbackUnconfirmed`); both are optional constructor parameters and optional keys of the `tool_changes` payload, absent where they say nothing ([#1448](https://github.com/netresearch/t3x-nr-llm/issues/1448)).
+
+### Fixed
+
+- The list of records a tool call changed no longer reads as complete when the row of a listed record could not be read: such an entry carries only the writer's workspace, as one whose row is gone does, and the list now counts it as possibly incomplete (`changesOmitted`), as it already did for a failed history read (#1441).
+
+- The A2A `writes` artifact no longer presents a refused block as complete when a call had more than 50 writes refused, nor as rolled back when the rollback of a call that wrote outside the assignment scope could not be confirmed (the database ended the transaction itself, or the rollback failed). A cut list now says it may be incomplete, and an unconfirmed rollback is headed "refused or found outside it" with a line that the writes may stand and have to be checked ([#1448](https://github.com/netresearch/t3x-nr-llm/issues/1448)).
+
+### Security
+
+- The scope of an assignment now judges a move where the record lay before it, right before core moves it. The effect check reads a moved record only where it ends up, so a move from outside the scope into it, which a hook registered after nr_llm's can put into the command map past the command check, was committed, also when the record was then deleted inside the scope. A record outside the scope, or one that cannot be read, now rolls the call back (ADR-295, [#1443](https://github.com/netresearch/t3x-nr-llm/issues/1443)).
+
 ## [0.52.0] - 2026-11-20
 
 ### Upgrading from 0.51
@@ -5516,7 +5534,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.1...HEAD
+[0.52.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.0...v0.52.1
 [0.52.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.1...v0.52.0
 [0.51.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.0...v0.51.1
 [0.51.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.50.0...v0.51.0
