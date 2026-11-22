@@ -155,7 +155,12 @@ May write
    lists no record there. A last block, "Writes the scope of the task's
    assignment refused or rolled back", names each write the scope refused
    or rolled back, the call's own and its listeners', with the rule it
-   broke.
+   broke, and a line says when that list may be incomplete. When the
+   rollback of such a call could not be confirmed, because the database
+   ended the transaction itself (an implicit commit on MySQL or MariaDB, or
+   a rollback of its own) or the rollback failed, the block is headed
+   "refused or found outside it" instead, and a line says that what the call
+   wrote may stand and has to be checked.
    The one exception to "drafts only" is ``adopt_client_file``, which
    stores a client's file in the skill's inbox folder as a new FAL file. A
    FAL file has no draft; nothing uses it until an editor references it in

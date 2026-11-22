@@ -95,6 +95,60 @@ final class ObservedChangeTest extends TestCase
         self::assertSame(ObservedChangeSet::LIMIT, $set->toArray()['changeCount']);
     }
 
+    /**
+     * The refusals are cut at the same limit as the changes and counted like
+     * them, and a set states whether the rollback of its call could not be
+     * confirmed. Both survive the payload and every way a set is rebuilt; a
+     * payload without them, written before they existed, reads as nothing cut
+     * and nothing unconfirmed (#1448).
+     */
+    #[Test]
+    public function aSetCountsTheRefusalsItCutAndStatesAnUnconfirmedRollback(): void
+    {
+        $refused = [];
+        for ($uid = 1; $uid <= ObservedChangeSet::LIMIT + 10; ++$uid) {
+            $refused[] = new ScopeRefusal('update', 'tt_content', $uid, 0, ScopeRefusal::OUTSIDE_SCOPE);
+        }
+
+        $set = new ObservedChangeSet([], refused: $refused, refusedOmitted: 2);
+        self::assertCount(ObservedChangeSet::LIMIT, $set->refused);
+        self::assertSame(12, $set->refusedOmitted);
+        self::assertFalse($set->rollbackUnconfirmed);
+
+        $payload = $set->toArray();
+        self::assertSame(12, $payload['refusedOmitted'] ?? null);
+        self::assertArrayNotHasKey('rollbackUnconfirmed', $payload, 'present only where it says something');
+        self::assertEquals($set, ObservedChangeSet::tryFromEventPayload($payload));
+
+        $unconfirmed = ChangeSets::withRollbackUnconfirmed($set);
+        self::assertTrue($unconfirmed->rollbackUnconfirmed);
+        self::assertSame(12, $unconfirmed->refusedOmitted);
+        self::assertTrue($unconfirmed->toArray()['rollbackUnconfirmed'] ?? null);
+        self::assertEquals($unconfirmed, ObservedChangeSet::tryFromEventPayload($unconfirmed->toArray()));
+
+        $target = new RecordReference('tt_content', 1);
+        foreach ([
+            'marked'   => ChangeSets::withTargetMarked($unconfirmed, $target),
+            'coverage' => ChangeSets::withCoverage($unconfirmed, ChangeCoverage::NOT_CAPTURED),
+            'refused'  => ChangeSets::withRefused($unconfirmed, [new ScopeRefusal('update', 'pages', 1, 0, ScopeRefusal::OUTSIDE_SCOPE)]),
+            'merged'   => ChangeSets::merged(new ObservedChangeSet(), $unconfirmed),
+        ] as $how => $rebuilt) {
+            self::assertTrue($rebuilt->rollbackUnconfirmed, $how . ': the unconfirmed rollback stays');
+            self::assertGreaterThanOrEqual(12, $rebuilt->refusedOmitted, $how . ': the count stays');
+        }
+
+        self::assertSame(13, ChangeSets::withRefused($unconfirmed, [new ScopeRefusal('update', 'pages', 1, 0, ScopeRefusal::OUTSIDE_SCOPE)])->refusedOmitted, 'one more refusal past the limit is one more cut');
+        self::assertSame(15, ChangeSets::merged($set, new ObservedChangeSet(refusedOmitted: 3))->refusedOmitted, 'merged sets add their counts');
+        self::assertFalse(ChangeSets::merged($set, new ObservedChangeSet())->rollbackUnconfirmed, 'neither set unconfirmed, the merge is not');
+        self::assertTrue(ChangeSets::merged($unconfirmed, new ObservedChangeSet())->rollbackUnconfirmed, 'the first set unconfirmed, the merge is');
+
+        $old = ObservedChangeSet::tryFromEventPayload(['changes' => [], 'changeCount' => 0, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0]);
+        self::assertInstanceOf(ObservedChangeSet::class, $old);
+        self::assertSame(0, $old->refusedOmitted);
+        self::assertFalse($old->rollbackUnconfirmed);
+        self::assertSame(['changes' => [], 'changeCount' => 0, 'changeCoverage' => 'datahandler', 'changesOmitted' => 0], $old->toArray(), 'a set with nothing cut or unconfirmed writes the payload it wrote before');
+    }
+
     #[Test]
     public function aSetNeverStatesCompleteness(): void
     {

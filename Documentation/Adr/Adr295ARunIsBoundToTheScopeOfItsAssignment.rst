@@ -577,8 +577,11 @@ checks let through:
   own ``ROLLBACK``), the effect check cannot read the rows that are gone and
   counts them as outside the scope. The model is then told that the changes
   were NOT rolled back and have to be reviewed, although the rows are gone.
-  This errs on the side of checking. What the A2A client reads is right: the
-  call records no write. A savepoint release that fails after a
+  This errs on the side of checking. The A2A client is told the same: the
+  ``writes`` artifact lists those records among the ones to check, does not
+  call the refused writes rolled back, and says that the rollback could not be
+  confirmed (`#1448 <https://github.com/netresearch/t3x-nr-llm/issues/1448>`__).
+  A savepoint release that fails after a
   successful nested rollback is reported as not rolled back, although it was.
 - A cache flush that fails after the commit is logged as a warning; the tool's
   result has already said it flushed.
@@ -610,8 +613,15 @@ operation, table, uid, pid and reason, also for a call refused by layer one,
 which changed nothing: the step is recorded when there is something refused, not
 only when something changed. ``ObservedChangeSet::tryFromEventPayload()`` reads
 the list; a consumer that does not know the key ignores it, and a payload
-without it is as before. The governance log gets ``invocation_denied`` for layer
-one as for every rule.
+without it is as before. The list holds at most 50 refusals, like the list of
+changes, and ``refusedOmitted`` counts the rest; ``rollbackUnconfirmed`` is
+true for a call that wrote outside the scope and whose rollback could not be
+confirmed (the database ended the transaction itself, or the rollback failed),
+so that what ``refused`` names may stand. Both keys are written only where
+they say something, and a payload without them reads as nothing left out and
+nothing unconfirmed (2026-11-22, `#1448
+<https://github.com/netresearch/t3x-nr-llm/issues/1448>`__). The governance
+log gets ``invocation_denied`` for layer one as for every rule.
 
 **What catches what.** Every DataHandler operation, and the layer that holds it. The effect check, after the call, holds every row of the table that the DataHandler reports, whatever the input looked like:
 

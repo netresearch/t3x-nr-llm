@@ -1268,13 +1268,15 @@ Netresearch\NrLlm\Domain\ValueObject\ObservedChange (class)
 
 Netresearch\NrLlm\Domain\ValueObject\ObservedChangeSet (class)
   const LIMIT = 50
-  constructor(array $changes = …, Netresearch\NrLlm\Domain\Enum\ChangeCoverage $coverage = …, int $omitted = …, array $refused = …)
+  constructor(array $changes = …, Netresearch\NrLlm\Domain\Enum\ChangeCoverage $coverage = …, int $omitted = …, array $refused = …, int $refusedOmitted = …, bool $rollbackUnconfirmed = …)
   method static tryFromEventPayload(array $payload): ?self
   method toArray(): array
   property readonly changes: array
   property readonly coverage: Netresearch\NrLlm\Domain\Enum\ChangeCoverage
   property readonly omitted: int
   property readonly refused: array
+  property readonly refusedOmitted: int
+  property readonly rollbackUnconfirmed: bool
 
 Netresearch\NrLlm\Domain\ValueObject\ObservedState (class)
   const DIGEST_PATTERN = "\/^v1:[0-9a-f]{64}\\z\/"

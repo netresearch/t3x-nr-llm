@@ -3339,6 +3339,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     $rolledBack = $rolledBack && $ended;
                     if ($rolledBack) {
                         $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
+                    } elseif ($violations !== []) {
+                        $changes = ChangeSets::withRollbackUnconfirmed($changes);
                     }
 
                     ToolChangeCollector::hold($changes);
@@ -3388,6 +3390,9 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 if ($rolledBack) {
                     // What was written is not there any more.
                     $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
+                } elseif ($violations !== []) {
+                    // What the scope found outside it may stand.
+                    $changes = ChangeSets::withRollbackUnconfirmed($changes);
                 }
 
                 ToolChangeCollector::hold($changes);
@@ -3439,6 +3444,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $rolledBack = $this->endTransaction($transaction, true, $context->actingBackendUser()) && $transaction instanceof AssignmentScopeTransaction;
                 if ($rolledBack) {
                     $changes = ChangeSets::withRefused(new ObservedChangeSet([], ChangeCoverage::DATAHANDLER), [...$refused, ...array_column($violations, 'refusal')]);
+                } else {
+                    $changes = ChangeSets::withRollbackUnconfirmed($changes);
                 }
 
                 $result = ToolResult::error(sprintf(

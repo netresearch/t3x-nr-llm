@@ -1,0 +1,1 @@
+- `ObservedChangeSet` counts the refusals it cut at its limit (`refusedOmitted`) and states when the rollback of its call could not be confirmed (`rollbackUnconfirmed`); both are optional constructor parameters and optional keys of the `tool_changes` payload, absent where they say nothing ([#1448](https://github.com/netresearch/t3x-nr-llm/issues/1448)).

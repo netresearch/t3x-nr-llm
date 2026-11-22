@@ -72,12 +72,12 @@ final class ChangeSets
             $set->changes,
         );
 
-        return new ObservedChangeSet($marked, $set->coverage, $set->omitted, $set->refused);
+        return new ObservedChangeSet($marked, $set->coverage, $set->omitted, $set->refused, $set->refusedOmitted, $set->rollbackUnconfirmed);
     }
 
     public static function withCoverage(ObservedChangeSet $set, ChangeCoverage $coverage): ObservedChangeSet
     {
-        return new ObservedChangeSet($set->changes, $coverage, $set->omitted, $set->refused);
+        return new ObservedChangeSet($set->changes, $coverage, $set->omitted, $set->refused, $set->refusedOmitted, $set->rollbackUnconfirmed);
     }
 
     /**
@@ -110,7 +110,14 @@ final class ChangeSets
             ? ChangeCoverage::DATAHANDLER
             : ChangeCoverage::NOT_CAPTURED;
 
-        return new ObservedChangeSet(array_values($changes), $coverage, $set->omitted + $later->omitted, [...$set->refused, ...$later->refused]);
+        return new ObservedChangeSet(
+            array_values($changes),
+            $coverage,
+            $set->omitted + $later->omitted,
+            [...$set->refused, ...$later->refused],
+            $set->refusedOmitted + $later->refusedOmitted,
+            $set->rollbackUnconfirmed || $later->rollbackUnconfirmed,
+        );
     }
 
     /**
@@ -121,7 +128,18 @@ final class ChangeSets
      */
     public static function withRefused(ObservedChangeSet $set, array $refused): ObservedChangeSet
     {
-        return new ObservedChangeSet($set->changes, $set->coverage, $set->omitted, [...$set->refused, ...$refused]);
+        return new ObservedChangeSet($set->changes, $set->coverage, $set->omitted, [...$set->refused, ...$refused], $set->refusedOmitted, $set->rollbackUnconfirmed);
+    }
+
+    /**
+     * The set of a call that wrote outside the scope and whose rollback could
+     * not be confirmed (ADR-295): the database ended the transaction itself,
+     * with an implicit commit or a rollback of its own, or the rollback failed.
+     * What the set refused may stand.
+     */
+    public static function withRollbackUnconfirmed(ObservedChangeSet $set): ObservedChangeSet
+    {
+        return new ObservedChangeSet($set->changes, $set->coverage, $set->omitted, $set->refused, $set->refusedOmitted, true);
     }
 
     /**
