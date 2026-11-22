@@ -617,25 +617,31 @@ final readonly class A2aTaskStore implements RunCompletionStoreInterface
             $text .= sprintf("\nThe run recorded %d write step(s); this list may be incomplete.", $steps);
         }
 
-        // A call whose rollback could not be confirmed (the database ended the
-        // transaction itself, or the rollback failed) may have kept what the
-        // scope found outside it: the heading does not say rolled back then.
+        return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text . $this->refusedText($failed)]]];
+    }
+
+    /**
+     * The last block of the `writes` artifact: what the scope of the task's
+     * assignment refused or rolled back, and whether that list is cut. A call
+     * whose rollback could not be confirmed (the database ended the
+     * transaction itself, or the rollback failed) may have kept what the scope
+     * found outside it: the heading does not say rolled back then, and a line
+     * says what to check (#1448). Empty for nothing refused.
+     *
+     * @param array{refused: list<string>, refusedIncomplete: bool, unconfirmed: bool} $failed
+     */
+    private function refusedText(array $failed): string
+    {
         $heading = $failed['unconfirmed']
             ? "Writes the scope of the task's assignment refused or found outside it (%d), each with the rule it broke:\n%s"
             : "Writes the scope of the task's assignment refused or rolled back (%d), each with the rule it broke:\n%s";
-        foreach ($this->block($heading, $failed['refused']) as $refused) {
-            $text .= "\n" . $refused;
-        }
+        $lines = [
+            ...$this->block($heading, $failed['refused']),
+            ...($failed['refusedIncomplete'] ? ['A tool call had more writes refused or found outside the scope than its list keeps; this list may be incomplete.'] : []),
+            ...($failed['unconfirmed'] ? ['The rollback of a tool call that wrote outside the scope could not be confirmed: what it wrote may stand. Check the records.'] : []),
+        ];
 
-        if ($failed['refusedIncomplete']) {
-            $text .= "\nA tool call had more writes refused or found outside the scope than its list keeps; this list may be incomplete.";
-        }
-
-        if ($failed['unconfirmed']) {
-            $text .= "\nThe rollback of a tool call that wrote outside the scope could not be confirmed: what it wrote may stand. Check the records.";
-        }
-
-        return ['artifactId' => Uuid::v7()->toRfc4122(), 'name' => 'writes', 'parts' => [['text' => $text]]];
+        return $lines === [] ? '' : "\n" . implode("\n", $lines);
     }
 
     /**
