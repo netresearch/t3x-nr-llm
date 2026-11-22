@@ -51,7 +51,9 @@ use WeakMap;
  * and the draft, at its position in the workspace, have to lie in the scope;
  * what does not, or cannot be read, is noted on the guard and rolls the call
  * back. A new version and a stage change write the draft only, and are judged
- * by the command check above at the draft's position.
+ * by the command check above at the draft's position. A move is judged in
+ * `processCmdmap_preProcess` too, at the record's position before it (#1443):
+ * the effect check reads only where the record ends up.
  *
  * @internal
  */
@@ -175,6 +177,25 @@ final class AssignmentScopeHook
         // it, so a key that is not one uid is unreadable.
         if (!is_int($id)) {
             AssignmentScopeGuard::observe(new ScopeRefusal('effect_command', $table === '' ? 'unknown' : $table, 0, 0, ScopeRefusal::UNRESOLVABLE), $workspace);
+
+            return;
+        }
+
+        // The effect check reads a moved record where it ends up. Where it lay
+        // before is judged here, right before core moves it: a record a later
+        // hook moved from outside the scope into it, and deleted there, ends
+        // up inside (#1443). Its translations move along and are judged where
+        // they end up.
+        if ($command === 'move') {
+            try {
+                $refusal = $checker->recordRefusal($scope, 'effect_move', $table, $id, $workspace);
+            } catch (Throwable) {
+                $refusal = new ScopeRefusal('effect_move', $table, max(0, $id), 0, ScopeRefusal::UNRESOLVABLE);
+            }
+
+            if ($refusal instanceof ScopeRefusal) {
+                AssignmentScopeGuard::observe($refusal, $workspace);
+            }
 
             return;
         }

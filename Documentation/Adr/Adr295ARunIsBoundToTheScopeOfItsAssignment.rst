@@ -533,6 +533,21 @@ own. A discard that names a live row is judged at the call's workspace; a tool
 whose DataHandler runs in another workspace than the call's is refused by the
 built-in write path, not by this check.
 
+**A move is judged where the record lay before it** (amending this decision,
+2026-11-22, `#1443 <https://github.com/netresearch/t3x-nr-llm/issues/1443>`__).
+The effect check reads a moved record where it ends up, and it does not read
+where the record was (``history_data`` is never read, ADR-185). A move from
+outside the scope into it therefore ends inside and was cleared, and so was a
+record moved in and then deleted there. The command check of the hook refuses
+such a move, but a hook registered after it can replace the public command map,
+and the move then reached core unjudged. The hook now judges every move again in
+``processCmdmap_preProcess``, right before core carries it out, at the record's
+position in the call's workspace; a record outside the scope, or one that cannot
+be read, is noted on the guard and rolls the call back. Its translations move
+along and are judged by the effect check where they end up. Without nr_llm's
+DataHandler hook the effect check alone does not see the position a record had,
+so a move into the scope is held by the hook only.
+
 Known limits of the transaction, none of them a write outside the scope that the
 checks let through:
 
@@ -613,7 +628,7 @@ the list; a consumer that does not know the key ignores it, and a payload
 without it is as before. The governance log gets ``invocation_denied`` for layer
 one as for every rule.
 
-**What catches what.** Every DataHandler operation, and the layer that holds it. The effect check, after the call, holds every row of the table that the DataHandler reports, whatever the input looked like:
+**What catches what.** Every DataHandler operation, and the layer that holds it. The effect check, after the call, holds every row of the table that the DataHandler reports, whatever the input looked like, where the row ends up; where a moved record lay before is held by the hook only:
 
 .. list-table::
    :header-rows: 1

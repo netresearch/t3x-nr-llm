@@ -2966,6 +2966,68 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     }
 
     /**
+     * @return iterable<string, array{bool, bool}>
+     */
+    public static function whatFollowsAMoveIntoTheScope(): iterable
+    {
+        yield 'nothing' => [false, false];
+        yield 'a delete of the moved record' => [true, false];
+        yield 'nothing, in a draft workspace' => [false, true];
+    }
+
+    /**
+     * A move a later hook put into the command map passes the command check,
+     * and the effect check reads the record where it ends up. A record moved
+     * from outside the scope into it ends up inside, and so does one moved in
+     * and then deleted; the move is judged where the record lay before it, right
+     * before core moves it, and the call is rolled back. In a draft workspace
+     * the move writes a draft and is judged where the record lies there. The
+     * control: the same move of a record that lay inside is kept.
+     */
+    #[Test]
+    #[DataProvider('whatFollowsAMoveIntoTheScope')]
+    public function aMoveAHookAddsFromOutsideIntoTheScopeIsRolledBack(bool $thenDeleted, bool $inTheDraft): void
+    {
+        $user = $inTheDraft ? $this->userInTheDraft() : null;
+        $this->registerHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
+
+        $outcome = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context) use ($thenDeleted): void {
+                ReplacesTheCommandMapHook::$cmdmap = ['tt_content' => [self::OUTSIDE_ELEMENT => ['move' => self::SCOPED]]];
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::BELOW]]], $context);
+                if ($thenDeleted) {
+                    $this->command(['tt_content' => [self::OUTSIDE_ELEMENT => ['delete' => 1]]], $context);
+                }
+            },
+            user: $user,
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        self::assertContains('effect_move tt_content:' . self::OUTSIDE_ELEMENT . ' outside_scope', $this->refusals($outcome['trace']));
+        self::assertSame(self::OTHER, $this->pidOf('tt_content', self::OUTSIDE_ELEMENT), 'the record outside the scope was not moved');
+        self::assertSame(0, (int) $this->scalar('SELECT deleted FROM tt_content WHERE uid = ?', [self::OUTSIDE_ELEMENT]), 'nor deleted');
+        self::assertSame(0, $this->versionsOf(self::OUTSIDE_ELEMENT), 'nor given a draft');
+
+        // The control: the hook moves a record that lay inside the scope.
+        $control = $this->call(
+            static fn (): ScopedWrite => ScopedWrite::nothing(),
+            function (ToolExecutionContext $context): void {
+                ReplacesTheCommandMapHook::$cmdmap = ['tt_content' => [self::BELOW_ELEMENT => ['move' => self::SCOPED]]];
+                $this->command(['tt_content' => [self::IN_SCOPE_ELEMENT => ['move' => self::BELOW]]], $context);
+            },
+            user: $user,
+        );
+
+        self::assertStringNotContainsString(self::ROLLED_BACK, $control['toolResult']);
+        if ($inTheDraft) {
+            self::assertSame(1, $this->versionsOf(self::BELOW_ELEMENT), 'positive control: the move inside the scope wrote its draft');
+        } else {
+            self::assertSame(self::SCOPED, $this->pidOf('tt_content', self::BELOW_ELEMENT), 'positive control: the move inside the scope happened');
+        }
+    }
+
+    /**
      * The records the run's changes steps list, with their action.
      *
      * @return list<string>
