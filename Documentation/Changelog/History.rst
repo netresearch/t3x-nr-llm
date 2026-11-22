@@ -11,6 +11,32 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-52-0:
+
+Version 0.52.0 (2026-11-20)
+===========================
+
+The scope of an assignment now also holds the listeners of a call's write
+events, judges a discard and a publish by what they change, and rolls back a
+call whose delete it could not read.
+
+- **Listeners under the scope:** for a run with an assignment scope,
+  ``AfterAiRecordWrittenEvent`` and ``AiLabelWriteEvent`` are dispatched
+  before the commit with the scope armed; a listener's DataHandler write
+  outside the scope rolls the whole call back, unless a
+  ``TCEMAIN.clearCacheCmd`` group flush on MySQL or MariaDB committed it
+  early (#1438). AI Label's metadata
+  on the call's draft stays inside the scope, and a translation no longer
+  gets a version from it when the write synchronises nothing.
+- **Discard and publish:** each discard and publish core carries out,
+  including the drafts discarded along with a record, is judged by its live
+  row and its draft before core runs it (#1442).
+- **Unreadable rows:** a delete or undelete whose row the scope cannot read
+  rolls the call back instead of being committed unjudged (#1434).
+- **Breaking for listeners:** see "Upgrading from 0.51" in the
+  :file:`CHANGELOG.md`. A listener that has to write outside the scope wraps
+  that write in ``WriteOutsideTheAssignmentScope::run()`` (new, ``@api``).
+
 .. _version-0-51-1:
 
 Version 0.51.1 (2026-11-18)
