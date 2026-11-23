@@ -170,6 +170,9 @@ testing.testPrompt = Say hello and introduce yourself in one sentence. Respond i
 # cat=telemetry; type=boolean; label=Enable Telemetry: Record one row per provider pipeline run (operation, provider, latency, success/failure, cache hit, fallback attempts) in tx_nrllm_telemetry. No prompts or responses are stored, only the exception class on failure. Purge old rows with the nrllm:telemetry:purge command. On by default.
 telemetry.enabled = 1
 
+# cat=telemetry; type=boolean; label=Emit OpenTelemetry spans and metrics: Record spans and metrics for model calls, fallback attempts, tool executions and agent runs through the OpenTelemetry API (ADR-291). Nothing is sent unless the installation registers an OpenTelemetry SDK and exporter. Without one this setting has no effect and costs nothing. Prompts, answers, tool arguments and results, and exception messages are never recorded. On by default.
+telemetry.openTelemetry = 1
+
 # =============================================================================
 # Tool egress policy (ADR-094)
 # =============================================================================

@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Provider\Middleware;
 
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
+use Netresearch\NrLlm\Observability\GenAiTelemetry;
 use Netresearch\NrLlm\Provider\Exception\FallbackChainExhaustedException;
 use Netresearch\NrLlm\Provider\Exception\UnsupportedFeatureException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
@@ -50,9 +51,10 @@ use function count;
  *         GuardrailMiddleware  <-- screens/redacts the response      (priority 90)
  *           BudgetMiddleware   <-- pre-flight denial                 (priority 75)
  *             FallbackMiddleware <-- swaps config on retryable failure (priority 50)
- *               UsageMiddleware  <-- records the call that ran       (priority 25)
- *                 CircuitBreaker <-- guards the provider call        (priority 20)
- *                   <terminal>
+ *               GenAiTracingMiddleware <-- one span per attempt      (priority 30)
+ *                 UsageMiddleware  <-- records the call that ran     (priority 25)
+ *                   CircuitBreaker <-- guards the provider call      (priority 20)
+ *                     <terminal>
  */
 #[AutoconfigureTag(name: ProviderMiddlewareInterface::TAG_NAME)]
 final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
@@ -75,6 +77,10 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
         private FallbackCandidateResolver $candidates,
         private LoggerInterface $logger,
         private ProviderHealthServiceInterface $health,
+        // Wraps a walk through a chain in one OpenTelemetry span (ADR-291).
+        // Optional like the other observability sinks: absent it, which only
+        // the lean test wiring does, the walk is unchanged.
+        private ?GenAiTelemetry $genAi = null,
     ) {}
 
     /**
@@ -95,6 +101,29 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
             return $next($context);
         }
 
+        if (!$this->genAi instanceof GenAiTelemetry) {
+            return $this->walkChain($context, $configuration, $next);
+        }
+
+        return $this->genAi->traceFallbackChain(
+            $context,
+            fn (): mixed => $this->walkChain($context, $configuration, $next),
+        );
+    }
+
+    /**
+     * The primary attempt, then the fallback chain.
+     *
+     * @param callable(ProviderCallContext): mixed $next
+     *
+     * @throws FallbackChainExhaustedException when primary and all fallbacks fail
+     * @throws Throwable                       on the first non-retryable failure
+     */
+    private function walkChain(
+        ProviderCallContext $context,
+        LlmConfiguration $configuration,
+        callable $next,
+    ): mixed {
         /** @var list<array{configuration: string, error: Throwable}> $attempts */
         $attempts = [];
 
@@ -109,6 +138,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                 'configuration' => $configuration->getIdentifier(),
                 'error'         => $e,
             ];
+            $this->genAi?->recordFallbackFailure($configuration->getIdentifier(), $e);
             $this->logger->warning(
                 'LLM primary configuration failed, trying fallback chain',
                 [
@@ -198,6 +228,7 @@ final readonly class FallbackMiddleware implements ProviderMiddlewareInterface
                     'configuration' => $identifier,
                     'error'         => $e,
                 ];
+                $this->genAi?->recordFallbackFailure($identifier, $e);
                 $this->logger->warning(
                     'LLM fallback configuration failed',
                     [

@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Closure;
 use InvalidArgumentException;
 use Netresearch\NrLlm\Domain\Enum\AgentRunTerminationReason;
 use Netresearch\NrLlm\Domain\Enum\ApprovalDenialReason;
@@ -260,6 +261,10 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         // The evaluations that measured a skill version (ADR-322). Optional
         // for the lean test wiring; absent it no evidence step is recorded.
         private ?SkillEvidenceLookupInterface $skillEvidence = null,
+        // Wraps a segment of the loop and each tool execution in OpenTelemetry
+        // spans (ADR-291). Optional like the other observability sinks: absent
+        // it, which only the lean test wiring does, nothing is traced.
+        private ?ToolTelemetry $tracing = null,
     ) {}
 
     /**
@@ -436,24 +441,28 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             $skillAllowList = $skillAllowList?->withDeclaration($processVersion->allowedTools ?? []);
         }
 
-        return $this->loop(
-            $messages,
+        return $this->traced(
             $configuration,
-            $context,
-            $allowedToolNames,
-            $options,
-            $maxIterations,
-            $runTrace,
-            $augmentation,
-            $skipAssembly,
-            $seedIterations,
-            $seedPromptTokens,
-            $seedCompletionTokens,
-            $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
-            $skillAllowList ?? $live,
-            processVersion: $processVersion,
-            // Tokens carried in without a cost were spent at an unknown price.
-            seedCost: $seedPromptTokens === 0 && $seedCompletionTokens === 0 ? 0.0 : null,
+            $context->run?->uuid,
+            fn (): ToolLoopResult => $this->loop(
+                $messages,
+                $configuration,
+                $context,
+                $allowedToolNames,
+                $options,
+                $maxIterations,
+                $runTrace,
+                $augmentation,
+                $skipAssembly,
+                $seedIterations,
+                $seedPromptTokens,
+                $seedCompletionTokens,
+                $skillAllowList instanceof SkillToolAllowList ? $skillAllowList->intersect($live) : $live,
+                $skillAllowList ?? $live,
+                processVersion: $processVersion,
+                // Tokens carried in without a cost were spent at an unknown price.
+                seedCost: $seedPromptTokens === 0 && $seedCompletionTokens === 0 ? 0.0 : null,
+            ),
         );
     }
 
@@ -1290,9 +1299,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         }
 
         $environment->trace?->beforeToolExecution($call->name);
-        $before                     = $pins;
-        [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
-        $history                    = $this->recorded($history, $call, $result->outcome->value, $target, $result);
+        $before = $pins;
+        // A load is a tool execution of its own (ADR-291): one execute_tool span,
+        // an error when the load was refused; an admission denial above has none.
+        $load = function () use ($call, $catalogue, $configuration, $options, $specs, &$messages, &$pins): ToolResult {
+            [$messages, $pins, $loaded] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
+
+            return $loaded;
+        };
+        $result  = $this->tracing instanceof ToolTelemetry ? $this->tracing->traceTool($call, false, $load) : $load();
+        $history = $this->recorded($history, $call, $result->outcome->value, $target, $result);
         // The version the load appended, before the tool step that answers
         // it (ADR-321). Loaded is not passed: the next send reports that.
         $environment->trace?->recordSkillUsage($round, $skillUsage->loadedBetween($before, $pins));
@@ -3305,6 +3321,52 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             }
         }
 
+        // One execute_tool span (ADR-291) around the call and what decides its
+        // result: the scope check, a rollback or the commit can turn a result
+        // the tool returned as ok into an error after it returned. A call that
+        // was refused before it ran (budget, no transaction) gets no span.
+        // A tool that throws is caught below and becomes an error result; the
+        // span still names the exception class, as for a model call.
+        $thrown  = null;
+        $execute = static function () use ($tool, $call, $context, &$thrown): ToolResult {
+            try {
+                return $tool->execute($call->arguments, $context);
+            } catch (ToolDependencyPendingException $pending) {
+                throw $pending;
+            } catch (Throwable $e) {
+                $thrown = $e::class;
+
+                throw $e;
+            }
+        };
+        $invoke = function () use ($call, $tool, $context, $scope, $scopeChecker, $workspace, $transaction, $execute, &$executed): ToolResult {
+            return $this->runInvocation($call, $tool, $context, $scope, $scopeChecker, $workspace, $transaction, $execute, $executed);
+        };
+
+        return $this->tracing instanceof ToolTelemetry
+            ? $this->tracing->traceTool($call, $tool instanceof RemoteToolInterface, $invoke, static function () use (&$thrown): ?string {
+                return $thrown;
+            })
+            : $invoke();
+    }
+
+    /**
+     * The call itself, once its budget was charged and its transaction began:
+     * the execution and the judgement of what it wrote.
+     *
+     * @param Closure(): ToolResult $execute the tool's own execution
+     */
+    private function runInvocation(
+        ToolCall $call,
+        ToolInterface $tool,
+        ToolExecutionContext $context,
+        ?AssignmentScope $scope,
+        AssignmentScopeChecker $scopeChecker,
+        int $workspace,
+        ?AssignmentScopeTransaction $transaction,
+        Closure $execute,
+        bool &$executed,
+    ): ToolResult {
         $collectorDepth = ToolChangeCollector::depth();
         $guardDepth     = AssignmentScopeGuard::depth();
         try {
@@ -3322,8 +3384,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             try {
                 $executed = true;
                 $result   = $this->writeEnvironment instanceof WorkerWriteEnvironment && !$this->effects()->declaresRead($call->name)
-                    ? $this->writeEnvironment->around($context->actingBackendUser(), static fn (): ToolResult => $tool->execute($call->arguments, $context))
-                    : $tool->execute($call->arguments, $context);
+                    ? $this->writeEnvironment->around($context->actingBackendUser(), $execute)
+                    : $execute();
             } catch (ToolDependencyPendingException $pending) {
                 // What the call wrote before it handed its work over is judged like
                 // any other call's (ADR-295): a write outside the scope is rolled
@@ -4275,26 +4337,45 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         array $pins,
         ?SkillUsageLedger $skillUsage = null,
     ): ToolLoopResult {
-        return $this->loop(
-            $messages,
+        return $this->traced(
             $environment->configuration,
-            $environment->execution,
-            $state->allowedToolNames,
-            $resume->options,
-            $maxIterations,
-            $environment->trace,
-            $resume->augmentation,
-            true,
-            $state->iterations,
-            $state->promptTokens,
-            $state->completionTokens,
-            $resume->skillAllowList,
-            $resume->storedAllowList,
-            $pins,
-            $history,
-            seedCost: $state->estimatedCost,
-            skillUsage: $skillUsage,
+            $environment->execution->run?->uuid,
+            fn (): ToolLoopResult => $this->loop(
+                $messages,
+                $environment->configuration,
+                $environment->execution,
+                $state->allowedToolNames,
+                $resume->options,
+                $maxIterations,
+                $environment->trace,
+                $resume->augmentation,
+                true,
+                $state->iterations,
+                $state->promptTokens,
+                $state->completionTokens,
+                $resume->skillAllowList,
+                $resume->storedAllowList,
+                $pins,
+                $history,
+                seedCost: $state->estimatedCost,
+                skillUsage: $skillUsage,
+            ),
         );
+    }
+
+    /**
+     * One segment of a run inside an `invoke_agent` span (ADR-291), or the
+     * segment itself where no instrumentation is wired.
+     *
+     * @param Closure(): ToolLoopResult $segment
+     */
+    private function traced(LlmConfiguration $configuration, ?string $runUuid, Closure $segment): ToolLoopResult
+    {
+        if (!$this->tracing instanceof ToolTelemetry) {
+            return $segment();
+        }
+
+        return $this->tracing->traceAgent($configuration->getIdentifier(), $runUuid, $segment);
     }
 
     /**

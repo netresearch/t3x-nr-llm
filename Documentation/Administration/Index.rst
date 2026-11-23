@@ -134,6 +134,7 @@ may see the usage of his editors gets the module
    Analytics
    GroupUsage
    ErrorHints
+   OpenTelemetry
    AgentRuns
    DataRetention
    Commands

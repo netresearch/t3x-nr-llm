@@ -47,6 +47,7 @@ use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolLoopServiceInterface;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolTelemetry;
 use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionProperty;
@@ -219,6 +220,20 @@ final class ToolLoopGateWiringTest extends FunctionalTestCase
         self::assertInstanceOf(ToolLoopService::class, $loop);
 
         self::assertInstanceOf(InvocationDigests::class, (new ReflectionProperty(ToolLoopService::class, 'invocationDigests'))->getValue($loop));
+    }
+
+    /**
+     * The OpenTelemetry spans of the loop are optional (ADR-291), so a
+     * container that left them null would compile and trace no agent run and
+     * no tool call, with every test that injects them by hand still green.
+     */
+    #[Test]
+    public function productionWiresTheToolTelemetryIntoTheLoop(): void
+    {
+        $loop = $this->get(ToolLoopService::class);
+        self::assertInstanceOf(ToolLoopService::class, $loop);
+
+        self::assertInstanceOf(ToolTelemetry::class, (new ReflectionProperty(ToolLoopService::class, 'tracing'))->getValue($loop));
     }
 
     /**

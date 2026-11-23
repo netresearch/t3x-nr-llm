@@ -53,13 +53,16 @@ use Netresearch\NrLlm\Service\Tool\ToolInvocationContext;
 use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
+use Netresearch\NrLlm\Service\Tool\ToolTelemetry;
 use Netresearch\NrLlm\Tests\Fixtures\Process\ProcessPinProbeStub;
+use Netresearch\NrLlm\Tests\Unit\Observability\OpenTelemetryTestHarness;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillLoadLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\FixedSkillSourceLookup;
 use Netresearch\NrLlm\Tests\Unit\Service\Skill\Fixture\InMemorySkillApprovalRepository;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
+use OpenTelemetry\API\Trace\StatusCode;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -75,6 +78,8 @@ use Psr\Log\NullLogger;
 #[CoversClass(ToolLoopService::class)]
 final class ToolLoopServiceSkillLoadTest extends TestCase
 {
+    use OpenTelemetryTestHarness;
+
     private const CONFIGURATION_UID = 9;
 
     private const SKILL_UID = 7;
@@ -84,6 +89,8 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
     private const CONFIG_SYSTEM_PROMPT = 'You are the configured assistant.';
 
     private ?InMemorySkillApprovalRepository $approvals = null;
+
+    private ?ToolTelemetry $tracing = null;
 
     /** @var list<array{messages: list<ChatMessage|array<string, mixed>>, specs: list<ToolSpec>}> */
     private array $sends = [];
@@ -115,6 +122,28 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
         self::assertStringContainsString('7: House style — How we write.', $spec->description);
         self::assertStringNotContainsString(self::BODY, $spec->description);
         self::assertStringNotContainsString(self::BODY, $this->systemText(0), 'an on-demand skill is not composed at run start');
+    }
+
+    protected function tearDown(): void
+    {
+        $this->uninstallOpenTelemetrySdk();
+        parent::tearDown();
+    }
+
+    /**
+     * A load is a tool execution of its own: one execute_tool span (ADR-291).
+     */
+    #[Test]
+    public function aLoadIsAToolSpan(): void
+    {
+        $this->installOpenTelemetrySdk();
+        $this->tracing = new ToolTelemetry($this->telemetry());
+
+        $this->runLoad([[$this->loadCall('c1')]]);
+
+        $span = $this->onlySpan('execute_tool ' . LoadSkillTool::NAME);
+        self::assertSame(StatusCode::STATUS_UNSET, $span->getStatus()->getCode());
+        self::assertSame('c1', $span->getAttributes()->toArray()['gen_ai.tool.call.id']);
     }
 
     #[Test]
@@ -792,6 +821,7 @@ final class ToolLoopServiceSkillLoadTest extends TestCase
             skillLoad: new SkillLoadService($composer, $lookup),
             modelSelection: $modelSelection,
             processPinProbe: $processPinProbe,
+            tracing: $this->tracing,
         );
 
         return [$service, $configuration, $window];

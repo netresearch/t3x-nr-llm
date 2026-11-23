@@ -19,6 +19,7 @@ use Netresearch\NrLlm\Domain\Model\UsageStatistics;
 use Netresearch\NrLlm\Domain\ValueObject\GuardrailHint;
 use Netresearch\NrLlm\Exception\BudgetExceededException;
 use Netresearch\NrLlm\Exception\GuardrailViolationException;
+use Netresearch\NrLlm\Observability\GenAiTelemetry;
 use Netresearch\NrLlm\Provider\Exception\ProviderConnectionException;
 use Netresearch\NrLlm\Provider\Fallback\FallbackCandidateResolver;
 use Netresearch\NrLlm\Provider\Middleware\BudgetMiddleware;
@@ -41,6 +42,8 @@ use Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRecord;
 use Netresearch\NrLlm\Service\Telemetry\TelemetryRepositoryInterface;
 use Netresearch\NrLlm\Service\UsageTrackerServiceInterface;
+use OpenTelemetry\Context\Context as OtelContext;
+use OpenTelemetry\Context\ContextInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\Attribute\AutowireIterator;
 use Throwable;
@@ -171,6 +174,10 @@ final readonly class StreamingDispatcher
         // Hands the hints of a drained stream to a caller that captures them
         // (ADR-288); the container shares one.
         private GuardrailHintCollector $hintCollector = new GuardrailHintCollector(),
+        // Records a stream as an OpenTelemetry span and metrics (ADR-291).
+        // Optional like the other observability sinks: absent it, which only
+        // the lean test wiring does, a stream is not traced.
+        private ?GenAiTelemetry $genAi = null,
     ) {
         // Materialise the unfiltered baseline once; drain() derives the per-call
         // live-redactor and audit lists from it via the policy resolver (ADR-106).
@@ -216,7 +223,9 @@ final readonly class StreamingDispatcher
                 && $guardrail->annotatesStream($screened),
         ));
 
-        $stream = $this->drain($context, $configuration, $open);
+        // The context of the code that asks for the stream, taken here because
+        // the generator body runs later, wherever its consumer happens to be.
+        $stream = $this->drain($context, $configuration, $open, OtelContext::getCurrent());
 
         if ($holders !== []) {
             return $this->heldBack($stream, [...$holders, ...$annotators], $screened);
@@ -374,8 +383,10 @@ final readonly class StreamingDispatcher
         ProviderCallContext $context,
         LlmConfiguration $configuration,
         callable $open,
+        ContextInterface $parentContext,
     ): Generator {
         $startNs         = hrtime(true);
+        $span            = $this->genAi?->startStream($context, $parentContext);
         $firstTokenNs    = null;
         $completionBytes = 0;
         $completion      = '';
@@ -486,6 +497,13 @@ final readonly class StreamingDispatcher
                 $success,
                 $errorClass,
                 $retriesDrained,
+            );
+            $this->genAi?->finishStream(
+                $span,
+                $context->withConfiguration($served),
+                $errorClass !== '' ? $errorClass : null,
+                !$success && $errorClass === '',
+                $firstTokenNs === null ? null : ($firstTokenNs - $startNs) / 1_000_000_000,
             );
         }
     }

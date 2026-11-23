@@ -69,15 +69,19 @@ use Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy;
 use Netresearch\NrLlm\Service\Tool\ToolLoopService;
 use Netresearch\NrLlm\Service\Tool\ToolRegistry;
 use Netresearch\NrLlm\Service\Tool\ToolStateRepository;
+use Netresearch\NrLlm\Service\Tool\ToolTelemetry;
 use Netresearch\NrLlm\Service\Tool\WorkerWriteEnvironment;
 use Netresearch\NrLlm\Tests\Fixtures\Database\FailsOneReadConnectionPool;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RegistersTheFailingHookTrait;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\ReplacesTheCommandMapHook;
 use Netresearch\NrLlm\Tests\Fixtures\DataHandler\RunsANestedToolDataHandlerHook;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Unit\Observability\OpenTelemetryTestHarness;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RecordingLogger;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeDependencyTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\ScopedWriteFakeTool;
+use OpenTelemetry\API\Trace\StatusCode;
+use OpenTelemetry\SDK\Trace\SpanDataInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -124,6 +128,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 #[CoversClass(ToolLoopService::class)]
 final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 {
+    use OpenTelemetryTestHarness;
+
     use RegistersTheFailingHookTrait;
 
     /** @var non-empty-string[] */
@@ -164,6 +170,8 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
     private ?WorkerWriteEnvironment $writeEnvironmentOverride = null;
 
     private ?EventDispatcherInterface $eventDispatcherOverride = null;
+
+    private ?ToolTelemetry $tracingOverride = null;
 
     protected function setUp(): void
     {
@@ -210,6 +218,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
 
     protected function tearDown(): void
     {
+        $this->uninstallOpenTelemetrySdk();
         $this->unregisterHook('processDatamapClass', RunsANestedToolDataHandlerHook::class);
         RunsANestedToolDataHandlerHook::reset();
         $this->unregisterHook('processCmdmapClass', ReplacesTheCommandMapHook::class);
@@ -383,6 +392,34 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
         self::assertStringContainsString('wrote outside the assignment of this run', $outcome['toolResult']);
         self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
         self::assertFalse($this->rollbackUnconfirmed($outcome['trace']), 'the rollback happened');
+    }
+
+    /**
+     * The tool returned ok and the effect check rolled its write back: the
+     * call failed, so its execute_tool span (ADR-291) is an error, not a
+     * success measured before the check ran.
+     */
+    #[Test]
+    public function aRolledBackCallIsAFailedToolSpan(): void
+    {
+        $this->unregisterTheDataHandlerLayer();
+        $this->installOpenTelemetrySdk();
+        $this->tracingOverride = new ToolTelemetry($this->telemetry());
+
+        $outcome = $this->call(
+            $this->claimingRecords([self::IN_SCOPE_ELEMENT]),
+            function (ToolExecutionContext $context): void {
+                $this->updateHeader(self::OUTSIDE_ELEMENT, 'Sneaked past the claim', $context);
+            },
+        );
+
+        self::assertStringContainsString(self::ROLLED_BACK, $outcome['toolResult']);
+        $tools = array_values(array_filter(
+            $this->finishedSpans(),
+            static fn (SpanDataInterface $span): bool => str_starts_with($span->getName(), 'execute_tool '),
+        ));
+        self::assertCount(1, $tools);
+        self::assertSame(StatusCode::STATUS_ERROR, $tools[0]->getStatus()->getCode());
     }
 
     /**
@@ -3767,6 +3804,7 @@ final class AssignmentScopeEnforcementTest extends AbstractFunctionalTestCase
             invocationPolicy: new ToolInvocationPolicy([new RequireAssignmentScopeRule($registry, new ApprovalPreviewTranslator($this->getService(LanguageServiceFactory::class)))]),
             writeEnvironment: $this->writeEnvironmentOverride,
             scopeChecker: $this->checkerOverride,
+            tracing: $this->tracingOverride,
         );
     }
 
