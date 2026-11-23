@@ -50,9 +50,9 @@ final readonly class ToolTelemetry
      * A tool that returns a failed result is an error of the span; the tool's
      * own text is not recorded. Its error type is the class of the exception
      * the tool threw, as $thrownBy names it, when the caller turned that
-     * exception into the failed result, else `tool_failed`. A dependency tool
-     * that announces a pending operation is control flow and ends the span
-     * without an error.
+     * exception into the failed result, else `tool_failed`. A call the run's
+     * cancellation ended, and a dependency tool that announces a pending
+     * operation, end the span without an error.
      *
      * @param Closure(): ToolResult     $execute
      * @param (Closure(): ?string)|null $thrownBy
@@ -77,7 +77,8 @@ final readonly class ToolTelemetry
 
         try {
             $result = $execute();
-            if ($result->isError || $result->outcome === ToolOutcome::FAILED) {
+            // A cancelled call is an outcome of the run, not a failure (R5).
+            if ($result->outcome !== ToolOutcome::CANCELLED && ($result->isError || $result->outcome === ToolOutcome::FAILED)) {
                 $thrown = $thrownBy instanceof Closure ? $thrownBy() : null;
                 $error  = is_string($thrown) && $thrown !== '' ? $thrown : 'tool_failed';
             }

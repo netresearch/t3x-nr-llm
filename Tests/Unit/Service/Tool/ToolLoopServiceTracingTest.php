@@ -145,6 +145,26 @@ final class ToolLoopServiceTracingTest extends TestCase
         self::assertSame(StatusCode::STATUS_UNSET, $this->onlySpan('invoke_agent support')->getStatus()->getCode());
     }
 
+    /**
+     * A call the run's cancellation ended is an outcome, not a failure (R5),
+     * although its result is fail-closed like an error.
+     */
+    #[Test]
+    public function aCancelledToolCallIsNotAFailedSpan(): void
+    {
+        $this->installOpenTelemetrySdk();
+
+        (new ToolTelemetry($this->telemetry()))->traceTool(
+            new ToolCall('call_9', 'remote_search', []),
+            true,
+            static fn (): ToolResult => ToolResult::cancelled('Cancelled by the operator.'),
+        );
+
+        $span = $this->onlySpan('execute_tool remote_search');
+        self::assertSame(StatusCode::STATUS_UNSET, $span->getStatus()->getCode());
+        self::assertArrayNotHasKey('error.type', $span->getAttributes()->toArray());
+    }
+
     #[Test]
     public function aRunThatPausesForInputIsNotAFailure(): void
     {
