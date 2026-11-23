@@ -11,6 +11,26 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-52-1:
+
+Version 0.52.1 (2026-11-22)
+===========================
+
+The scope of an assignment judges a move where the record lay before it, and
+the lists a run reports about its writes say when they may be incomplete.
+
+- **Moves under the scope:** a move is judged at the record's position before
+  core moves it; a move from outside the scope into it, or of a record that
+  cannot be read, rolls the call back (#1443).
+- **Change list:** an entry whose row could not be read marks the list as
+  possibly incomplete (``changesOmitted``) instead of reading as complete
+  (#1441).
+- **A2A writes artifact:** a refused block cut at 50 entries says it may be
+  incomplete, and writes whose rollback could not be confirmed are no longer
+  called rolled back (#1448). ``ObservedChangeSet`` gains the optional
+  ``refusedOmitted`` and ``rollbackUnconfirmed`` (additive, ``@api``).
+- **PHP 8.6:** listed as supported and tested in CI (#1444).
+
 .. _version-0-52-0:
 
 Version 0.52.0 (2026-11-20)
@@ -2078,14 +2098,14 @@ and update its Composer constraint deliberately. See
 upgrade wizards. Review configuration and integrations before reopening
 editor access.
 
-The current package line is 0.52. For that line, for example:
+The current package line is 0.53. For that line, for example:
 
 .. code-block:: bash
-   :caption: Select the 0.52 release line
+   :caption: Select the 0.53 release line
 
-   composer require netresearch/nr-llm:^0.52 --with-all-dependencies
+   composer require netresearch/nr-llm:^0.53 --with-all-dependencies
 
-This does not select a future 0.53 release. Choose its constraint explicitly
+This does not select a future 0.54 release. Choose its constraint explicitly
 when following that release's migration notes.
 
 .. _breaking-changes:

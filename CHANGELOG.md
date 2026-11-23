@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-23
+
+### Upgrading from 0.52
+
+- nr-llm now requires `open-telemetry/api` (`^1.7`); `composer update` installs it. Without an OpenTelemetry SDK registered by the installation nothing is emitted, so no configuration is needed. An installation that registers one receives spans and metrics from nr-llm unless it sets `telemetry.openTelemetry` to 0.
+
+### Added
+
+- OpenTelemetry tracing and metrics through the vendor-neutral API ([ADR-291](Documentation/Adr/Adr291ModelCallsAreTracedThroughTheOpenTelemetryApi.rst)): a span for every attempt at a model (including streams), every fallback chain, every tool execution and every agent run, plus the metrics `gen_ai.client.operation.duration`, `gen_ai.client.token.usage` and `gen_ai.client.operation.time_to_first_chunk`. Nothing is emitted unless the installation registers an OpenTelemetry SDK; prompts, answers and exception messages are never recorded. The extension setting `telemetry.openTelemetry` switches it off. Requires `open-telemetry/api` ([#1366](https://github.com/netresearch/t3x-nr-llm/pull/1366)).
+
 ## [0.52.1] - 2026-11-22
 
 ### Added
