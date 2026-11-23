@@ -9,9 +9,9 @@
 ADR-205: A column every content type carries excludes no type
 ====================================================================
 
-:Status: Accepted (accordion, tab and carousel are offered with their child
-    records: spec 064; its treatment of the shared form stands — see
-    :ref:`ADR-324 <adr-324>`)
+:Status: Accepted (the types with child records it named excluded, among
+    them accordion, tab and carousel: spec 064; its treatment of the shared
+    form stands — see :ref:`ADR-324 <adr-324>`)
 :Date: 2026-09-24
 :Amends: :ref:`ADR-196 <adr-196>` (its rule "one excluding column excludes
     the type" no longer counts the columns of the shared form)
