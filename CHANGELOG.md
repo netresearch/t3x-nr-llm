@@ -16,7 +16,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- OpenTelemetry tracing and metrics through the vendor-neutral API ([ADR-291](Documentation/Adr/Adr291ModelCallsAreTracedThroughTheOpenTelemetryApi.rst)): a span for every attempt at a model (including streams), every fallback chain, every tool execution and every agent run, plus the metrics `gen_ai.client.operation.duration`, `gen_ai.client.token.usage` and `gen_ai.client.operation.time_to_first_chunk`. Nothing is emitted unless the installation registers an OpenTelemetry SDK; prompts, answers and exception messages are never recorded. The extension setting `telemetry.openTelemetry` switches it off. Requires `open-telemetry/api` ([#1366](https://github.com/netresearch/t3x-nr-llm/pull/1366)).
+- OpenTelemetry tracing and metrics through the vendor-neutral API ([ADR-291](Documentation/Adr/Adr291ModelCallsAreTracedThroughTheOpenTelemetryApi.rst)): a span for every attempt at a model (including streams), every fallback chain, every tool execution and every segment of an agent run, plus the metrics `gen_ai.client.operation.duration`, `gen_ai.client.token.usage` and `gen_ai.client.operation.time_to_first_chunk`. Nothing is emitted unless the installation registers an OpenTelemetry SDK; prompts, answers and exception messages are never recorded. The extension setting `telemetry.openTelemetry` switches it off. Requires `open-telemetry/api` ([#1366](https://github.com/netresearch/t3x-nr-llm/pull/1366)).
 
 ## [0.52.1] - 2026-11-22
 
@@ -5544,7 +5544,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.1...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.53.0...HEAD
+[0.53.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.1...v0.53.0
 [0.52.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.0...v0.52.1
 [0.52.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.1...v0.52.0
 [0.51.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.0...v0.51.1
