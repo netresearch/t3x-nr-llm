@@ -214,6 +214,7 @@ trait PlansOneEditorialWriteTrait
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->keepSortOrdersInADraftWorkspace();
+        $dataHandler->orderTheseByTheirParent(array_keys($children));
         $dataHandler->start([$table => [$placeholder => $record], ...$children], [], $user);
         $dataHandler->process_datamap();
 

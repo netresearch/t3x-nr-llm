@@ -79,8 +79,10 @@ child records. nr_landingpage's Page Composer builds its sections through it.
    element row (further ``fields``, FlexForm defaults, the inline columns
    naming the child placeholders) and the child rows per table, or the
    refusals (:php:`isRefused()`, :php:`$refusals`). Every value is checked
-   against the TCA and the page TSconfig of ``$pageUid``, and every grant
-   the DataHandler would ask - ``tables_modify``, exclude fields,
-   ``authMode`` - before anything is written. ``$pid`` is what the rows
+   against the TCA and the page TSconfig of ``$pageUid``; the child records
+   against ``tables_modify``, exclude fields and ``authMode``, and in a
+   draft workspace against the versioning of their table. The element's own
+   type (``CType`` keepItems, removeItems and ``authMode``) is
+   :php:`typesOfferedOnPage()`'s question. ``$pid`` is what the rows
    get: a page uid or the placeholder of a page in the same datamap.
    Nothing is written here; the caller writes the datamap.

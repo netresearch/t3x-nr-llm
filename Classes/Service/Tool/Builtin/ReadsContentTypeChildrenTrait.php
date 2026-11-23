@@ -84,7 +84,9 @@ trait ReadsContentTypeChildrenTrait
      * plain one-to-many relation a draft may fill (ADR-324).
      *
      * Plain means: `foreign_table` and `foreign_field`, no MM table, no
-     * `foreign_table_field` or `foreign_match_fields`, a child table with
+     * `foreign_table_field`, `foreign_match_fields`, `foreign_selector` or
+     * `foreign_unique` (an m:n relation through an intermediate table, whose
+     * selector a draft cannot fill), a child table with
      * TCA and a form that is not on the deny-list. The child's form is read
      * in the type its type field defaults to; its fillable columns are what a
      * child may carry, its system columns never. A required child column that
@@ -101,7 +103,8 @@ trait ReadsContentTypeChildrenTrait
         $foreignField = self::toStr($config['foreign_field'] ?? '');
         if (self::toStr($config['type'] ?? '') !== 'inline' || $table === '' || $foreignField === ''
             || self::toStr($config['MM'] ?? '') !== '' || self::toStr($config['foreign_table_field'] ?? '') !== ''
-            || ($config['foreign_match_fields'] ?? []) !== [] || $this->isDeniedChildTable($table)
+            || ($config['foreign_match_fields'] ?? []) !== [] || self::toStr($config['foreign_selector'] ?? '') !== ''
+            || self::toStr($config['foreign_unique'] ?? '') !== '' || $this->isDeniedChildTable($table)
         ) {
             return null;
         }

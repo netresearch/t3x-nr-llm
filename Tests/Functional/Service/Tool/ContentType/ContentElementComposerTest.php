@@ -93,6 +93,34 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anInlineColumnThroughAnIntermediateTableIsNoChildRelation(): void
+    {
+        /** @var array{tt_content: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                                    = &$GLOBALS['TCA'];
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['foreign_selector'] = 'header';
+        unset($tca);
+
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'), 'its selector cannot be filled, so the type stays excluded');
+    }
+
+    #[Test]
+    public function inADraftWorkspaceAChildTableWithoutVersioningIsRefused(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+        $admin->workspace = 1;
+        /** @var array{tx_childrenfixture_item: array{ctrl: array<string, mixed>}} $tca */
+        $tca                                                    = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['ctrl']['versioningWS'] = false;
+        unset($tca);
+
+        $map = $this->composer->dataMap('nrllm_items', 'NEW1', [], ['tx_childrenfixture_items' => [['header' => 'A']]], self::PAGE, self::PAGE, 0, $admin);
+
+        self::assertTrue($map->isRefused());
+        self::assertStringContainsString('tx_childrenfixture_item has no versioning', implode(' ', $map->refusals));
+    }
+
+    #[Test]
     public function describedForAnEditorItLeavesOutWhatTheEditorMayNotSet(): void
     {
         $editor = $this->editor('tx_childrenfixture_item:header');

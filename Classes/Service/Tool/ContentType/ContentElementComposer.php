@@ -183,6 +183,19 @@ final readonly class ContentElementComposer
             return ContentElementDataMap::refused($plan);
         }
 
+        // In a draft workspace a child table core does not version would be
+        // written live under a draft element (ADR-262).
+        if ($user->workspace > 0) {
+            foreach ($plan as $collection) {
+                if (!$this->tableIsVersioned($collection['table'])) {
+                    return ContentElementDataMap::refused(sprintf(
+                        'Refused: the user works in a draft workspace, and the TCA of %s has no versioning or allows editing live in a workspace; its records cannot be drafted there.',
+                        $collection['table'],
+                    ));
+                }
+            }
+        }
+
         if ($pageUid > 0) {
             $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
             $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];

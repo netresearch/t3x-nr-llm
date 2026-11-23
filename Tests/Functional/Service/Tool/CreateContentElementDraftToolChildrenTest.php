@@ -203,6 +203,34 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         }
     }
 
+    /**
+     * Each element saved with children leaves the lowest sort value of the
+     * child table on the page (RelationHandler numbers a parent's children
+     * from 1), so the next element's children find no room at the top. Their
+     * order is the parent's, which the relation writes anyway: that is no
+     * reason to refuse the draft.
+     */
+    #[Test]
+    public function inADraftWorkspaceASecondElementWithChildrenOnThePageIsCreated(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace(self::DRAFT));
+        $context = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true, [], [], self::DRAFT), $admin);
+
+        foreach (['First', 'Second'] as $header) {
+            $result = $this->tool->execute(
+                ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => $header, 'children' => ['tx_childrenfixture_items' => [['header' => $header . ' A'], ['header' => $header . ' B']]]],
+                $context,
+            );
+            self::assertFalse($result->isError, $result->content);
+        }
+
+        $second = array_values(array_filter($this->rows('tt_content'), static fn (array $row): bool => $row['header'] === 'Second'))[0];
+        $items  = array_values(array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['parent_content'] === (int) $second['uid']));
+        usort($items, static fn (array $a, array $b): int => (int) $a['sorting'] <=> (int) $b['sorting']);
+        self::assertSame(['Second A', 'Second B'], array_column($items, 'header'));
+    }
+
     #[Test]
     public function inADraftWorkspaceAChildThatDidNotTakeTakesEverythingBack(): void
     {
