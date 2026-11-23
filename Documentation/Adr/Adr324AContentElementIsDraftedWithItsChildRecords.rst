@@ -79,9 +79,11 @@ being, and a refusal leaves nothing behind.
    ``sys_file_reference`` or another ``sys_`` or ``be_`` table. One
    level deep. The child table is bounded as :ref:`ADR-197 <adr-197>` bounds
    a generic creator - no system or sensitive table, nothing ``adminOnly``
-   or ``readOnly`` - except that ``hideTable`` is allowed: item tables
-   are hidden from the list module because they are edited inside their
-   parent, which is how a draft writes them. The child's form is read with
+   or ``readOnly`` - except that ``hideTable`` is required: item tables
+   are hidden from the list module because they are edited and rendered
+   through their parent, which is how a draft writes them, and a draft
+   element is created hidden while its children are not. The child's form
+   is read with
    the same rule; what a child may carry is its fillable columns, never its
    system columns (read from the child table's own ``ctrl``), and its own
    relations, FlexForms and inline columns stay empty. A child table with a

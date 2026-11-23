@@ -18,7 +18,9 @@ those elements without items).
   `sys_` or `be_` table) no longer excludes its content type. One level
   deep; a child's own relations, FlexForms and inline columns stay empty.
   The child table is bounded like ADR-197's generic creator (no system or
-  sensitive table, nothing `adminOnly` or `readOnly`), `hideTable` allowed.
+  sensitive table, nothing `adminOnly` or `readOnly`), `hideTable` required:
+  its records are reached through their element only, and the element is
+  created hidden while its children are not.
   Columns of the form every type shares keep ADR-205's treatment.
 - **CC2 Child fields.** A child may carry the fillable columns of its table's
   form under the ADR-196 rule; its system columns (identity, language,

@@ -169,6 +169,19 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aChildTableListedOnItsOwnIsNoChildRelation(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{ctrl: array<string, mixed>}} $tca */
+        $tca                                                 = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['ctrl']['hideTable'] = false;
+        unset($tca);
+
+        // The element is created hidden, its children are not: a table the
+        // list module and the frontend reach on its own would show them.
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'));
+    }
+
+    #[Test]
     public function aTelephoneLinkWithASpaceIsRefused(): void
     {
         $admin = $this->setUpBackendUser(1);

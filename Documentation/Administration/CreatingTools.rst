@@ -122,7 +122,9 @@ Attaching and creating records
    - **Child records.** A type with an inline column of child records - the
      items of bootstrap_package's accordion, card group, icon group, tab,
      timeline or carousel - takes them through ``children``,
-     ``{column: [{column: value}]}``, in the order given; the tool
+     ``{column: [{column: value}]}``, in the order given. The child table
+     must declare ``hideTable``, so its records are reached through their
+     element only: the element is created hidden, its records are not. The tool
      description names each such column and the columns of its records,
      ``*`` for required. A record carries the fillable columns of its
      table's form, validated like ``fields``; its own files, icons chosen

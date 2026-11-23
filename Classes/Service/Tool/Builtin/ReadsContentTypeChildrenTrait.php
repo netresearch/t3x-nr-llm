@@ -163,16 +163,18 @@ trait ReadsContentTypeChildrenTrait
 
     private function isDeniedChildTable(string $table): bool
     {
-        // ADR-197's bounds for a generic creator, minus `hideTable`: item
-        // tables are hidden from the list module because they are edited
-        // inside their parent, which is exactly how a draft writes them.
+        // ADR-197's bounds for a generic creator, with `hideTable` turned
+        // round: only a table whose records are reached through their
+        // element alone. A draft element is created hidden, and its children
+        // are not; a table listed and rendered on its own would show them
+        // before anyone approved the element.
         if (in_array($table, self::DENIED_CHILD_TABLES, true) || (new TableReadAccessService())->isSensitiveTable($table)) {
             return true;
         }
 
         $tca  = $GLOBALS['TCA'] ?? null;
         $ctrl = is_array($tca) && is_array($tca[$table] ?? null) && is_array($tca[$table]['ctrl'] ?? null) ? $tca[$table]['ctrl'] : [];
-        if ((bool) ($ctrl['adminOnly'] ?? false) || (bool) ($ctrl['readOnly'] ?? false)) {
+        if ((bool) ($ctrl['adminOnly'] ?? false) || (bool) ($ctrl['readOnly'] ?? false) || !(bool) ($ctrl['hideTable'] ?? false)) {
             return true;
         }
 
