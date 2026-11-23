@@ -86,8 +86,10 @@ being, and a refusal leaves nothing behind.
    system columns (read from the child table's own ``ctrl``), and its own
    relations, FlexForms and inline columns stay empty. A child table with a
    type field gets the type's default value and that type's form; the type
-   field is not offered. A child carries the element's language: the
-   DataHandler does not copy it from the parent, the backend form does. The
+   field is not offered; the tool writes the type value into the datamap, so
+   the DataHandler's record access check asks ``authMode`` for it. A child
+   carries the element's language: TYPO3 before 14.3.10 does not align it
+   with the parent's, so the tool sets it on every supported version. The
    DataHandler sets the child's ``foreign_field`` when it resolves the
    parent's inline list; the tool never sets it. A child without a value for
    a required fillable column is refused before the write.
@@ -187,6 +189,15 @@ fallbacks, so the defaults are written; a data structure that changes later
 does not change existing drafts.
 
 ✕ An icon group or timeline is drafted without icons; an editor picks them.
+
+✕ A child's own FlexForm (the carousel item's background options) stays
+empty: the draft writes defaults one level deep, for the element only, and
+the child's template falls back to its defaults.
+
+✕ ``header_link``, in the header palette every content type shares,
+becomes a column both ``create_content_element_draft`` and
+``update_content_element`` may set, like every fillable column of the
+shared form (:ref:`ADR-205 <adr-205>`).
 
 ✕ The carousel item's type field declares ``authMode``
 ``explicitAllow``; an editor group without that grant cannot draft

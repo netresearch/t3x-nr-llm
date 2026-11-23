@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A content element is drafted with its child records
 
-Governing decision: ADR-324 (amends ADR-196 and ADR-146). Tickets NEXT-228
+Governing decision: ADR-324 (amends ADR-146, ADR-196, ADR-198 and ADR-205). Tickets NEXT-228
 (the assistant cannot draft accordion, card group, icon group, text with
 image, image, uploads) and NEXT-229 (nr_landingpage's Page Composer creates
 those elements without items).
