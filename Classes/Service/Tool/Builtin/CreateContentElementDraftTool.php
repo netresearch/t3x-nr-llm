@@ -1235,12 +1235,27 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        $refusal = $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
-        foreach ($this->childTablesOf($arguments) as $table) {
-            $refusal ??= $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+        return $this->refuseUnversionedTableInDraftWorkspace($context, $this->tableRefusedBeforeApproval($arguments, $context));
+    }
+
+    /**
+     * The first of `tt_content` and the call's child tables that keeps no
+     * draft in the user's workspace, so the approval card names that table;
+     * `tt_content` where none does.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return non-empty-string
+     */
+    private function tableRefusedBeforeApproval(array $arguments, ToolExecutionContext $context): string
+    {
+        foreach ([self::TABLE, ...$this->childTablesOf($arguments)] as $table) {
+            if ($this->refuseUnversionedTableInDraftWorkspace($context, $table) instanceof ToolResult) {
+                return $table;
+            }
         }
 
-        return $refusal;
+        return self::TABLE;
     }
 
     /**

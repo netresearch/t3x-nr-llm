@@ -51,6 +51,19 @@ trait DraftsOneRecordOfItsTableTrait
     }
 
     /**
+     * The table {@see self::refusalBeforeApproval()} refuses for: this tool's
+     * table, unless the tool writes more than one.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return non-empty-string
+     */
+    private function tableRefusedBeforeApproval(array $arguments, ToolExecutionContext $context): string
+    {
+        return self::TABLE;
+    }
+
+    /**
      * The line that stands for the card where the write is refused whatever
      * the approver decides, or null: the table keeps no draft (in the card's
      * language), or the run did not record its workspace — the card must not
@@ -63,7 +76,7 @@ trait DraftsOneRecordOfItsTableTrait
         if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
             [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
 
-            return $this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, self::TABLE));
+            return $this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, $this->tableRefusedBeforeApproval($arguments, $context)));
         }
 
         return $this->refuseUnpinnedWorkspace($context, $user)?->content;

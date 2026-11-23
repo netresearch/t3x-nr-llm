@@ -225,10 +225,17 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
             self::assertFalse($result->isError, $result->content);
         }
 
-        $second = array_values(array_filter($this->rows('tt_content'), static fn (array $row): bool => $row['header'] === 'Second'))[0];
-        $items  = array_values(array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['parent_content'] === (int) $second['uid']));
-        usort($items, static fn (array $a, array $b): int => (int) $a['sorting'] <=> (int) $b['sorting']);
-        self::assertSame(['Second A', 'Second B'], array_column($items, 'header'));
+        $byParent = [];
+        foreach ($this->rows('tt_content') as $element) {
+            $children = array_values(array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['parent_content'] === (int) $element['uid']));
+            usort($children, static fn (array $a, array $b): int => (int) $a['sorting'] <=> (int) $b['sorting']);
+            $byParent[$this->toText($element['header'])] = array_map(static fn (array $row): array => [$row['header'], (int) $row['sorting']], $children);
+        }
+
+        // The relation numbers each parent's children from 1; the first
+        // element's children keep theirs.
+        self::assertSame([['First A', 1], ['First B', 2]], $byParent['First'] ?? null);
+        self::assertSame([['Second A', 1], ['Second B', 2]], $byParent['Second'] ?? null);
     }
 
     #[Test]
@@ -470,6 +477,24 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
     }
 
     #[Test]
+    public function inADraftWorkspaceTheCardNamesTheChildTableThatKeepsNoDraft(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{ctrl: array<string, mixed>}} $tca */
+        $tca                                                    = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['ctrl']['versioningWS'] = false;
+        unset($tca);
+        $admin = $this->setUpBackendUser(1);
+        self::assertTrue($admin->setTemporaryWorkspace(self::DRAFT));
+
+        $card = implode("\n", $this->tool->previewCall(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'children' => ['tx_childrenfixture_items' => [['header' => 'Q1']]]],
+            ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true, [], [], self::DRAFT), $admin),
+        ));
+
+        self::assertStringContainsString('Fixture item', $card);
+    }
+
+    #[Test]
     public function theScopedWriteNamesTheChildTable(): void
     {
         $scoped = $this->tool->scopedWrite([
@@ -481,6 +506,11 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
 
         self::assertNotNull($scoped);
         self::assertSame(['tt_content', self::ITEM_TABLE], array_map(static fn (ScopedDestination $destination): string => $destination->table, $scoped->destinations));
+    }
+
+    private function toText(mixed $value): string
+    {
+        return is_scalar($value) ? (string) $value : '';
     }
 
     private function registerBlankingHook(): void
