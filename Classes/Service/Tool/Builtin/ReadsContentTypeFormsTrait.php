@@ -69,7 +69,7 @@ trait ReadsContentTypeFormsTrait
      * `config.readOnly` — its override matrix in typo3/cms-backend 14.3.7
      * ({@see FormEngineUtility}) lists no `radio`.
      */
-    private const READ_ONLY_OVERRIDABLE_TYPES = ['input', 'text', 'select', 'check', 'number', 'datetime', 'color', 'email', 'link'];
+    private const READ_ONLY_OVERRIDABLE_TYPES = ['input', 'text', 'select', 'check', 'number', 'datetime', 'color', 'email', 'link', 'inline'];
 
     /**
      * TCA column types a model may fill through `fields`. A `select` counts

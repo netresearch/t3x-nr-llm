@@ -668,7 +668,7 @@ trait ReadsContentTypeChildrenTrait
     {
         // The element's inline columns themselves: a column the page disables
         // or makes read-only takes no children.
-        $columns = array_fill_keys(array_keys($plan), '');
+        $columns = array_fill_keys(array_keys(array_filter($plan, static fn (array $children): bool => $children['rows'] !== [])), '');
         $refusal = $columns === [] ? null : $this->columnsTsConfigRefusal($tceForm, self::TABLE, $elementType, $columns, $this->columnsOfType($elementType), $pageUid);
         if ($refusal !== null) {
             return $refusal;

@@ -163,6 +163,19 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function anInlineColumnThePageMakesReadOnlyTakesNoChildren(): void
+    {
+        $this->setPageTsConfig('TCEFORM.tt_content.tx_childrenfixture_items.config.readOnly = 1');
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+
+        $map = $this->composer->dataMap('nrllm_items', 'NEW1', [], ['tx_childrenfixture_items' => [['header' => 'A']]], self::PAGE, self::PAGE, 0, $admin);
+
+        self::assertTrue($map->isRefused());
+        self::assertStringContainsString('tt_content:tx_childrenfixture_items', implode(' ', $map->refusals));
+    }
+
+    #[Test]
     public function aChildRecordTypeThePageRemovesIsRefused(): void
     {
         $this->setPageTsConfig('TCEFORM.tx_childrenfixture_slide.kind.removeItems = text');
