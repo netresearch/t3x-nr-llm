@@ -86,7 +86,8 @@ trait ReadsContentTypeChildrenTrait
      * Plain means: `foreign_table` and `foreign_field`, no MM table, no
      * `foreign_table_field`, `foreign_match_fields`, `foreign_selector` or
      * `foreign_unique` (an m:n relation through an intermediate table, whose
-     * selector a draft cannot fill), not `readOnly`, and children deleted
+     * selector a draft cannot fill), no `symmetric_field`, a `minitems` no
+     * larger than the records a draft may write, not `readOnly`, and children deleted
      * with their element (no `behaviour.enableCascadingDelete = false`: a
      * take-back deletes the element only), a child table with
      * TCA and a form that is not on the deny-list. The child's form is read
@@ -106,6 +107,7 @@ trait ReadsContentTypeChildrenTrait
         if (self::toStr($config['type'] ?? '') !== 'inline' || $table === '' || $foreignField === ''
             || self::toStr($config['MM'] ?? '') !== '' || self::toStr($config['foreign_table_field'] ?? '') !== ''
             || ($config['foreign_match_fields'] ?? []) !== [] || self::toStr($config['foreign_selector'] ?? '') !== ''
+            || self::toStr($config['symmetric_field'] ?? '') !== ''
             || self::toStr($config['foreign_unique'] ?? '') !== '' || (bool) ($config['readOnly'] ?? false)
             || (is_array($config['behaviour'] ?? null) && ($config['behaviour']['enableCascadingDelete'] ?? true) === false)
             || $this->isDeniedChildTable($table)
@@ -127,7 +129,7 @@ trait ReadsContentTypeChildrenTrait
 
         $typeValue = $typeField === '' ? '' : $this->defaultValueOf($table, $typeField);
         $form      = $this->formColumnsOf($table, $this->recordTypeOf($table, $typeField === '' ? [] : [$typeField => $typeValue]));
-        $system    = $this->childSystemColumns($ctrl, $foreignField, $typeField);
+        $system    = $this->childSystemColumns($ctrl, $foreignField, $typeField, self::toStr($config['foreign_sortby'] ?? ''));
 
         $fields = [];
         foreach ($form as $name => $columnConfig) {
@@ -149,6 +151,13 @@ trait ReadsContentTypeChildrenTrait
         $maxItems = $config['maxitems'] ?? 0;
         $minItems = $config['minitems'] ?? 0;
 
+        $min = is_numeric($minItems) ? max(0, (int) $minItems) : 0;
+        $max = min(self::MAX_CHILDREN, is_numeric($maxItems) && (int) $maxItems > 0 ? (int) $maxItems : self::MAX_CHILDREN);
+        if ($min > $max) {
+            // No number of records a draft may write satisfies the relation.
+            return null;
+        }
+
         return [
             'table'         => $table,
             'foreignField'  => $foreignField,
@@ -156,8 +165,8 @@ trait ReadsContentTypeChildrenTrait
             'typeValue'     => $typeValue,
             'languageField' => self::toStr($ctrl['languageField'] ?? ''),
             'fields'        => $fields,
-            'minItems'      => is_numeric($minItems) ? max(0, (int) $minItems) : 0,
-            'maxItems'      => min(self::MAX_CHILDREN, is_numeric($maxItems) && (int) $maxItems > 0 ? (int) $maxItems : self::MAX_CHILDREN),
+            'minItems'      => $min,
+            'maxItems'      => $max,
         ];
     }
 
@@ -197,9 +206,10 @@ trait ReadsContentTypeChildrenTrait
      *
      * @return list<string>
      */
-    private function childSystemColumns(array $ctrl, string $foreignField, string $typeField): array
+    private function childSystemColumns(array $ctrl, string $foreignField, string $typeField, string $foreignSortby = ''): array
     {
-        $columns = ['uid', 'pid', $foreignField];
+        // The relation's own sort column is the DataHandler's, like ctrl.sortby.
+        $columns = array_values(array_filter(['uid', 'pid', $foreignField, $foreignSortby], static fn (string $name): bool => $name !== ''));
         if ($typeField !== '') {
             $columns[] = $typeField;
         }
@@ -758,7 +768,11 @@ trait ReadsContentTypeChildrenTrait
                 $ids[]                         = $id;
             }
 
-            $inline[$column]       = implode(',', $ids);
+            // An empty list writes nothing: the inline column is left as it is.
+            if ($ids !== []) {
+                $inline[$column] = implode(',', $ids);
+            }
+
             $placeholders[$column] = $ids;
         }
 

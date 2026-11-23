@@ -255,6 +255,11 @@ final readonly class ContentElementComposer
             return false;
         }
 
+        // In a draft workspace dataMap() refuses a child table without versioning.
+        if ($user->workspace > 0 && !$this->tableIsVersioned($collection['table'])) {
+            return false;
+        }
+
         $required = array_keys(array_filter($collection['fields'], $this->isRequiredColumn(...)));
         if ($collection['typeField'] !== '') {
             $required[] = $collection['typeField'];

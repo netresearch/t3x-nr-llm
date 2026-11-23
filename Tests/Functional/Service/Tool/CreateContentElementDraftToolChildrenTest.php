@@ -475,6 +475,7 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         self::assertTrue($result->isError, $result->content);
         self::assertStringContainsString('was deleted again', $result->content);
         self::assertSame([], array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['deleted'] === 0), 'no detached child is left');
+        self::assertSame([], array_filter($this->rows('tt_content'), static fn (array $row): bool => (int) $row['deleted'] === 0), 'nor the element');
     }
 
     #[Test]

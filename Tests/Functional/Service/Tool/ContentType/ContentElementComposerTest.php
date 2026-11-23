@@ -182,6 +182,49 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aRelationNoDraftCanSatisfyIsNoChildRelation(): void
+    {
+        /** @var array{tt_content: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                                   = &$GLOBALS['TCA'];
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['symmetric_field'] = 'header';
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'), 'symmetric');
+
+        unset($tca['tt_content']['columns']['tx_childrenfixture_items']['config']['symmetric_field']);
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['minitems'] = 51;
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['maxitems'] = 100;
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'), 'at least 51 records, at most 50 written');
+        unset($tca);
+    }
+
+    #[Test]
+    public function theRelationsSortColumnIsNoChildField(): void
+    {
+        /** @var array{tt_content: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                                  = &$GLOBALS['TCA'];
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['foreign_sortby'] = 'subheader';
+        unset($tca);
+
+        $fields = (new ContentElementComposer())->describe('nrllm_items')['children']['tx_childrenfixture_items']['fields'] ?? null;
+        self::assertIsArray($fields);
+        self::assertArrayNotHasKey('subheader', $fields);
+        self::assertArrayHasKey('header', $fields);
+    }
+
+    #[Test]
+    public function inADraftWorkspaceAChildTableWithoutVersioningIsNotOffered(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+        $admin->workspace = 1;
+        /** @var array{tx_childrenfixture_item: array{ctrl: array<string, mixed>}} $tca */
+        $tca                                                    = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['ctrl']['versioningWS'] = false;
+        unset($tca);
+
+        self::assertSame([], $this->composer->describe('nrllm_items', null, $admin)['children'] ?? null);
+    }
+
+    #[Test]
     public function aTelephoneLinkWithASpaceIsRefused(): void
     {
         $admin = $this->setUpBackendUser(1);
