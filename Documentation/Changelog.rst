@@ -27,24 +27,27 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-52-1:
+.. _version-0-53-0:
 
-Version 0.52.1 (2026-11-22)
+Version 0.53.0 (2026-11-23)
 ===========================
 
-The scope of an assignment judges a move where the record lay before it, and
-the lists a run reports about its writes say when they may be incomplete.
+nr-llm reports its AI work as OpenTelemetry spans and metrics to an
+installation that registers an OpenTelemetry SDK.
 
-- **Moves under the scope:** a move is judged at the record's position before
-  core moves it; a move from outside the scope into it, or of a record that
-  cannot be read, rolls the call back (#1443).
-- **Change list:** an entry whose row could not be read marks the list as
-  possibly incomplete (``changesOmitted``) instead of reading as complete
-  (#1441).
-- **A2A writes artifact:** a refused block cut at 50 entries says it may be
-  incomplete, and writes whose rollback could not be confirmed are no longer
-  called rolled back (#1448). ``ObservedChangeSet`` gains the optional
-  ``refusedOmitted`` and ``rollbackUnconfirmed`` (additive, ``@api``).
-- **PHP 8.6:** listed as supported and tested in CI (#1444).
+- **Spans:** one per model attempt (streams included), per fallback chain,
+  per tool execution (``load_skill`` included) and per agent run segment,
+  named after the GenAI semantic conventions v1.41.0 (ADR-291). A tool span
+  ends on the call's final result, after the assignment scope has judged
+  what it wrote.
+- **Metrics:** ``gen_ai.client.operation.duration``,
+  ``gen_ai.client.token.usage`` and
+  ``gen_ai.client.operation.time_to_first_chunk``.
+- **Privacy:** prompts, answers, tool arguments and results, exception
+  messages and URLs are never recorded.
+- **Upgrading:** nr-llm now requires ``open-telemetry/api``. Without a
+  registered SDK nothing is emitted; the setting ``telemetry.openTelemetry``
+  switches the instrumentation off. See :ref:`ADR-291 <adr-291>` and
+  :ref:`administration-opentelemetry`.
 
 Details in the repository :file:`CHANGELOG.md`.
