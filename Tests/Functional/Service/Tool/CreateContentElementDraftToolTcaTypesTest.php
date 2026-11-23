@@ -23,6 +23,7 @@ use TYPO3\CMS\Core\Cache\CacheManager;
 use TYPO3\CMS\Core\Cache\Frontend\FrontendInterface;
 use TYPO3\CMS\Core\Database\Connection;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\TcaSchemaFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
@@ -133,8 +134,9 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         self::assertIsString($description);
 
         // `textmedia`, `textpic` and `image` carry a `file` column and stay
-        // offered; `uploads` carries `file_collections` (type `group`) and does not.
-        foreach (['header', 'text', 'textmedia', 'textpic', 'image', 'bullets', 'table', self::SCALAR_TYPE, self::REWRITTEN_TYPE] as $offered) {
+        // offered; `uploads` carries `file_collections` (type `group`), which a
+        // draft leaves empty since ADR-324.
+        foreach (['header', 'text', 'textmedia', 'textpic', 'image', 'bullets', 'table', 'uploads', self::SCALAR_TYPE, self::REWRITTEN_TYPE] as $offered) {
             self::assertMatchesRegularExpression('/\b' . $offered . '\b/', $description, $offered . ' must be offered');
             self::assertMatchesRegularExpression('/\b' . $offered . '\b/', $spec->description, $offered . ' must be offered');
         }
@@ -145,7 +147,7 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
         // `menu_categorized_content` carry no `pages` column: only the
         // `menu_` prefix keeps them out.
         $excludedTypes = [
-            'shortcut', 'div', 'html', 'list', 'uploads', 'menu_pages', 'menu_sitemap', 'menu_categorized_content',
+            'shortcut', 'div', 'html', 'list', 'menu_pages', 'menu_sitemap', 'menu_categorized_content',
             'indexedsearch_pi2', self::FLEX_TYPE, self::INLINE_TYPE, self::PLUGIN_TYPE,
         ];
         foreach ($excludedTypes as $excluded) {
@@ -1113,8 +1115,25 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             // this one, and the tool has to read it from the type.
             'columnsOverrides' => ['imagewidth' => ['config' => ['range' => ['lower' => 1, 'upper' => self::WIDTH_UPPER]]]],
         ];
+        // A FlexForm whose data structure does not resolve still excludes
+        // its type (ADR-324); one that resolves is written with its defaults.
+        $columns['nrllm_unresolved_flex'] = [
+            'label'  => 'Unresolved FlexForm',
+            'config' => [
+                'type' => 'flex',
+                // 14.3 resolves the file when the type is read; 13.4 parses
+                // every listed structure when it builds the TCA schema, so
+                // there the structure exists but none is listed for the type.
+                ...((new Typo3Version())->getMajorVersion() >= 14
+                    ? ['ds' => 'FILE:EXT:nr_llm/Tests/Functional/Fixtures/DoesNotExist.xml']
+                    : [
+                        'ds_pointerField' => 'CType',
+                        'ds'              => ['nrllm_no_such_type' => '<T3DataStructure><sheets><sDEF><ROOT><type>array</type><el><foo><label>Foo</label><config><type>input</type></config></foo></el></ROOT></sDEF></sheets></T3DataStructure>'],
+                    ]),
+            ],
+        ];
         $types[self::FLEX_TYPE] = [
-            'showitem' => '--palette--;;headers, pi_flexform',
+            'showitem' => '--palette--;;headers, nrllm_unresolved_flex',
         ];
         $types[self::INLINE_TYPE] = [
             'showitem' => '--palette--;;headers, nrllm_children',

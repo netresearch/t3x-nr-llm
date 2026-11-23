@@ -2455,6 +2455,20 @@ Netresearch\NrLlm\Service\Tool\ApprovalPreviewHeadings (class)
 Netresearch\NrLlm\Service\Tool\ArgumentInputSchemaInterface (interface)
   method inputSchemaFor(array $arguments): array
 
+Netresearch\NrLlm\Service\Tool\ContentType\ContentElementComposer (class)
+  constructor(Netresearch\NrLlm\Service\Tool\PageTsConfigReaderInterface $pageTsConfig = …)
+  method dataMap(string $cType, string $placeholder, array $fields, array $children, int|string $pid, int $pageUid, int $language, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user): Netresearch\NrLlm\Service\Tool\ContentType\ContentElementDataMap
+  method describe(string $cType, ?TYPO3\CMS\Core\Localization\LanguageService $languageService = …, ?TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user = …): ?array
+  method offeredTypes(): array
+  method typesOfferedOnPage(int $pageUid, TYPO3\CMS\Core\Authentication\BackendUserAuthentication $user, array $candidates): array
+
+Netresearch\NrLlm\Service\Tool\ContentType\ContentElementDataMap (class)
+  constructor(array $dataMap, array $refusals)
+  method isRefused(): bool
+  method static refused(string $refusal): self
+  property readonly dataMap: array
+  property readonly refusals: array
+
 Netresearch\NrLlm\Service\Tool\InvocationDigests (class)
   const PURPOSE_ARGUMENTS = "nr_llm.history.arguments"
   const PURPOSE_STATE = "nr_llm.history.state"

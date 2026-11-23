@@ -44,6 +44,7 @@ Choose a starting point:
    TranslationService
    BudgetStatus
    ExtensionUsage
+   ContentElementComposer
    ToolCallingService
    ToolExtensions
    Guardrails

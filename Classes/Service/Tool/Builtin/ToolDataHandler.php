@@ -104,6 +104,13 @@ class ToolDataHandler extends DataHandler
     private bool $foundNoRoomInASortOrder = false;
 
     /**
+     * See {@see self::orderTheseByTheirParent()}.
+     *
+     * @var array<string, true>
+     */
+    private array $orderedByTheirParent = [];
+
+    /**
      * The workspace rows this run never discards; see {@see self::keepInTheWorkspace()}.
      *
      * @var array<string, true>
@@ -127,6 +134,21 @@ class ToolDataHandler extends DataHandler
     public function keepSortOrdersInADraftWorkspace(): void
     {
         $this->renumbersInADraftWorkspace = false;
+    }
+
+    /**
+     * The tables whose new rows in this run are inline children (ADR-324):
+     * their order is their parent's, which the relation writes after the
+     * insert (`RelationHandler::writeForeignField()` numbers a parent's
+     * children from 1). Where such a row finds no room in the page's sort
+     * order, the run neither renumbers the page nor counts it as a sort
+     * order without room.
+     *
+     * @param list<string> $tables
+     */
+    public function orderTheseByTheirParent(array $tables): void
+    {
+        $this->orderedByTheirParent = array_fill_keys($tables, true);
     }
 
     public function foundNoRoomInASortOrder(): bool
@@ -168,6 +190,10 @@ class ToolDataHandler extends DataHandler
     protected function increaseSortingOfFollowingRecords(string $table, int $pid, ?int $sortingValue = null): void
     {
         if (!$this->renumbersInADraftWorkspace && $this->BE_USER->workspace > 0) {
+            if (isset($this->orderedByTheirParent[$table])) {
+                return;
+            }
+
             $this->foundNoRoomInASortOrder = true;
 
             return;

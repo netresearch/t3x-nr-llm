@@ -1,0 +1,11 @@
+{
+    "name": "netresearch/nrllm-content-children-fixture",
+    "description": "Content types with inline child records, FlexForms and references, for the functional tests of ADR-324. Not shipped.",
+    "type": "typo3-cms-extension",
+    "license": "GPL-2.0-or-later",
+    "extra": {
+        "typo3/cms": {
+            "extension-key": "nrllm_content_children_fixture"
+        }
+    }
+}

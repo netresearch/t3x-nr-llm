@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<T3DataStructure>
+    <sheets>
+        <sDEF>
+            <ROOT>
+                <sheetTitle>Settings</sheetTitle>
+                <type>array</type>
+                <el>
+                    <target>
+                        <label>Target</label>
+                        <config>
+                            <type>input</type>
+                            <required>1</required>
+                        </config>
+                    </target>
+                </el>
+            </ROOT>
+        </sDEF>
+    </sheets>
+</T3DataStructure>

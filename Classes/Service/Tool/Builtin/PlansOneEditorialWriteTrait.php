@@ -190,11 +190,32 @@ trait PlansOneEditorialWriteTrait
      */
     private function createRecord(string $table, array $record, BackendUserAuthentication $user, string $whenNotCreated): array|ToolResult
     {
+        $created = $this->createRecordWithChildren($table, $record, [], $user, $whenNotCreated);
+
+        return $created instanceof ToolResult ? $created : [$created[0], $created[2]];
+    }
+
+    /**
+     * {@see self::createRecord()} for a record that brings child records with
+     * it, in the same datamap (ADR-324): the record's inline columns name the
+     * children's placeholders, and the DataHandler resolves them and sets each
+     * child's foreign field. Hands back the new uid, the uid of every child
+     * placeholder that became a row, and TYPO3's complaints.
+     *
+     * @param non-empty-string                                                       $table
+     * @param array<string, mixed>                                                   $record   the fields of the new row, `pid` included
+     * @param array<non-empty-string, array<non-empty-string, array<string, mixed>>> $children rows per child table, keyed by placeholder
+     *
+     * @return array{int, array<string, int>, string}|ToolResult
+     */
+    private function createRecordWithChildren(string $table, array $record, array $children, BackendUserAuthentication $user, string $whenNotCreated): array|ToolResult
+    {
         $placeholder = StringUtility::getUniqueId('NEW');
 
         $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
         $dataHandler->keepSortOrdersInADraftWorkspace();
-        $dataHandler->start([$table => [$placeholder => $record]], [], $user);
+        $dataHandler->orderTheseByTheirParent(array_keys($children));
+        $dataHandler->start([$table => [$placeholder => $record], ...$children], [], $user);
         $dataHandler->process_datamap();
 
         $newUid = self::toInt($dataHandler->substNEWwithIDs[$placeholder] ?? 0);
@@ -206,7 +227,14 @@ trait PlansOneEditorialWriteTrait
             return $this->refuseOnDataHandlerErrors($dataHandler) ?? ToolResult::error($whenNotCreated);
         }
 
-        return [$newUid, $this->complaintsNote($dataHandler)];
+        $childUids = [];
+        foreach ($children as $rows) {
+            foreach (array_keys($rows) as $childPlaceholder) {
+                $childUids[$childPlaceholder] = self::toInt($dataHandler->substNEWwithIDs[$childPlaceholder] ?? 0);
+            }
+        }
+
+        return [$newUid, $childUids, $this->complaintsNote($dataHandler)];
     }
 
     /**
