@@ -314,3 +314,4 @@ All decision records
    Adr321ARunRecordsTheSkillVersionsItPassedToAModel
    Adr322ARunRecordsTheTestEvidenceOfTheSkillVersionsItUsed
    Adr323ARunCanTellItsInputsApartWithoutKeepingThem
+   Adr324AContentElementIsDraftedWithItsChildRecords
