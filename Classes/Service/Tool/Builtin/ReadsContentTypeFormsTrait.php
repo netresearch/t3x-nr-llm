@@ -395,7 +395,11 @@ trait ReadsContentTypeFormsTrait
         $unfilled = $this->isRequiredColumn($config) ? 'excluding' : 'unfilled';
         if ($type === 'select') {
             if (self::toStr($config['foreign_table'] ?? '') !== '') {
-                return $unfilled;
+                // A reference a draft leaves empty must start empty: the
+                // DataHandler writes the TCA default into the new row.
+                $default = self::toStr($config['default'] ?? '');
+
+                return $default === '' || $default === '0' ? $unfilled : 'excluding';
             }
 
             return $this->staticItemValues($config) === [] || $this->keyRefusal($config) !== null ? $unfilled : 'fillable';

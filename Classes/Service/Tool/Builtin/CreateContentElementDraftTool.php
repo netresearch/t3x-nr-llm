@@ -286,6 +286,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $stored = $this->fetchElement($newUid, $user->workspace);
         if ($stored === null) {
             $removed = $this->discard($newUid, $user);
+            $removed = $this->discardChildren($childUids, $childMap['rows'], $user) && $removed;
 
             return ToolResult::error(sprintf(
                 'Content element [%d] was created but could not be read back, so it %s.%s',
@@ -314,8 +315,11 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         if ($notTaken !== []) {
             // Take it back. A half-made element nobody approved is worse than
             // no element, and leaving it for a human to find is not a remedy
-            // when the failure mode is "it is already visible".
+            // when the failure mode is "it is already visible". The children
+            // go by their own uids: one a hook detached from the element
+            // would not go with it.
             $removed = $this->discard($newUid, $user);
+            $removed = $this->discardChildren($childUids, $childMap['rows'], $user) && $removed;
 
             return ToolResult::error(sprintf(
                 'Content element [%d] was created but %s did not carry the value asked for, so it %s. The '
@@ -1256,6 +1260,44 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return self::TABLE;
+    }
+
+    /**
+     * Delete the child records this call created that are still there after
+     * the element's take-back, and whether none is left (ADR-324, spec CC9).
+     *
+     * @param array<string, int>                                                          $childUids placeholder to uid
+     * @param array<non-empty-string, array<non-empty-string, array<string, string|int>>> $rows      child rows per table, keyed by placeholder
+     */
+    private function discardChildren(array $childUids, array $rows, BackendUserAuthentication $user): bool
+    {
+        $commands = [];
+        foreach ($rows as $table => $byPlaceholder) {
+            foreach (array_keys($byPlaceholder) as $placeholder) {
+                $uid = $childUids[$placeholder] ?? 0;
+                if ($uid > 0 && $this->rowSeenIn($table, $uid, $user->workspace) !== null) {
+                    $commands[$table][$uid] = ['delete' => 1];
+                }
+            }
+        }
+
+        if ($commands === []) {
+            return true;
+        }
+
+        $dataHandler = GeneralUtility::makeInstance(ToolDataHandler::class);
+        $dataHandler->start([], $commands, $user);
+        $dataHandler->process_cmdmap();
+
+        foreach ($commands as $table => $uids) {
+            foreach (array_keys($uids) as $uid) {
+                if ($this->rowSeenIn($table, $uid, $user->workspace) !== null) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

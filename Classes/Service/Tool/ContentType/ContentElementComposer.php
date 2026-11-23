@@ -256,6 +256,10 @@ final readonly class ContentElementComposer
         }
 
         $required = array_keys(array_filter($collection['fields'], $this->isRequiredColumn(...)));
+        if ($collection['typeField'] !== '') {
+            $required[] = $collection['typeField'];
+        }
+
         if ($this->columnsTheUserMayNotSet($user, self::TABLE, [$column]) !== []
             || $this->columnsTheUserMayNotSet($user, $collection['table'], array_map(strval(...), $required)) !== []
         ) {

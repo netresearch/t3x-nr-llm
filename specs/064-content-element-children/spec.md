@@ -29,7 +29,8 @@ those elements without items).
   created with the data structure's default values (shape
   `data.<sheet>.lDEF.<field>.vDEF`). No FlexForm value is set by a model.
 - **CC4 References stay empty.** `folder`, `group` and a `foreign_table`
-  `select` no longer exclude a type; the draft leaves them empty.
+  `select` no longer exclude a type; the draft leaves them empty. A
+  `foreign_table` `select` with a non-empty TCA default still excludes it.
 - **CC5 Links.** `link` columns are fillable with `http`, `https`,
   `mailto`, `tel` and `t3://page?uid=<n>` values within the column's
   `allowedTypes`; anything else is refused.
@@ -48,11 +49,12 @@ those elements without items).
   the page. A child carries the element's language. A child without a value
   for a required fillable column is refused before the write.
 - **CC8 Grants before the write.** `tables_modify` on each child table, the
-  exclude-field grant of each child column set, `authMode` on a child type
-  field, and a versioned child table in a draft workspace are checked before
+  exclude-field grant of each child column set and of the child type field,
+  `authMode` on a child type field, and a versioned child table in a draft workspace are checked before
   anything is written; a missing one refuses the call.
 - **CC9 Read-back and take-back.** Every child row is read back; a child that
-  did not take, or a missing child, deletes the element with its children.
+  did not take, or a missing child, deletes the element with its children,
+  each child by its own uid.
 - **CC10 Approval card.** The card lists every child with its values.
 - **CC11 Public service.** `ContentElementComposer` (`@api`) offers
   `describe()`, `typesOfferedOnPage()` and `dataMap()` with the rule above;

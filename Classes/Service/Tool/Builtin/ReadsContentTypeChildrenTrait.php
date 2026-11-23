@@ -574,6 +574,12 @@ trait ReadsContentTypeChildrenTrait
                 $columns[] = $children['languageField'];
             }
 
+            // The record type the draft writes: without the grant the
+            // DataHandler drops it and the user's TCAdefaults pick the type.
+            if ($children['typeField'] !== '' && $children['rows'] !== []) {
+                $columns[] = $children['typeField'];
+            }
+
             $ungranted = [
                 ...$this->columnsTheUserMayNotSet($user, self::TABLE, $children['rows'] === [] ? [] : [$column]),
                 ...array_map(

@@ -137,6 +137,38 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aRecordReferenceWithADefaultExcludesItsType(): void
+    {
+        /** @var array{tt_content: array{columns: array<string, array{config: array<string, mixed>}>, types: array<string, array{showitem: string}>}} $tca */
+        $tca                                      = &$GLOBALS['TCA'];
+        $reference                                = 'tx_childrenfixture_reference';
+        $tca['tt_content']['columns'][$reference] = ['config' => ['type' => 'select', 'renderType' => 'selectSingle', 'foreign_table' => 'pages', 'default' => 12]];
+        $tca['tt_content']['types']['nrllm_items']['showitem'] .= ', ' . $reference;
+        unset($tca);
+
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'), 'the draft would reference record 12');
+    }
+
+    #[Test]
+    public function aChildRecordTypeTheEditorMayNotSetIsNotOffered(): void
+    {
+        /** @var array{tx_childrenfixture_slide: array{columns: array<string, array<string, mixed>>}} $tca */
+        $tca                                                           = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_slide']['columns']['kind']['exclude'] = true;
+        unset($tca);
+
+        $editor                                  = $this->setUpBackendUser(2);
+        $editor->groupData['tables_modify']      = 'tt_content,tx_childrenfixture_slide';
+        $editor->groupData['explicit_allowdeny'] = 'tt_content:CType:nrllm_slides,tx_childrenfixture_slide:kind:text';
+        $editor->groupData['non_exclude_fields'] = 'tt_content:hidden,tx_childrenfixture_slide:header';
+
+        $map = $this->composer->dataMap('nrllm_slides', 'NEW1', [], ['tx_childrenfixture_slides' => [['header' => 'A']]], self::PAGE, self::PAGE, 0, $editor);
+        self::assertTrue($map->isRefused());
+        self::assertStringContainsString('tx_childrenfixture_slide:kind', implode(' ', $map->refusals));
+        self::assertSame([], $this->composer->describe('nrllm_slides', null, $editor)['children'] ?? null);
+    }
+
+    #[Test]
     public function aTelephoneLinkWithASpaceIsRefused(): void
     {
         $admin = $this->setUpBackendUser(1);

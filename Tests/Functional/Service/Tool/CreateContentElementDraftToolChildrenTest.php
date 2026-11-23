@@ -16,6 +16,7 @@ use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Fixtures\BlankChildSubheaderHook;
+use Netresearch\NrLlm\Tests\Functional\Fixtures\DetachChildHook;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
@@ -456,6 +457,24 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         self::assertStringContainsString('tx_childrenfixture_item:subheader did not carry the value asked for, so it was deleted again', $result->content);
         self::assertSame(1, (int) $this->onlyRow('tt_content')['deleted'], 'the element is taken back');
         self::assertSame([], array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['deleted'] === 0));
+    }
+
+    #[Test]
+    public function aChildAHookDetachedIsTakenBackWithTheElement(): void
+    {
+        /** @var array{SC_OPTIONS: array<string, array<string, list<string>>>} $confVars */
+        $confVars                                                                         = &$GLOBALS['TYPO3_CONF_VARS'];
+        $confVars['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] = DetachChildHook::class;
+        unset($confVars);
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'children' => ['tx_childrenfixture_items' => [['header' => 'One'], ['header' => 'Two']]]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('was deleted again', $result->content);
+        self::assertSame([], array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['deleted'] === 0), 'no detached child is left');
     }
 
     #[Test]
