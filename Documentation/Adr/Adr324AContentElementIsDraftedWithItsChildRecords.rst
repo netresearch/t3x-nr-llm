@@ -14,7 +14,10 @@ ADR-324: A content element is drafted with its child records
 :Amends: :ref:`ADR-196 <adr-196>` (its column rule: inline child records,
     FlexForm columns, folder, group and record-backed select columns, and
     links); :ref:`ADR-146 <adr-146>` (its one-record rule, for the children
-    of the element it creates)
+    of the element it creates); :ref:`ADR-198 <adr-198>` (the types and
+    columns ``update_content_element`` takes follow the same rule);
+    :ref:`ADR-205 <adr-205>` (accordion, tab and carousel no longer stay
+    excluded; its treatment of the shared form stands)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-324-context:
@@ -66,7 +69,7 @@ child that did not take takes the whole element back, children included.
 That keeps ADR-146's reason: the approver reads the whole of what comes into
 being, and a refusal leaves nothing behind.
 
-**The column rule gains two kinds and moves three types.**
+**The column rule gains two kinds and moves four column types.**
 
 ``children``
    An ``inline`` column whose relation is a plain one-to-many:
@@ -74,12 +77,20 @@ being, and a refusal leaves nothing behind.
    ``foreign_table_field`` or ``foreign_match_fields``, a child table
    that has TCA and a form and is not ``tt_content``, ``pages``,
    ``sys_file_reference`` or another ``sys_`` or ``be_`` table. One
-   level deep. The child's form is read with the same rule; what a child may
-   carry is its fillable columns, and its own relations, FlexForms and inline
-   columns stay empty. A child table with a type field gets the type's
-   default value and that type's form; the type field is not offered. The
+   level deep. The child table is bounded as :ref:`ADR-197 <adr-197>` bounds
+   a generic creator - no system or sensitive table, nothing ``adminOnly``
+   or ``readOnly`` - except that ``hideTable`` is allowed: item tables
+   are hidden from the list module because they are edited inside their
+   parent, which is how a draft writes them. The child's form is read with
+   the same rule; what a child may carry is its fillable columns, never its
+   system columns (read from the child table's own ``ctrl``), and its own
+   relations, FlexForms and inline columns stay empty. A child table with a
+   type field gets the type's default value and that type's form; the type
+   field is not offered. A child carries the element's language: the
+   DataHandler does not copy it from the parent, the backend form does. The
    DataHandler sets the child's ``foreign_field`` when it resolves the
-   parent's inline list; the tool never sets it.
+   parent's inline list; the tool never sets it. A child without a value for
+   a required fillable column is refused before the write.
 
 ``defaults``
    A ``flex`` column whose data structure resolves for the element's
@@ -91,10 +102,16 @@ being, and a refusal leaves nothing behind.
    ``foreign_table``: a reference the draft leaves empty, like a file.
 
 ``fillable``
-   Gains ``link``, validated against the schemes ``http``,
-   ``https``, ``mailto``, ``tel`` and a page link
-   ``t3://page?uid=<n>``, and read back. A card's call to action is a
-   link, and the approver sees the target on the card.
+   Gains ``link`` (until now unfilled), validated against the schemes
+   ``http``, ``https``, ``mailto``, ``tel`` and a page link
+   ``t3://page?uid=<n>``, intersected with the column's
+   ``allowedTypes``, and read back. A card's call to action is a link, and
+   the approver sees the target on the card.
+
+**The shared form keeps ADR-205's treatment.** A column of the form every
+type shares (bootstrap_package's ``background_image_options`` FlexForm in
+``frames``) is neither judged by the new kinds nor written: a data
+structure there that does not resolve takes no type away.
 
 **A requirement the draft cannot meet still excludes.** A required column
 the draft leaves empty (``required`` or ``minitems`` of one or more), a
@@ -102,14 +119,17 @@ required child column that is not fillable, a FlexForm field that is
 required and has no default, and a data structure that does not resolve
 exclude the type. Every inline column that is not ``children`` excludes
 it. Every other ADR-196 exclusion stays as it was: the deny-list, plugins
-and their item groups (so ``form_formframework`` stays out), slugs,
-passwords and every unknown TCA type.
+and their item groups (so ``form_formframework`` stays out), and the
+column types it names - ``slug``, ``password``, ``uuid``, ``json``,
+``passthrough``, ``user``, ``none``, ``imageManipulation`` - and
+every unknown TCA type.
 
 **The grants are the ones the DataHandler would ask.** Before the write the
 tool asks ``tables_modify`` on each child table, the exclude-field grant of
-each child column it sets, and ``authMode`` on a child table's type field;
-in a draft workspace a child table must be versioned. A missing grant
-refuses the call before anything is written.
+each child column it sets, and ``authMode`` on a child table's type field,
+which the DataHandler's record access check asks of a new row as well; in a
+draft workspace a child table must be versioned. A missing grant refuses the
+call before anything is written.
 
 **The rule and the writing are one public service.** nr_landingpage needs
 the same shape for its sections, so the rule is exposed, not copied:
@@ -146,10 +166,15 @@ What this does not do
 Consequences
 ============
 
-● On the demo, ``accordion``, ``card_group``, ``icon_group``,
-``tab``, ``timeline``, the carousels, ``textpic``, ``image``,
-``media`` and ``uploads`` become reachable, with no configuration and
-no list in this extension. A new type of the same shape needs nothing.
+● On the demo's TCA (bootstrap_package 16.0.1, read from its sources, not
+measured on the instance), ``accordion``, ``card_group``,
+``icon_group``, ``tab``, ``timeline``, the carousels, ``textpic``,
+``image``, ``media``, ``gallery`` and ``uploads`` become reachable,
+with no configuration and no list in this extension. A new type of the same
+shape needs nothing.
+
+✕ ``image``, ``gallery``, ``media`` and ``uploads`` are drafted without
+their files; ``attach_file_to_content_element`` or an editor adds them.
 
 ● The assistant and the Page Composer read one rule. The Page Composer's own
 TCA reader is no longer the source for the types nr_llm offers.

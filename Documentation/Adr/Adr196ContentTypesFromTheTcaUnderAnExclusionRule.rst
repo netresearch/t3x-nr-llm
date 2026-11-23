@@ -11,8 +11,8 @@ ADR-196: The element draft offers the TCA's content types
 
 :Status: Accepted (columns of the shared form no longer exclude a type — see
     :ref:`ADR-205 <adr-205>`; inline child records, FlexForms, folder, group
-    and record-backed select columns and links no longer exclude a type — see
-    :ref:`ADR-324 <adr-324>`)
+    and record-backed select columns no longer exclude a type, and links
+    become fillable — see :ref:`ADR-324 <adr-324>`)
 :Date: 2026-09-21
 :Amends: :ref:`ADR-146 <adr-146>` (its fixed type list and field set)
 :Amended: 2026-09-24 by :ref:`ADR-205 <adr-205>`; 2026-11-23 by

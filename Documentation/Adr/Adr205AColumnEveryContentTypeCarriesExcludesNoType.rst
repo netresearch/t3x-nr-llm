@@ -9,10 +9,13 @@
 ADR-205: A column every content type carries excludes no type
 ====================================================================
 
-:Status: Accepted
+:Status: Accepted (accordion, tab and carousel are offered with their child
+    records; its treatment of the shared form stands — see
+    :ref:`ADR-324 <adr-324>`)
 :Date: 2026-09-24
 :Amends: :ref:`ADR-196 <adr-196>` (its rule "one excluding column excludes
     the type" no longer counts the columns of the shared form)
+:Amended: 2026-11-23 by :ref:`ADR-324 <adr-324>`
 :Authors: Netresearch DTT GmbH
 
 Context

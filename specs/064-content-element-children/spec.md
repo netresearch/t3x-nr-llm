@@ -15,6 +15,9 @@ those elements without items).
   and a form and is not `tt_content`, `pages`, `sys_file_reference`, a
   `sys_` or `be_` table) no longer excludes its content type. One level
   deep; a child's own relations, FlexForms and inline columns stay empty.
+  The child table is bounded like ADR-197's generic creator (no system or
+  sensitive table, nothing `adminOnly` or `readOnly`), `hideTable` allowed.
+  Columns of the form every type shares keep ADR-205's treatment.
 - **CC2 Child fields.** A child may carry the fillable columns of its table's
   form under the ADR-196 rule; its system columns (identity, language,
   visibility, publication, versioning, the `foreign_field`) never. A child
@@ -26,15 +29,18 @@ those elements without items).
 - **CC4 References stay empty.** `folder`, `group` and a `foreign_table`
   `select` no longer exclude a type; the draft leaves them empty.
 - **CC5 Links.** `link` columns are fillable with `http`, `https`,
-  `mailto`, `tel` and `t3://page?uid=<n>` values; anything else is refused.
+  `mailto`, `tel` and `t3://page?uid=<n>` values within the column's
+  `allowedTypes`; anything else is refused.
 - **CC6 What still excludes.** A required column the draft leaves empty, a
   required child column that is not fillable, a required FlexForm field
   without default, a data structure that does not resolve, and every inline
   column that is not a CC1 relation. ADR-196's deny-lists stay.
 - **CC7 One write.** `create_content_element_draft` takes `children`
   (`{<inline column>: [{<child column>: value}]}`) and writes the element and
-  its children in one datamap, in the given order, in the run's workspace,
-  at the page (never at a negative "after" pid).
+  its children in one datamap, in the given order, in the run's workspace.
+  The element keeps its `after_content_uid` placement; the children's pid is
+  the page. A child carries the element's language. A child without a value
+  for a required fillable column is refused before the write.
 - **CC8 Grants before the write.** `tables_modify` on each child table, the
   exclude-field grant of each child column set, `authMode` on a child type
   field, and a versioned child table in a draft workspace are checked before

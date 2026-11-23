@@ -75,4 +75,4 @@ For any contract change: name its requirement ID, classify public API impact, id
 | [dependency-merge-measurement](dependency-merge-measurement/spec.md) | implemented increment; amended current contract | [L08](current-contract.md#l08-operational-acceptance-needs-an-immutable-evidence-index) | [acceptance scenarios](dependency-merge-measurement/spec.md) |
 | [responsible-ai-run-privacy](responsible-ai-run-privacy.md) | current bounded feature contract | No audit amendment | [acceptance scenarios](responsible-ai-run-privacy.md) |
 
-Run `python3 Build/Scripts/check-spec-index.py` to verify the 67-entry inventory (50 audited plus 047, 048, 049, 050, 051, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062 and 063) and local evidence links. The check establishes link integrity, not semantic correctness.
+Run `python3 Build/Scripts/check-spec-index.py` to verify the 68-entry inventory (50 audited plus 047, 048, 049, 050, 051, 052, 053, 054, 055, 056, 057, 058, 059, 060, 061, 062, 063 and 064) and local evidence links. The check establishes link integrity, not semantic correctness.
