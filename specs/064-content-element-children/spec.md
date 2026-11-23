@@ -38,6 +38,10 @@ those elements without items).
 - **CC7 One write.** `create_content_element_draft` takes `children`
   (`{<inline column>: [{<child column>: value}]}`) and writes the element and
   its children in one datamap, in the given order, in the run's workspace.
+  The DataHandler stores that order in the relation's `foreign_sortby`, else
+  the child table's `ctrl.sortby`; a relation with `foreign_default_sortby`
+  or a child table without a sort column is read back in its own order, as
+  the same records saved from the backend form are.
   The element keeps its `after_content_uid` placement; the children's pid is
   the page. A child carries the element's language. A child without a value
   for a required fillable column is refused before the write.
