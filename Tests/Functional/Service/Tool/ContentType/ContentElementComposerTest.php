@@ -121,6 +121,78 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function aReadOnlyInlineColumnOrOneWhoseChildrenOutliveTheElementIsNoChildRelation(): void
+    {
+        /** @var array{tt_content: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                            = &$GLOBALS['TCA'];
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['readOnly'] = true;
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'), 'read-only');
+
+        unset($tca['tt_content']['columns']['tx_childrenfixture_items']['config']['readOnly']);
+        $tca['tt_content']['columns']['tx_childrenfixture_items']['config']['behaviour'] = ['enableCascadingDelete' => false];
+        self::assertNull((new ContentElementComposer())->describe('nrllm_items'), 'a take-back would leave the children behind');
+
+        unset($tca['tt_content']['columns']['tx_childrenfixture_items']['config']['behaviour'], $tca);
+        self::assertNotNull((new ContentElementComposer())->describe('nrllm_items'));
+    }
+
+    #[Test]
+    public function aTelephoneLinkWithASpaceIsRefused(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+
+        $map = $this->composer->dataMap('nrllm_items', 'NEW1', [], ['tx_childrenfixture_items' => [['header' => 'A', 'link' => 'tel:+1 2025550123']]], self::PAGE, self::PAGE, 0, $admin);
+        self::assertTrue($map->isRefused());
+        self::assertStringContainsString('no spaces', implode(' ', $map->refusals));
+
+        self::assertFalse($this->composer->dataMap('nrllm_items', 'NEW1', [], ['tx_childrenfixture_items' => [['header' => 'A', 'link' => 'tel:+12025550123']]], self::PAGE, self::PAGE, 0, $admin)->isRefused());
+    }
+
+    #[Test]
+    public function anInlineColumnThePageDisablesTakesNoChildren(): void
+    {
+        $this->setPageTsConfig('TCEFORM.tt_content.tx_childrenfixture_items.disabled = 1');
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+
+        $map = $this->composer->dataMap('nrllm_items', 'NEW1', [], ['tx_childrenfixture_items' => [['header' => 'A']]], self::PAGE, self::PAGE, 0, $admin);
+
+        self::assertTrue($map->isRefused());
+        self::assertStringContainsString('tt_content:tx_childrenfixture_items', implode(' ', $map->refusals));
+    }
+
+    #[Test]
+    public function aChildRecordTypeThePageRemovesIsRefused(): void
+    {
+        $this->setPageTsConfig('TCEFORM.tx_childrenfixture_slide.kind.removeItems = text');
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+
+        $map = $this->composer->dataMap('nrllm_slides', 'NEW1', [], ['tx_childrenfixture_slides' => [['header' => 'A']]], self::PAGE, self::PAGE, 0, $admin);
+
+        self::assertTrue($map->isRefused());
+        self::assertStringContainsString('record type "text" of tx_childrenfixture_slide', implode(' ', $map->refusals));
+    }
+
+    #[Test]
+    public function aFlexFormTheEditorMayNotSetIsLeftToTheDataHandler(): void
+    {
+        /** @var array{tt_content: array{columns: array<string, array<string, mixed>>}} $tca */
+        $tca                                                    = &$GLOBALS['TCA'];
+        $tca['tt_content']['columns']['pi_flexform']['exclude'] = true;
+        unset($tca);
+
+        $children = ['tx_childrenfixture_items' => [['header' => 'A']]];
+        $without  = $this->composer->dataMap('nrllm_items', 'NEW1', [], $children, self::PAGE, self::PAGE, 0, $this->editor('tx_childrenfixture_item:header'));
+        $with     = $this->composer->dataMap('nrllm_items', 'NEW1', [], $children, self::PAGE, self::PAGE, 0, $this->editor('tx_childrenfixture_item:header', 'tt_content:pi_flexform'));
+
+        self::assertFalse($without->isRefused(), implode(' ', $without->refusals));
+        self::assertArrayNotHasKey('pi_flexform', $without->dataMap['tt_content']['NEW1'] ?? []);
+        self::assertArrayHasKey('pi_flexform', $with->dataMap['tt_content']['NEW1'] ?? []);
+    }
+
+    #[Test]
     public function describedForAnEditorItLeavesOutWhatTheEditorMayNotSet(): void
     {
         $editor = $this->editor('tx_childrenfixture_item:header');
@@ -197,6 +269,11 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
 
         $unknown = $this->composer->dataMap('nrllm_mm', 'NEW1', [], [], self::PAGE, self::PAGE, 0, $this->setUpBackendUser(1));
         self::assertTrue($unknown->isRefused());
+    }
+
+    private function setPageTsConfig(string $tsConfig): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => $tsConfig], ['uid' => self::PAGE]);
     }
 
     private function editor(string ...$grants): BackendUserAuthentication

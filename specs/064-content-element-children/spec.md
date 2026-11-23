@@ -12,7 +12,8 @@ those elements without items).
 - **CC1 Children are a column kind.** An `inline` column with a plain
   one-to-many relation (`foreign_table` + `foreign_field`; no MM, no
   `foreign_table_field`, `foreign_match_fields`, `foreign_selector` or
-  `foreign_unique`; the child table has TCA
+  `foreign_unique`, not `readOnly`, no `behaviour.enableCascadingDelete =
+  false`; the child table has TCA
   and a form and is not `tt_content`, `pages`, `sys_file_reference`, a
   `sys_` or `be_` table) no longer excludes its content type. One level
   deep; a child's own relations, FlexForms and inline columns stay empty.

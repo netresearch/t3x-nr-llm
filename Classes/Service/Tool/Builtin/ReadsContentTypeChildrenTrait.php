@@ -86,7 +86,9 @@ trait ReadsContentTypeChildrenTrait
      * Plain means: `foreign_table` and `foreign_field`, no MM table, no
      * `foreign_table_field`, `foreign_match_fields`, `foreign_selector` or
      * `foreign_unique` (an m:n relation through an intermediate table, whose
-     * selector a draft cannot fill), a child table with
+     * selector a draft cannot fill), not `readOnly`, and children deleted
+     * with their element (no `behaviour.enableCascadingDelete = false`: a
+     * take-back deletes the element only), a child table with
      * TCA and a form that is not on the deny-list. The child's form is read
      * in the type its type field defaults to; its fillable columns are what a
      * child may carry, its system columns never. A required child column that
@@ -104,7 +106,9 @@ trait ReadsContentTypeChildrenTrait
         if (self::toStr($config['type'] ?? '') !== 'inline' || $table === '' || $foreignField === ''
             || self::toStr($config['MM'] ?? '') !== '' || self::toStr($config['foreign_table_field'] ?? '') !== ''
             || ($config['foreign_match_fields'] ?? []) !== [] || self::toStr($config['foreign_selector'] ?? '') !== ''
-            || self::toStr($config['foreign_unique'] ?? '') !== '' || $this->isDeniedChildTable($table)
+            || self::toStr($config['foreign_unique'] ?? '') !== '' || (bool) ($config['readOnly'] ?? false)
+            || (is_array($config['behaviour'] ?? null) && ($config['behaviour']['enableCascadingDelete'] ?? true) === false)
+            || $this->isDeniedChildTable($table)
         ) {
             return null;
         }
@@ -337,7 +341,7 @@ trait ReadsContentTypeChildrenTrait
      *
      * @return array<non-empty-string, array<string, mixed>>
      */
-    private function flexDefaultsOfType(string $type): array
+    private function flexDefaultsOfType(string $type, ?BackendUserAuthentication $user = null): array
     {
         $shared   = $this->sharedFormColumns();
         $defaults = [];
@@ -349,6 +353,15 @@ trait ReadsContentTypeChildrenTrait
             $values = $this->flexDefaultsOf($type, $name, $config);
             if ($values !== null && $values !== []) {
                 $defaults[$name] = $values;
+            }
+        }
+
+        // A FlexForm the user may not set is left to the DataHandler, as the
+        // backend form leaves it: it would drop the value without a word, and
+        // the read-back would take the element back for it.
+        if ($user instanceof BackendUserAuthentication && $defaults !== []) {
+            foreach ($this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($defaults)) as $column) {
+                unset($defaults[$column]);
             }
         }
 
@@ -372,13 +385,13 @@ trait ReadsContentTypeChildrenTrait
         $linkType = match (true) {
             preg_match('~^https?://~i', $text) === 1 && filter_var($text, FILTER_VALIDATE_URL) !== false => 'url',
             preg_match('~^mailto:[^@\s]+@[^@\s]+\.[^@\s]+$~i', $text) === 1                              => 'email',
-            preg_match('~^tel:\+?[0-9][0-9 ()./-]*$~i', $text) === 1                                     => 'telephone',
+            preg_match('~^tel:\+?[0-9][0-9()./-]*$~i', $text) === 1                                      => 'telephone',
             preg_match('~^t3://page\?uid=[1-9][0-9]*$~', $text) === 1                                    => 'page',
             default                                                                                      => null,
         };
         if ($linkType === null) {
             return sprintf(
-                'Refused: the value for "%s" must be an http or https URL, a mailto: or tel: link, or a page link '
+                'Refused: the value for "%s" must be an http or https URL, a mailto: or tel: link (no spaces), or a page link '
                 . 't3://page?uid=<uid>.',
                 $column,
             );
@@ -651,10 +664,36 @@ trait ReadsContentTypeChildrenTrait
      * @param array<array-key, mixed>                                                                                                                                                                                                                                         $tceForm the page's `TCEFORM.`
      * @param array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}> $plan
      */
-    private function childrenTsConfigRefusal(array $tceForm, array $plan, int $pageUid): ?string
+    private function childrenTsConfigRefusal(array $tceForm, array $plan, int $pageUid, string $elementType = ''): ?string
     {
+        // The element's inline columns themselves: a column the page disables
+        // or makes read-only takes no children.
+        $columns = array_fill_keys(array_keys($plan), '');
+        $refusal = $columns === [] ? null : $this->columnsTsConfigRefusal($tceForm, self::TABLE, $elementType, $columns, $this->columnsOfType($elementType), $pageUid);
+        if ($refusal !== null) {
+            return $refusal;
+        }
+
+        $rules = $tceForm;
         foreach ($plan as $children) {
             $type = $children['typeValue'] !== '' ? $children['typeValue'] : $this->recordTypeOf($children['table'], []);
+
+            // The record type the draft writes, a system column the caller
+            // does not pass, under the page's keepItems/removeItems.
+            $childRules = is_array($rules[$children['table'] . '.'] ?? null) ? $rules[$children['table'] . '.'] : [];
+            $typeRule   = $children['typeField'] !== '' && $children['rows'] !== [] && $childRules !== []
+                ? $this->tceFormRuleRemoving($childRules, $children['typeField'], $type, $children['typeValue'], $children['table'])
+                : null;
+            if ($typeRule !== null) {
+                return sprintf(
+                    'Refused: the record type "%s" of %s is not offered on page [%d] by its page TSconfig (%s). Nothing was written.',
+                    $children['typeValue'],
+                    $children['table'],
+                    $pageUid,
+                    $typeRule,
+                );
+            }
+
             foreach ($children['rows'] as $row) {
                 $refusal = $this->columnsTsConfigRefusal($tceForm, $children['table'], $type, $row, $children['fields'], $pageUid);
                 if ($refusal !== null) {

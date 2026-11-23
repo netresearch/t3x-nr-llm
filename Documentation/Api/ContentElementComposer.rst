@@ -19,6 +19,7 @@ child records. nr_landingpage's Page Composer builds its sections through it.
    :caption: Describing a type and building one element of it
 
    use Netresearch\NrLlm\Service\Tool\ContentType\ContentElementComposer;
+   use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 
    final readonly class MySectionWriter
    {
@@ -47,10 +48,18 @@ child records. nr_landingpage's Page Composer builds its sections through it.
                throw new \RuntimeException(implode(' ', $map->refusals));
            }
 
-           // Merge CType, header, pid and position into
-           // $map->dataMap['tt_content']['NEW_content_0'] and write it,
-           // together with the page, in one DataHandler call.
-           return $map->dataMap;
+           // The result is read-only: copy it, merge CType, header, pid
+           // and position into the element's row, and write the copy
+           // together with the page in one DataHandler call.
+           $dataMap = $map->dataMap;
+           $dataMap['tt_content']['NEW_content_0'] += [
+               'CType' => 'accordion',
+               'header' => 'FAQ',
+               'pid' => 'NEW_page',
+               'colPos' => 0,
+           ];
+
+           return $dataMap;
        }
    }
 

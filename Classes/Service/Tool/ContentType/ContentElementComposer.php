@@ -200,14 +200,14 @@ final readonly class ContentElementComposer
             $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
             $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
             $refusal  = $this->columnsTsConfigRefusal($tceForm, self::TABLE, $cType, $checkedFields, $this->columnsOfType($cType), $pageUid)
-                ?? $this->childrenTsConfigRefusal($tceForm, $plan, $pageUid);
+                ?? $this->childrenTsConfigRefusal($tceForm, $plan, $pageUid, $cType);
             if ($refusal !== null) {
                 return ContentElementDataMap::refused($refusal);
             }
         }
 
         $row = $checkedFields;
-        foreach ($this->flexDefaultsOfType($cType) as $column => $defaults) {
+        foreach ($this->flexDefaultsOfType($cType, $user) as $column => $defaults) {
             $row[$column] = $defaults;
         }
 

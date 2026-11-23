@@ -253,7 +253,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // ADR-324: a FlexForm of the type's own form gets its data
         // structure's defaults, as the backend form writes them for a new
         // element; the children land at the page, never at an "after" pid.
-        foreach ($this->flexDefaultsOfType($plan['type']) as $column => $defaults) {
+        foreach ($this->flexDefaultsOfType($plan['type'], $user) as $column => $defaults) {
             $record[$column] = $defaults;
         }
 
@@ -718,7 +718,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         self::refuseIf($this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null, $column, $language, $user));
         if ($children !== []) {
             $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
-            self::refuseIf($this->childrenTsConfigRefusal(is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [], $children, $pageUid));
+            self::refuseIf($this->childrenTsConfigRefusal(is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [], $children, $pageUid, $type));
         }
 
         // After the neutral refusal, because this one names the page.
