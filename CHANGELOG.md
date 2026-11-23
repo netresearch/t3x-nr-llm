@@ -8,6 +8,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-23
+
+### Added
+
+- `create_content_element_draft` drafts a content element with its child records: the items of an accordion, card group, icon group, tab, timeline or carousel are passed as `children` and written with the element in one DataHandler call, listed on the approval card and read back. A FlexForm column is written with its data structure's defaults, folder, group and record-backed select columns are left empty instead of excluding the type, and `link` columns become fillable with `http`, `https`, `mailto`, `tel` and page links ([ADR-324](Documentation/Adr/Adr324AContentElementIsDraftedWithItsChildRecords.rst)). A child table must declare `hideTable`: its records are reached through their element only. On a bootstrap_package site this offers accordion, card group, icon group, tab, timeline, the carousels, text with image, image, media, gallery and uploads ([#1459](https://github.com/netresearch/t3x-nr-llm/pull/1459)).
+- `ContentElementComposer` (`@api`) exposes the same content-type rule to other extensions: `describe()` a type as a model reads it, `typesOfferedOnPage()` for a page's `TCEFORM.tt_content.CType` rules and a user's grants, and `dataMap()` for one element with its child records after every value and grant was checked ([ADR-324](Documentation/Adr/Adr324AContentElementIsDraftedWithItsChildRecords.rst), [#1459](https://github.com/netresearch/t3x-nr-llm/pull/1459)). nr_landingpage's Page Composer uses it to create such elements with their items.
+
 ## [0.53.0] - 2026-11-23
 
 ### Upgrading from 0.52
@@ -5544,7 +5551,8 @@ setting now either works or is gone. Three breaking changes — see below.
 
 Initial public release. See git history for prior commits.
 
-[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.53.0...HEAD
+[Unreleased]: https://github.com/netresearch/t3x-nr-llm/compare/v0.54.0...HEAD
+[0.54.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.53.0...v0.54.0
 [0.53.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.1...v0.53.0
 [0.52.1]: https://github.com/netresearch/t3x-nr-llm/compare/v0.52.0...v0.52.1
 [0.52.0]: https://github.com/netresearch/t3x-nr-llm/compare/v0.51.1...v0.52.0

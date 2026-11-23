@@ -11,6 +11,29 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-53-0:
+
+Version 0.53.0 (2026-11-23)
+===========================
+
+nr-llm reports its AI work as OpenTelemetry spans and metrics to an
+installation that registers an OpenTelemetry SDK.
+
+- **Spans:** one per model attempt (streams included), per fallback chain,
+  per tool execution (``load_skill`` included) and per agent run segment,
+  named after the GenAI semantic conventions v1.41.0 (ADR-291). A tool span
+  ends on the call's final result, after the assignment scope has judged
+  what it wrote.
+- **Metrics:** ``gen_ai.client.operation.duration``,
+  ``gen_ai.client.token.usage`` and
+  ``gen_ai.client.operation.time_to_first_chunk``.
+- **Privacy:** prompts, answers, tool arguments and results, exception
+  messages and URLs are never recorded.
+- **Upgrading:** nr-llm now requires ``open-telemetry/api``. Without a
+  registered SDK nothing is emitted; the setting ``telemetry.openTelemetry``
+  switches the instrumentation off. See :ref:`ADR-291 <adr-291>` and
+  :ref:`administration-opentelemetry`.
+
 .. _version-0-52-1:
 
 Version 0.52.1 (2026-11-22)
@@ -2098,14 +2121,14 @@ and update its Composer constraint deliberately. See
 upgrade wizards. Review configuration and integrations before reopening
 editor access.
 
-The current package line is 0.53. For that line, for example:
+The current package line is 0.54. For that line, for example:
 
 .. code-block:: bash
-   :caption: Select the 0.53 release line
+   :caption: Select the 0.54 release line
 
-   composer require netresearch/nr-llm:^0.53 --with-all-dependencies
+   composer require netresearch/nr-llm:^0.54 --with-all-dependencies
 
-This does not select a future 0.54 release. Choose its constraint explicitly
+This does not select a future 0.55 release. Choose its constraint explicitly
 when following that release's migration notes.
 
 .. _breaking-changes:

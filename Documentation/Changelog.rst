@@ -27,27 +27,24 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-53-0:
+.. _version-0-54-0:
 
-Version 0.53.0 (2026-11-23)
+Version 0.54.0 (2026-11-23)
 ===========================
 
-nr-llm reports its AI work as OpenTelemetry spans and metrics to an
-installation that registers an OpenTelemetry SDK.
+``create_content_element_draft`` drafts a content element with its child
+records, and other extensions can build such elements through the same rule.
 
-- **Spans:** one per model attempt (streams included), per fallback chain,
-  per tool execution (``load_skill`` included) and per agent run segment,
-  named after the GenAI semantic conventions v1.41.0 (ADR-291). A tool span
-  ends on the call's final result, after the assignment scope has judged
-  what it wrote.
-- **Metrics:** ``gen_ai.client.operation.duration``,
-  ``gen_ai.client.token.usage`` and
-  ``gen_ai.client.operation.time_to_first_chunk``.
-- **Privacy:** prompts, answers, tool arguments and results, exception
-  messages and URLs are never recorded.
-- **Upgrading:** nr-llm now requires ``open-telemetry/api``. Without a
-  registered SDK nothing is emitted; the setting ``telemetry.openTelemetry``
-  switches the instrumentation off. See :ref:`ADR-291 <adr-291>` and
-  :ref:`administration-opentelemetry`.
+- **Child records:** the items of an accordion, card group, icon group, tab,
+  timeline or carousel are passed as ``children``, checked against the
+  editor's grants and the page TSconfig, written with the element in one
+  DataHandler call, listed on the approval card and read back (ADR-324). A
+  child table must declare ``hideTable``.
+- **More types offered:** a FlexForm is written with its data structure's
+  defaults; folder, group and record-backed select columns are left empty
+  instead of excluding the type; ``link`` columns are fillable.
+- **API:** ``ContentElementComposer`` (``@api``) with ``describe()``,
+  ``typesOfferedOnPage()`` and ``dataMap()``. See
+  :ref:`ADR-324 <adr-324>`.
 
 Details in the repository :file:`CHANGELOG.md`.
