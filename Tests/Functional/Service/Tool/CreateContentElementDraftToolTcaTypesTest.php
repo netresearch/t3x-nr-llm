@@ -1121,9 +1121,15 @@ final class CreateContentElementDraftToolTcaTypesTest extends AbstractFunctional
             'label'  => 'Unresolved FlexForm',
             'config' => [
                 'type' => 'flex',
-                'ds'   => (new Typo3Version())->getMajorVersion() >= 14
-                    ? 'FILE:EXT:nr_llm/Tests/Functional/Fixtures/DoesNotExist.xml'
-                    : ['default' => 'FILE:EXT:nr_llm/Tests/Functional/Fixtures/DoesNotExist.xml'],
+                // 14.3 resolves the file when the type is read; 13.4 parses
+                // every listed structure when it builds the TCA schema, so
+                // there the structure exists but none is listed for the type.
+                ...((new Typo3Version())->getMajorVersion() >= 14
+                    ? ['ds' => 'FILE:EXT:nr_llm/Tests/Functional/Fixtures/DoesNotExist.xml']
+                    : [
+                        'ds_pointerField' => 'CType',
+                        'ds'              => ['nrllm_no_such_type' => '<T3DataStructure><sheets><sDEF><ROOT><type>array</type><el><foo><label>Foo</label><config><type>input</type></config></foo></el></ROOT></sDEF></sheets></T3DataStructure>'],
+                    ]),
             ],
         ];
         $types[self::FLEX_TYPE] = [

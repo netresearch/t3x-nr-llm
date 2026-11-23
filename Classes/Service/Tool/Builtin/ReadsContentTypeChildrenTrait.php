@@ -699,7 +699,11 @@ trait ReadsContentTypeChildrenTrait
                     $new[$children['typeField']] = $children['typeValue'];
                 }
 
-                if ($language !== 0 && $children['languageField'] !== '') {
+                // Always written, 0 included: TYPO3 13.4 refuses an insert by a
+                // non-admin whose row does not name its language
+                // (`BackendUserAuthentication::recordEditAccessInternals()`),
+                // as the backend form always does.
+                if ($children['languageField'] !== '') {
                     $new[$children['languageField']] = $language;
                 }
 
