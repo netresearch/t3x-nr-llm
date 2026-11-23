@@ -135,7 +135,9 @@ tool arguments, no tool result, no exception message, no URL, no user name or
 id. An error is its status and ``error.type``, the class name of the exception,
 the same value :sql:`tx_nrllm_telemetry` keeps as ``error_class``;
 :php:`recordException()` is never called, because it exports the message. A
-tool that returns a failed result is ``tool_failed``. The conventions' opt-in
+tool that returns a failed result is ``tool_failed``; the tool span ends on
+the call's final result, after the assignment scope (ADR-295) has judged what
+the call wrote. The conventions' opt-in
 content attributes are not emitted and there is no switch for them. A switch
 would have to run every value through the redaction of ADR-088 and the
 privacy level of :ref:`ADR-064 <adr-064>` on every call, for a feature that

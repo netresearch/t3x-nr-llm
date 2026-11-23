@@ -3291,30 +3291,6 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             );
         }
 
-        // One execute_tool span (ADR-291) around everything that decides the
-        // call's result: the scope check, a rollback or the commit can turn a
-        // result the tool returned as ok into an error after it returned.
-        $invoke = function () use ($call, $tool, $configuration, $context, $runTrace, &$executed): ToolResult {
-            return $this->runInvocation($call, $tool, $configuration, $context, $runTrace, $executed);
-        };
-
-        return $this->tracing instanceof ToolTelemetry
-            ? $this->tracing->traceTool($call, $tool instanceof RemoteToolInterface, $invoke)
-            : $invoke();
-    }
-
-    /**
-     * The call itself, after its remote budget was charged: the scope
-     * transaction, the execution and the judgement of what it wrote.
-     */
-    private function runInvocation(
-        ToolCall $call,
-        ToolInterface $tool,
-        LlmConfiguration $configuration,
-        ToolExecutionContext $context,
-        ?RunTrace $runTrace,
-        bool &$executed,
-    ): ToolResult {
         $runTrace?->beforeToolExecution($call->name);
 
         // A failure a DataHandler recorded outside this call is not this
@@ -3338,6 +3314,52 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             }
         }
 
+        // One execute_tool span (ADR-291) around the call and what decides its
+        // result: the scope check, a rollback or the commit can turn a result
+        // the tool returned as ok into an error after it returned. A call that
+        // was refused before it ran (budget, no transaction) gets no span.
+        // A tool that throws is caught below and becomes an error result; the
+        // span still names the exception class, as for a model call.
+        $thrown  = null;
+        $execute = static function () use ($tool, $call, $context, &$thrown): ToolResult {
+            try {
+                return $tool->execute($call->arguments, $context);
+            } catch (ToolDependencyPendingException $pending) {
+                throw $pending;
+            } catch (Throwable $e) {
+                $thrown = $e::class;
+
+                throw $e;
+            }
+        };
+        $invoke = function () use ($call, $tool, $context, $scope, $scopeChecker, $workspace, $transaction, $execute, &$executed): ToolResult {
+            return $this->runInvocation($call, $tool, $context, $scope, $scopeChecker, $workspace, $transaction, $execute, $executed);
+        };
+
+        return $this->tracing instanceof ToolTelemetry
+            ? $this->tracing->traceTool($call, $tool instanceof RemoteToolInterface, $invoke, static function () use (&$thrown): ?string {
+                return $thrown;
+            })
+            : $invoke();
+    }
+
+    /**
+     * The call itself, once its budget was charged and its transaction began:
+     * the execution and the judgement of what it wrote.
+     *
+     * @param Closure(): ToolResult $execute the tool's own execution
+     */
+    private function runInvocation(
+        ToolCall $call,
+        ToolInterface $tool,
+        ToolExecutionContext $context,
+        ?AssignmentScope $scope,
+        AssignmentScopeChecker $scopeChecker,
+        int $workspace,
+        ?AssignmentScopeTransaction $transaction,
+        Closure $execute,
+        bool &$executed,
+    ): ToolResult {
         $collectorDepth = ToolChangeCollector::depth();
         $guardDepth     = AssignmentScopeGuard::depth();
         try {
@@ -3355,8 +3377,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             try {
                 $executed = true;
                 $result   = $this->writeEnvironment instanceof WorkerWriteEnvironment && !$this->effects()->declaresRead($call->name)
-                    ? $this->writeEnvironment->around($context->actingBackendUser(), static fn (): ToolResult => $tool->execute($call->arguments, $context))
-                    : $tool->execute($call->arguments, $context);
+                    ? $this->writeEnvironment->around($context->actingBackendUser(), $execute)
+                    : $execute();
             } catch (ToolDependencyPendingException $pending) {
                 // What the call wrote before it handed its work over is judged like
                 // any other call's (ADR-295): a write outside the scope is rolled

@@ -83,7 +83,11 @@ What is recorded
         verdict is an outcome, not an error.
     * - ``execute_tool {tool}``
       - One per tool execution: the tool name and type and the call id, and
-        ``tool_failed`` or the exception class when it failed.
+        ``tool_failed`` or the exception class when it failed. It ends on the
+        call's final result, so a call whose write the assignment scope
+        refused or rolled back is a failed span. A call refused before it ran
+        (no budget for external tools left, no transaction for a scoped write)
+        has no span.
     * - ``gen_ai.client.operation.duration``, ``gen_ai.client.token.usage``,
         ``gen_ai.client.operation.time_to_first_chunk``
       - Histograms of the calls, with operation, provider and model as

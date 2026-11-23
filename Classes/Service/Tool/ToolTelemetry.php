@@ -48,12 +48,16 @@ final readonly class ToolTelemetry
      * An INTERNAL `execute_tool` span around one tool execution.
      *
      * A tool that returns a failed result is an error of the span; the tool's
-     * own text is not recorded. A dependency tool that announces a pending
-     * operation is control flow and ends the span without an error.
+     * own text is not recorded. Its error type is the class of the exception
+     * the tool threw, as $thrownBy names it, when the caller turned that
+     * exception into the failed result, else `tool_failed`. A dependency tool
+     * that announces a pending operation is control flow and ends the span
+     * without an error.
      *
-     * @param Closure(): ToolResult $execute
+     * @param Closure(): ToolResult     $execute
+     * @param (Closure(): ?string)|null $thrownBy
      */
-    public function traceTool(ToolCall $call, bool $remote, Closure $execute): ToolResult
+    public function traceTool(ToolCall $call, bool $remote, Closure $execute, ?Closure $thrownBy = null): ToolResult
     {
         $span = $this->telemetry->begin(
             GenAiSemconv::OPERATION_EXECUTE_TOOL . ' ' . $call->name,
@@ -74,7 +78,8 @@ final readonly class ToolTelemetry
         try {
             $result = $execute();
             if ($result->isError || $result->outcome === ToolOutcome::FAILED) {
-                $error = 'tool_failed';
+                $thrown = $thrownBy instanceof Closure ? $thrownBy() : null;
+                $error  = is_string($thrown) && $thrown !== '' ? $thrown : 'tool_failed';
             }
 
             return $result;
