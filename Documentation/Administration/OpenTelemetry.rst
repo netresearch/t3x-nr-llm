@@ -87,7 +87,8 @@ What is recorded
         call's final result, so a call whose write the assignment scope
         refused or rolled back is a failed span. A call refused before it ran
         (no budget for external tools left, no transaction for a scoped write)
-        has no span.
+        has no span, and a call the run's cancellation ended is no error.
+        Loading a skill (``load_skill``) is a tool execution of its own.
     * - ``gen_ai.client.operation.duration``, ``gen_ai.client.token.usage``,
         ``gen_ai.client.operation.time_to_first_chunk``
       - Histograms of the calls, with operation, provider and model as

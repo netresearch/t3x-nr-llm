@@ -1299,9 +1299,16 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
         }
 
         $environment->trace?->beforeToolExecution($call->name);
-        $before                     = $pins;
-        [$messages, $pins, $result] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
-        $history                    = $this->recorded($history, $call, $result->outcome->value, $target, $result);
+        $before = $pins;
+        // A load is a tool execution of its own (ADR-291): one execute_tool span,
+        // an error when the load was refused; an admission denial above has none.
+        $load = function () use ($call, $catalogue, $configuration, $options, $specs, &$messages, &$pins): ToolResult {
+            [$messages, $pins, $loaded] = $this->loadSkill($call, $catalogue, $pins, $messages, $configuration, $options, $specs);
+
+            return $loaded;
+        };
+        $result  = $this->tracing instanceof ToolTelemetry ? $this->tracing->traceTool($call, false, $load) : $load();
+        $history = $this->recorded($history, $call, $result->outcome->value, $target, $result);
         // The version the load appended, before the tool step that answers
         // it (ADR-321). Loaded is not passed: the next send reports that.
         $environment->trace?->recordSkillUsage($round, $skillUsage->loadedBetween($before, $pins));
