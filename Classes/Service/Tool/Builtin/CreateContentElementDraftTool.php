@@ -138,6 +138,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // for — execute() refuses such a process outright.
         $available = $this->availableTypes();
         $listed    = $available === [] ? 'none in this process' : implode(', ', $available);
+        $children  = $this->childrenLines($available);
 
         return ToolSpec::function(
             'create_content_element_draft',
@@ -148,7 +149,9 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             . 'and the element to place it after may be ones that exist in that draft workspace only. Only content '
             . 'types that pass the '
             . 'exclusion rule are available (' . $listed . "), and the page's TSconfig may narrow them and their "
-            . 'options further; "fields" takes further scalar columns of the chosen type. To translate an EXISTING '
+            . 'options further; "fields" takes further scalar columns of the chosen type, "children" the records of a '
+            . 'type with child records (' . ($children === [] ? 'none in this process' : implode('; ', $children)) . '). '
+            . 'Files, folders and category or record references are left empty and attached separately. To translate an EXISTING '
             . 'element, use '
             . 'create_translation_draft instead — this tool creates a standalone element in the language given, '
             . 'and refuses a non-default language on a page that already holds connected translations in it.',
@@ -201,6 +204,15 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                         // the value is validated against the TCA anyway.
                         'additionalProperties' => true,
                     ],
+                    'children' => [
+                        'type'        => 'object',
+                        'description' => 'The child records of a type that has them, as {column: [{column: value}]}: '
+                            . 'the key is the child-record column of the type, the list holds one object per record in '
+                            . 'the order shown, and each object takes the columns named for that type in the tool '
+                            . 'description (* = required). Values are validated like "fields". Omit for a type without '
+                            . 'child records.',
+                        'additionalProperties' => true,
+                    ],
                 ],
                 'required' => ['page', 'type', 'header'],
             ],
@@ -238,9 +250,22 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $record[$column] = $value;
         }
 
-        $created = $this->createRecord(
+        // ADR-324: a FlexForm of the type's own form gets its data
+        // structure's defaults, as the backend form writes them for a new
+        // element; the children land at the page, never at an "after" pid.
+        foreach ($this->flexDefaultsOfType($plan['type']) as $column => $defaults) {
+            $record[$column] = $defaults;
+        }
+
+        $childMap = $this->childDataMap($plan['children'], $plan['page'], $plan['language']);
+        foreach ($childMap['inline'] as $column => $placeholders) {
+            $record[$column] = $placeholders;
+        }
+
+        $created = $this->createRecordWithChildren(
             self::TABLE,
             $record,
+            $childMap['rows'],
             $user,
             'The element was not created. The acting backend user is most likely missing the grant to '
             . 'create records in ' . self::TABLE . ' on that page.',
@@ -249,7 +274,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return $created;
         }
 
-        [$newUid, $complaints] = $created;
+        [$newUid, $childUids, $complaints] = $created;
 
         // Read back before reporting success. A uid is proof that a row exists,
         // not that it carries what was asked for: the DataHandler SKIPS a field
@@ -284,6 +309,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $notTaken = [
             ...$this->ownColumnsThatDidNotTake($stored, $plan),
             ...$this->fieldsThatDidNotTake($stored, [...$texts, ...$plan['fields']], $plan['type']),
+            ...$this->childrenThatDidNotTake($newUid, $childUids, $childMap['placeholders'], $plan['children'], $plan['language'], $user->workspace),
         ];
         if ($notTaken !== []) {
             // Take it back. A half-made element nobody approved is worse than
@@ -299,7 +325,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                 $newUid,
                 implode(', ', $notTaken),
                 $removed ? 'was deleted again' : $this->notDeletedNote($notTaken),
-                implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $notTaken)),
+                implode(', ', array_map(static fn (string $column): string => str_contains($column, ':') || str_contains($column, ' ') ? $column : self::TABLE . ':' . $column, $notTaken)),
                 $complaints,
             ));
         }
@@ -309,7 +335,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // instead edits the wrong record (NEXT-167).
         return ToolResult::text(sprintf(
             'New content element uid: %d. Created hidden %s element [%d] "%s" on page [%d], column %d, language '
-            . '%d%s. It is not visible until a human unhides it.%s%s',
+            . '%d%s%s. It is not visible until a human unhides it.%s%s',
             $newUid,
             $plan['type'],
             $newUid,
@@ -318,6 +344,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $plan['column'],
             $plan['language'],
             $plan['fields'] === [] ? '' : ', with ' . implode(', ', array_keys($plan['fields'])),
+            $this->childrenSummary($plan['children']),
             $this->draftWorkspaceNote($user),
             $complaints,
         ))->withWriteTarget(new RecordReference(self::TABLE, $newUid), WriteKind::CREATED, WriteCompleteness::COMPLETE);
@@ -380,6 +407,20 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $columns = $this->columnsOfType($plan['type']);
         foreach ($plan['fields'] as $column => $value) {
             $lines[] = $label($column) . ': ' . $q($this->shownValue($value, $columns[$column] ?? []));
+        }
+
+        // Every child record with every value it would carry (ADR-324): the
+        // approver agrees to the element and its children as one draft.
+        foreach ($plan['children'] as $column => $children) {
+            foreach ($children['rows'] as $index => $row) {
+                $values = [];
+                foreach ($row as $name => $value) {
+                    $values[] = $this->translator->columnLabel($user, $children['table'], $name, $children['typeValue'] !== '' ? $children['typeValue'] : null)
+                        . ': ' . $q($this->shownValue($value, $children['fields'][$name] ?? []));
+                }
+
+                $lines[] = $label($column) . ' ' . ($index + 1) . ': ' . implode('; ', $values);
+            }
         }
 
         $lines[] = $plan['afterUid'] > 0
@@ -450,8 +491,15 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             return null;
         }
 
+        // The child records land at the same page, in their own tables
+        // (ADR-324), and a scope judges each table it admits.
+        $destinations = [new ScopedDestination('tt_content', $pid)];
+        foreach ($this->childTablesOf($arguments) as $table) {
+            $destinations[] = new ScopedDestination($table, $pid);
+        }
+
         // An omitted language is the default language, which a scope with a language list may not admit.
-        return new ScopedWrite('create', $anchor, [new ScopedDestination('tt_content', $pid)], false, $lang ?? 0);
+        return new ScopedWrite('create', $anchor, $destinations, false, $lang ?? 0);
     }
 
     public function pendingTarget(array $arguments): ?PendingWriteTarget
@@ -505,7 +553,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}|string
+     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -518,7 +566,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}
+     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}
      *
      * @throws PlanRefusedException
      */
@@ -526,7 +574,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     {
         self::refuseIf($this->refuseUnknownArguments(
             $arguments,
-            ['page', 'type', 'header', 'bodytext', 'column', 'language', 'after_content_uid', 'fields'],
+            ['page', 'type', 'header', 'bodytext', 'column', 'language', 'after_content_uid', 'fields', 'children'],
             'creates one content element',
         ));
 
@@ -561,7 +609,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ));
         }
 
-        $fields = self::unlessRefused($this->collectFields($arguments, $type, $user));
+        $fields = self::unlessRefused($this->collectFields($arguments, $type, $user, self::OWN_ARGUMENTS));
 
         // Asked BEFORE the write, as UpdateFalAssetMetaTool asks it: the
         // DataHandler drops an `exclude` column the user holds no grant for in
@@ -620,6 +668,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             self::refuse(sprintf('Refused: you may not edit content in language %d.', $language));
         }
 
+        // ADR-324: the records of a type's inline columns, validated and
+        // their grants asked before anything is written.
+        $children = self::unlessRefused($this->childrenPlan($type, $arguments['children'] ?? null, $language, $user));
+
         $column = self::toInt($arguments['column'] ?? 0);
         if ($column < 0) {
             self::refuse('Refused: "column" must be zero or a positive backend-layout column (colPos).');
@@ -664,6 +716,10 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         // After the neutral refusal, because this one names the page.
         self::refuseIf($this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null, $column, $language, $user));
+        if ($children !== []) {
+            $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
+            self::refuseIf($this->childrenTsConfigRefusal(is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [], $children, $pageUid));
+        }
 
         // After the neutral refusal, because this one names the page.
         if ($language > 0
@@ -704,6 +760,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             'header'      => $header[0],
             'bodytext'    => $bodytext,
             'fields'      => $fields,
+            'children'    => $children,
             'column'      => $column,
             'language'    => $language,
             'afterUid'    => $afterUid,
@@ -1028,117 +1085,6 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     }
 
     /**
-     * The columns a model may fill for the type — its form's fillable columns
-     * minus the system columns and the two that are arguments of their own.
-     *
-     * @return list<non-empty-string>
-     */
-    private function fillableColumnsOf(string $type): array
-    {
-        $fillable = [];
-        foreach ($this->columnsOfType($type) as $name => $config) {
-            if ($this->isSystemColumn($name) || in_array($name, self::OWN_ARGUMENTS, true)) {
-                continue;
-            }
-
-            if ($this->columnKind($config) === 'fillable') {
-                $fillable[] = $name;
-            }
-        }
-
-        return $fillable;
-    }
-
-    /**
-     * The validated `fields` map — column to the value the DataHandler will be
-     * given — or a refusal message. Empty when the argument is absent.
-     *
-     * The WHOLE call is refused on the first key or value that is wrong, in the
-     * order the model sent them. A key is refused first by name (a system
-     * column, or one of the tool's own arguments), then against the type's
-     * form, and the refusal names the columns the type does offer so the model
-     * can correct itself.
-     *
-     * @param array<string, mixed> $arguments
-     *
-     * @return array<non-empty-string, string|int>|string
-     */
-    private function collectFields(array $arguments, string $type, BackendUserAuthentication $user): array|string
-    {
-        if (!array_key_exists('fields', $arguments)) {
-            return [];
-        }
-
-        $raw = $arguments['fields'];
-        if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
-            return 'Refused: "fields" must be an object of column names to values.';
-        }
-
-        $columns  = $this->columnsOfType($type);
-        $fillable = $this->fillableColumnsOf($type);
-
-        $fields = [];
-        foreach ($raw as $key => $value) {
-            // The key is echoed back so the model can correct itself; it is a
-            // name the model itself chose, not instance data.
-            $column = preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '';
-
-            if (in_array($column, self::OWN_ARGUMENTS, true)) {
-                return sprintf('Refused: "%s" cannot be set through "fields"; pass it as the "%s" argument.', $column, $column);
-            }
-
-            if ($this->isSystemColumn($column)) {
-                return sprintf(
-                    'Refused: "%s" cannot be set through "fields". The tool sets identity, position and visibility '
-                    . 'itself, and publication, audience and translation columns are not editorial.',
-                    $column,
-                );
-            }
-
-            $refusal = array_key_exists($column, $columns) ? $this->keyRefusal($columns[$column]) : null;
-            if ($column === $key && $refusal !== null) {
-                return sprintf('Refused: "%s" cannot be set through "fields": %s.', $column, $refusal);
-            }
-
-            if ($column !== $key || !in_array($column, $fillable, true)) {
-                return sprintf(
-                    'Refused: "%s" is not a scalar column of content type "%s". Columns this tool sets for it: %s.',
-                    $column,
-                    $type,
-                    $fillable === [] ? 'none beyond header and bodytext' : implode(', ', $fillable),
-                );
-            }
-
-            $checked = $this->fieldValue($column, $value, $columns[$column]);
-            if (is_string($checked)) {
-                return $checked;
-            }
-
-            // The DataHandler asks `authMode` for every `select` declaring
-            // it, not for `CType` alone, and drops a value the user is not
-            // allowed in silence.
-            if (self::toStr($columns[$column]['type'] ?? '') === 'select'
-                && (bool) ($columns[$column]['authMode'] ?? false)
-                && !$user->checkAuthMode(self::TABLE, $column, (string) $checked[0])
-            ) {
-                return sprintf(
-                    'Refused: the acting backend user is not allowed the value "%s" for "%s" (no explicit allow for '
-                    . '%s:%s:%s). Nothing was written.',
-                    (string) $checked[0],
-                    $column,
-                    self::TABLE,
-                    $column,
-                    (string) $checked[0],
-                );
-            }
-
-            $fields[$column] = $checked[0];
-        }
-
-        return $fields;
-    }
-
-    /**
      * The columns the tool wrote itself whose stored value is not the one
      * asked for: the page, the type, the hidden state, the column and the
      * language. The DataHandler drops any of them in silence where the acting
@@ -1168,6 +1114,133 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         }
 
         return $notTaken;
+    }
+
+    /**
+     * One line per offered type with child records, for the description: the
+     * child-record column and the columns of its records, `*` for required
+     * (ADR-324).
+     *
+     * @param list<string> $types
+     *
+     * @return list<string>
+     */
+    private function childrenLines(array $types): array
+    {
+        $lines = [];
+        foreach ($types as $type) {
+            foreach ($this->childCollectionsOfType($type) as $column => $collection) {
+                $fields = [];
+                foreach ($collection['fields'] as $name => $config) {
+                    $fields[] = $name . ($this->isRequiredColumn($config) ? '*' : '');
+                }
+
+                $lines[] = sprintf('%s: children.%s[] = {%s}', $type, $column, implode(', ', $fields));
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The child records of the plan that did not come into being as asked:
+     * a placeholder without a row, a row not attached to the new element, or
+     * a column whose stored value is not the one asked for — named as
+     * `<table>:<column>` or `<table> record <n>` (ADR-324).
+     *
+     * @param array<string, int>                                                                                                                                                                                                                                              $childUids    placeholder to uid
+     * @param array<non-empty-string, list<non-empty-string>>                                                                                                                                                                                                                 $placeholders inline column to its placeholders, in order
+     * @param array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}> $children
+     *
+     * @return list<string>
+     */
+    private function childrenThatDidNotTake(int $parentUid, array $childUids, array $placeholders, array $children, int $language, int $workspace): array
+    {
+        $notTaken = [];
+        foreach ($children as $column => $collection) {
+            foreach ($placeholders[$column] ?? [] as $index => $placeholder) {
+                $uid    = $childUids[$placeholder] ?? 0;
+                $stored = $uid > 0 ? $this->rowSeenIn($collection['table'], $uid, $workspace) : null;
+                if ($stored === null || self::toInt($stored[$collection['foreignField']] ?? 0) !== $parentUid) {
+                    $notTaken[] = sprintf('%s record %d', $collection['table'], $index + 1);
+
+                    continue;
+                }
+
+                $type = $collection['typeValue'] !== '' ? $collection['typeValue'] : $this->recordTypeOf($collection['table'], $stored);
+                foreach ($this->fieldsThatDidNotTake($stored, $collection['rows'][$index] ?? [], $type, $collection['table']) as $name) {
+                    $notTaken[] = $collection['table'] . ':' . $name;
+                }
+
+                // A child carries the element's language; the DataHandler
+                // does not copy it from the parent, the backend form does.
+                if ($collection['languageField'] !== '' && self::toInt($stored[$collection['languageField']] ?? 0) !== $language) {
+                    $notTaken[] = $collection['table'] . ':' . $collection['languageField'];
+                }
+            }
+        }
+
+        return $notTaken;
+    }
+
+    /**
+     * What the answer adds for the children it wrote: ", with 3 records in
+     * <column>" per inline column, or nothing.
+     *
+     * @param array<non-empty-string, array{rows: list<array<non-empty-string, string|int>>}> $children
+     */
+    private function childrenSummary(array $children): string
+    {
+        $parts = [];
+        foreach ($children as $column => $collection) {
+            $parts[] = sprintf('%d record(s) in %s', count($collection['rows']), $column);
+        }
+
+        return $parts === [] ? '' : ', with ' . implode(', ', $parts);
+    }
+
+    /**
+     * The child tables a call would write, read from its arguments: the
+     * tables of the child-record columns it names for its type.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return list<non-empty-string>
+     */
+    private function childTablesOf(array $arguments): array
+    {
+        $children = $arguments['children'] ?? null;
+        if (!is_array($children) || $children === []) {
+            return [];
+        }
+
+        $collections = $this->childCollectionsOfType(trim(self::toStr($arguments['type'] ?? '')));
+        $tables      = [];
+        foreach (array_keys($children) as $column) {
+            $table = $collections[(string) $column]['table'] ?? null;
+            if ($table !== null && !in_array($table, $tables, true)) {
+                $tables[] = $table;
+            }
+        }
+
+        return $tables;
+    }
+
+    /**
+     * Where an installation keeps no draft of `tt_content` or of a child
+     * table the call writes, the call is refused before the approval card
+     * (ADR-264, ADR-324).
+     *
+     * @param array<string, mixed> $arguments
+     */
+    public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        $refusal = $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
+        foreach ($this->childTablesOf($arguments) as $table) {
+            $refusal ??= $this->refuseUnversionedTableInDraftWorkspace($context, $table);
+        }
+
+        return $refusal;
     }
 
     /**

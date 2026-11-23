@@ -58,8 +58,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
         // Seven declared types, of which three pass the exclusion rule
         // (ADR-196): `header`, `text` and `options` hold scalar columns only;
         // `html` is on the deny-list although its form is scalar;
-        // `plugin_like` carries a FlexForm column; `record_like` a select
-        // backed by a foreign table; `plugin_scalar` has the form
+        // `plugin_like` carries a FlexForm column; `record_like` a required
+        // select backed by a foreign table; `plugin_scalar` has the form
         // ExtensionManagementUtility::addPlugin() copies from `header` and
         // sits in the `plugins` item group, which is what marks it a plugin.
         // `textmedia` and `bullets` are deliberately ABSENT, so the list is
@@ -96,8 +96,10 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
                 'hidden'       => ['config' => ['type' => 'check']],
                 'pi_flexform'  => ['config' => ['type' => 'flex']],
                 // A TCA type the tool does not list either way: it fails closed.
-                'payload'    => ['config' => ['type' => 'json']],
-                'records'    => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address']],
+                'payload' => ['config' => ['type' => 'json']],
+                // Required: a record-backed select the draft would leave empty
+                // (ADR-324); an optional one leaves its type offered.
+                'records'    => ['config' => ['type' => 'select', 'foreign_table' => 'tt_address', 'minitems' => 1]],
                 'contact'    => ['config' => ['type' => 'email']],
                 'tint'       => ['config' => ['type' => 'color']],
                 'tint_alpha' => ['config' => ['type' => 'color', 'opacity' => true]],
@@ -304,8 +306,8 @@ final class CreateContentElementDraftToolTest extends AbstractUnitTestCase
             ['page' => 1, 'type' => 'plugin_like', 'header' => 'x'],
             'not a content type this tool creates',
         ];
-        // Declared, not denied, and excluded by the record-backed select in its
-        // form: a `select` counts as scalar only with static items.
+        // Declared, not denied, and excluded by the required record-backed
+        // select in its form: the draft would leave it empty (ADR-324).
         yield 'type with a foreign_table select' => [
             ['page' => 1, 'type' => 'record_like', 'header' => 'x'],
             'not a content type this tool creates',

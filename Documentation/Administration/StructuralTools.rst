@@ -15,8 +15,11 @@ Updating and managing records
    value outside a select's items, a number outside its range, a column the
    page's TSconfig hides or makes read-only is refused, and the refusal names
    the columns the type offers. An element whose type the exclusion rule leaves
-   out — raw HTML, plugins, menus, shortcuts, a form holding a FlexForm or
-   inline children — is refused whole; relations and the identity, position,
+   out — raw HTML, plugins, menus, shortcuts, a form the draft cannot fill
+   (:ref:`ADR-324 <adr-324>`) — is refused whole. An element with child
+   records (an accordion, a card group) is offered, but only its own scalar
+   columns change: its child records are neither added nor changed.
+   Relations and the identity, position,
    visibility, publication, audience and translation columns are never fields. A
    column a translation takes from its default-language element (``l10n_mode =
    exclude``) is refused and the element to change named. The approval card

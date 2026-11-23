@@ -40,6 +40,8 @@ trait ReadsContentTypeFormsTrait
 {
     // The form reading itself, shared with the translation draft (ADR-209).
     use ReadsRecordTypeFormTrait;
+    // Child records and FlexForm defaults (ADR-324).
+    use ReadsContentTypeChildrenTrait;
 
     /**
      * Content types no installation may offer through this tool, whatever
@@ -72,17 +74,20 @@ trait ReadsContentTypeFormsTrait
     /**
      * TCA column types a model may fill through `fields`. A `select` counts
      * only with static items and no `foreign_table` — see {@see self::columnKind()}.
+     * A `link` is checked against the schemes a draft may set (ADR-324).
      */
-    private const FILLABLE_COLUMN_TYPES = ['input', 'text', 'select', 'check', 'number', 'datetime', 'radio', 'color', 'email'];
+    private const FILLABLE_COLUMN_TYPES = ['input', 'text', 'select', 'check', 'number', 'datetime', 'radio', 'color', 'email', 'link'];
 
     /**
      * Column types that leave a type offered and are never filled: the
      * relations core attaches to prose — `categories` on every element,
-     * `header_link` in the header palette, `assets` on `textmedia` — and the
-     * language selector. A draft leaves them empty; a later tool or a human
-     * fills them. Every other non-fillable type excludes the type it sits in.
+     * `assets` on `textmedia` — the language selector, and the folder and
+     * record references of ADR-324 (bootstrap_package's `file_folder`, core's
+     * `file_collections`). A draft leaves them empty; a later tool or a human
+     * fills them. A required one excludes its type, as does every other
+     * non-fillable type (see {@see self::columnKind()}).
      */
-    private const UNFILLED_COLUMN_TYPES = ['file', 'category', 'link', 'language'];
+    private const UNFILLED_COLUMN_TYPES = ['file', 'category', 'language', 'folder', 'group'];
 
     /**
      * Columns of every element this tool sets itself or must never set:
@@ -118,10 +123,10 @@ trait ReadsContentTypeFormsTrait
      *
      * @param array<array-key, mixed> $rules the page's `TCEFORM.tt_content.`
      */
-    private function tceFormRuleRemoving(array $rules, string $column, string $type, string $value): ?string
+    private function tceFormRuleRemoving(array $rules, string $column, string $type, string $value, string $table = self::TABLE): ?string
     {
         [$columnRules, $typeRules] = $this->tceFormRulesOf($rules, $column, $type);
-        $prefix                    = 'TCEFORM.' . self::TABLE . '.' . $column . '.';
+        $prefix                    = 'TCEFORM.' . $table . '.' . $column . '.';
 
         foreach (['keepItems', 'removeItems'] as $key) {
             $list = array_key_exists($key, $typeRules) ? $typeRules[$key] : ($columnRules[$key] ?? null);
@@ -145,7 +150,7 @@ trait ReadsContentTypeFormsTrait
      *
      * @param array<array-key, mixed> $rules the page's `TCEFORM.tt_content.`
      */
-    private function tceFormDisabling(array $rules, string $column, string $type): ?string
+    private function tceFormDisabling(array $rules, string $column, string $type, string $table = self::TABLE): ?string
     {
         [$columnRules, $typeRules] = $this->tceFormRulesOf($rules, $column, $type);
         $fromType                  = array_key_exists('disabled', $typeRules);
@@ -153,7 +158,7 @@ trait ReadsContentTypeFormsTrait
             return null;
         }
 
-        return 'TCEFORM.' . self::TABLE . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'disabled';
+        return 'TCEFORM.' . $table . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'disabled';
     }
 
     /**
@@ -165,7 +170,7 @@ trait ReadsContentTypeFormsTrait
      *
      * @param array<array-key, mixed> $rules the page's `TCEFORM.tt_content.`
      */
-    private function tceFormReadOnly(array $rules, string $column, string $type, string $tcaType): ?string
+    private function tceFormReadOnly(array $rules, string $column, string $type, string $tcaType, string $table = self::TABLE): ?string
     {
         if (!in_array($tcaType, self::READ_ONLY_OVERRIDABLE_TYPES, true)) {
             return null;
@@ -179,7 +184,7 @@ trait ReadsContentTypeFormsTrait
             return null;
         }
 
-        return 'TCEFORM.' . self::TABLE . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'config.readOnly';
+        return 'TCEFORM.' . $table . '.' . $column . '.' . ($fromType ? 'types.' . $type . '.' : '') . 'config.readOnly';
     }
 
     /**
@@ -282,7 +287,7 @@ trait ReadsContentTypeFormsTrait
         }
 
         foreach ($columns as $name => $config) {
-            if (!$this->isSystemColumn($name) && !isset($shared[$name]) && $this->columnKind($config) === 'excluding') {
+            if (!$this->isSystemColumn($name) && !isset($shared[$name]) && $this->columnKindIn($type, $name, $config) === 'excluding') {
                 return false;
             }
         }
@@ -373,10 +378,12 @@ trait ReadsContentTypeFormsTrait
      * What one column means for the type it sits in.
      *
      * `fillable`: a scalar a model may set through `fields`. `unfilled`: a
-     * relation the draft leaves empty without excluding the type. `excluding`:
-     * everything else — a FlexForm, inline children, a group, folder or
-     * record-backed select, a slug, a password, and every type this tool does
-     * not know, so a new TCA type fails closed rather than open.
+     * relation the draft leaves empty without excluding the type — a file,
+     * category, folder or group reference, a record-backed select — unless the
+     * TCA requires a value in it (ADR-324). `excluding`: everything else — a
+     * slug, a password, and every type this tool does not know, so a new TCA
+     * type fails closed rather than open. Inline children and FlexForms are
+     * judged per type by {@see self::columnKindIn()}; here they exclude.
      *
      * @param array<array-key, mixed> $config
      *
@@ -384,22 +391,23 @@ trait ReadsContentTypeFormsTrait
      */
     private function columnKind(array $config): string
     {
-        $type = self::toStr($config['type'] ?? '');
+        $type     = self::toStr($config['type'] ?? '');
+        $unfilled = $this->isRequiredColumn($config) ? 'excluding' : 'unfilled';
         if ($type === 'select') {
             if (self::toStr($config['foreign_table'] ?? '') !== '') {
-                return 'excluding';
+                return $unfilled;
             }
 
-            return $this->staticItemValues($config) === [] || $this->keyRefusal($config) !== null ? 'unfilled' : 'fillable';
+            return $this->staticItemValues($config) === [] || $this->keyRefusal($config) !== null ? $unfilled : 'fillable';
         }
 
         if (in_array($type, self::FILLABLE_COLUMN_TYPES, true)) {
             // A scalar the DataHandler would bend by rule — see
             // keyRefusal() — stays in the form and is never filled.
-            return $this->keyRefusal($config) === null ? 'fillable' : 'unfilled';
+            return $this->keyRefusal($config) === null ? 'fillable' : $unfilled;
         }
 
-        return in_array($type, self::UNFILLED_COLUMN_TYPES, true) ? 'unfilled' : 'excluding';
+        return in_array($type, self::UNFILLED_COLUMN_TYPES, true) ? $unfilled : 'excluding';
     }
 
     /**
@@ -446,6 +454,120 @@ trait ReadsContentTypeFormsTrait
         }
 
         return null;
+    }
+
+    /**
+     * The columns a model may fill for the type — its form's fillable columns
+     * minus the system columns and the two that are arguments of their own.
+     *
+     * @param list<string> $ownArguments columns the caller takes as arguments of their own
+     *
+     * @return list<non-empty-string>
+     */
+    private function fillableColumnsOf(string $type, array $ownArguments = []): array
+    {
+        $fillable = [];
+        foreach ($this->columnsOfType($type) as $name => $config) {
+            if ($this->isSystemColumn($name) || in_array($name, $ownArguments, true)) {
+                continue;
+            }
+
+            if ($this->columnKind($config) === 'fillable') {
+                $fillable[] = $name;
+            }
+        }
+
+        return $fillable;
+    }
+
+    /**
+     * The validated `fields` map — column to the value the DataHandler will be
+     * given — or a refusal message. Empty when the argument is absent.
+     *
+     * The WHOLE call is refused on the first key or value that is wrong, in the
+     * order the model sent them. A key is refused first by name (a system
+     * column, or one of the tool's own arguments), then against the type's
+     * form, and the refusal names the columns the type does offer so the model
+     * can correct itself.
+     *
+     * @param array<string, mixed> $arguments
+     * @param list<string>         $ownArguments columns the caller takes as arguments of their own
+     *
+     * @return array<non-empty-string, string|int>|string
+     */
+    private function collectFields(array $arguments, string $type, BackendUserAuthentication $user, array $ownArguments = []): array|string
+    {
+        if (!array_key_exists('fields', $arguments)) {
+            return [];
+        }
+
+        $raw = $arguments['fields'];
+        if (!is_array($raw) || ($raw !== [] && array_is_list($raw))) {
+            return 'Refused: "fields" must be an object of column names to values.';
+        }
+
+        $columns  = $this->columnsOfType($type);
+        $fillable = $this->fillableColumnsOf($type, $ownArguments);
+
+        $fields = [];
+        foreach ($raw as $key => $value) {
+            // The key is echoed back so the model can correct itself; it is a
+            // name the model itself chose, not instance data.
+            $column = preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '';
+
+            if (in_array($column, $ownArguments, true)) {
+                return sprintf('Refused: "%s" cannot be set through "fields"; pass it as the "%s" argument.', $column, $column);
+            }
+
+            if ($this->isSystemColumn($column)) {
+                return sprintf(
+                    'Refused: "%s" cannot be set through "fields". The tool sets identity, position and visibility '
+                    . 'itself, and publication, audience and translation columns are not editorial.',
+                    $column,
+                );
+            }
+
+            $refusal = array_key_exists($column, $columns) ? $this->keyRefusal($columns[$column]) : null;
+            if ($column === $key && $refusal !== null) {
+                return sprintf('Refused: "%s" cannot be set through "fields": %s.', $column, $refusal);
+            }
+
+            if ($column !== $key || !in_array($column, $fillable, true)) {
+                return sprintf(
+                    'Refused: "%s" is not a scalar column of content type "%s". Columns this tool sets for it: %s.',
+                    $column,
+                    $type,
+                    $fillable === [] ? 'none beyond header and bodytext' : implode(', ', $fillable),
+                );
+            }
+
+            $checked = $this->fieldValue($column, $value, $columns[$column]);
+            if (is_string($checked)) {
+                return $checked;
+            }
+
+            // The DataHandler asks `authMode` for every `select` declaring
+            // it, not for `CType` alone, and drops a value the user is not
+            // allowed in silence.
+            if (self::toStr($columns[$column]['type'] ?? '') === 'select'
+                && (bool) ($columns[$column]['authMode'] ?? false)
+                && !$user->checkAuthMode(self::TABLE, $column, (string) $checked[0])
+            ) {
+                return sprintf(
+                    'Refused: the acting backend user is not allowed the value "%s" for "%s" (no explicit allow for '
+                    . '%s:%s:%s). Nothing was written.',
+                    (string) $checked[0],
+                    $column,
+                    self::TABLE,
+                    $column,
+                    (string) $checked[0],
+                );
+            }
+
+            $fields[$column] = $checked[0];
+        }
+
+        return $fields;
     }
 
     /**
@@ -654,7 +776,8 @@ trait ReadsContentTypeFormsTrait
      */
     private function textFieldValue(string $column, string $text, array $config, string $type): array|string
     {
-        return $this->textFormatRefusal($column, $text, $config, $type)
+        return ($type === 'link' ? $this->linkFormatRefusal($column, $text, $config) : null)
+            ?? $this->textFormatRefusal($column, $text, $config, $type)
             ?? $this->textLengthRefusal($column, $text, $config, $type)
             ?? [$text];
     }
@@ -883,9 +1006,9 @@ trait ReadsContentTypeFormsTrait
      *
      * @return list<string>
      */
-    private function fieldsThatDidNotTake(array $stored, array $fields, string $type): array
+    private function fieldsThatDidNotTake(array $stored, array $fields, string $type, string $table = self::TABLE): array
     {
-        $columns = $this->columnsOfType($type);
+        $columns = $table === self::TABLE ? $this->columnsOfType($type) : $this->formColumnsOf($table, $type);
 
         $notTaken = [];
         foreach ($fields as $column => $value) {

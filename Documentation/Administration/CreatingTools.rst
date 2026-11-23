@@ -108,18 +108,40 @@ Attaching and creating records
      unless it is denied by name — ``list`` (the legacy plugin element),
      ``html``, ``shortcut``, ``div``, every ``menu_*`` — or it is a plugin,
      known by its Extbase registration or by the ``plugins`` or ``forms``
-     item group, or its form holds a
-     column whose payload is not prose: a FlexForm, inline children, a group
-     or folder reference, a slug, a password. File, category and link
-     relations do not exclude a type; the draft leaves them empty, so
-     ``textmedia`` is offered and gets its media through
-     ``attach_file_to_content_element``. The tool description lists what the
+     item group, or its form holds a column the draft cannot fill: a slug, a
+     password, a reference the TCA requires, a FlexForm whose data structure
+     does not resolve or has a required field without default, an inline
+     column that is not a plain list of child records
+     (:ref:`ADR-324 <adr-324>`). File, category, folder and record
+     references do not exclude a type; the draft leaves them empty, so
+     ``textmedia``, ``image`` and ``uploads`` are offered and get their
+     files through ``attach_file_to_content_element`` or an editor. A
+     FlexForm is written with its data structure's defaults, as the backend
+     form writes them for a new element. The tool description lists what the
      installation offers.
+   - **Child records.** A type with an inline column of child records - the
+     items of bootstrap_package's accordion, card group, icon group, tab,
+     timeline or carousel - takes them through ``children``,
+     ``{column: [{column: value}]}``, in the order given; the tool
+     description names each such column and the columns of its records,
+     ``*`` for required. A record carries the fillable columns of its
+     table's form, validated like ``fields``; its own files, icons chosen
+     from a processed list, relations and FlexForms stay empty. The element
+     and its records are written in one DataHandler call, the records carry
+     the element's language, and the approval card lists every record with
+     its values. The acting user needs ``tables_modify`` on the child
+     table, the exclude-field grant of every child column set, and - where
+     the child table's type field declares ``authMode``, as the carousel
+     item does - the explicit allow for the type a record gets; a missing
+     one refuses the call before anything is written. A record that does not
+     come into being as asked takes the whole element back.
    - The field set is the type's own scalar columns: headline, body text,
      column, language and position as arguments, and every further ``input``,
      ``text``, ``select`` (static items), ``check``, ``number``, ``datetime``,
-     ``radio``, ``color`` or ``email`` column of the chosen type through
-     ``fields``, validated against its TCA type as the DataHandler reads it.
+     ``radio``, ``color``, ``email`` or ``link`` (an ``http``,
+     ``https``, ``mailto`` or ``tel`` link or ``t3://page?uid=<n>``)
+     column of the chosen type through ``fields``, validated against its TCA
+     type as the DataHandler reads it.
      A ``check`` with several items, a ``check`` limited by
      ``maximumRecordsChecked`` and an ``input`` or ``email`` with ``eval``
      ``unique`` stay in the form and are refused as keys, because TYPO3 would
@@ -142,7 +164,9 @@ Attaching and creating records
      ``colPos`` for the ``column`` argument and on ``sys_language_uid`` for
      the ``language`` argument — each also under ``types.<CType>`` — are
      honoured, and the refusal names the rule; a refused content type is
-     answered with the types the page does offer. ``addItems`` is not read,
+     answered with the types the page does offer. The same column rules apply
+     to the columns of child records, under ``TCEFORM.<child table>``.
+     ``addItems`` is not read,
      and a column that is ``readOnly`` in the TCA stays refused even where
      a page sets ``config.readOnly = 0``. This
      is still not a generic record API: the table is fixed and a
