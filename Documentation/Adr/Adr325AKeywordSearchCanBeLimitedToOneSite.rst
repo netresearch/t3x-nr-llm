@@ -58,8 +58,8 @@ Decision
    page of a ``pages`` document is placed with :php:`SiteFinder`, as the
    other backends do, before hits are deduplicated by URL. A page that has no
    site, or whose rootline cannot be read, is dropped as well. A search
-   limited to a site asks Solr for 50 rows, the number the other backends
-   read, so foreign pages do not use up the limit.
+   limited to a site asks Solr for 50 rows, so that the pages it drops do not
+   use up the limit of at most 20 hits.
 3. **A search without a site is unchanged**, including its request to Solr.
 
 Item 2 also applies to ``site_rag_query`` when it names a site.
@@ -77,8 +77,9 @@ Consequences
   still appear.
 - A page of another site shown through a mount point belongs to the site of
   its page. EXT:solr files it the same way.
-- 50 rows are read before the site check, in every backend. A site whose pages
-  rank below 50 others still gets fewer hits than it has.
+- The rows read before the site check stay bounded in every backend (50, in the
+  database backend per table). A site whose pages rank below that many others
+  still gets fewer hits than it has.
 - A backend that another extension registers receives the site in
   :php:`RetrievalQuery` and has to respect it itself.
 
