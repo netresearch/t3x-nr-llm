@@ -117,7 +117,9 @@ Attaching and creating records
      ``textmedia``, ``image`` and ``uploads`` are offered and get their
      files through ``attach_file_to_content_element`` or an editor. A
      FlexForm is written with its data structure's defaults, as the backend
-     form writes them for a new element. The tool description lists what the
+     form writes them for a new element, and its simple fields can be set
+     through ``fields`` as ``{FlexForm column: {field: value}}``
+     (:ref:`ADR-326 <adr-326>`). The tool description lists what the
      installation offers.
    - **Child records.** A type with an inline column of child records - the
      items of bootstrap_package's accordion, card group, icon group, tab,
@@ -127,8 +129,10 @@ Attaching and creating records
      element only: the element is created hidden, its records are not. The tool
      description names each such column and the columns of its records,
      ``*`` for required. A record carries the fillable columns of its
-     table's form, validated like ``fields``; its own files, icons chosen
-     from a processed list, relations and FlexForms stay empty. The element
+     table's form, validated like ``fields``; a select whose items a processor
+     computes, such as an icon, is chosen by name (``~`` in the tool
+     description, :ref:`ADR-326 <adr-326>`). Its own files, relations and
+     FlexForms stay empty. The element
      and its records are written in one DataHandler call, the records carry
      the element's language, and the approval card lists every record with
      its values. The acting user needs ``tables_modify`` on the child

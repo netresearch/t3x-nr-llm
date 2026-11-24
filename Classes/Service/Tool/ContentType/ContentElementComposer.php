@@ -57,14 +57,18 @@ final readonly class ContentElementComposer
      * One offered content type as a model reads it, or null when the type is
      * not offered: `{type, label, description, fields: {column: {type, label,
      * required, max?, items?, richText?}}, children: {column: {table,
-     * maxItems, fields: {...}}}}`. Labels and the description are translated
+     * maxItems, fields: {...}}}, flexForms: {column: {field: {...}}}}`. A child
+     * column whose items a processor computes carries their names as `items`,
+     * or as `itemsBy: {column, default, items}` where they depend on an earlier
+     * select of the record; `itemsPartial` says that the list may leave choices
+     * out. Labels and the description are translated
      * with `$languageService` where given. With `$user`, the columns and child
      * columns that user may not set (exclude-field grants) are left out, and a
      * child-record column whose records the user may not create, so a model is
      * never offered what {@see self::dataMap()} would refuse. Keys may be added
      * in a later version; none is removed.
      *
-     * @return array{type: string, label: string, description: string, fields: array<string, array<string, mixed>>, children: array<string, array{table: string, maxItems: int, fields: array<string, array<string, mixed>>}>}|null
+     * @return array{type: string, label: string, description: string, fields: array<string, array<string, mixed>>, children: array<string, array{table: string, maxItems: int, fields: array<string, array<string, mixed>>}>, flexForms: array<string, array<string, array<string, mixed>>>}|null
      */
     public function describe(string $cType, ?LanguageService $languageService = null, ?BackendUserAuthentication $user = null): ?array
     {
@@ -76,13 +80,17 @@ final readonly class ContentElementComposer
             ? static fn (string $label): string => str_starts_with($label, 'LLL:') ? $languageService->sL($label) : $label
             : static fn (string $label): string => $label;
 
-        $described = $this->describeContentType($cType, $translate);
+        $described = $this->describeContentType($cType, $translate, $user);
         if (!$user instanceof BackendUserAuthentication) {
             return $described;
         }
 
         foreach ($this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($described['fields'])) as $column) {
             unset($described['fields'][$column]);
+        }
+
+        foreach ($this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($described['flexForms'])) as $column) {
+            unset($described['flexForms'][$column]);
         }
 
         $collections = $this->childCollectionsOfType($cType);
@@ -93,9 +101,11 @@ final readonly class ContentElementComposer
                 continue;
             }
 
-            foreach ($this->columnsTheUserMayNotSet($user, $children['table'], array_keys($children['fields'])) as $name) {
-                unset($described['children'][$column]['fields'][$name]);
-            }
+            $fields = array_diff_key(
+                $children['fields'],
+                array_flip($this->columnsTheUserMayNotSet($user, $children['table'], array_keys($children['fields']))),
+            );
+            $described['children'][$column] = [...$children, 'fields' => $this->withoutDependenceOnHiddenColumns($fields)];
         }
 
         return $described;
@@ -142,7 +152,8 @@ final readonly class ContentElementComposer
      * The datamap of one content element with its child records, or the
      * refusals that stop it — nothing is written here.
      *
-     * `$fields` are further scalar columns of the type and `$children` the
+     * `$fields` are further scalar columns of the type, and the values of a
+     * FlexForm column as `{column: {field: value}}`; `$children` are the
      * records of its inline columns, `{column: [{column: value}]}`, both
      * checked as `create_content_element_draft` checks them: values against
      * the TCA, the exclude-field grants, `tables_modify` on the child tables,
@@ -165,7 +176,8 @@ final readonly class ContentElementComposer
             return ContentElementDataMap::refused(sprintf('Refused: "%s" is not a content type a draft can fill.', $cType));
         }
 
-        $checkedFields = $this->collectFields(['fields' => $fields], $cType, $user);
+        [$scalars, $flex] = $this->splitFlexFields($fields, $cType);
+        $checkedFields    = $this->collectFields(['fields' => $scalars], $cType, $user);
         if (is_string($checkedFields)) {
             return ContentElementDataMap::refused($checkedFields);
         }
@@ -178,7 +190,14 @@ final readonly class ContentElementComposer
             ));
         }
 
-        $plan = $this->childrenPlan($cType, $children, $language, $user);
+        $flexPlan = $this->flexPlan($cType, $flex, $user);
+        if (is_string($flexPlan)) {
+            return ContentElementDataMap::refused($flexPlan);
+        }
+
+        $tsConfig = $pageUid > 0 ? $this->pageTsConfig->forPage($pageUid, $user) : [];
+        $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
+        $plan     = $this->childrenPlan($cType, $children, $language, $user, $pageUid, $tceForm);
         if (is_string($plan)) {
             return ContentElementDataMap::refused($plan);
         }
@@ -197,9 +216,8 @@ final readonly class ContentElementComposer
         }
 
         if ($pageUid > 0) {
-            $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
-            $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
-            $refusal  = $this->columnsTsConfigRefusal($tceForm, self::TABLE, $cType, $checkedFields, $this->columnsOfType($cType), $pageUid)
+            $refusal = $this->columnsTsConfigRefusal($tceForm, self::TABLE, $cType, $checkedFields, $this->columnsOfType($cType), $pageUid)
+                ?? $this->flexTsConfigRefusal($tceForm, $flexPlan, $cType, $pageUid)
                 ?? $this->childrenTsConfigRefusal($tceForm, $plan, $pageUid, $cType);
             if ($refusal !== null) {
                 return ContentElementDataMap::refused($refusal);
@@ -207,8 +225,8 @@ final readonly class ContentElementComposer
         }
 
         $row = $checkedFields;
-        foreach ($this->flexDefaultsOfType($cType, $user) as $column => $defaults) {
-            $row[$column] = $defaults;
+        foreach ($this->flexValuesOfType($cType, $user, $flexPlan) as $column => $values) {
+            $row[$column] = $values;
         }
 
         $childMap = $this->childDataMap($plan, $pid, $language);
@@ -217,6 +235,36 @@ final readonly class ContentElementComposer
         }
 
         return new ContentElementDataMap([self::TABLE => [$placeholder => $row], ...$childMap['rows']], []);
+    }
+
+    /**
+     * The fields with no `itemsBy` on a column that is not among them: the
+     * choices for that column's default, which a record without it gets, or no
+     * field where there are none.
+     *
+     * @param array<string, array<string, mixed>> $fields
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function withoutDependenceOnHiddenColumns(array $fields): array
+    {
+        foreach ($fields as $name => $field) {
+            $by = $field['itemsBy'] ?? null;
+            if (!is_array($by) || isset($fields[self::toStr($by['column'] ?? '')])) {
+                continue;
+            }
+
+            $sets = is_array($by['items'] ?? null) ? $by['items'] : [];
+            unset($field['itemsBy']);
+            $field['items'] = $sets[self::toStr($by['default'] ?? '')] ?? [];
+            if ($field['items'] === [] && ($field['itemsPartial'] ?? false) !== true) {
+                unset($fields[$name]);
+            } else {
+                $fields[$name] = $field;
+            }
+        }
+
+        return $fields;
     }
 
     /**

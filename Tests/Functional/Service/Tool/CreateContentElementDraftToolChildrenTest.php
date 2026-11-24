@@ -10,12 +10,15 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Service\Tool;
 
 use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
+use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
 use Netresearch\NrLlm\Tests\Functional\Fixtures\BlankChildSubheaderHook;
+use Netresearch\NrLlm\Tests\Functional\Fixtures\BlankFlexFormValueHook;
+use Netresearch\NrLlm\Tests\Functional\Fixtures\ContentChildren\IconItems;
 use Netresearch\NrLlm\Tests\Functional\Fixtures\DetachChildHook;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -24,6 +27,8 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Type\Bitmask\Permission;
+use TYPO3\CMS\Core\Utility\ArrayUtility;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  * `create_content_element_draft` drafts a content element with the records of
@@ -117,7 +122,7 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         }
 
         self::assertStringContainsString(
-            'nrllm_items: children.tx_childrenfixture_items[] = {header*, subheader, bodytext, link, link_title}',
+            'nrllm_items: children.tx_childrenfixture_items[] = {header*, subheader, bodytext, link, link_title, icon_set~, icon~, broken~}',
             $spec->description,
         );
         self::assertStringContainsString('nrllm_slides: children.tx_childrenfixture_slides[] = {header*}', $spec->description);
@@ -173,6 +178,210 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         self::assertLessThan((int) $items[1]['sorting'], (int) $items[0]['sorting'], 'the children keep the order given');
         self::assertSame('https://example.org/more', $items[1]['link']);
         self::assertSame('Read more', $items[1]['link_title']);
+    }
+
+    #[Test]
+    public function anIconIsChosenByItsNameInTheSetTheRecordNames(): void
+    {
+        $result = $this->createItems([['header' => 'A', 'icon' => 'alpha-7', 'icon_set' => 'Alpha'], ['header' => 'B', 'icon_set' => IconItems::SET, 'icon' => IconItems::SET . 'alpha-8.svg']]);
+
+        self::assertFalse($result->isError, $result->content);
+        $items = $this->rows(self::ITEM_TABLE);
+        self::assertSame([IconItems::SET, IconItems::SET], array_column($items, 'icon_set'));
+        self::assertSame([IconItems::SET . 'alpha-7.svg', IconItems::SET . 'alpha-8.svg'], array_column($items, 'icon'));
+    }
+
+    #[Test]
+    public function anIconThatDoesNotExistIsAnsweredWithTheNearestNames(): void
+    {
+        $result = $this->createItems([['header' => 'A', 'icon_set' => 'Alpha', 'icon' => 'alpha-5x']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"alpha-5"', $result->content);
+        self::assertStringContainsString('one of 61 choices', $result->content);
+        self::assertStringContainsString('depend on icon_set', $result->content);
+        self::assertSame(0, $this->rowCount('tt_content'));
+    }
+
+    #[Test]
+    public function anIconOfAnotherSetIsRefused(): void
+    {
+        $result = $this->createItems([['header' => 'A', 'icon_set' => 'Beta', 'icon' => 'alpha-1']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"home"', $result->content);
+        self::assertSame(0, $this->rowCount('tt_content'));
+    }
+
+    #[Test]
+    public function anEditorWithoutTheGrantIsNotToldTheChoices(): void
+    {
+        $editor = $this->editorFor('nrllm_items', 'tx_childrenfixture_item:header');
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'children' => ['tx_childrenfixture_items' => [['header' => 'A', 'icon_set' => 'Alpha', 'icon' => 'zzz']]]],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('Refused: the acting backend user', $result->content);
+        self::assertStringNotContainsString('alpha-', $result->content);
+    }
+
+    #[Test]
+    public function aRefusalNamesNoColumnTheEditorMayNotSet(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array<string, mixed>>}} $tca */
+        $tca                                                              = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon_set']['exclude'] = true;
+        unset($tca);
+        $editor                             = $this->editorFor('nrllm_items', 'tx_childrenfixture_item:header', 'tx_childrenfixture_item:icon');
+        $editor->groupData['tables_modify'] = 'tt_content,tx_childrenfixture_item';
+
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'children' => ['tx_childrenfixture_items' => [['header' => 'A', 'icon' => 'zzz']]]],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"icon" must be one of', $result->content);
+        self::assertStringNotContainsString('icon_set', $result->content);
+    }
+
+    #[Test]
+    public function theNameOfAnEmptyChoiceDoesNotSatisfyARequiredColumn(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                         = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon_set']['config']['required'] = true;
+        unset($tca);
+
+        $result = $this->createItems([['header' => 'A', 'icon_set' => 'None at all']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"icon_set" is required and must not be empty', $result->content);
+    }
+
+    #[Test]
+    public function aChoiceThePageTakesAwayIsNotOffered(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEFORM.tx_childrenfixture_item.icon_set.removeItems = ' . IconItems::SET], ['uid' => self::PAGE]);
+
+        $result = $this->createItems([['header' => 'A', 'icon_set' => 'Alpha']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('one of 1 choices, for example: "Beta"', $result->content);
+    }
+
+    #[Test]
+    public function choicesThatCannotBeComputedAreSaidSo(): void
+    {
+        $result = $this->createItems([['header' => 'A', 'broken' => 'x']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('could not be computed (RuntimeException)', $result->content);
+        self::assertSame(0, $this->rowCount('tt_content'));
+    }
+
+    #[Test]
+    public function simpleFlexFormFieldsAreWrittenOverTheDefaults(): void
+    {
+        $result = $this->createItems([['header' => 'A']], ['pi_flexform' => ['opened' => '2', 'settings.intro' => 'Hello']]);
+
+        self::assertFalse($result->isError, $result->content);
+        $element = $this->onlyRow('tt_content');
+        $flex    = GeneralUtility::xml2array($this->toText($element['pi_flexform']));
+        self::assertIsArray($flex);
+        self::assertSame(
+            ['columns' => ['vDEF' => '2'], 'opened' => ['vDEF' => '2'], 'settings.intro' => ['vDEF' => 'Hello']],
+            ArrayUtility::getValueByPath($flex, 'data/sDEF/lDEF'),
+        );
+
+        $second = $this->createItems([['header' => 'B']], ['pi_flexform' => ['columns' => '1']]);
+        self::assertFalse($second->isError, $second->content);
+        $rows = $this->rows('tt_content');
+        self::assertStringContainsString('<value index="vDEF">1</value>', $this->toText($rows[1]['pi_flexform']));
+    }
+
+    /**
+     * @return iterable<string, array{mixed, string}>
+     */
+    public static function refusedFlexForms(): iterable
+    {
+        yield 'a value outside the items' => [['columns' => '9'], 'must be one of: "1", "2"'];
+        yield 'a value that is too long' => [['settings.intro' => str_repeat('x', 21)], 'exceeds 20 characters'];
+        yield 'a record reference' => [['record' => '1'], '"record" is not a field'];
+        yield 'an unknown field' => [['nope' => '1'], 'Fields: columns, opened, settings.intro, secret'];
+        yield 'no object' => ['<T3FlexForms/>', 'must be an object'];
+    }
+
+    #[Test]
+    #[DataProvider('refusedFlexForms')]
+    public function wrongFlexFormValuesAreRefusedAndNothingIsCreated(mixed $value, string $expected): void
+    {
+        $result = $this->createItems([['header' => 'A']], ['pi_flexform' => $value]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString($expected, $result->content);
+        self::assertSame(0, $this->rowCount('tt_content'));
+    }
+
+    #[Test]
+    public function aFlexFormFieldThePageNarrowsIsRefused(): void
+    {
+        $rules = [
+            'sDEF.columns.disabled = 1'          => ['columns' => '1'],
+            'sDEF.columns.removeItems = 1'       => ['columns' => '1'],
+            'sDEF.columns.config.readOnly = 1'   => ['columns' => '1'],
+            'sDEF.disabled = 1'                  => ['columns' => '1'],
+            'sDEF.settings\\.intro.disabled = 1' => ['settings.intro' => 'x'],
+            'sDEF.settings.intro.disabled = 1'   => ['settings.intro' => 'x'],
+        ];
+        foreach ($rules as $rule => $values) {
+            $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEFORM.tt_content.pi_flexform.nrllm_items.' . $rule], ['uid' => self::PAGE]);
+            $result = $this->createItems([['header' => 'A']], ['pi_flexform' => $values]);
+
+            self::assertTrue($result->isError, $rule);
+            self::assertStringContainsString('by its page TSconfig', $result->content);
+        }
+
+        self::assertSame(0, $this->rowCount('tt_content'));
+    }
+
+    #[Test]
+    public function aFlexFormFieldForAdministratorsIsNotAnEditors(): void
+    {
+        $arguments = ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'fields' => ['pi_flexform' => ['secret' => 'x']]];
+        $editor    = $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($this->editorFor('nrllm_items', 'tt_content:pi_flexform')));
+        self::assertTrue($editor->isError);
+        self::assertStringContainsString('"secret" is not a field', $editor->content);
+
+        $admin = $this->tool->execute($arguments, ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)));
+        self::assertFalse($admin->isError, $admin->content);
+    }
+
+    #[Test]
+    public function theCardShowsIconsAndFlexFormValues(): void
+    {
+        $lines = $this->tool->previewCall(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'fields' => ['pi_flexform' => ['columns' => '1']], 'children' => ['tx_childrenfixture_items' => [['header' => 'A', 'icon_set' => 'Beta', 'icon' => 'home']]]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
+        $card = implode("\n", $lines);
+
+        self::assertStringContainsString('/ columns: ', $card);
+        self::assertStringContainsString('Icons/Beta/home.svg', $card);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     * @param array<string, mixed>       $fields
+     */
+    private function createItems(array $items, array $fields = []): ToolResult
+    {
+        return $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'fields' => $fields, 'children' => ['tx_childrenfixture_items' => $items]],
+            ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1)),
+        );
     }
 
     /**
@@ -302,8 +511,8 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
             '"tx_childrenfixture_slides" is not a child-record column of content type "nrllm_items". Child-record columns: tx_childrenfixture_items.',
         ];
         yield 'an unknown column of a record' => [
-            ['tx_childrenfixture_items' => [['header' => 'x', 'icon' => 'star']]],
-            '"icon" is not a column of the records in "children.tx_childrenfixture_items". Columns: header, subheader, bodytext, link, link_title.',
+            ['tx_childrenfixture_items' => [['header' => 'x', 'image' => 'star']]],
+            '"image" is not a column of the records in "children.tx_childrenfixture_items". Columns: header, subheader, bodytext, link, link_title, icon_set, icon, broken.',
         ];
         yield 'a missing required column' => [
             ['tx_childrenfixture_items' => [['subheader' => 'no header']]],
@@ -457,6 +666,21 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         self::assertStringContainsString('tx_childrenfixture_item:subheader did not carry the value asked for, so it was deleted again', $result->content);
         self::assertSame(1, (int) $this->onlyRow('tt_content')['deleted'], 'the element is taken back');
         self::assertSame([], array_filter($this->rows(self::ITEM_TABLE), static fn (array $row): bool => (int) $row['deleted'] === 0));
+    }
+
+    #[Test]
+    public function aFlexFormValueThatDidNotTakeTakesTheElementBack(): void
+    {
+        /** @var array{SC_OPTIONS: array<string, array<string, list<string>>>} $confVars */
+        $confVars                                                                         = &$GLOBALS['TYPO3_CONF_VARS'];
+        $confVars['SC_OPTIONS']['t3lib/class.t3lib_tcemain.php']['processDatamapClass'][] = BlankFlexFormValueHook::class;
+        unset($confVars);
+
+        $result = $this->createItems([['header' => 'A']], ['pi_flexform' => ['opened' => 'taken away']]);
+
+        self::assertTrue($result->isError, $result->content);
+        self::assertStringContainsString('pi_flexform opened did not carry the value asked for, so it was deleted again', $result->content);
+        self::assertSame(1, (int) $this->onlyRow('tt_content')['deleted']);
     }
 
     #[Test]

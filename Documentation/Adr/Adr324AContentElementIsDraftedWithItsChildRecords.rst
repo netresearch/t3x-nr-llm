@@ -9,7 +9,8 @@
 ADR-324: A content element is drafted with its child records
 ============================================================================
 
-:Status: Accepted
+:Status: Accepted (its "no FlexForm values" and "no ``itemsProcFunc`` values"
+    for child records are settled - see :ref:`ADR-326 <adr-326>`)
 :Date: 2026-11-23
 :Amends: :ref:`ADR-196 <adr-196>` (its column rule: inline child records,
     FlexForm columns, folder, group and record-backed select columns, and
@@ -18,6 +19,8 @@ ADR-324: A content element is drafted with its child records
     columns ``update_content_element`` takes follow the same rule);
     :ref:`ADR-205 <adr-205>` (accordion, tab and carousel no longer stay
     excluded; its treatment of the shared form stands)
+:Amended: 2026-11-24 by :ref:`ADR-326 <adr-326>` (simple FlexForm fields, and
+    selects of child records with computed items)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-324-context:

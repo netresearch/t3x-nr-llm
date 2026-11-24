@@ -11,7 +11,9 @@ CREATE TABLE tx_childrenfixture_item (
 	bodytext text,
 	link varchar(1024) DEFAULT '' NOT NULL,
 	link_title varchar(255) DEFAULT '' NOT NULL,
-	icon varchar(60) DEFAULT '' NOT NULL,
+	icon_set varchar(255) DEFAULT '' NOT NULL,
+	icon varchar(255) DEFAULT '' NOT NULL,
+	broken varchar(60) DEFAULT '' NOT NULL,
 	image int(11) unsigned DEFAULT '0' NOT NULL
 );
 
