@@ -77,7 +77,7 @@ child records. nr_landingpage's Page Composer builds its sections through it.
    whose items a processor computes carries their names as ``items``, or as
    ``itemsBy`` (``column``, its ``default``, and ``items`` per choice of
    that column) where they depend on an earlier select of the record.
-   ``itemsPartial`` marks a list that may leave choices out
+   ``itemsPartial`` marks a list known to be incomplete
    (:ref:`ADR-326 <adr-326>`). With a
    user, the columns that user may not set are left out. ``null`` for a type
    the rule does not offer. A later version may add keys; none is removed.

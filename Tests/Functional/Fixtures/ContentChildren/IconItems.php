@@ -60,6 +60,15 @@ final class IconItems
         $configuration['items'] = $items;
     }
 
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function iconsOfASetOnly(array &$configuration): void
+    {
+        $this->icons($configuration);
+        $configuration['items'] = is_array($configuration['items']) ? array_slice($configuration['items'], 1) : [];
+    }
+
     public function broken(): never
     {
         throw new RuntimeException('The choices cannot be computed.', 1764000000);

@@ -57,8 +57,8 @@ text and unique; the stored value is accepted too. The tool description marks
 such a column (``~``) without its items. A name that does not exist is answered
 with the nearest ones. ``ContentElementComposer::describe()`` lists the names:
 ``items``, or ``itemsBy`` (the earlier select they depend on, its default, and
-the names per choice). ``itemsPartial`` marks a list that may leave choices out:
-two selects decide, or one has more than 50 choices.
+the names per choice). ``itemsPartial`` marks a list known to be
+incomplete: two selects decide, or one has more than 50 choices.
 A column whose processor fails is not described.
 
 **Simple FlexForm fields are fillable** through ``fields``, as
@@ -91,8 +91,14 @@ that lists several such types in one prompt carries the names several times.
 ✕ A non-administrator cannot set a FlexForm field with ``exclude``, even with
 core's grant for that field.
 
-✕ A processed select placed before the one it depends on gets the choices for
-that one's default. Its form would be reloaded by the editor; a draft is not.
+✕ A processed select placed before another processed select it depends on gets
+the choices for that one's default; ``describe()`` does so for a static select
+placed later as well.
+
+✕ ``describe()`` tries one earlier select at a time, the others at their
+default. Choices that only a combination, a chain of selects, or a radio or
+check column brings are not listed and not marked; ``dataMap()`` computes them
+for the record it gets.
 
 ✕ The processor's row holds the record's own columns. The relation, visibility
 and reference columns and FormEngine's ``inlineParent*`` parameters are not

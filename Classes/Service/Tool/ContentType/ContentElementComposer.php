@@ -257,7 +257,7 @@ final readonly class ContentElementComposer
             $sets = is_array($by['items'] ?? null) ? $by['items'] : [];
             unset($field['itemsBy']);
             $field['items'] = $sets[self::toStr($by['default'] ?? '')] ?? [];
-            if ($field['items'] === []) {
+            if ($field['items'] === [] && ($field['itemsPartial'] ?? false) !== true) {
                 unset($fields[$name]);
             } else {
                 $fields[$name] = $field;

@@ -394,6 +394,24 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
     }
 
     #[Test]
+    public function theChoicesOfAnEmptySelectAreDescribedAndStaticItemsAreNotListedBeside(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                  = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon']['config']['items'] = [['label' => 'Static', 'value' => 'static']];
+        unset($tca);
+
+        $icon = ($this->composer->describe('nrllm_items')['children']['tx_childrenfixture_items']['fields'] ?? [])['icon'] ?? [];
+
+        self::assertArrayNotHasKey('items', $icon);
+        $by = $icon['itemsBy'] ?? null;
+        self::assertIsArray($by);
+        self::assertSame('', $by['default'] ?? null);
+        self::assertIsArray($by['items'] ?? null);
+        self::assertSame(['0'], $by['items'][''] ?? null);
+    }
+
+    #[Test]
     public function choicesThatTooManyOthersDecideAreMarkedPartial(): void
     {
         /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
@@ -423,7 +441,15 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
 
         self::assertArrayHasKey('header', $fields);
         self::assertArrayNotHasKey('icon_set', $fields);
-        self::assertArrayNotHasKey('icon', $fields, 'without a default set there is no icon to choose');
+        self::assertArrayNotHasKey('itemsBy', $fields['icon'] ?? []);
+        self::assertSame(['0'], $fields['icon']['items'] ?? null, 'the choices without a set');
+
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                          = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon']['config']['itemsProcFunc'] = IconItems::class . '->iconsOfASetOnly';
+        unset($tca);
+        $described = $this->composer->describe('nrllm_items', null, $this->editor('tx_childrenfixture_item:header', 'tx_childrenfixture_item:icon'));
+        self::assertArrayNotHasKey('icon', $described['children']['tx_childrenfixture_items']['fields'] ?? [], 'nothing to choose without a set');
     }
 
     #[Test]

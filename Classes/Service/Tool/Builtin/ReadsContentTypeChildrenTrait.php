@@ -802,9 +802,10 @@ trait ReadsContentTypeChildrenTrait
 
         $others = array_keys(array_filter(
             $collection['fields'],
-            fn (array $config, string $name): bool => $name !== $column && $this->isProcessedSelect($config),
+            static fn (array $config, string $name): bool => $name !== $column && self::toStr($config['type'] ?? '') === 'select',
             ARRAY_FILTER_USE_BOTH,
         ));
+        $others = array_values(array_diff($others, $this->columnsTheUserMayNotSet($user, $collection['table'], $others)));
 
         return sprintf(
             'Refused: the value for "%s" must be one of %d choices, for example: %s.%s',
@@ -1334,7 +1335,12 @@ trait ReadsContentTypeChildrenTrait
                 }
 
                 $described[$name] = [...$described[$name], ...$this->describeItemsOf($collection, $name, $items, $earlier, $user)];
-                $earlier[$name]   = $items->items;
+                if (isset($described[$name]['itemsBy'])) {
+                    // The column's static items are among those of each choice.
+                    unset($described[$name]['items']);
+                }
+
+                $earlier[$name] = $items->items;
             } elseif (self::toStr($config['type'] ?? '') === 'select') {
                 $earlier[$name] = array_map(static fn (string $value): array => ['value' => $value, 'name' => $value], $this->staticItemValues($config));
             }
@@ -1362,8 +1368,8 @@ trait ReadsContentTypeChildrenTrait
             $sets = [];
             foreach ($choices as $choice) {
                 $set = $this->processedItems($collection, $column, [$before => $choice['value']], 0, 0, [], $user);
-                if ($choice['value'] !== '' && $set->failed === '') {
-                    $sets[$choice['name']] = $set->names();
+                if ($set->failed === '') {
+                    $sets[$choice['value'] === '' ? '' : $choice['name']] = $set->names();
                 }
             }
 
