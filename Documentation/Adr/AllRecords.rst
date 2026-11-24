@@ -316,3 +316,4 @@ All decision records
    Adr322ARunRecordsTheTestEvidenceOfTheSkillVersionsItUsed
    Adr323ARunCanTellItsInputsApartWithoutKeepingThem
    Adr324AContentElementIsDraftedWithItsChildRecords
+   Adr327AProposalIsStoredAsAWorkspaceVersionFirst
