@@ -24,6 +24,19 @@
                             <type>input</type>
                         </config>
                     </opened>
+                    <settings.intro>
+                        <label>Intro</label>
+                        <config><type>input</type><max>20</max></config>
+                    </settings.intro>
+                    <secret>
+                        <label>For administrators</label>
+                        <exclude>1</exclude>
+                        <config><type>input</type></config>
+                    </secret>
+                    <record>
+                        <label>Record</label>
+                        <config><type>select</type><renderType>selectSingle</renderType><foreign_table>pages</foreign_table></config>
+                    </record>
                 </el>
             </ROOT>
         </sDEF>

@@ -71,8 +71,12 @@ child records. nr_landingpage's Page Composer builds its sections through it.
    One offered type as an array a model reads: ``type``, ``label``,
    ``description`` (the TCA item's description, a usage hint), ``fields``
    (column to ``type``, ``label``, ``required`` and, where they apply,
-   ``max``, ``items``, ``richText``) and ``children`` (inline column to
-   ``table``, ``maxItems`` and the ``fields`` of its records). With a
+   ``max``, ``items``, ``richText``), ``children`` (inline column to
+   ``table``, ``maxItems`` and the ``fields`` of its records) and
+   ``flexForms`` (FlexForm column to its simple fields). A child column
+   whose items a processor computes carries their names as ``items``, or as
+   ``itemsBy`` (``column`` and ``items`` per choice of that column) where
+   they depend on another column (:ref:`ADR-326 <adr-326>`). With a
    user, the columns that user may not set are left out. ``null`` for a type
    the rule does not offer. A later version may add keys; none is removed.
 
@@ -85,7 +89,8 @@ child records. nr_landingpage's Page Composer builds its sections through it.
 
 :php:`dataMap()`
    :php:`ContentElementDataMap`: the columns to merge into the caller's
-   element row (further ``fields``, FlexForm defaults, the inline columns
+   element row (further ``fields``, FlexForm defaults with the values given in
+   ``fields`` as ``{FlexForm column: {field: value}}``, the inline columns
    naming the child placeholders) and the child rows per table, or the
    refusals (:php:`isRefused()`, :php:`$refusals`). Every value is checked
    against the TCA and the page TSconfig of ``$pageUid``; the child records

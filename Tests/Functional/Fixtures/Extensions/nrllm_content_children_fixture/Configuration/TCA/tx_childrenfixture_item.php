@@ -7,6 +7,8 @@
 
 declare(strict_types=1);
 
+use Netresearch\NrLlm\Tests\Functional\Fixtures\ContentChildren\IconItems;
+
 /*
  * The item of an accordion or card group, shaped like bootstrap_package's
  * item tables (ADR-324): a required exclude header, a column without
@@ -35,7 +37,7 @@ return [
     ],
     'types' => [
         '1' => [
-            'showitem' => 'parent_content, header, subheader, bodytext, link, link_title, icon, image, '
+            'showitem' => 'parent_content, header, subheader, bodytext, link, link_title, icon_set, icon, broken, image, '
                 . '--palette--;;language, --div--;Access, hidden, starttime, endtime',
         ],
     ],
@@ -111,13 +113,29 @@ return [
             'label'   => 'Link text',
             'config'  => ['type' => 'input', 'max' => 100],
         ],
+        'icon_set' => [
+            'label'  => 'Icon set',
+            'config' => [
+                'type'          => 'select',
+                'renderType'    => 'selectSingle',
+                'itemsProcFunc' => IconItems::class . '->sets',
+            ],
+        ],
         'icon' => [
             'exclude' => true,
             'label'   => 'Icon',
             'config'  => [
                 'type'          => 'select',
                 'renderType'    => 'selectSingle',
-                'itemsProcFunc' => 'Vendor\\Fixture\\IconItems->items',
+                'itemsProcFunc' => IconItems::class . '->icons',
+            ],
+        ],
+        'broken' => [
+            'label'  => 'Choices that cannot be computed',
+            'config' => [
+                'type'          => 'select',
+                'renderType'    => 'selectSingle',
+                'itemsProcFunc' => IconItems::class . '->broken',
             ],
         ],
         'image' => [

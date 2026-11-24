@@ -12,6 +12,7 @@ namespace Netresearch\NrLlm\Tests\Functional\Service\Tool\ContentType;
 use Netresearch\NrLlm\Service\Tool\ContentType\ContentElementComposer;
 use Netresearch\NrLlm\Service\Tool\ContentType\ContentElementDataMap;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
+use Netresearch\NrLlm\Tests\Functional\Fixtures\ContentChildren\IconItems;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -77,7 +78,16 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
         self::assertIsArray($items);
         self::assertSame('tx_childrenfixture_item', $items['table']);
         self::assertSame(3, $items['maxItems']);
-        self::assertSame(['header', 'subheader', 'bodytext', 'link', 'link_title'], array_keys($items['fields']));
+        self::assertSame(['header', 'subheader', 'bodytext', 'link', 'link_title', 'icon_set', 'icon'], array_keys($items['fields']), 'a column whose processor fails is left out');
+        self::assertSame(['Alpha', 'Beta'], $items['fields']['icon_set']['items'] ?? null);
+        $icons = $items['fields']['icon']['itemsBy'] ?? null;
+        self::assertIsArray($icons);
+        self::assertSame('icon_set', $icons['column'] ?? null);
+        self::assertIsArray($icons['items'] ?? null);
+        self::assertCount(61, $icons['items']['Alpha'] ?? []);
+        self::assertContains('home', $icons['items']['Beta'] ?? []);
+        self::assertSame(['columns', 'opened', 'settings.intro'], array_keys($described['flexForms']['pi_flexform'] ?? []));
+        self::assertSame(['1', '2'], $described['flexForms']['pi_flexform']['columns']['items'] ?? null);
         self::assertTrue($items['fields']['header']['required'] ?? null);
         self::assertTrue($items['fields']['bodytext']['richText'] ?? null);
         self::assertSame('link', $items['fields']['link']['type'] ?? null);
@@ -301,7 +311,7 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
         $described = $this->composer->describe('nrllm_items', null, $editor);
 
         self::assertNotNull($described);
-        self::assertSame(['header', 'subheader'], array_keys($described['children']['tx_childrenfixture_items']['fields'] ?? []));
+        self::assertSame(['header', 'subheader', 'icon_set'], array_keys($described['children']['tx_childrenfixture_items']['fields'] ?? []));
 
         $withoutTable                             = $this->editor('tx_childrenfixture_item:header');
         $withoutTable->groupData['tables_modify'] = 'tt_content';
@@ -355,6 +365,30 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
         self::assertSame([$pageUid, $pageUid], array_map(intval(...), array_column($items, 'pid')));
         self::assertSame([$elementUid, $elementUid], array_map(intval(...), array_column($items, 'parent_content')));
         self::assertSame('mailto:info@example.org', $items[1]['link']);
+    }
+
+    #[Test]
+    public function theDataMapCarriesFlexFormValuesAndIcons(): void
+    {
+        $admin = $this->setUpBackendUser(1);
+        self::assertInstanceOf(BackendUserAuthentication::class, $admin);
+        unset($GLOBALS['BE_USER']);
+        $map = $this->composer->dataMap(
+            'nrllm_items',
+            'NEW_content',
+            ['pi_flexform' => ['columns' => '1']],
+            ['tx_childrenfixture_items' => [['header' => 'A', 'icon_set' => 'Beta', 'icon' => 'home']]],
+            self::PAGE,
+            self::PAGE,
+            0,
+            $admin,
+        );
+
+        self::assertSame([], $map->refusals);
+        self::assertSame($admin, IconItems::$user, 'a processor sees the acting user');
+        self::assertArrayNotHasKey('BE_USER', $GLOBALS, 'and the ambient one is restored');
+        self::assertSame(['data' => ['sDEF' => ['lDEF' => ['columns' => ['vDEF' => '1']]]]], $map->dataMap['tt_content']['NEW_content']['pi_flexform'] ?? null);
+        self::assertContains('EXT:fixture/Icons/Beta/home.svg', array_column($map->dataMap['tx_childrenfixture_item'] ?? [], 'icon'));
     }
 
     #[Test]

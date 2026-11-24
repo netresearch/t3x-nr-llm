@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Service\Tool\Builtin;
 
 use Closure;
+use Netresearch\NrLlm\Service\Tool\ContentType\ProcessedSelectItems;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -25,7 +26,9 @@ use TYPO3\CMS\Core\Utility\StringUtility;
  * rows for the children of one element.
  *
  * Used by {@see ReadsContentTypeFormsTrait}, so every consumer of that trait
- * applies the same rule. The consuming class must provide what that trait
+ * applies the same rule. ADR-326 adds the values of a FlexForm's simple fields
+ * and the items an `itemsProcFunc` computes for a child record's select. The
+ * consuming class must provide what that trait
  * needs, plus `columnsTheUserMayNotSet()` (via
  * {@see WritesThroughDataHandlerTrait}) where it calls
  * {@see self::childrenPlan()}.
@@ -40,6 +43,15 @@ trait ReadsContentTypeChildrenTrait
 
     /** The most child records one inline column takes in one draft, whatever its `maxitems`. */
     private const MAX_CHILDREN = 50;
+
+    /** The TCA types of a FlexForm field a model may set (ADR-326). */
+    private const FLEX_FIELD_TYPES = ['input', 'text', 'select', 'check', 'number', 'radio', 'color', 'email', 'link'];
+
+    /** The most names a refusal offers in place of a processed item that does not exist. */
+    private const MAX_OFFERED_NAMES = 40;
+
+    /** The most items of one processed select for which a later one's items are described apart. */
+    private const MAX_ITEM_SETS = 10;
 
     /**
      * What one column of a type's form means for the type: the kinds of
@@ -137,7 +149,7 @@ trait ReadsContentTypeChildrenTrait
                 continue;
             }
 
-            if ($this->columnKind($columnConfig) === 'fillable') {
+            if ($this->columnKind($columnConfig) === 'fillable' || $this->isProcessedSelect($columnConfig)) {
                 $fields[$name] = $columnConfig;
             } elseif ($this->isRequiredColumn($columnConfig)) {
                 return null;
@@ -287,6 +299,21 @@ trait ReadsContentTypeChildrenTrait
      */
     private function flexDefaultsOf(string $type, string $column, array $config): ?array
     {
+        $structure = $this->dataStructureOf($type, $column, $config);
+
+        return $structure === null ? null : $this->defaultsOfDataStructure($structure);
+    }
+
+    /**
+     * The data structure of a FlexForm column for a type, or null when it does
+     * not resolve.
+     *
+     * @param array<array-key, mixed> $config
+     *
+     * @return array<array-key, mixed>|null
+     */
+    private function dataStructureOf(string $type, string $column, array $config): ?array
+    {
         $tca      = $GLOBALS['TCA'] ?? null;
         $tableTca = is_array($tca) && is_array($tca[self::TABLE] ?? null) ? $tca[self::TABLE] : null;
         if ($tableTca === null) {
@@ -309,7 +336,7 @@ trait ReadsContentTypeChildrenTrait
             return null;
         }
 
-        return $this->defaultsOfDataStructure($structure);
+        return $structure;
     }
 
     /**
@@ -381,6 +408,381 @@ trait ReadsContentTypeChildrenTrait
     }
 
     /**
+     * The FlexForm values a new element of the type is written with: the
+     * defaults, and over them the values of the plan (ADR-326).
+     *
+     * @param array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>> $flexPlan
+     *
+     * @return array<non-empty-string, array<string, mixed>>
+     */
+    private function flexValuesOfType(string $type, ?BackendUserAuthentication $user, array $flexPlan): array
+    {
+        $values = $this->flexDefaultsOfType($type, $user);
+        foreach ($flexPlan as $column => $fields) {
+            $sheets = $values[$column]['data'] ?? [];
+            $sheets = is_array($sheets) ? $sheets : [];
+            foreach ($fields as $name => $field) {
+                $sheets = array_replace_recursive($sheets, [$field['sheet'] => ['lDEF' => [$name => ['vDEF' => (string) $field['value']]]]]);
+            }
+
+            $values[$column] = ['data' => $sheets];
+        }
+
+        return $values;
+    }
+
+    /**
+     * The FlexForm fields a model may set for the type, per FlexForm column of
+     * its own form (ADR-326): single scalar fields whose name is unique in the
+     * data structure. A field that declares `exclude` is for administrators:
+     * core's form asks a grant per field, and the DataHandler asks none.
+     *
+     * @return array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>}>>
+     */
+    private function flexFieldsOfType(string $type, ?BackendUserAuthentication $user = null): array
+    {
+        $shared = $this->sharedFormColumns();
+        $found  = [];
+        foreach ($this->columnsOfType($type) as $name => $config) {
+            if ($this->isSystemColumn($name) || isset($shared[$name]) || self::toStr($config['type'] ?? '') !== 'flex'
+                || (bool) ($config['readOnly'] ?? false)
+            ) {
+                continue;
+            }
+
+            $structure = $this->dataStructureOf($type, $name, $config);
+            $fields    = $structure === null ? [] : $this->simpleFieldsOfDataStructure($structure, $user);
+            if ($fields !== []) {
+                $found[$name] = $fields;
+            }
+        }
+
+        return $found;
+    }
+
+    /**
+     * @param array<array-key, mixed> $structure
+     *
+     * @return array<string, array{sheet: string, label: string, config: array<array-key, mixed>}>
+     */
+    private function simpleFieldsOfDataStructure(array $structure, ?BackendUserAuthentication $user): array
+    {
+        $fields = [];
+        $seen   = [];
+        foreach (is_array($structure['sheets'] ?? null) ? $structure['sheets'] : [] as $sheetName => $sheet) {
+            $root = is_array($sheet) && is_array($sheet['ROOT'] ?? null) ? $sheet['ROOT'] : [];
+            foreach (is_array($root['el'] ?? null) ? $root['el'] : [] as $name => $element) {
+                $name        = (string) $name;
+                $seen[$name] = ($seen[$name] ?? 0) + 1;
+                if (!is_array($element) || !$this->isSimpleFlexField($element, $user)) {
+                    continue;
+                }
+
+                $fields[$name] = [
+                    'sheet'  => (string) $sheetName,
+                    'label'  => trim(self::toStr($element['label'] ?? $name)),
+                    'config' => is_array($element['config'] ?? null) ? $element['config'] : [],
+                ];
+            }
+        }
+
+        return array_filter($fields, static fn (string|int $name): bool => $seen[$name] === 1, ARRAY_FILTER_USE_KEY);
+    }
+
+    /**
+     * @param array<array-key, mixed> $element
+     */
+    private function isSimpleFlexField(array $element, ?BackendUserAuthentication $user): bool
+    {
+        $config = is_array($element['config'] ?? null) ? $element['config'] : [];
+        $type   = self::toStr($config['type'] ?? '');
+        if (self::toStr($element['type'] ?? '') === 'array' || !in_array($type, self::FLEX_FIELD_TYPES, true)
+            || (bool) ($config['enableRichtext'] ?? false) || $this->columnKind($config) !== 'fillable'
+        ) {
+            return false;
+        }
+
+        // The items a processor adds are not known here, and a value list is not one value.
+        if ($type === 'select' && (self::toStr($config['itemsProcFunc'] ?? '') !== '' || ($config['itemsProcessors'] ?? []) !== []
+            || !in_array(self::toStr($config['renderType'] ?? ''), ['', 'selectSingle'], true))
+        ) {
+            return false;
+        }
+
+        return !(bool) ($element['exclude'] ?? false) || ($user instanceof BackendUserAuthentication && $user->isAdmin());
+    }
+
+    /**
+     * `fields` without the keys of the type's FlexForm columns, and those keys
+     * apart: a FlexForm's values come as `{<column>: {<field>: value}}`.
+     *
+     * @return array{mixed, array<array-key, mixed>}
+     */
+    private function splitFlexFields(mixed $fields, string $type): array
+    {
+        if (!is_array($fields)) {
+            return [$fields, []];
+        }
+
+        $flex   = [];
+        $shared = $this->sharedFormColumns();
+        foreach ($this->columnsOfType($type) as $name => $config) {
+            if (array_key_exists($name, $fields) && self::toStr($config['type'] ?? '') === 'flex' && !isset($shared[$name]) && !$this->isSystemColumn($name)) {
+                $flex[$name] = $fields[$name];
+                unset($fields[$name]);
+            }
+        }
+
+        return [$fields, $flex];
+    }
+
+    /**
+     * The validated FlexForm values of a call, or the refusal (ADR-326).
+     *
+     * @param array<array-key, mixed> $raw FlexForm column to its fields
+     *
+     * @return array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>>|string
+     */
+    private function flexPlan(string $type, array $raw, BackendUserAuthentication $user): array|string
+    {
+        if ($raw === []) {
+            return [];
+        }
+
+        $offered = $this->flexFieldsOfType($type, $user);
+        $plan    = [];
+        foreach ($raw as $key => $values) {
+            $column = preg_replace('/[^A-Za-z0-9_]/', '', (string) $key) ?? '';
+            if (!is_array($values) || ($values !== [] && array_is_list($values))) {
+                return sprintf('Refused: the value for "%s" must be an object of FlexForm fields to values.', $column);
+            }
+
+            foreach ($values as $fieldKey => $value) {
+                $name  = preg_replace('/[^A-Za-z0-9_.-]/', '', (string) $fieldKey) ?? '';
+                $field = $offered[$column][$name] ?? null;
+                if ($column === '' || $name !== (string) $fieldKey || $field === null) {
+                    return sprintf(
+                        'Refused: "%s" is not a field of "%s" this tool sets for content type "%s". Fields: %s.',
+                        $name,
+                        $column,
+                        $type,
+                        implode(', ', array_keys($offered[$column] ?? [])) ?: 'none',
+                    );
+                }
+
+                $checked = $this->fieldValue($column . '.' . $name, $value, $field['config']);
+                if (is_string($checked)) {
+                    return $checked;
+                }
+
+                $plan[$column][$name] = [...$field, 'value' => $checked[0]];
+            }
+        }
+
+        $ungranted = $this->columnsTheUserMayNotSet($user, self::TABLE, array_keys($plan));
+        if ($ungranted !== []) {
+            return sprintf(
+                'Refused: the acting backend user holds no field-level ("exclude field") grant for %s. Nothing was written.',
+                implode(', ', array_map(static fn (string $column): string => self::TABLE . ':' . $column, $ungranted)),
+            );
+        }
+
+        return $plan;
+    }
+
+    /**
+     * The refusal page TSconfig gives the FlexForm values of a plan, or null:
+     * the rules of the column, and those under
+     * `TCEFORM.tt_content.<column>.<data structure>.<sheet>.<field>.`. The
+     * data structure's key is not compared, so a rule for any of them counts.
+     *
+     * @param array<array-key, mixed>                                                                                                         $tceForm  the page's `TCEFORM.`
+     * @param array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>> $flexPlan
+     */
+    private function flexTsConfigRefusal(array $tceForm, array $flexPlan, string $type, int $pageUid): ?string
+    {
+        $rules = is_array($tceForm[self::TABLE . '.'] ?? null) ? $tceForm[self::TABLE . '.'] : [];
+        foreach ($flexPlan as $column => $fields) {
+            $refusal = $this->columnsTsConfigRefusal($tceForm, self::TABLE, $type, [$column => ''], $this->columnsOfType($type), $pageUid);
+            if ($refusal !== null) {
+                return $refusal;
+            }
+
+            foreach (is_array($rules[$column . '.'] ?? null) ? $rules[$column . '.'] : [] as $structure => $sheets) {
+                foreach ($fields as $name => $field) {
+                    // TypoScript nests a dotted field name; its rules are read the same way.
+                    $sheetRules = is_array($sheets) && is_array($sheets[$field['sheet'] . '.'] ?? null) ? $sheets[$field['sheet'] . '.'] : [];
+                    $path       = explode('.', $name);
+                    $last       = array_pop($path);
+                    foreach ($path as $part) {
+                        $sheetRules = is_array($sheetRules[$part . '.'] ?? null) ? $sheetRules[$part . '.'] : [];
+                    }
+
+                    $tcaType = self::toStr($field['config']['type'] ?? '');
+                    $rule    = $this->tceFormDisabling($sheetRules, $last, $type)
+                        ?? $this->tceFormReadOnly($sheetRules, $last, $type, $tcaType)
+                        ?? ($tcaType === 'select' ? $this->tceFormRuleRemoving($sheetRules, $last, $type, (string) $field['value']) : null);
+                    if ($rule !== null) {
+                        return sprintf(
+                            'Refused: "%s" of "%s" does not take the value "%s" on page [%d] by its page TSconfig (TCEFORM.%s.%s.%s%s.%s). Nothing was written.',
+                            $name,
+                            $column,
+                            (string) $field['value'],
+                            $pageUid,
+                            self::TABLE,
+                            $column,
+                            (string) $structure,
+                            $field['sheet'],
+                            $name,
+                        );
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The FlexForm fields of a plan whose stored value is not the one asked
+     * for, as `<column> <field>`.
+     *
+     * @param array<string, mixed>                                                                                                            $stored
+     * @param array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>> $flexPlan
+     *
+     * @return list<string>
+     */
+    private function flexValuesThatDidNotTake(array $stored, array $flexPlan): array
+    {
+        $notTaken = [];
+        foreach ($flexPlan as $column => $fields) {
+            $parsed = GeneralUtility::xml2array(self::toStr($stored[$column] ?? ''));
+            foreach ($fields as $name => $field) {
+                $node = $parsed;
+                foreach (['data', $field['sheet'], 'lDEF', $name, 'vDEF'] as $step) {
+                    $node = is_array($node) ? ($node[$step] ?? null) : null;
+                }
+
+                $held  = self::toStr($node);
+                $asked = (string) $field['value'];
+                $same  = $this->isRewrittenOnPurpose(self::toStr($field['config']['type'] ?? ''), $field['config'])
+                    ? ($held === '') === ($asked === '')
+                    : $held === $asked;
+                if (!$same) {
+                    $notTaken[] = $column . ' ' . $name;
+                }
+            }
+        }
+
+        return $notTaken;
+    }
+
+    /**
+     * Whether a column is a single-value `select` whose items a processor
+     * computes (ADR-326). TYPO3 14's `itemsProcessors` are not run; such a
+     * column stays empty.
+     *
+     * @param array<array-key, mixed> $config
+     */
+    private function isProcessedSelect(array $config): bool
+    {
+        return self::toStr($config['type'] ?? '') === 'select'
+            && self::toStr($config['itemsProcFunc'] ?? '') !== ''
+            && ($config['itemsProcessors'] ?? []) === []
+            && self::toStr($config['foreign_table'] ?? '') === ''
+            && self::toStr($config['renderType'] ?? '') === 'selectSingle'
+            && $this->keyRefusal($config) === null;
+    }
+
+    /**
+     * The items of a child record's processed select, for a record holding
+     * `$values`.
+     *
+     * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
+     * @param array<string, string|int>                                                                                                                             $values
+     * @param array<array-key, mixed>                                                                                                                               $tceForm    the page's `TCEFORM.`
+     */
+    private function processedItems(array $collection, string $column, array $values, int $pageUid, int $language, array $tceForm, ?BackendUserAuthentication $user): ProcessedSelectItems
+    {
+        // As the backend form hands the row over: a select holds a list.
+        $row = ['uid' => 'NEW', 'pid' => $pageUid];
+        foreach ($collection['fields'] as $name => $config) {
+            $value      = (string) ($values[$name] ?? $this->defaultValueOf($collection['table'], $name));
+            $row[$name] = self::toStr($config['type'] ?? '') === 'select' ? ($value === '' ? [] : [$value]) : $value;
+        }
+
+        if ($collection['typeField'] !== '') {
+            $row[$collection['typeField']] = [$collection['typeValue']];
+        }
+
+        if ($collection['languageField'] !== '') {
+            $row[$collection['languageField']] = [$language];
+        }
+
+        $rules       = is_array($tceForm[$collection['table'] . '.'] ?? null) ? $tceForm[$collection['table'] . '.'] : [];
+        $columnRules = is_array($rules[$column . '.'] ?? null) ? $rules[$column . '.'] : [];
+
+        return ProcessedSelectItems::of(
+            $collection['table'],
+            $column,
+            $collection['fields'][$column] ?? [],
+            $row,
+            $pageUid,
+            is_array($columnRules['itemsProcFunc.'] ?? null) ? $columnRules['itemsProcFunc.'] : [],
+            $user,
+        );
+    }
+
+    /**
+     * The value of a processed select in a child record, wrapped, or the
+     * refusal. `$values` are the record's other values, the processed ones
+     * before this one resolved.
+     *
+     * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
+     * @param array<string, string|int>                                                                                                                             $values
+     * @param array<array-key, mixed>                                                                                                                               $tceForm
+     *
+     * @return list{string}|string
+     */
+    private function processedFieldValue(array $collection, string $column, mixed $value, array $values, int $pageUid, int $language, array $tceForm, BackendUserAuthentication $user): array|string
+    {
+        if (!is_string($value) && !is_numeric($value)) {
+            return sprintf('Refused: the value for "%s" must be a string.', $column);
+        }
+
+        $text = trim(self::toStr($value));
+        if ($text === '') {
+            return $this->isRequiredColumn($collection['fields'][$column] ?? [])
+                ? sprintf('Refused: "%s" is required and must not be empty.', $column)
+                : [''];
+        }
+
+        $items = $this->processedItems($collection, $column, $values, $pageUid, $language, $tceForm, $user);
+        if ($items->failed !== '') {
+            return sprintf('Refused: the choices for "%s" could not be computed (%s); leave it out.', $column, $items->failed);
+        }
+
+        $stored = $items->valueOf($text);
+        if ($stored !== null) {
+            return [$stored];
+        }
+
+        $others = array_keys(array_filter(
+            $collection['fields'],
+            fn (array $config, string $name): bool => $name !== $column && $this->isProcessedSelect($config),
+            ARRAY_FILTER_USE_BOTH,
+        ));
+
+        return sprintf(
+            'Refused: the value for "%s" must be one of %d choices, for example: %s.%s',
+            $column,
+            count($items->names()),
+            implode(', ', array_map(static fn (string $name): string => '"' . $name . '"', $items->namesNear($text, self::MAX_OFFERED_NAMES))) ?: 'none',
+            $others === [] ? '' : sprintf(' The choices can depend on %s of the same record.', implode(', ', $others)),
+        );
+    }
+
+    /**
      * The refusal for a `link` value outside the schemes a draft may set, or
      * outside the column's `allowedTypes`, or null (ADR-324). The
      * DataHandler empties a link of a type the column does not allow without
@@ -430,9 +832,11 @@ trait ReadsContentTypeChildrenTrait
      * missing grant, before anything is written: unknown inline columns and
      * child columns are answered with the ones the type offers.
      *
+     * @param array<array-key, mixed> $tceForm the `TCEFORM.` of page `$pageUid`, for the processors of child selects
+     *
      * @return array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>|string
      */
-    private function childrenPlan(string $type, mixed $raw, int $language, BackendUserAuthentication $user): array|string
+    private function childrenPlan(string $type, mixed $raw, int $language, BackendUserAuthentication $user, int $pageUid = 0, array $tceForm = []): array|string
     {
         $collections = $this->childCollectionsOfType($type);
         $raw ??= [];
@@ -453,7 +857,7 @@ trait ReadsContentTypeChildrenTrait
                 );
             }
 
-            $rows = $this->childRows($column, $collections[$column], $list, $user);
+            $rows = $this->childRows($column, $collections[$column], $list, $language, $user, $pageUid, $tceForm);
             if (is_string($rows)) {
                 return $rows;
             }
@@ -487,10 +891,11 @@ trait ReadsContentTypeChildrenTrait
      * The validated rows of one inline column, or the refusal.
      *
      * @param array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, minItems: int, maxItems: int} $collection
+     * @param array<array-key, mixed>                                                                                                                                                                                             $tceForm
      *
      * @return list<array<non-empty-string, string|int>>|string
      */
-    private function childRows(string $column, array $collection, mixed $list, BackendUserAuthentication $user): array|string
+    private function childRows(string $column, array $collection, mixed $list, int $language, BackendUserAuthentication $user, int $pageUid, array $tceForm): array|string
     {
         if (!is_array($list) || !array_is_list($list)) {
             return sprintf('Refused: "children.%s" must be a list of records.', $column);
@@ -509,7 +914,14 @@ trait ReadsContentTypeChildrenTrait
             }
 
             $row = [];
-            foreach ($child as $key => $value) {
+            // Processed selects last and in the form's order: the items of
+            // one can depend on the record's other values.
+            $processed = array_filter($fields, $this->isProcessedSelect(...));
+            $ordered   = [
+                ...array_diff_key($child, $processed),
+                ...array_intersect_key(array_replace(array_intersect_key($processed, $child), $child), array_intersect_key($processed, $child)),
+            ];
+            foreach ($ordered as $key => $value) {
                 $name = preg_replace('/[^A-Za-z0-9_]/', '', self::toStr($key)) ?? '';
                 if ($name !== $key || $name === '' || !isset($fields[$name])) {
                     return sprintf(
@@ -520,7 +932,9 @@ trait ReadsContentTypeChildrenTrait
                     );
                 }
 
-                $checked = $this->fieldValue($name, $value, $fields[$name]);
+                $checked = isset($processed[$name])
+                    ? $this->processedFieldValue($collection, $name, $value, $row, $pageUid, $language, $tceForm, $user)
+                    : $this->fieldValue($name, $value, $fields[$name]);
                 if (is_string($checked)) {
                     return $where . ': ' . $checked;
                 }
@@ -787,9 +1201,9 @@ trait ReadsContentTypeChildrenTrait
      *
      * @param Closure(string): string $translate
      *
-     * @return array{type: string, label: string, description: string, fields: array<string, array<string, mixed>>, children: array<string, array{table: string, maxItems: int, fields: array<string, array<string, mixed>>}>}
+     * @return array{type: string, label: string, description: string, fields: array<string, array<string, mixed>>, children: array<string, array{table: string, maxItems: int, fields: array<string, array<string, mixed>>}>, flexForms: array<string, array<string, array<string, mixed>>>}
      */
-    private function describeContentType(string $type, Closure $translate): array
+    private function describeContentType(string $type, Closure $translate, ?BackendUserAuthentication $user = null): array
     {
         $item     = $this->cTypeItemOf($type);
         $columns  = $this->columnsOfType($type);
@@ -799,7 +1213,7 @@ trait ReadsContentTypeChildrenTrait
             $children[$column] = [
                 'table'    => $collection['table'],
                 'maxItems' => $collection['maxItems'],
-                'fields'   => $this->describeFields($collection['table'], $collection['fields'], $translate),
+                'fields'   => $this->describeProcessedItems($collection, $this->describeFields($collection['table'], $collection['fields'], $translate), $user),
             ];
         }
 
@@ -816,7 +1230,59 @@ trait ReadsContentTypeChildrenTrait
             'description' => $translate(self::toStr($item['description'] ?? '')),
             'fields'      => $this->describeFields(self::TABLE, $fillable, $translate),
             'children'    => $children,
+            'flexForms'   => array_map(
+                fn (array $fields): array => array_map(fn (array $field): array => $this->describeField($field['config'], $translate($field['label'])), $fields),
+                $this->flexFieldsOfType($type, $user),
+            ),
         ];
+    }
+
+    /**
+     * The described fields of a child table with the names of their processed
+     * items (ADR-326): `items`, or — where the items differ with the value of
+     * an earlier processed select — `itemsBy: {column, items: {<name>: [...]}}`.
+     * A column whose processor fails is left out: nothing it takes is known.
+     *
+     * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
+     * @param array<string, array<string, mixed>>                                                                                                                   $described
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function describeProcessedItems(array $collection, array $described, ?BackendUserAuthentication $user): array
+    {
+        $earlier = [];
+        foreach (array_filter($collection['fields'], $this->isProcessedSelect(...)) as $name => $config) {
+            $items = $this->processedItems($collection, $name, [], 0, 0, [], $user);
+            if ($items->failed !== '') {
+                unset($described[$name]);
+
+                continue;
+            }
+
+            $described[$name]['items'] = $items->names();
+            foreach ($earlier as $before => $choices) {
+                $sets = [];
+                foreach ($choices as $choice) {
+                    $set = $this->processedItems($collection, $name, [$before => $choice['value']], 0, 0, [], $user);
+                    if ($set->failed === '' && $choice['value'] !== '') {
+                        $sets[$choice['name']] = $set->names();
+                    }
+                }
+
+                if (array_filter($sets, static fn (array $names): bool => $names !== $items->names()) !== []) {
+                    unset($described[$name]['items']);
+                    $described[$name]['itemsBy'] = ['column' => $before, 'items' => $sets];
+
+                    break;
+                }
+            }
+
+            if (count($items->items) <= self::MAX_ITEM_SETS) {
+                $earlier[$name] = $items->items;
+            }
+        }
+
+        return $described;
     }
 
     /**
@@ -830,28 +1296,42 @@ trait ReadsContentTypeChildrenTrait
         $described = [];
         foreach ($fields as $name => $config) {
             $definition = ($this->tcaColumnsFor($table) ?? [])[$name] ?? null;
-            $entry      = [
-                'type'     => self::toStr($config['type'] ?? ''),
-                'label'    => $translate(self::toStr(is_array($definition) ? ($definition['label'] ?? $name) : $name)),
-                'required' => $this->isRequiredColumn($config),
-            ];
-            if (is_numeric($config['max'] ?? null)) {
-                $entry['max'] = (int) $config['max'];
-            }
 
-            $items = $this->staticItemValues($config);
-            if ($items !== []) {
-                $entry['items'] = $items;
-            }
-
-            if ((bool) ($config['enableRichtext'] ?? false)) {
-                $entry['richText'] = true;
-            }
-
-            $described[$name] = $entry;
+            $described[$name] = $this->describeField(
+                $config,
+                $translate(self::toStr(is_array($definition) ? ($definition['label'] ?? $name) : $name)),
+            );
         }
 
         return $described;
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     *
+     * @return array<string, mixed>
+     */
+    private function describeField(array $config, string $label): array
+    {
+        $entry = [
+            'type'     => self::toStr($config['type'] ?? ''),
+            'label'    => $label,
+            'required' => $this->isRequiredColumn($config),
+        ];
+        if (is_numeric($config['max'] ?? null)) {
+            $entry['max'] = (int) $config['max'];
+        }
+
+        $items = $this->staticItemValues($config);
+        if ($items !== []) {
+            $entry['items'] = $items;
+        }
+
+        if ((bool) ($config['enableRichtext'] ?? false)) {
+            $entry['richText'] = true;
+        }
+
+        return $entry;
     }
 
     /**

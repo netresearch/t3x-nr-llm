@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A content element is drafted with its child records
 
-Governing decision: ADR-324 (amends ADR-146, ADR-196, ADR-198 and ADR-205). Tickets NEXT-228
+Governing decisions: ADR-324 and ADR-326. ADR-324 (amends ADR-146, ADR-196, ADR-198 and ADR-205). Tickets NEXT-228
 (the assistant cannot draft accordion, card group, icon group, text with
 image, image, uploads) and NEXT-229 (nr_landingpage's Page Composer creates
 those elements without items).
@@ -30,7 +30,7 @@ those elements without items).
 - **CC3 FlexForm defaults.** A `flex` column whose data structure resolves
   for the element's `CType` no longer excludes its type; the element is
   created with the data structure's default values (shape
-  `data.<sheet>.lDEF.<field>.vDEF`). No FlexForm value is set by a model.
+  `data.<sheet>.lDEF.<field>.vDEF`). Values a model sets: CC14.
 - **CC4 References stay empty.** `folder`, `group` and a `foreign_table`
   `select` no longer exclude a type; the draft leaves them empty. A
   `foreign_table` `select` with a non-empty TCA default still excludes it.
@@ -66,9 +66,19 @@ those elements without items).
   children, the child column and its fields; a type without children adds
   nothing.
 
+- **CC13 Computed items (ADR-326).** A child record's `selectSingle` with an
+  `itemsProcFunc` takes one of the items computed for that record, given by
+  name or value; an unknown one is refused with the nearest names, a failed
+  processor is refused as such. `describe()` lists the names.
+- **CC14 FlexForm values (ADR-326).** The simple fields of a type's FlexForm
+  are set through `fields` as `{column: {field: value}}`, checked, shown on
+  the card, written over the defaults and read back. `exclude` fields are for
+  administrators; a page's `TCEFORM` rules for the field refuse it.
+
 ## Out of scope
 
-- Setting FlexForm values; `itemsProcFunc` select values (icons).
+- FlexForm sections, references, dates and rich text; `itemsProcessors`; an
+  `itemsProcFunc` outside child records.
 - Adding or changing children of an existing element (`update_content_element`).
 - Translating children (`create_translation_draft`).
 - Filtering the tool description by a page's TSconfig (ADR-196 stays).
@@ -84,4 +94,5 @@ those elements without items).
 | --- | --- |
 | CC1-CC6, CC12 | functional `ContentElementComposerTest` (offered and excluded shapes), `CreateContentElementDraftToolTcaTypesTest` (spec) |
 | CC7-CC10 | functional `CreateContentElementDraftToolChildrenTest` (live and draft workspace, refusals, take-back, preview) |
+| CC13, CC14 | functional `CreateContentElementDraftToolChildrenTest`, `ContentElementComposerTest` |
 | CC11 | `Tests/Unit/Api/api-surface.txt`, functional `ContentElementComposerTest` |

@@ -58,8 +58,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  *   on the deny-list — `list` (the legacy plugin element), `html` (raw output),
  *   `shortcut`, `div`, every `menu_*` — or it is a plugin, known by its Extbase
  *   registration or its `plugins` or `forms` item group, or its form holds a column whose
- *   payload is not prose: a FlexForm, inline children, a group or folder
- *   reference, a slug, a password. File, category and link relations do not
+ *   payload is not prose: a slug, a password. A FlexForm's simple fields and
+ *   plain child records can be given (ADR-324, ADR-326). File, group, folder, category and link relations do not
  *   exclude a type; the draft leaves them empty (`textmedia` gets its media
  *   from {@see AttachFileToContentElementTool}).
  * - **The field set is the type's own scalar columns.** Header, body text,
@@ -139,6 +139,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $available = $this->availableTypes();
         $listed    = $available === [] ? 'none in this process' : implode(', ', $available);
         $children  = $this->childrenLines($available);
+        $flexForms = $this->flexLines($available);
 
         return ToolSpec::function(
             'create_content_element_draft',
@@ -149,7 +150,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             . 'and the element to place it after may be ones that exist in that draft workspace only. Only content '
             . 'types that pass the '
             . 'exclusion rule are available (' . $listed . "), and the page's TSconfig may narrow them and their "
-            . 'options further; "fields" takes further scalar columns of the chosen type, "children" the records of a '
+            . 'options further; "fields" takes further scalar columns of the chosen type and the FlexForm fields of a type that has them, as {FlexForm column: {field: value}} (' . ($flexForms === [] ? 'none in this process' : implode('; ', $flexForms)) . '), "children" the records of a '
             . 'type with child records (' . ($children === [] ? 'none in this process' : implode('; ', $children)) . '). '
             . 'Files, folders and category or record references are left empty and attached separately. To translate an EXISTING '
             . 'element, use '
@@ -194,7 +195,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                         'type'        => 'object',
                         'description' => 'Further columns of the chosen type, as {column: value}. A key must be a '
                             . "scalar column of that type's form in the TCA (input, text, select with static items, "
-                            . 'check, number, datetime, radio, color, email); relations, FlexForms and the identity, '
+                            . 'check, number, datetime, radio, color, email); the values of a FlexForm column are an object of its '
+                            . 'fields named in the tool description; relations and the identity, '
                             . 'position, visibility, publication, audience and translation columns are refused. A '
                             . "value is validated against the column's TCA type; a refusal names the columns the type "
                             . 'offers. Omit for header and body text only.',
@@ -209,7 +211,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                         'description' => 'The child records of a type that has them, as {column: [{column: value}]}: '
                             . 'the key is the child-record column of the type, the list holds one object per record in '
                             . 'the order shown, and each object takes the columns named for that type in the tool '
-                            . 'description (* = required). Values are validated like "fields". Omit for a type without '
+                            . 'description (* = required, ~ = one of a computed list, chosen by name: a name that does not '
+                            . 'exist is answered with the nearest ones). Values are validated like "fields". Omit for a type without '
                             . 'child records.',
                         'additionalProperties' => true,
                     ],
@@ -253,8 +256,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         // ADR-324: a FlexForm of the type's own form gets its data
         // structure's defaults, as the backend form writes them for a new
         // element; the children land at the page, never at an "after" pid.
-        foreach ($this->flexDefaultsOfType($plan['type'], $user) as $column => $defaults) {
-            $record[$column] = $defaults;
+        foreach ($this->flexValuesOfType($plan['type'], $user, $plan['flex']) as $column => $values) {
+            $record[$column] = $values;
         }
 
         $childMap = $this->childDataMap($plan['children'], $plan['page'], $plan['language']);
@@ -310,6 +313,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
         $notTaken = [
             ...$this->ownColumnsThatDidNotTake($stored, $plan),
             ...$this->fieldsThatDidNotTake($stored, [...$texts, ...$plan['fields']], $plan['type']),
+            ...$this->flexValuesThatDidNotTake($stored, $plan['flex']),
             ...$this->childrenThatDidNotTake($newUid, $childUids, $childMap['placeholders'], $plan['children'], $plan['language'], $user->workspace),
         ];
         if ($notTaken !== []) {
@@ -347,7 +351,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $plan['page'],
             $plan['column'],
             $plan['language'],
-            $plan['fields'] === [] ? '' : ', with ' . implode(', ', array_keys($plan['fields'])),
+            [...$plan['fields'], ...$plan['flex']] === [] ? '' : ', with ' . implode(', ', [...array_keys($plan['fields']), ...array_keys($plan['flex'])]),
             $this->childrenSummary($plan['children']),
             $this->draftWorkspaceNote($user),
             $complaints,
@@ -413,6 +417,12 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $lines[] = $label($column) . ': ' . $q($this->shownValue($value, $columns[$column] ?? []));
         }
 
+        foreach ($plan['flex'] as $column => $flexFields) {
+            foreach ($flexFields as $name => $field) {
+                $lines[] = $label($column) . ' / ' . $name . ': ' . $q($this->shownValue($field['value'], $field['config']));
+            }
+        }
+
         // Every child record with every value it would carry (ADR-324): the
         // approver agrees to the element and its children as one draft.
         foreach ($plan['children'] as $column => $children) {
@@ -444,7 +454,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             $details[] = $t(ApprovalPreviewLabel::TechnicalAnchorElement, $plan['afterUid']);
         }
 
-        $details[] = $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', ['header', 'bodytext', ...array_keys($plan['fields'])]));
+        $details[] = $t(ApprovalPreviewLabel::TechnicalFields, implode(', ', ['header', 'bodytext', ...array_keys($plan['fields']), ...array_keys($plan['flex'])]));
 
         $twin = $this->twinOf($plan['page'], $plan['type'], $plan['header'], $plan['language'], $user->workspace);
         if ($twin !== null) {
@@ -557,7 +567,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}|string
+     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, flex:array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}|string
      */
     private function plan(array $arguments, BackendUserAuthentication $user): array|string
     {
@@ -570,7 +580,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
      *
      * @param array<string, mixed> $arguments
      *
-     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}
+     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, flex:array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}
      *
      * @throws PlanRefusedException
      */
@@ -613,7 +623,13 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             ));
         }
 
+        $flex = [];
+        if (array_key_exists('fields', $arguments)) {
+            [$arguments['fields'], $flex] = $this->splitFlexFields($arguments['fields'], $type);
+        }
+
         $fields = self::unlessRefused($this->collectFields($arguments, $type, $user, self::OWN_ARGUMENTS));
+        $flex   = self::unlessRefused($this->flexPlan($type, $flex, $user));
 
         // Asked BEFORE the write, as UpdateFalAssetMetaTool asks it: the
         // DataHandler drops an `exclude` column the user holds no grant for in
@@ -672,10 +688,6 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             self::refuse(sprintf('Refused: you may not edit content in language %d.', $language));
         }
 
-        // ADR-324: the records of a type's inline columns, validated and
-        // their grants asked before anything is written.
-        $children = self::unlessRefused($this->childrenPlan($type, $arguments['children'] ?? null, $language, $user));
-
         $column = self::toInt($arguments['column'] ?? 0);
         if ($column < 0) {
             self::refuse('Refused: "column" must be zero or a positive backend-layout column (colPos).');
@@ -720,10 +732,14 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
         // After the neutral refusal, because this one names the page.
         self::refuseIf($this->pageTsConfigRefusal($pageUid, $type, $fields, $bodytext !== null, $column, $language, $user));
-        if ($children !== []) {
-            $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
-            self::refuseIf($this->childrenTsConfigRefusal(is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [], $children, $pageUid, $type));
-        }
+
+        // ADR-324: the records of a type's inline columns, validated and
+        // their grants asked before anything is written. After the page's
+        // permission: a processor may read the page (ADR-326).
+        $tsConfig = $this->pageTsConfig->forPage($pageUid, $user);
+        $tceForm  = is_array($tsConfig['TCEFORM.'] ?? null) ? $tsConfig['TCEFORM.'] : [];
+        $children = self::unlessRefused($this->childrenPlan($type, $arguments['children'] ?? null, $language, $user, $pageUid, $tceForm));
+        self::refuseIf($this->flexTsConfigRefusal($tceForm, $flex, $type, $pageUid) ?? $this->childrenTsConfigRefusal($tceForm, $children, $pageUid, $type));
 
         // After the neutral refusal, because this one names the page.
         if ($language > 0
@@ -764,6 +780,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             'header'      => $header[0],
             'bodytext'    => $bodytext,
             'fields'      => $fields,
+            'flex'        => $flex,
             'children'    => $children,
             'column'      => $column,
             'language'    => $language,
@@ -1136,10 +1153,36 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
             foreach ($this->childCollectionsOfType($type) as $column => $collection) {
                 $fields = [];
                 foreach ($collection['fields'] as $name => $config) {
-                    $fields[] = $name . ($this->isRequiredColumn($config) ? '*' : '');
+                    $fields[] = $name . ($this->isProcessedSelect($config) ? '~' : '') . ($this->isRequiredColumn($config) ? '*' : '');
                 }
 
                 $lines[] = sprintf('%s: children.%s[] = {%s}', $type, $column, implode(', ', $fields));
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * One line per FlexForm column of an offered type with fields a model may
+     * set, with the values of those that take one of a list (ADR-326).
+     *
+     * @param list<string> $types
+     *
+     * @return list<string>
+     */
+    private function flexLines(array $types): array
+    {
+        $lines = [];
+        foreach ($types as $type) {
+            foreach ($this->flexFieldsOfType($type) as $column => $fields) {
+                $names = [];
+                foreach ($fields as $name => $field) {
+                    $items   = $this->staticItemValues($field['config']);
+                    $names[] = $name . ($items === [] || ($field['config']['type'] ?? '') === 'check' ? '' : ': ' . implode('|', $items));
+                }
+
+                $lines[] = sprintf('%s: fields.%s = {%s}', $type, $column, implode(', ', $names));
             }
         }
 
