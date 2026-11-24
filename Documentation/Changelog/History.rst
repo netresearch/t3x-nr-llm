@@ -11,6 +11,26 @@ Earlier release highlights
 
 These are selected historical highlights, not a complete release ledger.
 
+.. _version-0-54-0:
+
+Version 0.54.0 (2026-11-23)
+===========================
+
+``create_content_element_draft`` drafts a content element with its child
+records, and other extensions can build such elements through the same rule.
+
+- **Child records:** the items of an accordion, card group, icon group, tab,
+  timeline or carousel are passed as ``children``, checked against the
+  editor's grants and the page TSconfig, written with the element in one
+  DataHandler call, listed on the approval card and read back (ADR-324). A
+  child table must declare ``hideTable``.
+- **More types offered:** a FlexForm is written with its data structure's
+  defaults; folder, group and record-backed select columns are left empty
+  instead of excluding the type; ``link`` columns are fillable.
+- **API:** ``ContentElementComposer`` (``@api``) with ``describe()``,
+  ``typesOfferedOnPage()`` and ``dataMap()``. See
+  :ref:`ADR-324 <adr-324>`.
+
 .. _version-0-53-0:
 
 Version 0.53.0 (2026-11-23)
@@ -2121,14 +2141,14 @@ and update its Composer constraint deliberately. See
 upgrade wizards. Review configuration and integrations before reopening
 editor access.
 
-The current package line is 0.54. For that line, for example:
+The current package line is 0.55. For that line, for example:
 
 .. code-block:: bash
-   :caption: Select the 0.54 release line
+   :caption: Select the 0.55 release line
 
-   composer require netresearch/nr-llm:^0.54 --with-all-dependencies
+   composer require netresearch/nr-llm:^0.55 --with-all-dependencies
 
-This does not select a future 0.55 release. Choose its constraint explicitly
+This does not select a future 0.56 release. Choose its constraint explicitly
 when following that release's migration notes.
 
 .. _breaking-changes:

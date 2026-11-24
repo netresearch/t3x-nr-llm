@@ -1,1 +1,0 @@
-- `create_content_element_draft` and `ContentElementComposer` fill a child record's select whose items an `itemsProcFunc` computes, such as bootstrap_package's icons, by name, and the simple fields of a FlexForm through `fields` ([ADR-326](Documentation/Adr/Adr326ADraftTakesFlexFormValuesAndComputedItems.rst)).
