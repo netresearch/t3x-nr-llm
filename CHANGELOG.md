@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `create_content_element_draft` and `ContentElementComposer` fill a child record's select whose items an `itemsProcFunc` computes, such as bootstrap_package's icons, by name, and the simple fields of a FlexForm through `fields` ([ADR-326](Documentation/Adr/Adr326ADraftTakesFlexFormValuesAndComputedItems.rst), [#1463](https://github.com/netresearch/t3x-nr-llm/pull/1463)).
+- `create_content_element_draft` and `ContentElementComposer` fill a child record's `selectSingle` whose items an `itemsProcFunc` computes, such as bootstrap_package's icons, by name, and the simple fields of a FlexForm through `fields` ([ADR-326](Documentation/Adr/Adr326ADraftTakesFlexFormValuesAndComputedItems.rst), [#1463](https://github.com/netresearch/t3x-nr-llm/pull/1463)).
 
 ## [0.54.0] - 2026-11-23
 
