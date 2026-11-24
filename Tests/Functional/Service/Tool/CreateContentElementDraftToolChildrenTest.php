@@ -248,6 +248,20 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
     }
 
     #[Test]
+    public function theNameOfAnEmptyChoiceDoesNotSatisfyARequiredColumn(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                         = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon_set']['config']['required'] = true;
+        unset($tca);
+
+        $result = $this->createItems([['header' => 'A', 'icon_set' => 'None at all']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('"icon_set" is required and must not be empty', $result->content);
+    }
+
+    #[Test]
     public function aChoiceThePageTakesAwayIsNotOffered(): void
     {
         $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEFORM.tx_childrenfixture_item.icon_set.removeItems = ' . IconItems::SET], ['uid' => self::PAGE]);

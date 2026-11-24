@@ -796,6 +796,10 @@ trait ReadsContentTypeChildrenTrait
         }
 
         $stored = $items->valueOf($text);
+        if ($stored === '' && $this->isRequiredColumn($collection['fields'][$column] ?? [])) {
+            return sprintf('Refused: "%s" is required and must not be empty.', $column);
+        }
+
         if ($stored !== null) {
             return [$stored];
         }

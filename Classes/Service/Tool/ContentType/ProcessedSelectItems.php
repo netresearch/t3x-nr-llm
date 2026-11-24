@@ -198,7 +198,7 @@ final readonly class ProcessedSelectItems
             $choices[] = ['value' => self::toStr($item->getValue()), 'name' => trim($item->getLabel())];
         }
 
-        $values   = array_column($choices, 'value');
+        $values   = array_map(mb_strtolower(...), array_column($choices, 'value'));
         $carriers = array_count_values(array_map(mb_strtolower(...), array_column($choices, 'name')));
 
         return array_map(
@@ -206,7 +206,7 @@ final readonly class ProcessedSelectItems
                 $label  = $choice['name'];
                 $usable = $label !== '' && !str_starts_with($label, 'LLL:')
                     && $carriers[mb_strtolower($label)] === 1
-                    && ($label === $choice['value'] || !in_array($label, $values, true));
+                    && ($label === $choice['value'] || !in_array(mb_strtolower($label), $values, true));
 
                 return ['value' => $choice['value'], 'name' => $usable ? $label : $choice['value']];
             },

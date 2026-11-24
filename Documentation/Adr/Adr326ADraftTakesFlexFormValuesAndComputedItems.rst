@@ -100,6 +100,10 @@ default. Choices that only a combination, a chain of selects, or a radio or
 check column brings are not listed and not marked; ``dataMap()`` computes them
 for the record it gets.
 
+✕ A select a record leaves out counts with its TCA default, else its first
+item. ``TCAdefaults`` are not read, and the DataHandler writes explicit defaults
+only, so such a record can hold another value beside the choice.
+
 ✕ The processor's row holds the record's own columns. The relation, visibility
 and reference columns and FormEngine's ``inlineParent*`` parameters are not
 passed, and the site of a page that exists in a draft workspace only may not be

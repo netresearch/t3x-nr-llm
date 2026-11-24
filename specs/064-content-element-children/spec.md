@@ -67,9 +67,10 @@ those elements without items).
   nothing.
 
 - **CC13 Computed items (ADR-326).** A child record's `selectSingle` with an
-  `itemsProcFunc` takes one of the items computed for that record, given by
+  `itemsProcFunc` and no `foreign_table` takes one of the items computed for that record, given by
   name or value; an unknown one is refused with the nearest names, a failed
-  processor is refused as such. `describe()` lists the names.
+  processor is refused as such. `describe()` lists the names, trying one
+  earlier select at a time; choices only a combination brings are not listed.
 - **CC14 FlexForm values (ADR-326).** The simple fields of a type's FlexForm
   are set through `fields` as `{column: {field: value}}`, checked, shown on
   the card, written over the defaults and read back. `exclude` fields are for

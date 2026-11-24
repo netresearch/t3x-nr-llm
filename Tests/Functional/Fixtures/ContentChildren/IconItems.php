@@ -32,7 +32,7 @@ final class IconItems
         self::$user = is_object($user) ? $user : null;
 
         $configuration['items'] = [
-            ['LLL:EXT:fixture/none', ''],
+            ['None at all', ''],
             ['Alpha', self::SET],
             ['Beta', 'EXT:fixture/Icons/Beta/'],
         ];
@@ -55,6 +55,8 @@ final class IconItems
             $items[] = ['home', $set . 'home.svg', ''];
             // Labelled with another item's value, so its own value names it.
             $items[] = [$set . 'home.svg', $set . 'clash.svg', ''];
+            $items[] = ['CLASH', $set . 'upper.svg', ''];
+            $items[] = ['LLL:EXT:fixture/clash', 'clash', ''];
         }
 
         $configuration['items'] = $items;
