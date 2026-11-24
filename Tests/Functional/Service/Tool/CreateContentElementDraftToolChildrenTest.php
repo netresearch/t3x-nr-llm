@@ -214,6 +214,31 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
     }
 
     #[Test]
+    public function anEditorWithoutTheGrantIsNotToldTheChoices(): void
+    {
+        $editor = $this->editorFor('nrllm_items', 'tx_childrenfixture_item:header');
+        $result = $this->tool->execute(
+            ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'children' => ['tx_childrenfixture_items' => [['header' => 'A', 'icon_set' => 'Alpha', 'icon' => 'zzz']]]],
+            ToolExecutionContext::fromBackendUser($editor),
+        );
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('Refused: the acting backend user', $result->content);
+        self::assertStringNotContainsString('alpha-', $result->content);
+    }
+
+    #[Test]
+    public function aChoiceThePageTakesAwayIsNotOffered(): void
+    {
+        $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEFORM.tx_childrenfixture_item.icon_set.removeItems = ' . IconItems::SET], ['uid' => self::PAGE]);
+
+        $result = $this->createItems([['header' => 'A', 'icon_set' => 'Alpha']]);
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('one of 1 choices, for example: "Beta"', $result->content);
+    }
+
+    #[Test]
     public function choicesThatCannotBeComputedAreSaidSo(): void
     {
         $result = $this->createItems([['header' => 'A', 'broken' => 'x']]);
@@ -269,9 +294,17 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
     #[Test]
     public function aFlexFormFieldThePageNarrowsIsRefused(): void
     {
-        foreach (['disabled = 1', 'removeItems = 1', 'config.readOnly = 1'] as $rule) {
-            $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEFORM.tt_content.pi_flexform.nrllm_items.sDEF.columns.' . $rule], ['uid' => self::PAGE]);
-            $result = $this->createItems([['header' => 'A']], ['pi_flexform' => ['columns' => '1']]);
+        $rules = [
+            'sDEF.columns.disabled = 1'          => ['columns' => '1'],
+            'sDEF.columns.removeItems = 1'       => ['columns' => '1'],
+            'sDEF.columns.config.readOnly = 1'   => ['columns' => '1'],
+            'sDEF.disabled = 1'                  => ['columns' => '1'],
+            'sDEF.settings\\.intro.disabled = 1' => ['settings.intro' => 'x'],
+            'sDEF.settings.intro.disabled = 1'   => ['settings.intro' => 'x'],
+        ];
+        foreach ($rules as $rule => $values) {
+            $this->connectionPool->getConnectionForTable('pages')->update('pages', ['TSconfig' => 'TCEFORM.tt_content.pi_flexform.nrllm_items.' . $rule], ['uid' => self::PAGE]);
+            $result = $this->createItems([['header' => 'A']], ['pi_flexform' => $values]);
 
             self::assertTrue($result->isError, $rule);
             self::assertStringContainsString('by its page TSconfig', $result->content);

@@ -75,8 +75,10 @@ child records. nr_landingpage's Page Composer builds its sections through it.
    ``table``, ``maxItems`` and the ``fields`` of its records) and
    ``flexForms`` (FlexForm column to its simple fields). A child column
    whose items a processor computes carries their names as ``items``, or as
-   ``itemsBy`` (``column`` and ``items`` per choice of that column) where
-   they depend on another column (:ref:`ADR-326 <adr-326>`). With a
+   ``itemsBy`` (``column``, its ``default``, and ``items`` per choice of
+   that column) where they depend on an earlier select of the record.
+   ``itemsPartial`` marks a list that may leave choices out
+   (:ref:`ADR-326 <adr-326>`). With a
    user, the columns that user may not set are left out. ``null`` for a type
    the rule does not offer. A later version may add keys; none is removed.
 
@@ -99,4 +101,6 @@ child records. nr_landingpage's Page Composer builds its sections through it.
    type (``CType`` keepItems, removeItems and ``authMode``) is
    :php:`typesOfferedOnPage()`'s question. ``$pid`` is what the rows
    get: a page uid or the placeholder of a page in the same datamap.
-   Nothing is written here; the caller writes the datamap.
+   Nothing is written here; the caller writes the datamap. The caller checks
+   that the user may edit content on ``$pageUid`` first: a processor of a
+   child select runs for that page, and a refusal names its choices.

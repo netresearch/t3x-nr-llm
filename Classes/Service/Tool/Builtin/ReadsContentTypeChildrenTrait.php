@@ -50,8 +50,8 @@ trait ReadsContentTypeChildrenTrait
     /** The most names a refusal offers in place of a processed item that does not exist. */
     private const MAX_OFFERED_NAMES = 40;
 
-    /** The most items of one processed select for which a later one's items are described apart. */
-    private const MAX_ITEM_SETS = 10;
+    /** The most choices of one select for which a later processed select's items are described apart. */
+    private const MAX_ITEM_SETS = 50;
 
     /**
      * What one column of a type's form means for the type: the kinds of
@@ -609,31 +609,19 @@ trait ReadsContentTypeChildrenTrait
             }
 
             foreach (is_array($rules[$column . '.'] ?? null) ? $rules[$column . '.'] : [] as $structure => $sheets) {
+                $sheets = is_array($sheets) ? $sheets : [];
                 foreach ($fields as $name => $field) {
-                    // TypoScript nests a dotted field name; its rules are read the same way.
-                    $sheetRules = is_array($sheets) && is_array($sheets[$field['sheet'] . '.'] ?? null) ? $sheets[$field['sheet'] . '.'] : [];
-                    $path       = explode('.', $name);
-                    $last       = array_pop($path);
-                    foreach ($path as $part) {
-                        $sheetRules = is_array($sheetRules[$part . '.'] ?? null) ? $sheetRules[$part . '.'] : [];
-                    }
-
-                    $tcaType = self::toStr($field['config']['type'] ?? '');
-                    $rule    = $this->tceFormDisabling($sheetRules, $last, $type)
-                        ?? $this->tceFormReadOnly($sheetRules, $last, $type, $tcaType)
-                        ?? ($tcaType === 'select' ? $this->tceFormRuleRemoving($sheetRules, $last, $type, (string) $field['value']) : null);
-                    if ($rule !== null) {
+                    if ($this->flexFieldRuleRefuses($sheets, $name, $field, $type)) {
                         return sprintf(
-                            'Refused: "%s" of "%s" does not take the value "%s" on page [%d] by its page TSconfig (TCEFORM.%s.%s.%s%s.%s). Nothing was written.',
+                            'Refused: "%s" of "%s" does not take the value "%s" on page [%d] by its page TSconfig (TCEFORM.%s.%s.%s%s). Nothing was written.',
                             $name,
                             $column,
                             (string) $field['value'],
                             $pageUid,
                             self::TABLE,
                             $column,
-                            (string) $structure,
+                            $structure,
                             $field['sheet'],
-                            $name,
                         );
                     }
                 }
@@ -641,6 +629,42 @@ trait ReadsContentTypeChildrenTrait
         }
 
         return null;
+    }
+
+    /**
+     * Whether the rules of one data structure take the field's value away:
+     * its sheet is disabled, or a rule of the field refuses it. A dotted
+     * field's rules are read under its name, as core reads the documented
+     * `settings\.field`, and nested, as an unescaped dot is parsed.
+     *
+     * @param array<array-key, mixed>                                                                 $sheets
+     * @param array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int} $field
+     */
+    private function flexFieldRuleRefuses(array $sheets, string $name, array $field, string $type): bool
+    {
+        $sheetRules = is_array($sheets[$field['sheet'] . '.'] ?? null) ? $sheets[$field['sheet'] . '.'] : [];
+        if ((bool) ($sheetRules['disabled'] ?? false)) {
+            return true;
+        }
+
+        $path   = explode('.', $name);
+        $last   = (string) array_pop($path);
+        $nested = $sheetRules;
+        foreach ($path as $part) {
+            $nested = is_array($nested[$part . '.'] ?? null) ? $nested[$part . '.'] : [];
+        }
+
+        $tcaType = self::toStr($field['config']['type'] ?? '');
+        foreach ([[$sheetRules, $name], [$nested, $last]] as [$rules, $key]) {
+            $rule = $this->tceFormDisabling($rules, $key, $type)
+                ?? $this->tceFormReadOnly($rules, $key, $type, $tcaType)
+                ?? ($tcaType === 'select' ? $this->tceFormRuleRemoving($rules, $key, $type, (string) $field['value']) : null);
+            if ($rule !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -722,7 +746,7 @@ trait ReadsContentTypeChildrenTrait
         $rules       = is_array($tceForm[$collection['table'] . '.'] ?? null) ? $tceForm[$collection['table'] . '.'] : [];
         $columnRules = is_array($rules[$column . '.'] ?? null) ? $rules[$column . '.'] : [];
 
-        return ProcessedSelectItems::of(
+        $items = ProcessedSelectItems::of(
             $collection['table'],
             $column,
             $collection['fields'][$column] ?? [],
@@ -730,6 +754,15 @@ trait ReadsContentTypeChildrenTrait
             $pageUid,
             is_array($columnRules['itemsProcFunc.'] ?? null) ? $columnRules['itemsProcFunc.'] : [],
             $user,
+        );
+
+        // What the form would not show the user is no choice and is not named.
+        $type     = $collection['typeValue'] !== '' ? $collection['typeValue'] : $this->recordTypeOf($collection['table'], []);
+        $authMode = $user instanceof BackendUserAuthentication && $this->columnHasAuthMode($collection['table'], $column);
+
+        return $items->only(
+            fn (string $value): bool => $this->tceFormRuleRemoving($rules, $column, $type, $value, $collection['table']) === null
+                && (!$authMode || $value === '' || $user->checkAuthMode($collection['table'], $column, $value)),
         );
     }
 
@@ -857,6 +890,12 @@ trait ReadsContentTypeChildrenTrait
                 );
             }
 
+            // A processor's choices are no answer to a user who may not set the column.
+            $refusal = $this->processedGrantRefusal($column, $collections[$column], $list, $language, $user);
+            if ($refusal !== null) {
+                return $refusal;
+            }
+
             $rows = $this->childRows($column, $collections[$column], $list, $language, $user, $pageUid, $tceForm);
             if (is_string($rows)) {
                 return $rows;
@@ -885,6 +924,39 @@ trait ReadsContentTypeChildrenTrait
         }
 
         return $this->childrenGrantRefusal($plan, $language, $user) ?? $plan;
+    }
+
+    /**
+     * The grant refusal for records that set a processed select, asked from
+     * the columns they name before any items are computed; null otherwise.
+     *
+     * @param non-empty-string                                                                                                                                                                                                    $column
+     * @param array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, minItems: int, maxItems: int} $collection
+     */
+    private function processedGrantRefusal(string $column, array $collection, mixed $list, int $language, BackendUserAuthentication $user): ?string
+    {
+        $named = [];
+        foreach (is_array($list) ? $list : [] as $child) {
+            $named += is_array($child) ? array_intersect_key($collection['fields'], $child) : [];
+        }
+
+        if (array_filter($named, $this->isProcessedSelect(...)) === []) {
+            return null;
+        }
+
+        return $this->childrenGrantRefusal(
+            [$column => [
+                'table'         => $collection['table'],
+                'foreignField'  => $collection['foreignField'],
+                'typeField'     => $collection['typeField'],
+                'typeValue'     => $collection['typeValue'],
+                'languageField' => $collection['languageField'],
+                'fields'        => $collection['fields'],
+                'rows'          => [array_fill_keys(array_keys($named), '')],
+            ]],
+            $language,
+            $user,
+        );
     }
 
     /**
@@ -1239,9 +1311,10 @@ trait ReadsContentTypeChildrenTrait
 
     /**
      * The described fields of a child table with the names of their processed
-     * items (ADR-326): `items`, or — where the items differ with the value of
-     * an earlier processed select — `itemsBy: {column, items: {<name>: [...]}}`.
-     * A column whose processor fails is left out: nothing it takes is known.
+     * items (ADR-326): `items`, or — where the items differ with an earlier
+     * select of the form — `itemsBy: {column, default, items: {<name>: [...]}}`.
+     * `itemsPartial` marks a list that may leave choices out. A column whose
+     * processor fails is left out: nothing it takes is known.
      *
      * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
      * @param array<string, array<string, mixed>>                                                                                                                   $described
@@ -1251,38 +1324,67 @@ trait ReadsContentTypeChildrenTrait
     private function describeProcessedItems(array $collection, array $described, ?BackendUserAuthentication $user): array
     {
         $earlier = [];
-        foreach (array_filter($collection['fields'], $this->isProcessedSelect(...)) as $name => $config) {
-            $items = $this->processedItems($collection, $name, [], 0, 0, [], $user);
-            if ($items->failed !== '') {
-                unset($described[$name]);
+        foreach ($collection['fields'] as $name => $config) {
+            if ($this->isProcessedSelect($config)) {
+                $items = $this->processedItems($collection, $name, [], 0, 0, [], $user);
+                if ($items->failed !== '') {
+                    unset($described[$name]);
 
-                continue;
-            }
-
-            $described[$name]['items'] = $items->names();
-            foreach ($earlier as $before => $choices) {
-                $sets = [];
-                foreach ($choices as $choice) {
-                    $set = $this->processedItems($collection, $name, [$before => $choice['value']], 0, 0, [], $user);
-                    if ($set->failed === '' && $choice['value'] !== '') {
-                        $sets[$choice['name']] = $set->names();
-                    }
+                    continue;
                 }
 
-                if (array_filter($sets, static fn (array $names): bool => $names !== $items->names()) !== []) {
-                    unset($described[$name]['items']);
-                    $described[$name]['itemsBy'] = ['column' => $before, 'items' => $sets];
-
-                    break;
-                }
-            }
-
-            if (count($items->items) <= self::MAX_ITEM_SETS) {
-                $earlier[$name] = $items->items;
+                $described[$name] = [...$described[$name], ...$this->describeItemsOf($collection, $name, $items, $earlier, $user)];
+                $earlier[$name]   = $items->items;
+            } elseif (self::toStr($config['type'] ?? '') === 'select') {
+                $earlier[$name] = array_map(static fn (string $value): array => ['value' => $value, 'name' => $value], $this->staticItemValues($config));
             }
         }
 
         return $described;
+    }
+
+    /**
+     * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
+     * @param array<string, list<array{value: string, name: string}>>                                                                                               $earlier    the choices of the selects before this one
+     *
+     * @return array<string, mixed>
+     */
+    private function describeItemsOf(array $collection, string $column, ProcessedSelectItems $items, array $earlier, ?BackendUserAuthentication $user): array
+    {
+        $entry = ['items' => $items->names()];
+        foreach ($earlier as $before => $choices) {
+            if (count($choices) > self::MAX_ITEM_SETS) {
+                $entry['itemsPartial'] = true;
+
+                continue;
+            }
+
+            $sets = [];
+            foreach ($choices as $choice) {
+                $set = $this->processedItems($collection, $column, [$before => $choice['value']], 0, 0, [], $user);
+                if ($choice['value'] !== '' && $set->failed === '') {
+                    $sets[$choice['name']] = $set->names();
+                }
+            }
+
+            if (array_filter($sets, static fn (array $names): bool => $names !== $items->names()) === []) {
+                continue;
+            }
+
+            if (isset($entry['itemsBy'])) {
+                // Two columns decide; one table cannot list that.
+                $entry['itemsPartial'] = true;
+
+                continue;
+            }
+
+            unset($entry['items']);
+            $default          = $this->defaultValueOf($collection['table'], $before);
+            $names            = array_column($choices, 'name', 'value');
+            $entry['itemsBy'] = ['column' => $before, 'default' => $default === '' ? '' : ($names[$default] ?? ''), 'items' => $sets];
+        }
+
+        return $entry;
     }
 
     /**

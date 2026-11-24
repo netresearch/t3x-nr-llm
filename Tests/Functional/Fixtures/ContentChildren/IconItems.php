@@ -53,15 +53,14 @@ final class IconItems
             }
         } elseif ($set === 'EXT:fixture/Icons/Beta/') {
             $items[] = ['home', $set . 'home.svg', ''];
+            // Labelled with another item's value, so its own value names it.
+            $items[] = [$set . 'home.svg', $set . 'clash.svg', ''];
         }
 
         $configuration['items'] = $items;
     }
 
-    /**
-     * @param array<string, mixed> $configuration
-     */
-    public function broken(array &$configuration): void
+    public function broken(): never
     {
         throw new RuntimeException('The choices cannot be computed.', 1764000000);
     }

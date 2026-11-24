@@ -59,8 +59,9 @@ final readonly class ContentElementComposer
      * required, max?, items?, richText?}}, children: {column: {table,
      * maxItems, fields: {...}}}, flexForms: {column: {field: {...}}}}`. A child
      * column whose items a processor computes carries their names as `items`,
-     * or as `itemsBy: {column, items}` where they depend on another column of
-     * the record. Labels and the description are translated
+     * or as `itemsBy: {column, default, items}` where they depend on an earlier
+     * select of the record; `itemsPartial` says that the list may leave choices
+     * out. Labels and the description are translated
      * with `$languageService` where given. With `$user`, the columns and child
      * columns that user may not set (exclude-field grants) are left out, and a
      * child-record column whose records the user may not create, so a model is
@@ -100,9 +101,11 @@ final readonly class ContentElementComposer
                 continue;
             }
 
-            foreach ($this->columnsTheUserMayNotSet($user, $children['table'], array_keys($children['fields'])) as $name) {
-                unset($described['children'][$column]['fields'][$name]);
-            }
+            $fields = array_diff_key(
+                $children['fields'],
+                array_flip($this->columnsTheUserMayNotSet($user, $children['table'], array_keys($children['fields']))),
+            );
+            $described['children'][$column] = [...$children, 'fields' => $this->withoutDependenceOnHiddenColumns($fields)];
         }
 
         return $described;
@@ -232,6 +235,36 @@ final readonly class ContentElementComposer
         }
 
         return new ContentElementDataMap([self::TABLE => [$placeholder => $row], ...$childMap['rows']], []);
+    }
+
+    /**
+     * The fields with no `itemsBy` on a column that is not among them: the
+     * choices for that column's default, which a record without it gets, or no
+     * field where there are none.
+     *
+     * @param array<string, array<string, mixed>> $fields
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function withoutDependenceOnHiddenColumns(array $fields): array
+    {
+        foreach ($fields as $name => $field) {
+            $by = $field['itemsBy'] ?? null;
+            if (!is_array($by) || isset($fields[self::toStr($by['column'] ?? '')])) {
+                continue;
+            }
+
+            $sets = is_array($by['items'] ?? null) ? $by['items'] : [];
+            unset($field['itemsBy']);
+            $field['items'] = $sets[self::toStr($by['default'] ?? '')] ?? [];
+            if ($field['items'] === []) {
+                unset($fields[$name]);
+            } else {
+                $fields[$name] = $field;
+            }
+        }
+
+        return $fields;
     }
 
     /**

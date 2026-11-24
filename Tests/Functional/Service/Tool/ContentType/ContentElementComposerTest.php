@@ -86,6 +86,7 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
         self::assertIsArray($icons['items'] ?? null);
         self::assertCount(61, $icons['items']['Alpha'] ?? []);
         self::assertContains('home', $icons['items']['Beta'] ?? []);
+        self::assertContains('EXT:fixture/Icons/Beta/clash.svg', $icons['items']['Beta'], 'a label that is another item\'s value names nothing');
         self::assertSame(['columns', 'opened', 'settings.intro'], array_keys($described['flexForms']['pi_flexform'] ?? []));
         self::assertSame(['1', '2'], $described['flexForms']['pi_flexform']['columns']['items'] ?? null);
         self::assertTrue($items['fields']['header']['required'] ?? null);
@@ -365,6 +366,64 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
         self::assertSame([$pageUid, $pageUid], array_map(intval(...), array_column($items, 'pid')));
         self::assertSame([$elementUid, $elementUid], array_map(intval(...), array_column($items, 'parent_content')));
         self::assertSame('mailto:info@example.org', $items[1]['link']);
+    }
+
+    #[Test]
+    public function choicesThatDependOnAStaticSelectAreDescribedPerChoice(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                             = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon_set']['config'] = [
+            'type'       => 'select',
+            'renderType' => 'selectSingle',
+            'default'    => IconItems::SET,
+            'items'      => [['label' => 'Alpha', 'value' => IconItems::SET], ['label' => 'Beta', 'value' => 'EXT:fixture/Icons/Beta/']],
+        ];
+        unset($tca);
+
+        $icon = ($this->composer->describe('nrllm_items')['children']['tx_childrenfixture_items']['fields'] ?? [])['icon'] ?? [];
+
+        self::assertArrayNotHasKey('items', $icon);
+        self::assertArrayNotHasKey('itemsPartial', $icon);
+        $by = $icon['itemsBy'] ?? null;
+        self::assertIsArray($by);
+        self::assertSame('icon_set', $by['column'] ?? null);
+        self::assertSame(IconItems::SET, $by['default'] ?? null);
+        self::assertIsArray($by['items'] ?? null);
+        self::assertContains('home', $by['items']['EXT:fixture/Icons/Beta/'] ?? []);
+    }
+
+    #[Test]
+    public function choicesThatTooManyOthersDecideAreMarkedPartial(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                             = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon_set']['config'] = [
+            'type'       => 'select',
+            'renderType' => 'selectSingle',
+            'items'      => array_map(static fn (int $number): array => ['label' => 'S' . $number, 'value' => 's' . $number], range(1, 51)),
+        ];
+        unset($tca);
+
+        $icon = ($this->composer->describe('nrllm_items')['children']['tx_childrenfixture_items']['fields'] ?? [])['icon'] ?? [];
+
+        self::assertTrue($icon['itemsPartial'] ?? null);
+    }
+
+    #[Test]
+    public function choicesThatDependOnAColumnTheEditorMayNotSetAreThoseOfItsDefault(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array<string, mixed>>}} $tca */
+        $tca                                                              = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon_set']['exclude'] = true;
+        unset($tca);
+
+        $described = $this->composer->describe('nrllm_items', null, $this->editor('tx_childrenfixture_item:header', 'tx_childrenfixture_item:icon'));
+        $fields    = $described['children']['tx_childrenfixture_items']['fields'] ?? [];
+
+        self::assertArrayHasKey('header', $fields);
+        self::assertArrayNotHasKey('icon_set', $fields);
+        self::assertArrayNotHasKey('icon', $fields, 'without a default set there is no icon to choose');
     }
 
     #[Test]

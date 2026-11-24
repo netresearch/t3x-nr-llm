@@ -41,7 +41,10 @@ run; such a column stays empty.
 the row as the backend form hands it over, a select value as a list, with the
 record's other values; processed selects are checked last and in the form's
 order, because the items of one can depend on another. The acting user is the
-ambient user while the processor runs. The page's permission is checked before.
+ambient user while the processor runs. The
+tool checks the page's permission before, and the grants of the columns a
+record names; a caller of ``dataMap()`` checks the page itself. Choices the
+page's ``TCEFORM`` or ``authMode`` take away are not offered.
 Core's ``ItemProcessingService`` is not used: on TYPO3 13.4 it turns an
 exception into a flash message and returns the unprocessed items. A processor
 that fails refuses the value by saying that the choices could not be computed.
@@ -53,7 +56,9 @@ its two sets hold 801 icons. An item's label names it where the label is plain
 text and unique; the stored value is accepted too. The tool description marks
 such a column (``~``) without its items. A name that does not exist is answered
 with the nearest ones. ``ContentElementComposer::describe()`` lists the names:
-``items``, or ``itemsBy`` (the column they depend on, and the names per choice).
+``items``, or ``itemsBy`` (the earlier select they depend on, its default, and
+the names per choice). ``itemsPartial`` marks a list that may leave choices out:
+two selects decide, or one has more than 50 choices.
 A column whose processor fails is not described.
 
 **Simple FlexForm fields are fillable** through ``fields``, as
@@ -68,7 +73,7 @@ over the defaults, shown on the approval card and read back one by one.
 grant of the FlexForm column only. A field that declares ``exclude`` is for
 administrators. A ``TCEFORM`` rule (``disabled``, ``config.readOnly``,
 ``keepItems``, ``removeItems``) for the sheet and field counts whatever data
-structure key it is written under.
+structure key it is written under, and so does ``disabled`` on the sheet.
 
 .. _adr-326-consequences:
 
@@ -85,6 +90,14 @@ that lists several such types in one prompt carries the names several times.
 
 ✕ A non-administrator cannot set a FlexForm field with ``exclude``, even with
 core's grant for that field.
+
+✕ A processed select placed before the one it depends on gets the choices for
+that one's default. Its form would be reloaded by the editor; a draft is not.
+
+✕ The processor's row holds the record's own columns. The relation, visibility
+and reference columns and FormEngine's ``inlineParent*`` parameters are not
+passed, and the site of a page that exists in a draft workspace only may not be
+found. A processor that needs one of them can fail or offer other choices.
 
 ✕ ``describe()`` has no page: a processor that reads the page or its TSconfig
 describes the choices of page 0, while ``dataMap()`` checks those of the page.

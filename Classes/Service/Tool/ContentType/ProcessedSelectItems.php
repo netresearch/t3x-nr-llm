@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool\ContentType;
 
+use Closure;
 use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
@@ -95,6 +96,19 @@ final readonly class ProcessedSelectItems
     }
 
     /**
+     * Only the items whose value passes.
+     *
+     * @param Closure(string): bool $passes
+     */
+    public function only(Closure $passes): self
+    {
+        return new self(
+            array_values(array_filter($this->items, static fn (array $item): bool => $passes($item['value']))),
+            $this->failed,
+        );
+    }
+
+    /**
      * The stored value for what a model gave — an item's value, or the name of
      * exactly one item — or null when no item is meant.
      */
@@ -173,27 +187,30 @@ final readonly class ProcessedSelectItems
      */
     private static function named(array $items): array
     {
-        $labels = [];
+        $choices = [];
         foreach ($items as $item) {
             $item = is_array($item) ? SelectItem::fromTcaItemArray($item, 'select') : $item;
             if (!$item instanceof SelectItem || $item->isDivider()) {
                 continue;
             }
 
-            $labels[self::toStr($item->getValue())] = trim($item->getLabel());
+            // A list, not a map by value: a numeric value would become an integer key.
+            $choices[] = ['value' => self::toStr($item->getValue()), 'name' => trim($item->getLabel())];
         }
 
-        $carriers = array_count_values(array_map(mb_strtolower(...), $labels));
-        $named    = [];
-        foreach ($labels as $value => $label) {
-            $value  = (string) $value;
-            $usable = $label !== '' && !str_starts_with($label, 'LLL:')
-                && $carriers[mb_strtolower($label)] === 1
-                && ($label === $value || !array_key_exists($label, $labels));
+        $values   = array_column($choices, 'value');
+        $carriers = array_count_values(array_map(mb_strtolower(...), array_column($choices, 'name')));
 
-            $named[] = ['value' => $value, 'name' => $usable ? $label : $value];
-        }
+        return array_map(
+            static function (array $choice) use ($values, $carriers): array {
+                $label  = $choice['name'];
+                $usable = $label !== '' && !str_starts_with($label, 'LLL:')
+                    && $carriers[mb_strtolower($label)] === 1
+                    && ($label === $choice['value'] || !in_array($label, $values, true));
 
-        return $named;
+                return ['value' => $choice['value'], 'name' => $usable ? $label : $choice['value']];
+            },
+            $choices,
+        );
     }
 }
