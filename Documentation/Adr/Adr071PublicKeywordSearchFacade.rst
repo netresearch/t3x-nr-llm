@@ -9,8 +9,9 @@
 ADR-071: Public keyword-search facade over the retrieval cascade
 ==================================================================
 
-:Status: Accepted
+:Status: Accepted (``search()`` takes an optional site — see :ref:`ADR-325 <adr-325>`)
 :Date: 2026-07-17
+:Amended: 2026-11-24 by :ref:`ADR-325 <adr-325>` (an optional site, and how Solr pages are placed)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-071-context:
