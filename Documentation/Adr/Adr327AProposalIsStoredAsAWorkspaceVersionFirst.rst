@@ -141,8 +141,8 @@ there may be none or several, and it holds the user's drafts.
 **A run started in a draft workspace** writes there today, and publishing is a
 separate act (:ref:`ADR-260 <adr-260>`). A second workspace cannot be laid over
 the first. Staging means the version is made in that workspace before the card,
-where the record has none yet. What the approval then does is an open question
-below.
+where the record has none yet. The approval keeps the version there, and
+publishing stays a separate act (the product owner, 2026-11-24).
 
 **Approval** claims the run as today and asks the gates of :ref:`ADR-133
 <adr-133>` and :ref:`ADR-172 <adr-172>`. It compares both digests of every row,
@@ -211,10 +211,11 @@ hooks such as automatic translation do to a staged row.
 Open questions
 ==============
 
-- Does an approval in a run started in a draft workspace publish to live, or
-  does it keep the version there as today?
-- May a proposal be staged in a workspace reserved for proposals, or must it be
-  the editor's own?
+The product owner settled two on 2026-11-24: an approval in a run started in a
+draft workspace keeps the version there, and a proposal of a run started in live
+is staged in a workspace an administrator names for proposals. Whether and when
+this is built is not decided by this record. Open:
+
 - Does a new element go live visible on approval, or stay hidden as today?
 
 .. _adr-327-consequences:
