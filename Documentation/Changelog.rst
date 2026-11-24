@@ -27,24 +27,21 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-54-0:
+.. _version-0-55-0:
 
-Version 0.54.0 (2026-11-23)
+Version 0.55.0 (2026-11-24)
 ===========================
 
-``create_content_element_draft`` drafts a content element with its child
-records, and other extensions can build such elements through the same rule.
+Drafts of content elements take icons and FlexForm values.
 
-- **Child records:** the items of an accordion, card group, icon group, tab,
-  timeline or carousel are passed as ``children``, checked against the
-  editor's grants and the page TSconfig, written with the element in one
-  DataHandler call, listed on the approval card and read back (ADR-324). A
-  child table must declare ``hideTable``.
-- **More types offered:** a FlexForm is written with its data structure's
-  defaults; folder, group and record-backed select columns are left empty
-  instead of excluding the type; ``link`` columns are fillable.
-- **API:** ``ContentElementComposer`` (``@api``) with ``describe()``,
-  ``typesOfferedOnPage()`` and ``dataMap()``. See
-  :ref:`ADR-324 <adr-324>`.
+- **Computed choices:** a child record's select whose items an
+  ``itemsProcFunc`` computes, such as bootstrap_package's icons, is chosen by
+  name. An unknown name is answered with the nearest ones (ADR-326).
+- **FlexForm values:** the simple fields of a type's FlexForm are set through
+  ``fields``, checked, shown on the approval card and read back. Fields with
+  ``exclude`` are for administrators.
+- **API:** ``ContentElementComposer::describe()`` gains ``flexForms``, and
+  ``items`` or ``itemsBy`` for computed selects. See
+  :ref:`ADR-326 <adr-326>`.
 
 Details in the repository :file:`CHANGELOG.md`.
