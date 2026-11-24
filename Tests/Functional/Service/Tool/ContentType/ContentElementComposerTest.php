@@ -86,7 +86,7 @@ final class ContentElementComposerTest extends AbstractFunctionalTestCase
         self::assertIsArray($icons['items'] ?? null);
         self::assertCount(61, $icons['items']['Alpha'] ?? []);
         self::assertContains('home', $icons['items']['Beta'] ?? []);
-        self::assertContains('EXT:fixture/Icons/Beta/clash.svg', $icons['items']['Beta'], 'a label that is another item\'s value names nothing');
+        self::assertContains('EXT:fixture/Icons/Beta/clash.svg', $icons['items']['Beta'], 'a label equal to the value of another item names nothing');
         self::assertSame(['columns', 'opened', 'settings.intro'], array_keys($described['flexForms']['pi_flexform'] ?? []));
         self::assertSame(['1', '2'], $described['flexForms']['pi_flexform']['columns']['items'] ?? null);
         self::assertTrue($items['fields']['header']['required'] ?? null);

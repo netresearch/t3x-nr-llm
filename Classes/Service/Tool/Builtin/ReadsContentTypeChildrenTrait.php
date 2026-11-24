@@ -648,7 +648,7 @@ trait ReadsContentTypeChildrenTrait
         }
 
         $path   = explode('.', $name);
-        $last   = (string) array_pop($path);
+        $last   = array_pop($path);
         $nested = $sheetRules;
         foreach ($path as $part) {
             $nested = is_array($nested[$part . '.'] ?? null) ? $nested[$part . '.'] : [];
