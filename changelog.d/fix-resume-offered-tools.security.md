@@ -1,0 +1,1 @@
+- A writing call whose tool was not offered when a run paused for approval is not executed when the tool is offered at the resume. The approval of the turn covered it before, although its card held no preview ([ADR-329](Documentation/Adr/Adr329AnApprovalCoversTheCallsThatWereOffered.rst)).

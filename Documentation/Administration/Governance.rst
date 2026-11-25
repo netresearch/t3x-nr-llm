@@ -115,7 +115,7 @@ Two places show recorded events:
   A ``write_unapproved`` bar counts writes the runtime refused because
   nothing had approved them: a pending call that reached the input-resume
   path after its tool was switched on mid-run (``inputResumeWithoutApproval``),
-  or a call its tool refused before the approval and no longer refused when it
+  the same on the approval path (``approvalResumeNotOfferedAtPause``), or a call its tool refused before the approval and no longer refused when it
   was settled (``refusalLifted``). It is a refusal, not an
   approval record, which is why it belongs in this table.
 

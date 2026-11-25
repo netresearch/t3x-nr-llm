@@ -319,6 +319,9 @@ final readonly class ApprovalPreviewComparator
             $state->maxIterations,
             // So does the cost of the rounds so far (NEXT-188).
             $state->estimatedCost,
+            // The second card describes a call that was not offered no more
+            // than the first did (ADR-329).
+            unofferedCallIndexes: $state->unofferedCallIndexes,
         );
     }
 }

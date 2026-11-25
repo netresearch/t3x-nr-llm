@@ -318,3 +318,4 @@ All decision records
    Adr324AContentElementIsDraftedWithItsChildRecords
    Adr326ADraftTakesFlexFormValuesAndComputedItems
    Adr328ARefusedDraftIsAnsweredWithoutACard
+   Adr329AnApprovalCoversTheCallsThatWereOffered

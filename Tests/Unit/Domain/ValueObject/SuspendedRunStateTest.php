@@ -321,6 +321,35 @@ final class SuspendedRunStateTest extends TestCase
     }
 
     /**
+     * ADR-329: which calls were not offered survives the round trip and a
+     * change of the pins, follows its call through the renumbering, and is
+     * absent from a state that has none.
+     */
+    #[Test]
+    public function theIndexesOfUnofferedCallsFollowTheirCalls(): void
+    {
+        $state = new SuspendedRunState(
+            messages: [],
+            pendingCalls: [['id' => 'c1'], ['id' => 'c2']],
+            iterations: 1,
+            promptTokens: 0,
+            completionTokens: 0,
+            unofferedCallIndexes: [1],
+        );
+        $row = $state->toArray();
+
+        self::assertSame([1], SuspendedRunState::fromArray($row)->unofferedCallIndexes);
+        self::assertSame([1], $state->withSkillPins([])->unofferedCallIndexes);
+
+        $row['pendingCalls'] = ['unusable', ['id' => 'c2']];
+        self::assertSame([0], SuspendedRunState::fromArray($row)->unofferedCallIndexes);
+
+        unset($row['unofferedCallIndexes']);
+        self::assertSame([], SuspendedRunState::fromArray($row)->unofferedCallIndexes);
+        self::assertArrayNotHasKey('unofferedCallIndexes', (new SuspendedRunState([], [], 1, 0, 0))->toArray());
+    }
+
+    /**
      * A state persisted before ADR-184 has no such key. It must rehydrate and
      * resume, not refuse — a running installation has suspended runs, which is
      * the same reason ADR-136's preview degrades rather than throws.
