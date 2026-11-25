@@ -41,7 +41,10 @@ use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
  *   have read the refusal on the card.
  * - **The preview asks it too** and shows the refusal instead of the change:
  *   in a turn that suspends for another call, the card must not describe a
- *   write that will not happen.
+ *   write that will not happen. For a tool without
+ *   {@see ToolPreviewInterface}, or whose preview failed, the loop shows the
+ *   refusal itself. Either way the refusal is stored with the card, and the
+ *   call is not executed after the approval.
  * - Null whenever the call may be written, including whenever the answer is
  *   not known — no acting user, a process that lacks what the answer needs:
  *   the call then suspends for approval as before. A refusal that describes

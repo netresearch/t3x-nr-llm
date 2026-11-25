@@ -197,7 +197,7 @@ final readonly class ApprovalPreviewComparator
     {
         foreach ($previews as $position => $preview) {
             $call = $calls[$preview['index']] ?? null;
-            if ($refused instanceof Closure && $call instanceof ToolCall && !$preview['failed'] && in_array($call->name, $offered, true) && $refused($call)) {
+            if ($refused instanceof Closure && $call instanceof ToolCall && in_array($call->name, $offered, true) && $refused($call)) {
                 $previews[$position]['refusedByTool'] = true;
             }
         }

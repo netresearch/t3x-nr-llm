@@ -144,8 +144,9 @@ Attaching and creating records
      A model looks up the names of such a select with
      ``list_content_element_choices``.
    - A call the plan refuses - a wrong value, a missing grant, a page that is
-     not there - does not pause the run: the model reads the refusal at once,
-     nothing is written, and the round counts towards the run's round limit
+     not there - does not pause the run by itself: the model reads the refusal at
+     once or, where another call of the same turn waits for approval, after that
+     decision. Nothing is written, and the round counts towards the run's round limit
      (:ref:`ADR-328 <adr-328>`).
    - The field set is the type's own scalar columns: headline, body text,
      column, language and position as arguments, and every further ``input``,

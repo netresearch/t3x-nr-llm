@@ -45,6 +45,7 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
         private ?string $until = null,
         private ?Closure $when = null,
         private string $refusal = self::REFUSAL,
+        private bool $previewThrows = false,
     ) {}
 
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
@@ -77,6 +78,10 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
 
     public function previewCall(array $arguments, ToolExecutionContext $context): array
     {
+        if ($this->previewThrows) {
+            throw new RuntimeException('no preview', 1799328001);
+        }
+
         return $this->refusalBeforeApproval($arguments, $context) instanceof ToolResult
             ? ['would be refused']
             : ['would write'];

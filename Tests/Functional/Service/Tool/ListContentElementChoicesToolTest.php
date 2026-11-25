@@ -267,7 +267,8 @@ final class ListContentElementChoicesToolTest extends AbstractFunctionalTestCase
         $content = $this->ask('icon', ['limit' => 2])->content;
 
         self::assertStringContainsString('icon_set "Alpha": (1 of 61 shown) "0"', $content);
-        self::assertStringContainsString('icon_set "Beta": (0 of 5 shown) ', $content);
+        self::assertStringNotContainsString('icon_set "Beta"', $content, 'no line for a list that shows no name');
+        self::assertStringContainsString('(1 more lists hold names that are not shown)', $content);
         self::assertStringContainsString('2 of 67 are shown', $content);
     }
 
@@ -301,6 +302,57 @@ final class ListContentElementChoicesToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString('could not be computed (RuntimeException)', $result->content);
         self::assertStringNotContainsString('No choices', $result->content);
+    }
+
+    /**
+     * The sets that could be computed equal the list without a set, so one list
+     * stands for them; the one that could not is still named.
+     */
+    #[Test]
+    public function aFailedSetStaysNamedWhereTheOthersEqualTheDefaultList(): void
+    {
+        $this->setStaticSets(3, 's1');
+        $this->setIconProcessor(IconItems::class . '->sameButForOneSet');
+
+        $content = $this->ask('icon')->content;
+
+        self::assertStringContainsString("\n\"the icon\"\n", $content);
+        self::assertStringContainsString('icon_set "s2": could not be computed (RuntimeException).', $content);
+        self::assertStringContainsString('All 1 are shown.', $content);
+    }
+
+    /**
+     * The names of the sets count against the byte budget too, and a set
+     * without a shown name takes no line.
+     */
+    #[Test]
+    public function theNamesOfTheSetsCountAgainstTheBudget(): void
+    {
+        $this->setStaticSets(50, 's1', 1500);
+        $this->setIconProcessor(IconItems::class . '->iconOfAnySet');
+
+        $content = $this->ask('icon', ['limit' => 1000])->content;
+
+        self::assertLessThan(32000, strlen($content));
+        self::assertMatchesRegularExpression('/\([1-9]\d* more lists hold names that are not shown\)/', $content);
+        self::assertStringContainsString('The list is cut: ', $content);
+        self::assertStringContainsString(' of 50 are shown', $content);
+    }
+
+    /**
+     * Many sets that could not be computed do not push the answer over the
+     * loop's own cap.
+     */
+    #[Test]
+    public function theNamesOfFailedSetsAreCut(): void
+    {
+        $this->setStaticSets(40, 's1', 1500);
+        $this->setIconProcessor(IconItems::class . '->sameOnlyForTheFirst');
+
+        $content = $this->ask('icon')->content;
+
+        self::assertLessThan(6000, strlen($content));
+        self::assertStringContainsString('(further lists that could not be computed are left out)', $content);
     }
 
     /**
@@ -556,11 +608,11 @@ final class ListContentElementChoicesToolTest extends AbstractFunctionalTestCase
     /**
      * A static icon set with the choices `s1` to `s<count>`.
      */
-    private function setStaticSets(int $count, string $default): void
+    private function setStaticSets(int $count, string $default, int $padding = 0): void
     {
         $items = $default === '' ? [['label' => '', 'value' => '']] : [];
         for ($number = 1; $number <= $count; ++$number) {
-            $items[] = ['label' => 'S', 'value' => 's' . $number];
+            $items[] = ['label' => 'S', 'value' => 's' . $number . str_repeat('-', $padding)];
         }
 
         /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */

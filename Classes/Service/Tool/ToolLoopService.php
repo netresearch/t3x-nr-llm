@@ -3161,6 +3161,13 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             }
 
             if (!$tool instanceof ToolPreviewInterface) {
+                // A tool that refuses without a preview (ADR-328): the refusal
+                // is the card, so the resume knows the call was refused.
+                $refusal = $this->refusalBeforeApprovalOf($call, $context);
+                if ($refusal instanceof ToolResult) {
+                    $previews[] = $this->refusalPreview($index, $call, $refusal, $context);
+                }
+
                 continue;
             }
 
@@ -3178,6 +3185,14 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 $failed = true;
             }
 
+            // Where the preview says nothing, the refusal stands for it.
+            $refusal = $this->refusalBeforeApprovalOf($call, $context);
+            if ($failed && $refusal instanceof ToolResult) {
+                $previews[] = $this->refusalPreview($index, $call, $refusal, $context);
+
+                continue;
+            }
+
             $previews[] = [
                 'index' => $index,
                 'tool'  => $call->name,
@@ -3187,7 +3202,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 'lines'  => $this->previewComparator()->bound($lines, $context->actingBackendUser()),
                 'failed' => $failed,
             ] + ($failed ? [] : $this->previewComparator()->planOf($tool, $call, $context))
-                + ($failed || !$this->refusedBeforeApproval($call, $context) ? [] : ['refusedByTool' => true]);
+                + ($refusal instanceof ToolResult ? ['refusedByTool' => true] : []);
         }
 
         return $previews;
@@ -4175,6 +4190,27 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             'lines'   => $this->previewComparator()->bound([$line], $context->actingBackendUser()),
             'failed'  => true,
             'refused' => true,
+        ];
+    }
+
+    /**
+     * The stored preview of a call its tool refuses and whose preview says
+     * nothing (ADR-328): the refusal, flagged as no state to compare, which the
+     * resume keeps.
+     *
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refusedByTool: bool}
+     */
+    private function refusalPreview(int $index, ToolCall $call, ToolResult $refusal, ToolExecutionContext $context): array
+    {
+        $user  = $context->actingBackendUser();
+        $lines = $this->previewComparator()->bound([$refusal->content], $user);
+
+        return [
+            'index'         => $index,
+            'tool'          => $call->name,
+            'lines'         => $lines === [''] ? $this->previewComparator()->emptyLines($user) : $lines,
+            'failed'        => true,
+            'refusedByTool' => true,
         ];
     }
 

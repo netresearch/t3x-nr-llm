@@ -83,7 +83,7 @@ those elements without items).
   nearest names. Its group is `content`. No choices, an unknown name, a
   missing permission and a failed processor are told apart.
 - **CC16 A refused plan shows no card (ADR-328).** A draft call its plan
-  refuses does not suspend the run; the refusal is its result and nothing is
+  refuses does not suspend the run by itself; the refusal is its result and nothing is
   written. A call that skipped the approval for it is never executed, also
   where the plan stops refusing before the call is settled.
 

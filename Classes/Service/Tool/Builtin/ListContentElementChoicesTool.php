@@ -63,6 +63,9 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     /** How many lists are sorted for nearest names in one answer, over all searches. */
     private const MAX_NEAR_LISTS = 20;
 
+    /** What the lists that could not be computed may take of the answer. */
+    private const MAX_FAILURE_BYTES = 4000;
+
     /** How many near names a search without a hit offers per list. */
     private const MAX_NEAR_NAMES = 10;
 
@@ -353,12 +356,12 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
      * @param array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, minItems: int, maxItems: int} $collection
      * @param array<string, string|int>                                                                                                                                                                                           $values
      *
-     * @return array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>}
+     * @return array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>}
      */
     private function listsFor(array $collection, string $column, array $values, BackendUserAuthentication $user): array
     {
         $items = $this->processedItems($collection, $column, $values, 0, 0, [], $user);
-        $found = ['by' => '', 'lists' => [['name' => '', 'items' => $items]], 'others' => []];
+        $found = ['by' => '', 'lists' => [['name' => '', 'items' => $items]], 'others' => [], 'failures' => []];
         foreach ($this->otherSelects($collection, $column, $user) as $other) {
             if (array_key_exists($other, $values)) {
                 continue;
@@ -376,6 +379,10 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
 
             $sets = $this->itemSets($collection, $column, $values, $other, $choices, $user);
             if (array_filter($sets, static fn (array $set): bool => $set['items']->failed === '' && $set['items']->names() !== $items->names()) === []) {
+                // One list stands for all that could be computed, and a set
+                // that could not stays named beside it.
+                $found['failures'] = [...$found['failures'], ...$this->failuresOf($other, $sets)];
+
                 continue;
             }
 
@@ -391,8 +398,8 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     }
 
     /**
-     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>} $found
-     * @param list<string>                                                                                           $searches
+     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>} $found
+     * @param list<string>                                                                                                                   $searches
      */
     private function listed(string $column, string $children, string $type, array $found, array $searches, int $limit): ToolResult
     {
@@ -453,35 +460,44 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
      * The names of each list, cut at the limit and at the byte budget of the
      * whole answer, and how many that are.
      *
-     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>} $found
-     * @param list<list<string>>                                                                                     $matching the names to show, per list
+     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>} $found
+     * @param list<list<string>>                                                                                                             $matching the names to show, per list
      *
      * @return array{list<string>, int}
      */
     private function nameLines(array $found, array $matching, int $limit): array
     {
-        $lines = [];
-        $shown = 0;
-        $bytes = 0;
+        $lines  = [];
+        $shown  = 0;
+        $bytes  = 0;
+        $hidden = 0;
         foreach ($found['lists'] as $index => $list) {
+            $count = count($matching[$index] ?? []);
+            $label = $this->listLabel($found['by'], $list['name']);
+            $room  = self::MAX_NAME_BYTES - $bytes - strlen($label);
             $names = [];
             foreach ($matching[$index] ?? [] as $name) {
                 $quoted = $this->quotedName($name);
-                if ($shown >= $limit || $bytes + strlen($quoted) + 2 > self::MAX_NAME_BYTES) {
+                $room -= strlen($quoted) + 2;
+                if ($shown >= $limit || $room < 0) {
                     break;
                 }
 
                 $names[] = $quoted;
-                $bytes += strlen($quoted) + 2;
                 ++$shown;
             }
 
-            $count = count($matching[$index] ?? []);
-            if ($count > 0) {
-                $lines[] = $this->listLabel($found['by'], $list['name'])
-                    . (count($names) < $count ? sprintf('(%d of %d shown) ', count($names), $count) : '')
-                    . implode(', ', $names);
+            if ($names !== []) {
+                $line    = $label . (count($names) < $count ? sprintf('(%d of %d shown) ', count($names), $count) : '') . implode(', ', $names);
+                $lines[] = $line;
+                $bytes += strlen($line);
+            } elseif ($count > 0) {
+                ++$hidden;
             }
+        }
+
+        if ($hidden > 0) {
+            $lines[] = sprintf('(%d more lists hold names that are not shown)', $hidden);
         }
 
         return [$lines, $shown];
@@ -491,8 +507,8 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
      * Each search without a hit, with the nearest names of every list, as far
      * as the byte budget goes; nothing for a search that has one.
      *
-     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>} $found
-     * @param list<string>                                                                                           $searches
+     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>} $found
+     * @param list<string>                                                                                                                   $searches
      *
      * @return list<string>
      */
@@ -535,7 +551,7 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     }
 
     /**
-     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>} $found
+     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>} $found
      */
     private function hasHit(array $found, string $search): bool
     {
@@ -568,16 +584,39 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     }
 
     /**
-     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>} $found
+     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>} $found
      *
      * @return list<string>
      */
     private function failureLines(array $found): array
     {
         $lines = [];
-        foreach ($found['lists'] as $list) {
+        $bytes = 0;
+        foreach ([...$this->failuresOf($found['by'], $found['lists']), ...$found['failures']] as $line) {
+            $bytes += strlen($line);
+            if ($bytes > self::MAX_FAILURE_BYTES) {
+                $lines[] = '(further lists that could not be computed are left out)';
+
+                break;
+            }
+
+            $lines[] = $line;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param list<array{name: string, items: ProcessedSelectItems}> $lists
+     *
+     * @return list<string>
+     */
+    private function failuresOf(string $by, array $lists): array
+    {
+        $lines = [];
+        foreach ($lists as $list) {
             if ($list['items']->failed !== '') {
-                $lines[] = $this->listLabel($found['by'], $list['name']) . sprintf('could not be computed (%s).', $list['items']->failed);
+                $lines[] = $this->listLabel($by, $list['name']) . sprintf('could not be computed (%s).', $list['items']->failed);
             }
         }
 
@@ -585,7 +624,7 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     }
 
     /**
-     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>} $found
+     * @param array{by: string, lists: list<array{name: string, items: ProcessedSelectItems}>, others: list<string>, failures: list<string>} $found
      *
      * @return list<string>
      */

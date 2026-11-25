@@ -87,6 +87,9 @@ when the cards are compared pauses the run again, and a call refused at that
 moment stays refused whatever an earlier call of the turn changes. The stored
 preview now says that the tool refused the call (``refusedByTool``), so a tool
 that stops refusing after the comparison does not get its call executed either.
+For a tool without a preview, or whose preview failed, the refusal itself is
+stored and shown as the card. The registry's boot validation does not reject
+such a tool: it never sees the tools a provider supplies.
 
 **A refused call leaves the records it left before**: its trace step, the
 ``execute_tool`` span, the error outcome in the invocation history and no
@@ -129,7 +132,8 @@ Consequences
 ============
 
 ● A wrong icon name no longer stops the run for a person. The model reads the
-refusal in the next round.
+refusal in the next round, unless another call of the same turn waits for
+approval: then it reads it after that decision.
 
 ● A model can look up a name instead of guessing it or searching the code.
 

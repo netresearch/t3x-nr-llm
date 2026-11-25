@@ -50,6 +50,7 @@ use Netresearch\NrLlm\Tests\Unit\Language\EnglishPreviewTranslatorTrait;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RefusingWithoutPreviewTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RefusingWriteTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -71,6 +72,9 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
     use EnglishPreviewTranslatorTrait;
 
     private bool $processRun = false;
+
+    /** Whether the preview of `blind_write` fails. */
+    private bool $previewThrows = true;
 
     /** Whether `refused_write` refuses; flipped to model a change between the pause and the resume. */
     private bool $refuses = true;
@@ -501,6 +505,87 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
     }
 
     /**
+     * A tool that refuses without a preview, or whose preview fails, gets its
+     * refusal as the card: a refusal that is lifted before the approval does
+     * not let the call run.
+     */
+    #[Test]
+    #[DataProvider('toolsWithoutAPreview')]
+    public function aRefusedCallWithoutAPreviewStaysRefused(string $tool): void
+    {
+        $stored = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', $tool, ['id' => 'b']),
+        ]);
+        $state = SuspendedRunState::fromArray($stored->toArray());
+
+        self::assertSame([RefusingWriteTool::REFUSAL], $state->callPreviews[1]['lines'] ?? null);
+        self::assertTrue($state->callPreviews[1]['failed'] ?? false);
+        self::assertTrue($state->callPreviews[1]['refusedByTool'] ?? false);
+
+        $this->lifted = true;
+        $captured     = [];
+        $this->service([$this->response('applied')], $captured)->resume($state, true, $this->configuration(), $this->context());
+
+        self::assertSame(['a'], $this->writes->getArrayCopy());
+        self::assertStringContainsString('requires approval that was not given', $this->toolResults($captured[0])[1] ?? '');
+    }
+
+    /**
+     * A card that comes back because its preview fails on the resume keeps the
+     * refusal: approving it does not execute the call.
+     */
+    #[Test]
+    public function aRefusedCallWhosePreviewFailsOnTheResumeStaysRefused(): void
+    {
+        $this->previewThrows = false;
+        $state               = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'blind_write', ['id' => 'b']),
+        ]);
+
+        $this->previewThrows = true;
+
+        try {
+            $this->service([])->resume($state, true, $this->configuration(), $this->context());
+            self::fail('Expected the card without a preview to pause the run again.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        self::assertTrue($state->callPreviews[1]['failed'] ?? false);
+        $this->lifted = true;
+        $this->service([$this->response('applied')])->resume($state, true, $this->configuration(), $this->context());
+
+        self::assertSame(['a'], $this->writes->getArrayCopy());
+    }
+
+    /**
+     * A call such a tool would write has no card of its own and is executed
+     * once it is approved, as before.
+     */
+    #[Test]
+    #[DataProvider('toolsWithoutAPreview')]
+    public function aCallWithoutAPreviewThatIsNotRefusedIsExecutedOnceItIsApproved(string $tool): void
+    {
+        $this->lifted = true;
+        $state        = $this->suspendOn([new ToolCall('c1', $tool, ['id' => 'b'])]);
+        self::assertSame([], array_filter($state->callPreviews, static fn (array $preview): bool => isset($preview['refusedByTool'])));
+
+        $this->service([$this->response('applied')])->resume($state, true, $this->configuration(), $this->context());
+
+        self::assertSame(['b'], $this->writes->getArrayCopy());
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function toolsWithoutAPreview(): array
+    {
+        return ['no preview' => ['unseen_write'], 'a preview that fails' => ['blind_write']];
+    }
+
+    /**
      * Beside a proposal the same holds at every moment the refusal can be
      * lifted: after the proposal was chosen, and after the call was found
      * refused.
@@ -663,6 +748,8 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
             new RefusingWriteTool('refused_until_lift', true, $this->writes, until: 'lift'),
             new RefusingWriteTool('flipping_write', true, $this->writes, when: $this->flippingWriteRefuses(...)),
             new RefusingWriteTool('long_refusal', true, $this->writes, refusal: str_repeat('r', 60000)),
+            new RefusingWriteTool('blind_write', true, $this->writes, when: $this->flippingWriteRefuses(...), previewThrows: $this->previewThrows),
+            new RefusingWithoutPreviewTool('unseen_write', $this->flippingWriteRefuses(...), $this->writes),
             $this->liftingRead(),
             new FakeInputTool('ask_user'),
         ]);
