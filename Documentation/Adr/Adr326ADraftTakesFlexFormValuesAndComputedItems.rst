@@ -13,6 +13,8 @@ ADR-326: A draft takes FlexForm values and computed items
 :Date: 2026-11-24
 :Amends: :ref:`ADR-324 <adr-324>` (simple FlexForm fields, and selects of child
     records with computed items)
+:Amended: 2026-11-25 by :ref:`ADR-328 <adr-328>` (the names of a computed select
+    are listed on request, and a wrong one is refused without a card)
 :Authors: Netresearch DTT GmbH
 
 .. _adr-326-context:
@@ -54,7 +56,8 @@ the only one.
 **A model chooses by name.** bootstrap_package's icon values are file paths and
 its two sets hold 801 icons. An item's label names it where the label is plain
 text and unique; the stored value is accepted too. The tool description marks
-such a column (``~``) without its items. A name that does not exist is answered
+such a column (``~``) without its items (``list_content_element_choices`` lists
+them, :ref:`ADR-328 <adr-328>`). A name that does not exist is answered
 with the nearest ones. ``ContentElementComposer::describe()`` lists the names:
 ``items``, or ``itemsBy`` (the earlier select they depend on, its default, and
 the names per choice). ``itemsPartial`` marks a list known to be

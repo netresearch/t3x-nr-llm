@@ -812,7 +812,7 @@ trait ReadsContentTypeChildrenTrait
         $others = array_values(array_diff($others, $this->columnsTheUserMayNotSet($user, $collection['table'], $others)));
 
         return sprintf(
-            'Refused: the value for "%s" must be one of %d choices, for example: %s.%s',
+            'Refused: the value for "%s" must be one of %d choices, for example: %s.%s Where list_content_element_choices is offered, it searches them.',
             $column,
             count($items->names()),
             implode(', ', array_map(static fn (string $name): string => '"' . $name . '"', $items->namesNear($text, self::MAX_OFFERED_NAMES))) ?: 'none',
@@ -1214,6 +1214,47 @@ trait ReadsContentTypeChildrenTrait
         return null;
     }
 
+    /**
+     * Whether the user may create the records of one child-record column:
+     * `tables_modify` on the child table, the exclude-field grant of the inline
+     * column and of every required child column, and `authMode` on the child
+     * table's type field for the type a record gets — the checks
+     * {@see \Netresearch\NrLlm\Service\Tool\ContentType\ContentElementComposer::dataMap()}
+     * runs.
+     *
+     * @param array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, minItems: int, maxItems: int}|null $collection
+     */
+    private function userMayWriteChildren(string $column, ?array $collection, BackendUserAuthentication $user): bool
+    {
+        if ($collection === null) {
+            return false;
+        }
+
+        if (!$user->isAdmin() && !$user->check('tables_modify', $collection['table'])) {
+            return false;
+        }
+
+        // In a draft workspace a child table without versioning is refused.
+        if ($user->workspace > 0 && !$this->tableIsVersioned($collection['table'])) {
+            return false;
+        }
+
+        $required = array_keys(array_filter($collection['fields'], $this->isRequiredColumn(...)));
+        if ($collection['typeField'] !== '') {
+            $required[] = $collection['typeField'];
+        }
+
+        if ($this->columnsTheUserMayNotSet($user, self::TABLE, [$column]) !== []
+            || $this->columnsTheUserMayNotSet($user, $collection['table'], array_map(strval(...), $required)) !== []
+        ) {
+            return false;
+        }
+
+        return $collection['typeField'] === ''
+            || !$this->columnHasAuthMode($collection['table'], $collection['typeField'])
+            || $user->checkAuthMode($collection['table'], $collection['typeField'], $collection['typeValue']);
+    }
+
     private function columnHasAuthMode(string $table, string $column): bool
     {
         $definition = ($this->tcaColumnsFor($table) ?? [])[$column] ?? null;
@@ -1346,7 +1387,7 @@ trait ReadsContentTypeChildrenTrait
 
                 $earlier[$name] = $items->items;
             } elseif (self::toStr($config['type'] ?? '') === 'select') {
-                $earlier[$name] = array_map(static fn (string $value): array => ['value' => $value, 'name' => $value], $this->staticItemValues($config));
+                $earlier[$name] = $this->staticChoices($config);
             }
         }
 
@@ -1370,10 +1411,9 @@ trait ReadsContentTypeChildrenTrait
             }
 
             $sets = [];
-            foreach ($choices as $choice) {
-                $set = $this->processedItems($collection, $column, [$before => $choice['value']], 0, 0, [], $user);
-                if ($set->failed === '') {
-                    $sets[$choice['value'] === '' ? '' : $choice['name']] = $set->names();
+            foreach ($this->itemSets($collection, $column, [], $before, $choices, $user) as $set) {
+                if ($set['items']->failed === '') {
+                    $sets[$set['name']] = $set['items']->names();
                 }
             }
 
@@ -1395,6 +1435,57 @@ trait ReadsContentTypeChildrenTrait
         }
 
         return $entry;
+    }
+
+    /**
+     * The items of a processed select per choice of another select of the
+     * record, the record's other values as given.
+     *
+     * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
+     * @param array<string, string|int>                                                                                                                             $values
+     * @param list<array{value: string, name: string}>                                                                                                              $choices    the choices of `$other`
+     *
+     * @return list<array{name: string, items: ProcessedSelectItems}>
+     */
+    private function itemSets(array $collection, string $column, array $values, string $other, array $choices, ?BackendUserAuthentication $user): array
+    {
+        $sets = [];
+        foreach ($choices as $choice) {
+            $sets[] = [
+                'name'  => $choice['value'] === '' ? '' : $choice['name'],
+                'items' => $this->processedItems($collection, $column, [...$values, $other => $choice['value']], 0, 0, [], $user),
+            ];
+        }
+
+        return $sets;
+    }
+
+    /**
+     * The choices of a select of a child record: the computed ones, or the
+     * static ones by their values. Empty where its processor fails.
+     *
+     * @param array{table: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>} $collection
+     * @param array<string, string|int>                                                                                                                             $values
+     *
+     * @return list<array{value: string, name: string}>
+     */
+    private function choicesOf(array $collection, string $column, array $values, ?BackendUserAuthentication $user): array
+    {
+        $config = $collection['fields'][$column] ?? [];
+
+        return $this->isProcessedSelect($config)
+            ? $this->processedItems($collection, $column, $values, 0, 0, [], $user)->items
+            : $this->staticChoices($config);
+    }
+
+    /**
+     * @param array<array-key, mixed> $config
+     *
+     * @return list<array{value: string, name: string}>
+     */
+    private function staticChoices(array $config): array
+    {
+        return array_map(static fn (string $value): array => ['value' => $value, 'name' => $value], $this->staticItemValues($config));
     }
 
     /**

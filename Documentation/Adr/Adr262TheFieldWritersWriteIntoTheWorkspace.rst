@@ -9,10 +9,10 @@
 ADR-262: The field writers write into the workspace, and a redirect is refused before the card
 ==============================================================================================
 
-:Status: Accepted (its writers are joined by the creating and attaching writers — see :ref:`ADR-264 <adr-264>`; its consequence that move, copy, delete and localize refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`; and for replacing a reference and the social image — see :ref:`ADR-274 <adr-274>`)
+:Status: Accepted (its writers are joined by the creating and attaching writers — see :ref:`ADR-264 <adr-264>`; its consequence that move, copy, delete and localize refuse a draft workspace is lifted — see :ref:`ADR-266 <adr-266>`; and for replacing a reference and the social image — see :ref:`ADR-274 <adr-274>`; a call its tool refuses is settled and never executed — see :ref:`ADR-328 <adr-328>`)
 :Date: 2026-11-05
 :Amends: :ref:`ADR-260 <adr-260>` (its consequence that only ``update_content_element`` writes into a workspace), :ref:`ADR-135 <adr-135>` (its refusal of every draft workspace, for the writers named here), :ref:`ADR-084 <adr-084>` and :ref:`ADR-134 <adr-134>` (every declared write suspends: not a call its tool refuses whatever is decided)
-:Amended: 2026-11-05 by :ref:`ADR-264 <adr-264>` (the creating writers create in the workspace) and :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace); 2026-11-10 by :ref:`ADR-274 <adr-274>` (``set_file_reference_alternative_text`` asks the inline owners in the workspace)
+:Amended: 2026-11-05 by :ref:`ADR-264 <adr-264>` (the creating writers create in the workspace) and :ref:`ADR-266 <adr-266>` (move, copy, delete and translate act in the workspace); 2026-11-10 by :ref:`ADR-274 <adr-274>` (``set_file_reference_alternative_text`` asks the inline owners in the workspace); 2026-11-25 by :ref:`ADR-328 <adr-328>` (a call its tool refuses before the approval is settled and never executed, instead of going to the tool's ``execute()``)
 :Authors: Netresearch DTT GmbH
 
 Context
@@ -90,7 +90,9 @@ proposal, and the calls run on the resume after a question was answered —
 it asks :php:`ToolApprovalRule` and then this method; a
 refusal means no suspension, and the call goes to the tool. The tool's
 ``execute()`` asks the same method first and returns its refusal unchanged,
-so skipping the approval can never lead to a write. A method that throws
+so skipping the approval can never lead to a write. (Since
+:ref:`ADR-328 <adr-328>` the loop answers with the refusal itself and does not
+execute such a call.) A method that throws
 counts as no refusal: the call waits for approval as before.
 
 **The redirect writers refuse in a draft workspace before the card**, with

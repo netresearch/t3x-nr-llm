@@ -88,7 +88,7 @@ Group              Tools
 =================  ============================================================
 ``content``        ``search_records``, ``get_page_content``, ``read_records``,
                    ``get_record_history``, ``ask_choice``,
-                   ``highlight_record``
+                   ``highlight_record``, ``list_content_element_choices``
 ``structure``      ``get_pagetree``, ``get_tca``, ``read_fal_asset_meta``,
                    ``get_full_tca``, ``get_table_schema``, ``get_flexform_schema``,
                    ``resolve_url``, ``validate_tca``

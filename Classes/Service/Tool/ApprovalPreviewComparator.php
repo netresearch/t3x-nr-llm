@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Service\Tool;
 
+use Closure;
 use Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState;
 use Netresearch\NrLlm\Domain\ValueObject\ToolCall;
 use Psr\Log\LoggerInterface;
@@ -101,10 +102,11 @@ final readonly class ApprovalPreviewComparator
      *   run no longer has is worse than not reading; its entry is carried
      *   unchanged.
      *
-     * @param list<ToolCall> $calls
-     * @param list<string>   $offered
+     * @param list<ToolCall>                 $calls
+     * @param list<string>                   $offered
+     * @param (Closure(ToolCall): bool)|null $refused whether a call's tool refuses it before the approval (ADR-328), for the card shown again
      */
-    public function compare(SuspendedRunState $state, array $calls, array $offered, ToolExecutionContext $context): ?SuspendedRunState
+    public function compare(SuspendedRunState $state, array $calls, array $offered, ToolExecutionContext $context, ?Closure $refused = null): ?SuspendedRunState
     {
         $shown = [];
         foreach ($state->callPreviews as $preview) {
@@ -125,7 +127,7 @@ final readonly class ApprovalPreviewComparator
                 continue;
             }
 
-            $now        = $this->recompute($call, $context, $before);
+            $now        = $this->recompute($call, $context, $before, $refused);
             $previews[] = $now;
             if ($now['lines'] !== $before['lines'] || ($now['plan'] ?? null) !== ($before['plan'] ?? null)) {
                 $stale[] = $index;
@@ -147,11 +149,12 @@ final readonly class ApprovalPreviewComparator
      * {@see ToolLoopService::invoke()}; an exception body may carry DBAL
      * credentials.
      *
-     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>} $before
+     * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>} $before
+     * @param (Closure(ToolCall): bool)|null                                                                                                         $refused
      *
-     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}
+     * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>}
      */
-    private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
+    private function recompute(ToolCall $call, ToolExecutionContext $context, array $before, ?Closure $refused): array
     {
         $user = $context->actingBackendUser();
         $tool = $this->registry->get($call->name);
@@ -177,7 +180,7 @@ final readonly class ApprovalPreviewComparator
             'tool'   => $call->name,
             'lines'  => $lines === [] ? $this->emptyLines($user) : $lines,
             'failed' => false,
-        ] + $this->planOf($tool, $call, $context);
+        ] + $this->planOf($tool, $call, $context) + ($refused instanceof Closure && $refused($call) ? ['refusedByTool' => true] : []);
     }
 
     /**
@@ -259,8 +262,8 @@ final readonly class ApprovalPreviewComparator
      * comparison, so a second approval against an unchanged record would find it
      * missing and bounce again, forever.
      *
-     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, plan?: array<string, string>}> $previews
-     * @param list<int>                                                                                                              $stale
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>}> $previews
+     * @param list<int>                                                                                                                                    $stale
      */
     private function restale(
         SuspendedRunState $state,

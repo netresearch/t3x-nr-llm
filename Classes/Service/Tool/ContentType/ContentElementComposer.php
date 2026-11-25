@@ -283,44 +283,4 @@ final readonly class ContentElementComposer
 
         return true;
     }
-
-    /**
-     * Whether the user may create the records of one child-record column:
-     * `tables_modify` on the child table, the exclude-field grant of the inline
-     * column and of every required child column, and `authMode` on the child
-     * table's type field for the type a record gets — the checks
-     * {@see self::dataMap()} runs.
-     *
-     * @param array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, minItems: int, maxItems: int}|null $collection
-     */
-    private function userMayWriteChildren(string $column, ?array $collection, BackendUserAuthentication $user): bool
-    {
-        if ($collection === null) {
-            return false;
-        }
-
-        if (!$user->isAdmin() && !$user->check('tables_modify', $collection['table'])) {
-            return false;
-        }
-
-        // In a draft workspace dataMap() refuses a child table without versioning.
-        if ($user->workspace > 0 && !$this->tableIsVersioned($collection['table'])) {
-            return false;
-        }
-
-        $required = array_keys(array_filter($collection['fields'], $this->isRequiredColumn(...)));
-        if ($collection['typeField'] !== '') {
-            $required[] = $collection['typeField'];
-        }
-
-        if ($this->columnsTheUserMayNotSet($user, self::TABLE, [$column]) !== []
-            || $this->columnsTheUserMayNotSet($user, $collection['table'], array_map(strval(...), $required)) !== []
-        ) {
-            return false;
-        }
-
-        return $collection['typeField'] === ''
-            || !$this->columnHasAuthMode($collection['table'], $collection['typeField'])
-            || $user->checkAuthMode($collection['table'], $collection['typeField'], $collection['typeValue']);
-    }
 }

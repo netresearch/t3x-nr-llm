@@ -51,6 +51,7 @@ use Netresearch\NrLlm\Service\Tool\Builtin\HighlightRecordTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeGroupsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersRawTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListBeUsersTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListContentElementChoicesTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListDeprecationsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListExtensionsTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\ListFalStoragesTool;
@@ -133,6 +134,7 @@ final class BuiltinToolGroupsTest extends TestCase
             'list_deprecations'                   => [ListDeprecationsTool::class, 'system'],
             'list_middlewares'                    => [ListMiddlewaresTool::class, 'system'],
             'get_record_history'                  => [GetRecordHistoryTool::class, 'content'],
+            'list_content_element_choices'        => [ListContentElementChoicesTool::class, 'content'],
             'ask_choice'                          => [AskChoiceTool::class, 'content'],
             'highlight_record'                    => [HighlightRecordTool::class, 'content'],
             'resolve_url'                         => [ResolveUrlTool::class, 'structure'],

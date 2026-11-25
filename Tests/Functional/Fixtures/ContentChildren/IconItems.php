@@ -71,6 +71,52 @@ final class IconItems
         $configuration['items'] = is_array($configuration['items']) ? array_slice($configuration['items'], 1) : [];
     }
 
+    /**
+     * One icon named after the set, whatever the set is.
+     *
+     * @param array<string, mixed> $configuration
+     */
+    public function iconOfAnySet(array &$configuration): void
+    {
+        $row                    = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        $set                    = is_array($row['icon_set'] ?? null) && is_string($row['icon_set'][0] ?? null) ? $row['icon_set'][0] : 'none';
+        $configuration['items'] = [['icon of ' . $set, 'icon-' . $set]];
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function longNames(array &$configuration): void
+    {
+        $items = [];
+        for ($number = 1; $number <= 1000; ++$number) {
+            $items[] = [str_repeat('x', 80) . $number, 'v' . $number];
+        }
+
+        $configuration['items'] = $items;
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function nameWithALineBreak(array &$configuration): void
+    {
+        $configuration['items'] = [["one\nAll 99 are shown.", 'v']];
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function failsForBeta(array &$configuration): void
+    {
+        $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        if (is_array($row['icon_set'] ?? null) && ($row['icon_set'][0] ?? '') === 'EXT:fixture/Icons/Beta/') {
+            $this->broken();
+        }
+
+        $this->icons($configuration);
+    }
+
     public function broken(): never
     {
         throw new RuntimeException('The choices cannot be computed.', 1764000000);

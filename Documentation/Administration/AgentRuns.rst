@@ -176,6 +176,11 @@ One :guilabel:`Approve` or :guilabel:`Deny` covers the **whole** pending turn,
 not a single call. Denying refuses the pending calls and continues the model
 conversation with that refusal; the model may answer or propose another turn.
 
+A call its own tool refuses whatever is decided shows no card of its own: the
+run goes on and the model reads the refusal. Where another call of the same
+turn waits, its card shows the refusal, and approving the turn does not execute
+it (:ref:`ADR-262 <adr-262>`, :ref:`ADR-328 <adr-328>`).
+
 After a denial nothing is executed. The model is told that the approval was
 declined and by whom — the user who started the run, or another backend
 user — and answers from that (:ref:`ADR-200 <adr-200>`).

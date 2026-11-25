@@ -141,6 +141,12 @@ Attaching and creating records
      item does - the explicit allow for the type a record gets; a missing
      one refuses the call before anything is written. A record that does not
      come into being as asked takes the whole element back.
+     A model looks up the names of such a select with
+     ``list_content_element_choices``.
+   - A call the plan refuses - a wrong value, a missing grant, a page that is
+     not there - does not pause the run: the model reads the refusal at once,
+     nothing is written, and the round counts towards the run's round limit
+     (:ref:`ADR-328 <adr-328>`).
    - The field set is the type's own scalar columns: headline, body text,
      column, language and position as arguments, and every further ``input``,
      ``text``, ``select`` (static items), ``check``, ``number``, ``datetime``,

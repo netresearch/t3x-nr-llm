@@ -203,6 +203,85 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         self::assertSame(0, $this->rowCount('tt_content'));
     }
 
+    /**
+     * A plan that refuses the call answers before the approval, with the text
+     * the write and the card give, and nothing is written (ADR-328).
+     */
+    #[Test]
+    public function aWrongIconNameIsRefusedBeforeTheApproval(): void
+    {
+        $arguments = $this->itemsCall([['header' => 'A', 'icon_set' => 'Alpha', 'icon' => 'alpha-5x']]);
+        $context   = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $refusal   = $this->tool->refusalBeforeApproval($arguments, $context);
+
+        self::assertInstanceOf(ToolResult::class, $refusal);
+        self::assertTrue($refusal->isError);
+        self::assertStringContainsString('"alpha-5"', $refusal->content);
+        self::assertStringContainsString('list_content_element_choices', $refusal->content);
+        self::assertSame($refusal->content, $this->tool->execute($arguments, $context)->content);
+        self::assertSame([$refusal->content], $this->tool->previewCall($arguments, $context));
+        self::assertSame(0, $this->rowCount('tt_content'));
+        self::assertSame(0, $this->rowCount(self::ITEM_TABLE));
+    }
+
+    #[Test]
+    public function aCallThatCanBeWrittenIsNotRefusedBeforeTheApproval(): void
+    {
+        $arguments = $this->itemsCall([['header' => 'A', 'icon_set' => 'Alpha', 'icon' => 'alpha-5']]);
+        $context   = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+
+        self::assertNull($this->tool->refusalBeforeApproval($arguments, $context));
+        self::assertSame(0, $this->rowCount('tt_content'), 'the question wrote');
+        self::assertFalse($this->tool->execute($arguments, $context)->isError);
+    }
+
+    /**
+     * Where the answer is not known the call waits for approval: no acting
+     * user, no environment a write needs, and a run that does not record its
+     * draft workspace, whose refusal the card carries (ADR-260).
+     */
+    #[Test]
+    public function anAnswerThatIsNotKnownIsNoRefusalBeforeTheApproval(): void
+    {
+        $arguments = $this->itemsCall([['header' => 'A', 'icon' => 'nothing like it']]);
+        $admin     = $this->setUpBackendUser(1);
+        $known     = ToolExecutionContext::fromBackendUser($admin);
+        self::assertInstanceOf(ToolResult::class, $this->tool->refusalBeforeApproval($arguments, $known));
+
+        self::assertNull($this->tool->refusalBeforeApproval($arguments, ToolExecutionContext::none()));
+
+        $language = $GLOBALS['LANG'];
+        unset($GLOBALS['LANG']);
+        self::assertNull($this->tool->refusalBeforeApproval($arguments, $known));
+        self::assertStringContainsString('full backend environment', $this->tool->execute($arguments, $known)->content);
+        $GLOBALS['LANG'] = $language;
+
+        self::assertTrue($admin->setTemporaryWorkspace(self::DRAFT));
+        $unpinned = ToolExecutionContext::forBackendUser(AiActorContext::backendUser(1, true, [], []), $admin);
+        self::assertNull($this->tool->refusalBeforeApproval($arguments, $unpinned));
+        self::assertStringContainsString('does not record which workspace', $this->tool->execute($arguments, $unpinned)->content);
+        self::assertStringContainsString('does not record which workspace', $this->tool->previewCall($arguments, $unpinned)[0] ?? '');
+    }
+
+    #[Test]
+    public function theNeutralRefusalOfAPageIsTheSameBeforeTheApproval(): void
+    {
+        $context = ToolExecutionContext::fromBackendUser($this->setUpBackendUser(1));
+        $refusal = $this->tool->refusalBeforeApproval(['page' => 4711, 'type' => 'nrllm_items', 'header' => 'FAQ'], $context);
+
+        self::assertSame('Page not found or not permitted.', $refusal?->content);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     *
+     * @return array<string, mixed>
+     */
+    private function itemsCall(array $items): array
+    {
+        return ['page' => self::PAGE, 'type' => 'nrllm_items', 'header' => 'FAQ', 'children' => ['tx_childrenfixture_items' => $items]];
+    }
+
     #[Test]
     public function anIconOfAnotherSetIsRefused(): void
     {

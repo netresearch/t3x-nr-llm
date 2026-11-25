@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures;
 
 use ArrayObject;
+use Closure;
 use Netresearch\NrLlm\Domain\Enum\ToolEffect;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Domain\ValueObject\ToolSpec;
@@ -34,6 +35,7 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
      * @param ArrayObject<int, string> $writes the calls that wrote, by their argument `id`
      * @param string|null              $until  the refusal holds only until a call with this `id` wrote, as one
      *                                         resting on rows an earlier call of the turn changes (ADR-266)
+     * @param (Closure(): bool)|null   $when   whether the refusal holds, asked on every question (ADR-328)
      */
     public function __construct(
         private string $name,
@@ -41,12 +43,17 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
         private ArrayObject $writes,
         private bool $throws = false,
         private ?string $until = null,
+        private ?Closure $when = null,
     ) {}
 
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
         if ($this->throws) {
             throw new RuntimeException('cannot tell', 1799262001);
+        }
+
+        if ($this->when instanceof Closure) {
+            return ($this->when)() ? ToolResult::error(self::REFUSAL) : null;
         }
 
         $lifted = $this->until !== null && in_array($this->until, $this->writes->getArrayCopy(), true);

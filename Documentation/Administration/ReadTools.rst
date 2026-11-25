@@ -12,10 +12,10 @@ Read and interaction tool catalogue
 The built-in tools
 ==================
 
-nr-llm ships forty-eight read-only tools and twenty-three writing tools. Each is a
+nr-llm ships forty-nine read-only tools and twenty-three writing tools. Each is a
 reference implementation of the security contract: model-chosen arguments are
 validated and scoped, volumes are capped, and secret-bearing output is either
-redacted or gated behind a separate ``_raw`` variant. Forty-one ship
+redacted or gated behind a separate ``_raw`` variant. Forty-two ship
 **enabled**; the three unredacted ``_raw`` variants (``get_env_raw``,
 ``get_php_info_raw`` and ``list_be_users_raw``), ``ask_choice``, ``highlight_record``, ``fetch_external_url``
 (see :ref:`administration-tools-external-pages`), ``check_page_metadata`` (the
@@ -35,12 +35,14 @@ Many require admin; the read-only structure, content
 and file tools (``get_pagetree``, ``get_tca``, ``get_full_tca``,
 ``get_table_schema``, ``get_flexform_schema``, ``fluid_resolve``,
 ``search_records``, ``get_page_content``, ``read_records``,
-``get_record_history``, ``resolve_url``, ``validate_tca``,
+``get_record_history``, ``list_content_element_choices``,
+``resolve_url``, ``validate_tca``,
 ``list_fal_storages``, ``browse_fal_folder``, ``search_fal_files``,
 ``get_fal_references``, ``find_missing_files``, ``describe_fal_asset``)
 are offered to non-admin
 backend users — those self-enforce the acting user's TYPO3 permissions
-(page-show rights, ``tables_select``; for the file tools the storages and file
+(page-show rights, ``tables_select``; for ``list_content_element_choices`` what
+the user may create; for the file tools the storages and file
 mounts, and for ``describe_fal_asset`` also the field grants of
 ``non_exclude_fields``) inside the tool, so a non-admin only ever sees what the
 backend already grants them (see :ref:`ADR-042 <adr-042>`). ``fetch_external_url`` is offered to non-admins
@@ -243,6 +245,20 @@ The remaining tools follow the same pattern:
    When the field selects one of several structures by a pointer, the
    available keys are listed so a follow-up call can pass ``ds_pointer``. Same
    table gates as ``get_table_schema``.
+
+``list_content_element_choices``
+   The names a computed select of a content element's child records takes, such
+   as the icons of an icon group: the columns ``create_content_element_draft``
+   marks ``~``. ``type``, ``children`` and ``column`` name the column, ``set``
+   other selects of the record the choices depend on (without it they are listed
+   per choice of that select), ``search`` the words a name contains,
+   several searches separated by a comma (``sun, bike, phone``, at most ten),
+   ``limit`` the most names. A cut list says how many of how many it shows, and
+   each search without a hit is answered with the nearest names. Type, records, column and
+   choices are those the acting user may use: ``tables_modify`` on
+   ``tt_content`` and the child table, ``authMode`` and the exclude-field
+   grants. A page's ``TCEFORM`` rules are left to the draft
+   (:ref:`ADR-328 <adr-328>`).
 
 ``fluid_resolve``
    Which physical Fluid file backs a template, partial or layout name in an

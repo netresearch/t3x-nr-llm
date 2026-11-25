@@ -317,3 +317,4 @@ All decision records
    Adr323ARunCanTellItsInputsApartWithoutKeepingThem
    Adr324AContentElementIsDraftedWithItsChildRecords
    Adr326ADraftTakesFlexFormValuesAndComputedItems
+   Adr328ARefusedDraftIsAnsweredWithoutACard

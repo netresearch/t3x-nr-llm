@@ -9,11 +9,15 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool\Builtin;
 
+use Netresearch\NrLlm\Domain\Enum\ToolDataClass;
 use Netresearch\NrLlm\Service\Tool\Builtin\FluidResolveTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFlexFormSchemaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetFullTcaTool;
 use Netresearch\NrLlm\Service\Tool\Builtin\GetTableSchemaTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListContentElementChoicesTool;
 use Netresearch\NrLlm\Service\Tool\TableReadAccessService;
+use Netresearch\NrLlm\Service\Tool\ToolApprovalRule;
+use Netresearch\NrLlm\Service\Tool\ToolDataClassResolver;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -28,6 +32,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(GetTableSchemaTool::class)]
 #[CoversClass(GetFullTcaTool::class)]
 #[CoversClass(GetFlexFormSchemaTool::class)]
+#[CoversClass(ListContentElementChoicesTool::class)]
 final class SchemaToolsSpecTest extends TestCase
 {
     #[Test]
@@ -45,6 +50,31 @@ final class SchemaToolsSpecTest extends TestCase
         $flex = (new GetFlexFormSchemaTool($access))->getSpec();
         self::assertSame('get_flexform_schema', $flex->name);
         self::assertSame(['table', 'field'], $flex->parameters['required'] ?? []);
+    }
+
+    /**
+     * Read-only, usable by non-admins and on by default, like the other reading
+     * tools (ADR-328); without an acting user it names nothing.
+     */
+    #[Test]
+    public function theChoicesToolIsAReadThatNeedsNoApproval(): void
+    {
+        $tool = new ListContentElementChoicesTool();
+        $spec = $tool->getSpec();
+
+        self::assertSame('list_content_element_choices', $spec->name);
+        self::assertSame(['type', 'children', 'column'], $spec->parameters['required'] ?? []);
+        self::assertIsArray($spec->parameters['properties'] ?? null);
+        self::assertSame(['type', 'children', 'column', 'set', 'search', 'limit'], array_keys($spec->parameters['properties']));
+        self::assertTrue($tool->isEnabledByDefault());
+        self::assertFalse($tool->requiresAdmin());
+        self::assertSame(ToolDataClass::EDITOR_CONTENT, ToolDataClassResolver::defaultForGroup($tool->getGroup()), 'offered wherever a trust zone admits the draft that takes the names');
+        self::assertFalse($tool->getEffect()->isWrite());
+        self::assertFalse(ToolApprovalRule::requiresApproval($tool));
+        self::assertSame(
+            'Not permitted: the acting backend user may not create content elements.',
+            $tool->execute(['type' => 'icon_group', 'children' => 'items', 'column' => 'icon'], ToolExecutionContext::none())->content,
+        );
     }
 
     #[Test]

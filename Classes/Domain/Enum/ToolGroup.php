@@ -37,7 +37,8 @@ namespace Netresearch\NrLlm\Domain\Enum;
 enum ToolGroup: string
 {
     /**
-     * Reads editorial records: pages, content elements, record history.
+     * Reads editorial records: pages, content elements, record history, and the
+     * choices an editor has for a content element.
      */
     case CONTENT = 'content';
 

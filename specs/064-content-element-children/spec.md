@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: Netresearch DTT GmbH -->
 # A content element is drafted with its child records
 
-Governing decisions: ADR-324 and ADR-326. ADR-324 (amends ADR-146, ADR-196, ADR-198 and ADR-205). Tickets NEXT-228
+Governing decisions: ADR-324, ADR-326 and ADR-328. ADR-324 (amends ADR-146, ADR-196, ADR-198 and ADR-205). Tickets NEXT-228
 (the assistant cannot draft accordion, card group, icon group, text with
 image, image, uploads) and NEXT-229 (nr_landingpage's Page Composer creates
 those elements without items).
@@ -75,6 +75,17 @@ those elements without items).
   are set through `fields` as `{column: {field: value}}`, checked, shown on
   the card, written over the defaults and read back. `exclude` fields are for
   administrators; a page's `TCEFORM` rules for the field refuse it.
+- **CC15 The choices on request (ADR-328).** The read-only tool
+  `list_content_element_choices` lists the names a CC13 column takes, as the
+  acting user may use them: per choice of the select they depend on, or for
+  the `set` named; filtered by `search`, up to ten searches separated by a
+  comma, cut at `limit` with the total; each search without a hit gets its
+  nearest names. Its group is `content`. No choices, an unknown name, a
+  missing permission and a failed processor are told apart.
+- **CC16 A refused plan shows no card (ADR-328).** A draft call its plan
+  refuses does not suspend the run; the refusal is its result and nothing is
+  written. A call that skipped the approval for it is never executed, also
+  where the plan stops refusing before the call is settled.
 
 ## Out of scope
 
@@ -82,7 +93,9 @@ those elements without items).
   `itemsProcFunc` outside child records.
 - Adding or changing children of an existing element (`update_content_element`).
 - Translating children (`create_translation_draft`).
-- Filtering the tool description by a page's TSconfig (ADR-196 stays).
+- Filtering the tool description, or the choices on request, by a page's
+  TSconfig (ADR-196 stays).
+- The plan's refusal before the approval for other writers.
 
 ## Limits
 
@@ -96,4 +109,6 @@ those elements without items).
 | CC1-CC6, CC12 | functional `ContentElementComposerTest` (offered and excluded shapes), `CreateContentElementDraftToolTcaTypesTest` (spec) |
 | CC7-CC10 | functional `CreateContentElementDraftToolChildrenTest` (live and draft workspace, refusals, take-back, preview) |
 | CC13, CC14 | functional `CreateContentElementDraftToolChildrenTest`, `ContentElementComposerTest` |
+| CC15 | functional `ListContentElementChoicesToolTest`, unit `SchemaToolsSpecTest` |
+| CC16 | unit `ToolLoopServiceRefusesBeforeApprovalTest`, functional `CreateContentElementDraftToolChildrenTest` |
 | CC11 | `Tests/Unit/Api/api-surface.txt`, functional `ContentElementComposerTest` |

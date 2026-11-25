@@ -35,7 +35,18 @@ trait DraftsOneRecordOfItsTableTrait
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        return $this->refuseUnversionedTableInDraftWorkspace($context, self::TABLE);
+        return $this->unversionedTableRefusal($arguments, $context);
+    }
+
+    /**
+     * The part of the refusal before approval that names a table TYPO3 keeps
+     * no draft of, which the card words in the approver's language.
+     *
+     * @param array<string, mixed> $arguments
+     */
+    private function unversionedTableRefusal(array $arguments, ToolExecutionContext $context): ?ToolResult
+    {
+        return $this->refuseUnversionedTableInDraftWorkspace($context, $this->tableRefusedBeforeApproval($arguments, $context));
     }
 
     /**
@@ -51,7 +62,7 @@ trait DraftsOneRecordOfItsTableTrait
     }
 
     /**
-     * The table {@see self::refusalBeforeApproval()} refuses for: this tool's
+     * The table {@see self::unversionedTableRefusal()} refuses for: this tool's
      * table, unless the tool writes more than one.
      *
      * @param array<string, mixed> $arguments
@@ -73,7 +84,7 @@ trait DraftsOneRecordOfItsTableTrait
      */
     private function draftCardRefusal(array $arguments, ToolExecutionContext $context, BackendUserAuthentication $user): ?string
     {
-        if ($this->refusalBeforeApproval($arguments, $context) instanceof ToolResult) {
+        if ($this->unversionedTableRefusal($arguments, $context) instanceof ToolResult) {
             [$t, $q] = $this->translator->boundTo($user, $this->excerpt(...));
 
             return $this->unversionedTableLine($t, $q, $user, $this->translator->tableLabel($user, $this->tableRefusedBeforeApproval($arguments, $context)));
