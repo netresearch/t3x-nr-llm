@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.55.1] - 2026-11-25
+
+### Added
+
+- The read-only tool `list_content_element_choices` lists and searches the names a computed select of a content element's child records takes, such as bootstrap_package's icons, as the acting backend user may use them ([ADR-328](Documentation/Adr/Adr328ARefusedDraftIsAnsweredWithoutACard.rst), [#1468](https://github.com/netresearch/t3x-nr-llm/pull/1468)).
+
+### Changed
+
+- A `create_content_element_draft` call whose plan refuses it no longer suspends the run for approval by itself: the model reads the refusal at once or, where another call of the same turn waits for approval, after that decision, and nothing is written. A call that skips the approval because its tool refuses it is never executed, also where the tool stops refusing before the call is settled ([ADR-328](Documentation/Adr/Adr328ARefusedDraftIsAnsweredWithoutACard.rst), [#1468](https://github.com/netresearch/t3x-nr-llm/pull/1468)).
+
 ## [0.55.0] - 2026-11-24
 
 ### Added

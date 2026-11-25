@@ -1,1 +1,0 @@
-- The read-only tool `list_content_element_choices` lists and searches the names a computed select of a content element's child records takes, such as bootstrap_package's icons, as the acting backend user may use them ([ADR-328](Documentation/Adr/Adr328ARefusedDraftIsAnsweredWithoutACard.rst)).
