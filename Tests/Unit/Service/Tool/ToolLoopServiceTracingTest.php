@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Service\Tool;
 
+use ArrayObject;
 use Netresearch\NrLlm\Domain\Enum\TrustZone;
 use Netresearch\NrLlm\Domain\Model\CompletionResponse;
 use Netresearch\NrLlm\Domain\Model\LlmConfiguration;
@@ -36,6 +37,7 @@ use Netresearch\NrLlm\Tests\Unit\Observability\OpenTelemetryTestHarness;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeInputTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeTool;
 use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\FakeToolAvailability;
+use Netresearch\NrLlm\Tests\Unit\Service\Tool\Fixtures\RefusingWriteTool;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -121,6 +123,28 @@ final class ToolLoopServiceTracingTest extends TestCase
         self::assertSame(StatusCode::STATUS_ERROR, $tool->getStatus()->getCode());
         self::assertSame('tool_failed', $tool->getAttributes()->toArray()['error.type']);
         self::assertStringNotContainsString('database password', $this->everythingRecorded());
+    }
+
+    /**
+     * A call its tool refuses before the approval is never executed and keeps
+     * the span a refused execution had (ADR-328).
+     */
+    #[Test]
+    public function aCallItsToolRefusesBeforeTheApprovalHasTheSpanOfARefusedExecution(): void
+    {
+        $this->installOpenTelemetrySdk();
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturnOnConsecutiveCalls(
+            $this->response('', [new ToolCall('call_1', 'refused_write', [])]),
+            $this->response('gave up'),
+        );
+        $service = $this->service($mgr, new ToolRegistry([new RefusingWriteTool('refused_write', true, new ArrayObject())]));
+
+        $service->runLoop([['role' => 'user', 'content' => 'go']], $this->configuration('support'), ToolExecutionContext::none(), null);
+
+        $tool = $this->onlySpan('execute_tool refused_write');
+        self::assertSame(StatusCode::STATUS_ERROR, $tool->getStatus()->getCode());
+        self::assertSame('tool_failed', $tool->getAttributes()->toArray()['error.type']);
     }
 
     #[Test]

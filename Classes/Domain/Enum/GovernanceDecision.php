@@ -59,7 +59,10 @@ enum GovernanceDecision: string
     case CONTEXT_BLOCKED = 'context_blocked';
 
     /**
-     * A pending write was refused on resume because no human had approved it.
+     * A pending write was refused on resume because no human had approved it,
+     * or a call that skipped its approval because its tool refused it was not
+     * executed once the tool refused it no longer (ADR-328); the reason tells
+     * them apart. What follows is about the first.
      *
      * A separate case from {@see self::TOOL_DENIED}, which means "the gate did
      * not offer this tool". Here the gate DID offer it — that is how the call

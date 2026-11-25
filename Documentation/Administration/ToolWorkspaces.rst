@@ -103,7 +103,8 @@ Limits to review before approval
   workspace discards that draft; it never was live and is not kept in the
   recycler.
 - Refusal before approval is distinct from a call waiting for approval. It
-  stays refused for that turn even if an earlier call removes the reason.
+  stays refused for that turn even if an earlier call removes the reason: such
+  a call is never executed (:ref:`ADR-328 <adr-328>`).
 - Copy readback checks the main record and returned translations. It does not
   prove every inline child or reference was copied. A valid hidden main copy
   can survive a core complaint about another copied record.

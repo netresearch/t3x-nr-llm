@@ -211,8 +211,8 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
                         'description' => 'The child records of a type that has them, as {column: [{column: value}]}: '
                             . 'the key is the child-record column of the type, the list holds one object per record in '
                             . 'the order shown, and each object takes the columns named for that type in the tool '
-                            . 'description (* = required, ~ = one of a computed list, chosen by name: a name that does not '
-                            . 'exist is answered with the nearest ones). Values are validated like "fields". Omit for a type without '
+                            . 'description (* = required, ~ = one of a computed list, chosen by name: list_content_element_choices '
+                            . 'lists and searches the names where it is offered, and a name that does not exist is answered with the nearest ones). Values are validated like "fields". Omit for a type without '
                             . 'child records.',
                         'additionalProperties' => true,
                     ],
@@ -224,14 +224,27 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult
     {
-        $user = $this->draftWriter($arguments, $context);
+        // The refusal before approval first and unchanged (ADR-262, ADR-328);
+        // its plan is the one that is written.
+        $refusal = $this->unversionedTableRefusal($arguments, $context);
+        if ($refusal instanceof ToolResult) {
+            return $refusal;
+        }
+
+        $plan = $this->planBeforeApproval($arguments, $context);
+        if (is_string($plan)) {
+            return ToolResult::error($plan);
+        }
+
+        $user = $this->writableActingUserInItsWorkspace($context, self::TABLE);
         if ($user instanceof ToolResult) {
             return $user;
         }
 
-        $plan = $this->plan($arguments, $user);
-        if (is_string($plan)) {
-            return ToolResult::error($plan);
+        // The guard above asks what a missing plan stands for, so this is
+        // reached with one; it fails closed all the same.
+        if ($plan === null) {
+            return ToolResult::error(self::NOT_PERMITTED);
         }
 
         $record = [
@@ -1275,14 +1288,45 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
 
     /**
      * Where an installation keeps no draft of `tt_content` or of a child
-     * table the call writes, the call is refused before the approval card
-     * (ADR-264, ADR-324).
+     * table the call writes, and where the plan of the call refuses it, the
+     * call is refused before the approval card (ADR-264, ADR-324, ADR-328).
      *
      * @param array<string, mixed> $arguments
      */
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
     {
-        return $this->refuseUnversionedTableInDraftWorkspace($context, $this->tableRefusedBeforeApproval($arguments, $context));
+        $refusal = $this->unversionedTableRefusal($arguments, $context);
+        if ($refusal instanceof ToolResult) {
+            return $refusal;
+        }
+
+        $plan = $this->planBeforeApproval($arguments, $context);
+
+        return is_string($plan) ? ToolResult::error($plan) : null;
+    }
+
+    /**
+     * The plan of the call or its refusal, or null where the answer is not
+     * known: without an acting user, in a process without the environment a
+     * write needs — one without a TCA has no content types — and for a run that does not record its
+     * workspace, whose card carries that refusal (ADR-260). Such a call waits
+     * for approval.
+     *
+     * @param array<string, mixed> $arguments
+     *
+     * @return array{page:int, pageTitle:string, type:string, header:string, bodytext:string|null, fields:array<non-empty-string, string|int>, flex:array<non-empty-string, array<string, array{sheet: string, label: string, config: array<array-key, mixed>, value: string|int}>>, children:array<non-empty-string, array{table: non-empty-string, foreignField: non-empty-string, typeField: string, typeValue: string, languageField: string, fields: array<non-empty-string, array<array-key, mixed>>, rows: list<array<non-empty-string, string|int>>}>, column:int, language:int, afterUid:int, afterHeader:string, destination:int}|string|null
+     */
+    private function planBeforeApproval(array $arguments, ToolExecutionContext $context): array|string|null
+    {
+        $user = $context->actingBackendUser();
+        if (!$user instanceof BackendUserAuthentication
+            || $this->refuseWithoutBackendEnvironment(self::TABLE) instanceof ToolResult
+            || $this->refuseUnpinnedWorkspace($context, $user) instanceof ToolResult
+        ) {
+            return null;
+        }
+
+        return $this->plan($arguments, $user);
     }
 
     /**

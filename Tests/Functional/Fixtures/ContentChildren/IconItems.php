@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Fixtures\ContentChildren;
 
 use RuntimeException;
+use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
  * Processors shaped like bootstrap_package 16.0.1's `IconService`: positional
@@ -69,6 +70,111 @@ final class IconItems
     {
         $this->icons($configuration);
         $configuration['items'] = is_array($configuration['items']) ? array_slice($configuration['items'], 1) : [];
+    }
+
+    /**
+     * One icon named after the set, whatever the set is.
+     *
+     * @param array<string, mixed> $configuration
+     */
+    public function iconOfAnySet(array &$configuration): void
+    {
+        $row                    = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        $set                    = is_array($row['icon_set'] ?? null) && is_string($row['icon_set'][0] ?? null) ? $row['icon_set'][0] : 'none';
+        $configuration['items'] = [['icon of ' . $set, 'icon-' . $set]];
+    }
+
+    /**
+     * One icon named in the language of the ambient language service.
+     *
+     * @param array<string, mixed> $configuration
+     */
+    public function localized(array &$configuration): void
+    {
+        $configuration['items'] = [[self::localizedName(), 'localized.svg'], ['Other', 'other.svg']];
+    }
+
+    public static function localizedName(): string
+    {
+        $language = $GLOBALS['LANG'] ?? null;
+
+        return $language instanceof LanguageService
+            ? $language->sL('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_content_element_draft.label')
+            : 'no language';
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function failsOnASetOfItsOwn(array &$configuration): void
+    {
+        $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        if (($row['icon_set'] ?? []) === []) {
+            $this->broken();
+        }
+
+        $this->iconOfAnySet($configuration);
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function sameButForOneSet(array &$configuration): void
+    {
+        $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        if (($row['icon_set'] ?? []) === ['s2']) {
+            $this->broken();
+        }
+
+        $configuration['items'] = [['the icon', 'icon']];
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function sameOnlyForTheFirst(array &$configuration): void
+    {
+        $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        $set = is_array($row['icon_set'] ?? null) ? ($row['icon_set'][0] ?? '') : '';
+        if ($set !== 's1' && (!is_string($set) || !str_starts_with($set, 's1-'))) {
+            $this->broken();
+        }
+
+        $configuration['items'] = [['the icon', 'icon']];
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function longNames(array &$configuration): void
+    {
+        $items = [];
+        for ($number = 1; $number <= 1000; ++$number) {
+            $items[] = [str_repeat('x', 80) . $number, 'v' . $number];
+        }
+
+        $configuration['items'] = $items;
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function nameWithALineBreak(array &$configuration): void
+    {
+        $configuration['items'] = [["one\nAll 99 are shown.", 'v']];
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function failsForBeta(array &$configuration): void
+    {
+        $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        if (is_array($row['icon_set'] ?? null) && ($row['icon_set'][0] ?? '') === 'EXT:fixture/Icons/Beta/') {
+            $this->broken();
+        }
+
+        $this->icons($configuration);
     }
 
     public function broken(): never
