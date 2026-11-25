@@ -174,6 +174,22 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         self::assertStringContainsString('[0.7.0]  changed since it was pinned as a known deviation', $stderr);
     }
 
+    #[Test]
+    public function theGitEnvironmentOfAHookIsNotUsed(): void
+    {
+        $outer = getenv('GIT_DIR');
+        putenv('GIT_DIR=' . $this->repo . '/.git/outer');
+
+        try {
+            $this->git('tag', 'hook-environment');
+            [$exit, $stderr] = $this->check((string) file_get_contents($this->repo . '/CHANGELOG.md'));
+        } finally {
+            putenv($outer === false ? 'GIT_DIR' : 'GIT_DIR=' . $outer);
+        }
+
+        self::assertSame(0, $exit, $stderr);
+    }
+
     /**
      * Run the check against $changelog in the throwaway repository.
      *
@@ -186,7 +202,7 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         file_put_contents($path, $changelog);
 
         $script = dirname(__DIR__, 2) . '/Build/Scripts/check-changelog-released-sections.php';
-        $proc   = proc_open([PHP_BINARY, $script, $path, $root], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $proc   = proc_open([PHP_BINARY, $script, $path, $root], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $this->environment());
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start the check', 1790250001);
         }
@@ -215,7 +231,7 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
     private function runCommand(string ...$command): void
     {
         $args = array_values($command);
-        $proc = proc_open($args, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        $proc = proc_open($args, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $this->environment());
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start git', 1790250002);
         }
@@ -227,6 +243,19 @@ final class ChangelogReleasedSectionsCheckTest extends AbstractUnitTestCase
         if (proc_close($proc) !== 0) {
             throw new RuntimeException(implode(' ', $args) . ' failed: ' . $stderr, 1790250003);
         }
+    }
+
+    /**
+     * The environment without git's own variables.
+     *
+     * A hook of a linked worktree runs with GIT_DIR and GIT_INDEX_FILE set, and
+     * both override `git -C`: the test would then write into that repository.
+     *
+     * @return array<string, string>
+     */
+    private function environment(): array
+    {
+        return array_filter(getenv(), static fn (string $name): bool => !str_starts_with($name, 'GIT_'), ARRAY_FILTER_USE_KEY);
     }
 
     private function removeTree(string $dir): void
