@@ -2838,6 +2838,139 @@ final class ToolLoopServiceTest extends TestCase
         self::assertSame('inputTool=ask_user', $rows[0]->detail);
     }
 
+    /**
+     * The approval pause has the hole of the input pause above: the scan passes
+     * over a call that is not offered, the card shows its arguments and no
+     * preview, and the offered set is resolved anew at the resume. The approval
+     * of the turn is no approval of that write (ADR-329).
+     *
+     * @param list<string> $expected
+     */
+    #[Test]
+    #[DataProvider('writesBesideAnApprovedCall')]
+    public function approvalResumeRefusesAWriteEnabledWhileTheRunWasSuspended(string $write, bool $offeredAtThePause, array $expected): void
+    {
+        $registry = new ToolRegistry([
+            new ShiftingPreviewTool('update_page', ['title was "old"']),
+            new ShiftingPreviewTool('attach_file'),
+            new FakeTool('write_page', 'WRITTEN', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+            new FakeTool('read_page', 'PAGE'),
+        ]);
+
+        $suspending = self::createStub(LlmServiceManagerInterface::class);
+        $suspending->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
+            new ToolCall('call_1', $write, ['uid' => 4]),
+            new ToolCall('call_2', 'update_page', ['uid' => 1]),
+        ]));
+
+        try {
+            (new ToolLoopService(
+                $suspending,
+                $registry,
+                $this->realPolicy($registry, new FakeToolAvailability($offeredAtThePause ? ['update_page', $write] : ['update_page'])),
+            ))->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+            self::fail('Expected the run to suspend for approval.');
+        } catch (ToolApprovalRequiredException $e) {
+            // As the run stores it between the pause and the decision.
+            $state = SuspendedRunState::fromArray($e->state->toArray());
+        }
+
+        self::assertCount(2, $state->toolCalls(), 'both calls ride along in the suspended turn');
+
+        $continuing = self::createStub(LlmServiceManagerInterface::class);
+        $continuing->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $events = new InMemoryGovernanceEventRepository();
+        $trace  = new RunTrace();
+
+        (new ToolLoopService(
+            $continuing,
+            $registry,
+            $this->realPolicy($registry, new FakeToolAvailability(['update_page', $write])),
+            governanceEvents: $events,
+        ))->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), runTrace: $trace);
+
+        $steps = [];
+        foreach ($trace->getSteps() as $step) {
+            if ($step->kind === RunStep::KIND_TOOL) {
+                $steps[] = $step->toolName . ($step->toolIsError ? ' refused' : ' ran');
+            }
+        }
+
+        self::assertSame($expected, $steps);
+
+        $rows = array_map(
+            static fn (GovernanceEvent $e): string => $e->toolName . ' ' . $e->reason,
+            array_values(array_filter($events->recorded, static fn (GovernanceEvent $e): bool => $e->decision === GovernanceDecision::WRITE_UNAPPROVED->value)),
+        );
+        self::assertSame(
+            $expected[0] === $write . ' refused' ? [$write . ' approvalResumeNotOfferedAtPause'] : [],
+            $rows,
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string, bool, list<string>}>
+     */
+    public static function writesBesideAnApprovedCall(): iterable
+    {
+        yield 'a write without a preview, enabled during the pause' => ['write_page', false, ['write_page refused', 'update_page ran']];
+        yield 'a write with a preview, enabled during the pause' => ['attach_file', false, ['attach_file refused', 'update_page ran']];
+        yield 'a write without a preview the approver was asked about' => ['write_page', true, ['write_page ran', 'update_page ran']];
+        yield 'a write with a preview the approver was asked about' => ['attach_file', true, ['attach_file ran', 'update_page ran']];
+        yield 'a read enabled during the pause needs no approval' => ['read_page', false, ['read_page ran', 'update_page ran']];
+    }
+
+    /**
+     * A re-suspension keeps which calls were not offered, so the second
+     * approval does not run one either.
+     */
+    #[Test]
+    public function aWriteEnabledWhileTheRunWasSuspendedStaysRefusedAfterAReSuspension(): void
+    {
+        $moving   = new ShiftingPreviewTool('update_page', ['title was "old"']);
+        $registry = new ToolRegistry([
+            $moving,
+            new FakeTool('write_page', 'WRITTEN', effect: ToolEffect::NON_IDEMPOTENT_WRITE),
+        ]);
+
+        $mgr = self::createStub(LlmServiceManagerInterface::class);
+        $mgr->method('chatWithToolsForConfiguration')->willReturn($this->response('', [
+            new ToolCall('call_1', 'write_page', ['uid' => 4]),
+            new ToolCall('call_2', 'update_page', ['uid' => 1]),
+        ]));
+
+        try {
+            (new ToolLoopService($mgr, $registry, $this->realPolicy($registry, new FakeToolAvailability(['update_page']))))
+                ->runLoop([$this->userTurn('go')], $this->localConfiguration(), ToolExecutionContext::none(), null);
+            self::fail('Expected the run to suspend for approval.');
+        } catch (ToolApprovalRequiredException $e) {
+            $state = $e->state;
+        }
+
+        $continuing = self::createStub(LlmServiceManagerInterface::class);
+        $continuing->method('chatWithToolsForConfiguration')->willReturn($this->response('done'));
+        $after = new ToolLoopService($continuing, $registry, $this->realPolicy($registry, new FakeToolAvailability(['update_page', 'write_page'])));
+
+        $moving->lines = ['title was "newer"'];
+
+        try {
+            $after->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none());
+            self::fail('Expected the stale card to pause the run again.');
+        } catch (ToolApprovalRequiredException $again) {
+            $state = $again->state;
+        }
+
+        $trace = new RunTrace();
+        $after->resume($state, true, $this->localConfiguration(), ToolExecutionContext::none(), runTrace: $trace);
+
+        $writes = array_values(array_filter(
+            $trace->getSteps(),
+            static fn (RunStep $s): bool => $s->kind === RunStep::KIND_TOOL && $s->toolName === 'write_page',
+        ));
+        self::assertCount(1, $writes);
+        self::assertTrue($writes[0]->toolIsError);
+    }
+
     #[Test]
     public function approvalResumeRefusesAnInputRequiringPendingCall(): void
     {

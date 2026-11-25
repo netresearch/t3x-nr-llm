@@ -1784,6 +1784,12 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
             maxIterations: $maxIterations,
             // So a resumed run adds its next rounds to this cost (NEXT-188).
             estimatedCost: $cost,
+            // The approval scan passes over them and the card has no preview of
+            // them, so the approval of the turn is none of theirs (ADR-329).
+            unofferedCallIndexes: array_keys(array_filter(
+                array_values($pendingCalls),
+                static fn (ToolCall $call): bool => !in_array($call->name, $allowedNames, true),
+            )),
         );
     }
 
@@ -2380,6 +2386,15 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                     'Error: tool "%s" is no longer permitted and was not executed.',
                     $call->name,
                 );
+                $this->recordResumedRefusal($state, $call, $result, $runTrace);
+            } elseif (in_array($index, $state->unofferedCallIndexes, true)
+                && ToolApprovalRule::requiresApproval($this->registry->get($call->name))
+            ) {
+                // ADR-329: the tool was not offered when the run paused, so the
+                // approval scan passed over the call, and it is offered by now.
+                // The approver read no preview of it, so approving the turn
+                // approves nothing here — as in resumeWithInput().
+                $result = $this->unapprovedWrite($call, $environment, 'approvalResumeNotOfferedAtPause', 'offeredAtPause=no')->content;
                 $this->recordResumedRefusal($state, $call, $result, $runTrace);
             } elseif (isset($ruleRefusedOnTheCard[$index])) {
                 $result = 'Error: invocation denied before approval. Nothing was executed. ' . mb_substr($ruleRefusedOnTheCard[$index], 0, self::DENIAL_EXPLANATION_LIMIT);
@@ -4338,11 +4353,20 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      */
     private function unapprovedSinceLifted(ToolCall $call, ToolInvocationEnvironment $environment): ToolResult
     {
+        return $this->unapprovedWrite($call, $environment, 'refusalLifted', 'refusedBeforeApproval=tool');
+    }
+
+    /**
+     * The result of a write nothing approved: an error for the model and a
+     * governance event that names why.
+     */
+    private function unapprovedWrite(ToolCall $call, ToolInvocationEnvironment $environment, string $reason, string $detail): ToolResult
+    {
         $this->governanceEvents?->record(
             new GovernanceEvent(
                 correlationId: $environment->execution->run?->correlationId() ?? '',
                 decision: GovernanceDecision::WRITE_UNAPPROVED->value,
-                reason: 'refusalLifted',
+                reason: $reason,
                 provider: $environment->configuration->getProviderType(),
                 model: $environment->configuration->getModelId(),
                 configurationIdentifier: $environment->configuration->getIdentifier(),
@@ -4350,7 +4374,7 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
                 toolName: $call->name,
                 agentrunUid: $environment->execution->run->uid ?? 0,
                 guardrail: '',
-                detail: 'refusedBeforeApproval=tool',
+                detail: $detail,
             ),
         );
 

@@ -19,7 +19,9 @@ ADR-084: Human-in-the-loop tool approval with suspend and resume
     decided by :ref:`ADR-214 <adr-214>`; implemented; whether a run holds a process pin is read from the approval snapshot of its pins (``ApprovedProcessPinProbe``), and a process skill reaches a run only through an invocation, which is not implemented yet)
 :Date: 2026-07-18
 :Amended: 2026-08-09 by :ref:`ADR-134 <adr-134>`, and 2026-08-13 by
-    :ref:`ADR-165 <adr-165>`, and 2026-10-08 by :ref:`ADR-214 <adr-214>`
+    :ref:`ADR-165 <adr-165>`, and 2026-10-08 by :ref:`ADR-214 <adr-214>`,
+    and 2026-11-25 by :ref:`ADR-329 <adr-329>` (an approval does not cover a
+    write that was not offered at the pause)
     (process runs), and 2026-11-05 by :ref:`ADR-262 <adr-262>` (a call its
     tool refuses whatever is decided does not suspend), and 2026-11-10 by
     :ref:`ADR-276 <adr-276>` (the playground's resume route streams on request)

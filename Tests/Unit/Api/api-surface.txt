@@ -1398,7 +1398,7 @@ Netresearch\NrLlm\Domain\ValueObject\SubjectRecord (class)
   property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
 Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
-  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …, ?int $maxIterations = …, ?float $estimatedCost = …, string $inputCallId = …)
+  constructor(array $messages, array $pendingCalls, int $iterations, int $promptTokens, int $completionTokens, ?array $allowedToolNames = …, array $options = …, ?string $inputToolName = …, array $inputSchema = …, array $callPreviews = …, array $forcedSnippetUids = …, array $forcedSkillUids = …, array $staleCallIndexes = …, ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList $skillAllowList = …, array $skillPins = …, ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationHistory $invocationHistory = …, ?Netresearch\NrLlm\Domain\ValueObject\AiActorContext $initiatingActor = …, string $initiatingRunUuid = …, ?int $maxIterations = …, ?float $estimatedCost = …, string $inputCallId = …, array $unofferedCallIndexes = …)
   method isInputPause(): bool
   method static fromArray(array $data): self
   method toArray(): array
@@ -1425,6 +1425,7 @@ Netresearch\NrLlm\Domain\ValueObject\SuspendedRunState (class)
   property readonly skillAllowList: ?Netresearch\NrLlm\Domain\ValueObject\SkillToolAllowList
   property readonly skillPins: array
   property readonly staleCallIndexes: array
+  property readonly unofferedCallIndexes: array
 
 Netresearch\NrLlm\Domain\ValueObject\TelemetryCoverage (class)
   constructor(bool $enabled, int $retentionDays, ?int $oldestCallAt)
