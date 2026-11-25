@@ -13,6 +13,8 @@ use Netresearch\NrLlm\Domain\ValueObject\AiActorContext;
 use Netresearch\NrLlm\Domain\ValueObject\ToolResult;
 use Netresearch\NrLlm\Service\Tool\ApprovalPreviewTranslator;
 use Netresearch\NrLlm\Service\Tool\Builtin\CreateContentElementDraftTool;
+use Netresearch\NrLlm\Service\Tool\Builtin\ListContentElementChoicesTool;
+use Netresearch\NrLlm\Service\Tool\ContentType\ContentElementComposer;
 use Netresearch\NrLlm\Service\Tool\Scope\ScopedDestination;
 use Netresearch\NrLlm\Service\Tool\ToolExecutionContext;
 use Netresearch\NrLlm\Tests\Functional\AbstractFunctionalTestCase;
@@ -270,6 +272,70 @@ final class CreateContentElementDraftToolChildrenTest extends AbstractFunctional
         $refusal = $this->tool->refusalBeforeApproval(['page' => 4711, 'type' => 'nrllm_items', 'header' => 'FAQ'], $context);
 
         self::assertSame('Page not found or not permitted.', $refusal?->content);
+    }
+
+    /**
+     * Labels are names, and a processor may read them from the ambient language
+     * service: the card, the refusal, the write and the list name the choices
+     * in the acting user's language, whoever's is ambient (ADR-328).
+     */
+    #[Test]
+    public function theNamesAreThoseOfTheActingUsersLanguageWhoeverAsks(): void
+    {
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                                                          = &$GLOBALS['TCA'];
+        $tca['tx_childrenfixture_item']['columns']['icon']['config']['itemsProcFunc'] = IconItems::class . '->localized';
+        unset($tca);
+
+        $ambient         = $GLOBALS['LANG'];
+        $english         = IconItems::localizedName();
+        $GLOBALS['LANG'] = $this->getService(LanguageServiceFactory::class)->create('de');
+        $german          = IconItems::localizedName();
+        $GLOBALS['LANG'] = $ambient;
+        self::assertNotSame($english, $german);
+
+        $user = $this->setUpBackendUser(1);
+        self::assertIsArray($user->user);
+        $user->user['lang'] = 'de';
+        $context            = ToolExecutionContext::fromBackendUser($user);
+
+        $wrong   = $this->itemsCall([['header' => 'A', 'icon' => $english]]);
+        $refusal = $this->tool->refusalBeforeApproval($wrong, $context);
+        self::assertInstanceOf(ToolResult::class, $refusal);
+        self::assertStringContainsString('"' . $german . '"', $refusal->content);
+        self::assertSame([$refusal->content], $this->tool->previewCall($wrong, $context));
+        self::assertSame($refusal->content, $this->tool->execute($wrong, $context)->content);
+
+        $right = $this->itemsCall([['header' => 'A', 'icon' => $german]]);
+        self::assertNull($this->tool->refusalBeforeApproval($right, $context));
+        self::assertStringContainsString('localized.svg', implode("\n", $this->tool->previewCall($right, $context)));
+        self::assertFalse($this->tool->execute($right, $context)->isError);
+        self::assertSame(['localized.svg'], array_column($this->rows(self::ITEM_TABLE), 'icon'));
+
+        $list = (new ListContentElementChoicesTool())->execute(['type' => 'nrllm_items', 'children' => 'tx_childrenfixture_items', 'column' => 'icon'], $context);
+        self::assertStringContainsString('"' . $german . '"', $list->content);
+        self::assertStringNotContainsString('"' . $english . '"', $list->content);
+
+        self::assertSame($ambient, $GLOBALS['LANG'], 'the language service is put back');
+
+        // Without an acting user the ambient one stays.
+        $described = (new ContentElementComposer())->describe('nrllm_items');
+        self::assertSame([$english, 'Other'], $described['children']['tx_childrenfixture_items']['fields']['icon']['items'] ?? null);
+    }
+
+    #[Test]
+    public function theLanguageServiceIsPutBackWhereAProcessorFailsAndWhereThereWasNone(): void
+    {
+        $user    = $this->setUpBackendUser(1);
+        $ambient = $GLOBALS['LANG'];
+        $tool    = new ListContentElementChoicesTool();
+        $call    = ['type' => 'nrllm_items', 'children' => 'tx_childrenfixture_items', 'column' => 'broken'];
+        self::assertTrue($tool->execute($call, ToolExecutionContext::fromBackendUser($user))->isError);
+        self::assertSame($ambient, $GLOBALS['LANG']);
+
+        unset($GLOBALS['LANG']);
+        $tool->execute([...$call, 'column' => 'icon_set'], ToolExecutionContext::fromBackendUser($user));
+        self::assertArrayNotHasKey('LANG', $GLOBALS);
     }
 
     /**

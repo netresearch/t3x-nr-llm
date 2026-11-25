@@ -1979,9 +1979,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
      * that throws is no refusal: the call waits for approval.
      *
      * Asked in the environment the call would be executed in
-     * ({@see WorkerWriteEnvironment}): a refusal that rests on a computed
-     * select's items (ADR-328) must not come from a worker that lacks the
-     * language service its processor needs.
+     * ({@see WorkerWriteEnvironment}): a worker's own backend user belongs to
+     * nobody, and the refusal must be the one the acting user's write meets.
      */
     private function refusalBeforeApprovalOf(ToolCall $call, ToolExecutionContext $context): ?ToolResult
     {
@@ -2339,7 +2338,8 @@ final readonly class ToolLoopService implements ToolLoopServiceInterface, Depend
 
             $refusal = $this->refusalBeforeApprovalOf($call, $context);
             if ($refusal instanceof ToolResult) {
-                $refusedOnTheCard[$index] = $refusal->content;
+                // Bounded like any tool result the model reads.
+                $refusedOnTheCard[$index] = $this->bounder->content($refusal->content);
             }
         }
 

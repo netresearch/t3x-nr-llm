@@ -44,6 +44,7 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
         private bool $throws = false,
         private ?string $until = null,
         private ?Closure $when = null,
+        private string $refusal = self::REFUSAL,
     ) {}
 
     public function refusalBeforeApproval(array $arguments, ToolExecutionContext $context): ?ToolResult
@@ -53,12 +54,12 @@ final readonly class RefusingWriteTool implements ToolInterface, ToolEffectInter
         }
 
         if ($this->when instanceof Closure) {
-            return ($this->when)() ? ToolResult::error(self::REFUSAL) : null;
+            return ($this->when)() ? ToolResult::error($this->refusal) : null;
         }
 
         $lifted = $this->until !== null && in_array($this->until, $this->writes->getArrayCopy(), true);
 
-        return $this->refuses && !$lifted ? ToolResult::error(self::REFUSAL) : null;
+        return $this->refuses && !$lifted ? ToolResult::error($this->refusal) : null;
     }
 
     public function execute(array $arguments, ToolExecutionContext $context): ToolResult

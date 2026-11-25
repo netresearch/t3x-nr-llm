@@ -235,7 +235,7 @@ final class ListContentElementChoicesToolTest extends AbstractFunctionalTestCase
         $content = $this->ask('icon', ['search' => 'a1,a2,a3,a4,a5,a6,a7,a8,a9,a10'])->content;
 
         self::assertLessThan(10000, strlen($content));
-        self::assertStringContainsString('(left out for length)', $content);
+        self::assertSame(4, substr_count($content, '(further lists are left out'), 'six lines of ten long names fit the byte budget');
         self::assertStringContainsString('No name contains "a10".', $content);
     }
 
@@ -301,6 +301,42 @@ final class ListContentElementChoicesToolTest extends AbstractFunctionalTestCase
         self::assertTrue($result->isError);
         self::assertStringContainsString('could not be computed (RuntimeException)', $result->content);
         self::assertStringNotContainsString('No choices', $result->content);
+    }
+
+    /**
+     * A select with more choices than are listed apart decides, and without it
+     * the processor fails: the answer still says what to name in "set".
+     */
+    #[Test]
+    public function aFailureThatTheSetWouldLiftNamesIt(): void
+    {
+        $this->setStaticSets(60, '');
+        $this->setIconProcessor(IconItems::class . '->failsOnASetOfItsOwn');
+
+        $result = $this->ask('icon');
+
+        self::assertTrue($result->isError);
+        self::assertStringContainsString('could not be computed (RuntimeException). This is not an empty list.', $result->content);
+        self::assertStringContainsString('The choices can depend on icon_set; name it in "set".', $result->content);
+        self::assertStringNotContainsString('leave the column out', $result->content);
+        self::assertStringContainsString('"icon of s7"', $this->ask('icon', ['set' => ['icon_set' => 's7']])->content);
+    }
+
+    /**
+     * Nearest names are looked for in a bounded number of lists, and the answer
+     * says so.
+     */
+    #[Test]
+    public function theNearestNamesComeFromABoundedNumberOfLists(): void
+    {
+        $this->setStaticSets(30, 's1');
+        $this->setIconProcessor(IconItems::class . '->iconOfAnySet');
+
+        $content = $this->ask('icon', ['search' => 'nothing, nowhere'])->content;
+
+        self::assertSame(20, substr_count($content, '"icon of s'));
+        self::assertSame(2, substr_count($content, '(further lists are left out'));
+        self::assertStringContainsString('No name contains "nowhere".', $content);
     }
 
     /**
@@ -515,6 +551,22 @@ final class ListContentElementChoicesToolTest extends AbstractFunctionalTestCase
         $editor->groupData['non_exclude_fields'] = implode(',', ['tt_content:hidden', ...array_map(static fn (string $column): string => self::TABLE . ':' . $column, $columns)]);
 
         return $editor;
+    }
+
+    /**
+     * A static icon set with the choices `s1` to `s<count>`.
+     */
+    private function setStaticSets(int $count, string $default): void
+    {
+        $items = $default === '' ? [['label' => '', 'value' => '']] : [];
+        for ($number = 1; $number <= $count; ++$number) {
+            $items[] = ['label' => 'S', 'value' => 's' . $number];
+        }
+
+        /** @var array{tx_childrenfixture_item: array{columns: array<string, array{config: array<string, mixed>}>}} $tca */
+        $tca                                               = &$GLOBALS['TCA'];
+        $tca[self::TABLE]['columns']['icon_set']['config'] = ['type' => 'select', 'renderType' => 'selectSingle', 'items' => $items, 'default' => $default];
+        unset($tca);
     }
 
     private function setIconProcessor(string $processor): void

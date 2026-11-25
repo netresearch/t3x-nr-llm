@@ -127,14 +127,14 @@ final readonly class ApprovalPreviewComparator
                 continue;
             }
 
-            $now        = $this->recompute($call, $context, $before, $refused);
+            $now        = $this->recompute($call, $context, $before);
             $previews[] = $now;
             if ($now['lines'] !== $before['lines'] || ($now['plan'] ?? null) !== ($before['plan'] ?? null)) {
                 $stale[] = $index;
             }
         }
 
-        return $stale === [] ? null : $this->restale($state, $previews, $stale);
+        return $stale === [] ? null : $this->restale($state, $this->marked($previews, $calls, $offered, $refused), $stale);
     }
 
     /**
@@ -150,11 +150,10 @@ final readonly class ApprovalPreviewComparator
      * credentials.
      *
      * @param array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>} $before
-     * @param (Closure(ToolCall): bool)|null                                                                                                         $refused
      *
      * @return array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>}
      */
-    private function recompute(ToolCall $call, ToolExecutionContext $context, array $before, ?Closure $refused): array
+    private function recompute(ToolCall $call, ToolExecutionContext $context, array $before): array
     {
         $user = $context->actingBackendUser();
         $tool = $this->registry->get($call->name);
@@ -180,7 +179,30 @@ final readonly class ApprovalPreviewComparator
             'tool'   => $call->name,
             'lines'  => $lines === [] ? $this->emptyLines($user) : $lines,
             'failed' => false,
-        ] + $this->planOf($tool, $call, $context) + ($refused instanceof Closure && $refused($call) ? ['refusedByTool' => true] : []);
+        ] + $this->planOf($tool, $call, $context);
+    }
+
+    /**
+     * The previews of a card shown again, each saying anew whether its tool
+     * refuses the call (ADR-328). Asked only then: nothing else reads it.
+     *
+     * @param list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>}> $previews
+     * @param list<ToolCall>                                                                                                                               $calls
+     * @param list<string>                                                                                                                                 $offered
+     * @param (Closure(ToolCall): bool)|null                                                                                                               $refused
+     *
+     * @return list<array{index: int, tool: string, lines: list<string>, failed: bool, refused?: bool, refusedByTool?: bool, plan?: array<string, string>}>
+     */
+    private function marked(array $previews, array $calls, array $offered, ?Closure $refused): array
+    {
+        foreach ($previews as $position => $preview) {
+            $call = $calls[$preview['index']] ?? null;
+            if ($refused instanceof Closure && $call instanceof ToolCall && !$preview['failed'] && in_array($call->name, $offered, true) && $refused($call)) {
+                $previews[$position]['refusedByTool'] = true;
+            }
+        }
+
+        return $previews;
     }
 
     /**

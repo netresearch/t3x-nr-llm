@@ -1308,8 +1308,7 @@ final readonly class CreateContentElementDraftTool implements ToolInterface, Too
     /**
      * The plan of the call or its refusal, or null where the answer is not
      * known: without an acting user, in a process without the environment a
-     * write needs — it has no content types, or no language service for the
-     * processor of a computed select — and for a run that does not record its
+     * write needs — one without a TCA has no content types — and for a run that does not record its
      * workspace, whose card carries that refusal (ADR-260). Such a call waits
      * for approval.
      *

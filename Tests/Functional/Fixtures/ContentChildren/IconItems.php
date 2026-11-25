@@ -10,6 +10,7 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Functional\Fixtures\ContentChildren;
 
 use RuntimeException;
+use TYPO3\CMS\Core\Localization\LanguageService;
 
 /**
  * Processors shaped like bootstrap_package 16.0.1's `IconService`: positional
@@ -81,6 +82,38 @@ final class IconItems
         $row                    = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
         $set                    = is_array($row['icon_set'] ?? null) && is_string($row['icon_set'][0] ?? null) ? $row['icon_set'][0] : 'none';
         $configuration['items'] = [['icon of ' . $set, 'icon-' . $set]];
+    }
+
+    /**
+     * One icon named in the language of the ambient language service.
+     *
+     * @param array<string, mixed> $configuration
+     */
+    public function localized(array &$configuration): void
+    {
+        $configuration['items'] = [[self::localizedName(), 'localized.svg'], ['Other', 'other.svg']];
+    }
+
+    public static function localizedName(): string
+    {
+        $language = $GLOBALS['LANG'] ?? null;
+
+        return $language instanceof LanguageService
+            ? $language->sL('LLL:EXT:nr_llm/Resources/Private/Language/locallang.xlf:editorAction.create_content_element_draft.label')
+            : 'no language';
+    }
+
+    /**
+     * @param array<string, mixed> $configuration
+     */
+    public function failsOnASetOfItsOwn(array &$configuration): void
+    {
+        $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
+        if (($row['icon_set'] ?? []) === []) {
+            $this->broken();
+        }
+
+        $this->iconOfAnySet($configuration);
     }
 
     /**

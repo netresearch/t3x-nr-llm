@@ -410,6 +410,30 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
     }
 
     /**
+     * A card that comes back because it now shows a refusal is marked.
+     */
+    #[Test]
+    public function aCardShownAgainWithARefusalIsMarked(): void
+    {
+        $this->refuses = false;
+        $state         = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'refused_write', ['id' => 'b']),
+        ]);
+        self::assertArrayNotHasKey('refusedByTool', $state->callPreviews[1]);
+
+        $this->refuses = true;
+
+        try {
+            $this->service([])->resume($state, true, $this->configuration(), $this->context());
+            self::fail('Expected the stale card to pause the run again.');
+        } catch (ToolApprovalRequiredException $e) {
+            self::assertTrue($e->state->callPreviews[1]['refusedByTool'] ?? false);
+            self::assertArrayNotHasKey('refusedByTool', $e->state->callPreviews[0]);
+        }
+    }
+
+    /**
      * A card shown again says anew whether its tool refuses the call: a write
      * the second card describes and the approver approves is executed.
      */
@@ -431,9 +455,49 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
         }
 
         self::assertArrayNotHasKey('refusedByTool', $state->callPreviews[1]);
+        self::assertSame(['would write'], $state->callPreviews[1]['lines'] ?? null);
         $this->service([$this->response('applied')])->resume($state, true, $this->configuration(), $this->context());
 
         self::assertSame(['a', 'b'], $this->writes->getArrayCopy());
+    }
+
+    /**
+     * The refusal the card showed is a tool result like any other: bounded
+     * before the model reads it.
+     */
+    #[Test]
+    public function aRefusalTheCardShowedIsBoundedBeforeTheModelReadsIt(): void
+    {
+        $state = $this->suspendOn([
+            new ToolCall('c1', 'plain_write', ['id' => 'a']),
+            new ToolCall('c2', 'long_refusal', ['id' => 'b']),
+        ]);
+        $captured = [];
+        $this->service([$this->response('applied')], $captured)->resume($state, true, $this->configuration(), $this->context());
+
+        $result = $this->toolResults($captured[0])[1] ?? '';
+        self::assertStringStartsWith('rrr', $result);
+        self::assertLessThanOrEqual(50000, strlen($result));
+        self::assertStringContainsString('tool result truncated', $result);
+    }
+
+    /**
+     * What an approved call costs its tool, whose refusal can be a whole plan:
+     * the scan, the card and its mark; the comparison, the refusal on the
+     * resume and the write. A card that is not shown again gets no new mark.
+     */
+    #[Test]
+    public function anApprovedCallAsksItsToolSixTimes(): void
+    {
+        $this->refusalsLeft = 0;
+
+        $state = $this->suspendOn([new ToolCall('c1', 'flipping_write', ['id' => 'a'])]);
+        self::assertCount(3, $this->environments);
+
+        $this->service([$this->response('applied')])->resume($state, true, $this->configuration(), $this->context());
+
+        self::assertSame(['a'], $this->writes->getArrayCopy());
+        self::assertCount(6, $this->environments);
     }
 
     /**
@@ -598,6 +662,7 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
             new RefusingWriteTool('unsure_write', false, $this->writes, true),
             new RefusingWriteTool('refused_until_lift', true, $this->writes, until: 'lift'),
             new RefusingWriteTool('flipping_write', true, $this->writes, when: $this->flippingWriteRefuses(...)),
+            new RefusingWriteTool('long_refusal', true, $this->writes, refusal: str_repeat('r', 60000)),
             $this->liftingRead(),
             new FakeInputTool('ask_user'),
         ]);

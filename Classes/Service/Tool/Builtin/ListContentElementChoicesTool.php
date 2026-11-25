@@ -28,7 +28,9 @@ use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
  * ({@see ReadsContentTypeFormsTrait}, {@see ProcessedSelectItems}), as the
  * acting backend user. The call names no page, as in
  * {@see \Netresearch\NrLlm\Service\Tool\ContentType\ContentElementComposer::describe()}:
- * the page's TSconfig and a processor that reads the page are left to the draft.
+ * the page's TSconfig, the default one included, and a processor that reads the
+ * page are left to the draft. The list can therefore hold a name the form of a
+ * page does not show and the draft refuses.
  */
 final readonly class ListContentElementChoicesTool implements ToolInterface, ToolEffectInterface
 {
@@ -57,6 +59,9 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
 
     /** What the nearest names of all searches without a hit may take of the answer. */
     private const MAX_NEAR_BYTES = 6000;
+
+    /** How many lists are sorted for nearest names in one answer, over all searches. */
+    private const MAX_NEAR_LISTS = 20;
 
     /** How many near names a search without a hit offers per list. */
     private const MAX_NEAR_NAMES = 10;
@@ -152,8 +157,8 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
 
     public function getGroup(): string
     {
-        // Beside the page readers: the names are what an editor sees in the
-        // form, and the draft that takes them is editorial content too.
+        // Beside the page readers: the names are values of the form of a content
+        // element, and the draft that takes them is editorial content too.
         return 'content';
     }
 
@@ -393,11 +398,17 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     {
         $failed = array_filter($found['lists'], static fn (array $list): bool => $list['items']->failed !== '');
         if (count($failed) === count($found['lists'])) {
-            return ToolResult::error(sprintf(
-                'The choices for "%s" could not be computed (%s). This is not an empty list; leave the column out.',
-                $column,
-                implode(', ', array_unique(array_map(static fn (array $list): string => $list['items']->failed, $failed))),
-            ));
+            $notes = $this->dependenceNotes($found);
+
+            return ToolResult::error(implode("\n", [
+                sprintf(
+                    'The choices for "%s" could not be computed (%s). This is not an empty list%s',
+                    $column,
+                    implode(', ', array_unique(array_map(static fn (array $list): string => $list['items']->failed, $failed))),
+                    $notes === [] ? '; leave the column out.' : '.',
+                ),
+                ...$notes,
+            ]));
         }
 
         $subject = sprintf('"%s" in "children.%s" of content type "%s"', $column, $children, $type);
@@ -489,6 +500,7 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
     {
         $lines = [];
         $bytes = 0;
+        $asked = 0;
         foreach ($searches as $search) {
             if ($this->hasHit($found, $search)) {
                 continue;
@@ -496,15 +508,21 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
 
             $lines[] = sprintf('No name contains %s. Nearest names:', $this->quotedName($search));
             foreach ($found['lists'] as $list) {
-                $near = $list['items']->namesNear($search, self::MAX_NEAR_NAMES);
-                if ($near === []) {
+                if ($list['items']->names() === []) {
                     continue;
                 }
 
-                $line = $this->listLabel($found['by'], $list['name']) . implode(', ', array_map($this->quotedName(...), $near));
-                $bytes += strlen($line);
-                if ($bytes > self::MAX_NEAR_BYTES) {
-                    $lines[] = '(left out for length)';
+                // Asked before the list is sorted, which is what costs.
+                $line = null;
+                if ($bytes <= self::MAX_NEAR_BYTES && $asked < self::MAX_NEAR_LISTS) {
+                    ++$asked;
+                    $line = $this->listLabel($found['by'], $list['name'])
+                        . implode(', ', array_map($this->quotedName(...), $list['items']->namesNear($search, self::MAX_NEAR_NAMES)));
+                    $bytes += strlen($line);
+                }
+
+                if ($line === null || $bytes > self::MAX_NEAR_BYTES) {
+                    $lines[] = '(further lists are left out; pass "set" or search for less)';
 
                     break;
                 }
@@ -579,7 +597,7 @@ final readonly class ListContentElementChoicesTool implements ToolInterface, Too
         }
 
         if ($found['others'] !== []) {
-            $notes[] = sprintf('They can also depend on %s; name it in "set".', implode(', ', $found['others']));
+            $notes[] = sprintf('The choices can%s depend on %s; name it in "set".', $found['by'] === '' ? '' : ' also', implode(', ', $found['others']));
         }
 
         return $notes;

@@ -96,8 +96,14 @@ the tool would have been called.
 **The question is asked in the environment of the write.** In a worker the
 loop sets the backend user and the language service around a write
 (:php:`WorkerWriteEnvironment`, :ref:`ADR-281 <adr-281>`). The refusal is asked
-there too. A processor that needs the language service would otherwise fail in
-the scan, and the model would read a refusal the write would not give.
+there too. TYPO3's command line provides both, but for a user that belongs to
+nobody (:php:`CommandApplication`, TYPO3 14.3.12).
+
+**The names are in the acting user's language whoever asks.** A processor's
+labels are the names, and it may read them from the ambient language service.
+:php:`ProcessedSelectItems` sets the language service of the acting user, as it
+sets the user, while the processor runs. The card, the refusal, the write and
+the list then name the same choices in a backend request and in a worker.
 
 **A model can ask for the choices.** The read-only tool
 ``list_content_element_choices`` takes a content type, its child-record column
@@ -111,9 +117,9 @@ Type, records, column and choices are asked through the traits and
 :php:`ProcessedSelectItems` the draft uses, as the acting user. A cut list names
 how many of how many are shown. The answer differs for no choices, an unknown
 name, a missing permission and a processor that failed. The tool is in the
-``content`` group, enabled by default and usable by non-administrators. Its data
-class is editorial content, like the draft tool's: the names are the values an
-editor sees in the form. The ``structure`` group is internal configuration,
+``content`` group, enabled by default and usable by non-administrators. Its
+data class is editorial content, like the draft tool's: the names are values of
+a content element's form. The ``structure`` group is internal configuration,
 which a strict trust zone withholds. The draft tool's description and its
 refusal of an unknown name mention it.
 
@@ -140,8 +146,11 @@ written, and the run's timeline shows the refused call.
 ✕ The plan runs during the scan, so the processors of computed selects run
 before any approval. They ran for the card before.
 
-✕ A refused call's plan is computed at least twice, in the scan and when it is
-settled.
+✕ The plan is computed more often. A refused call computes it at least twice, in
+the scan and when it is settled. A single approved draft computes it six times,
+where it was three: in the scan, for the card and for the card's mark; on the
+resume for the comparison, for the refusal and for the write. A card that is
+shown again adds one for its mark.
 
 ✕ A call whose refusal an earlier call of the same turn lifts is answered with
 the missing approval and has to be made again.
@@ -149,9 +158,10 @@ the missing approval and has to be made again.
 ✕ A run that was suspended before this change has no ``refusedByTool`` mark in
 its stored cards. For it the rules of :ref:`ADR-266 <adr-266>` apply alone.
 
-✕ ``list_content_element_choices`` names no page. ``TCEFORM`` rules of a page
-and a processor that reads the page are applied by the draft only, so the draft
-can refuse a name the list holds. It then answers with the nearest names.
+✕ ``list_content_element_choices`` names no page. ``TCEFORM`` rules, those of the
+default page TSconfig included, and a processor that reads the page are applied
+by the draft only. The list can hold names the form of a page does not show and
+the draft refuses. The draft then answers with the nearest names.
 
 ✕ The tool answers for computed selects of child records only. The values of a
 FlexForm's and a plain select are in the draft tool's description or its

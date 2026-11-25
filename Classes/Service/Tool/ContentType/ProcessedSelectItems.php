@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Utility\SafeCastTrait;
 use Throwable;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
 use TYPO3\CMS\Core\Exception\SiteNotFoundException;
+use TYPO3\CMS\Core\Localization\LanguageServiceFactory;
 use TYPO3\CMS\Core\Schema\Struct\SelectItem;
 use TYPO3\CMS\Core\Site\Entity\NullSite;
 use TYPO3\CMS\Core\Site\Entity\SiteInterface;
@@ -74,13 +75,19 @@ final readonly class ProcessedSelectItems
             'site'         => self::siteOf($pageUid),
         ];
 
-        // A processor asks the ambient user, and the acting one decides here.
+        // A processor asks the ambient user and language, and the acting user
+        // decides here: labels are names, so they must not depend on who asks
+        // (a card, a worker, the approving editor's request; ADR-328).
         $previousUser = $GLOBALS['BE_USER'] ?? null;
-        if ($user instanceof BackendUserAuthentication) {
-            $GLOBALS['BE_USER'] = $user;
-        }
+        $hadLanguage  = array_key_exists('LANG', $GLOBALS);
+        $language     = $GLOBALS['LANG'] ?? null;
 
         try {
+            if ($user instanceof BackendUserAuthentication) {
+                $GLOBALS['BE_USER'] = $user;
+                $GLOBALS['LANG']    = GeneralUtility::makeInstance(LanguageServiceFactory::class)->createFromUserPreferences($user);
+            }
+
             $caller = new self([]);
             GeneralUtility::callUserFunction($function, $parameters, $caller);
 
@@ -91,6 +98,12 @@ final readonly class ProcessedSelectItems
             $GLOBALS['BE_USER'] = $previousUser;
             if ($previousUser === null) {
                 unset($GLOBALS['BE_USER']);
+            }
+
+            if ($hadLanguage) {
+                $GLOBALS['LANG'] = $language;
+            } else {
+                unset($GLOBALS['LANG']);
             }
         }
     }
