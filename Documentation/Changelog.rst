@@ -27,21 +27,19 @@ remain within the minor series. Review migration notes before upgrading.
 
    Changelog/Index
 
-.. _version-0-55-0:
+.. _version-0-55-1:
 
-Version 0.55.0 (2026-11-24)
+Version 0.55.1 (2026-11-25)
 ===========================
 
-Drafts of content elements take icons and FlexForm values.
+Refused drafts reach the model without an approval card, and a model can list
+computed choices such as icons.
 
-- **Computed choices:** a child record's select whose items an
-  ``itemsProcFunc`` computes, such as bootstrap_package's icons, is chosen by
-  name. An unknown name is answered with the nearest ones (ADR-326).
-- **FlexForm values:** the simple fields of a type's FlexForm are set through
-  ``fields``, checked, shown on the approval card and read back. Fields with
-  ``exclude`` are for administrators.
-- **API:** ``ContentElementComposer::describe()`` gains ``flexForms``, and
-  ``items`` or ``itemsBy`` for computed selects. See
-  :ref:`ADR-326 <adr-326>`.
+- **Refused drafts:** a ``create_content_element_draft`` call whose plan
+  refuses it no longer waits for approval. A call that skips its approval
+  because its tool refuses it is never executed (ADR-328).
+- **Choices:** the read-only tool ``list_content_element_choices`` lists and
+  searches the names of a computed select of a child record. See
+  :ref:`ADR-328 <adr-328>`.
 
 Details in the repository :file:`CHANGELOG.md`.
