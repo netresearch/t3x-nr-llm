@@ -766,10 +766,10 @@ final class ToolLoopServiceRefusesBeforeApprovalTest extends TestCase
             $mgr,
             $registry,
             $policy,
-            previewTranslator: $this->englishTranslator(),
-            processPinProbe: new ProcessPinProbeStub(everyRun: $this->processRun),
             governanceEvents: $this->events,
+            previewTranslator: $this->englishTranslator(),
             invocationPolicy: $this->invocationPolicy(),
+            processPinProbe: new ProcessPinProbeStub(everyRun: $this->processRun),
             writeEnvironment: $this->writeEnvironment,
         );
     }

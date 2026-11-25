@@ -136,7 +136,7 @@ final class IconItems
     {
         $row = is_array($configuration['row'] ?? null) ? $configuration['row'] : [];
         $set = is_array($row['icon_set'] ?? null) ? ($row['icon_set'][0] ?? '') : '';
-        if ($set !== 's1' && !(is_string($set) && str_starts_with($set, 's1-'))) {
+        if ($set !== 's1' && (!is_string($set) || !str_starts_with($set, 's1-'))) {
             $this->broken();
         }
 
