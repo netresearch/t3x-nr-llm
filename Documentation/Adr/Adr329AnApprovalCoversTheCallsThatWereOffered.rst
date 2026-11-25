@@ -38,10 +38,11 @@ Decision
 
 An approval pause stores the positions of the pending calls whose tool was not
 offered (:php:`SuspendedRunState::$unofferedCallIndexes`). At the resume an
-approval-bound call among them is refused, whether its tool is offered by then
-or not. The refusal is recorded as ``write_unapproved`` with the reason
-``approvalResumeNotOfferedAtPause``. The model can call the tool again in a new
-turn, which asks for its own approval.
+approval-bound call among them is refused. Where its tool is offered by then,
+the refusal is recorded as ``write_unapproved`` with the reason
+``approvalResumeNotOfferedAtPause``, and the model can call the tool again in a
+new turn, which asks for its own approval. Where the tool is still not offered,
+the call is refused as no longer permitted, as before.
 
 A run that pauses again because a card is stale (:ref:`ADR-184 <adr-184>`)
 keeps the positions.
