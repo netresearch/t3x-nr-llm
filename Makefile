@@ -142,7 +142,7 @@ rector-fix:
 changelog: ## Refuse a self-repeating [Unreleased] section, released sections that differ from their tag, and malformed or uncollected changelog.d/ fragments
 	@php Build/Scripts/check-changelog-unreleased.php
 	@php Build/Scripts/check-changelog-released-sections.php
-	@php Build/Scripts/changelog-fragments.php check
+	@composer ci:test:changelog:fragments
 
 # The pre-push gate AGENTS.md documents, as one command. `ci` below is a
 # different, older set (it carries integration and omits rector and

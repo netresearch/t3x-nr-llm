@@ -46,7 +46,7 @@
     "require-dev": {
         "b13/ai-label": "^1.6",
         "fakerphp/faker": "^1.24",
-        "netresearch/typo3-ci-workflows": "^2.0.3",
+        "netresearch/typo3-ci-workflows": "^2.3.2",
         "nikic/php-parser": "^5.4",
         "open-telemetry/sdk": "^1.9",
         "phpunit/phpcov": "^10.0 || ^11.0 || ^12.0 || ^13.0",
@@ -134,12 +134,19 @@
         "ci:test:landing-adrs": "php Build/Scripts/check-landing-adr-groups.php",
         "ci:test:colors": "Build/Scripts/check-backend-colors.sh",
         "ci:test:changelog": [
-            "php Build/Scripts/check-changelog-unreleased.php",
-            "php Build/Scripts/check-changelog-released-sections.php",
-            "php Build/Scripts/changelog-fragments.php check"
+            "@ci:test:changelog:sections",
+            "@ci:test:changelog:fragments"
         ],
-        "changelog:collect": "php Build/Scripts/changelog-fragments.php collect",
-        "ci:test:php:cgl": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --",
+        "ci:test:changelog:fragments": "changelog-fragments check @no_additional_args",
+        "ci:test:changelog:sections": [
+            "php Build/Scripts/check-changelog-unreleased.php",
+            "php Build/Scripts/check-changelog-released-sections.php"
+        ],
+        "changelog:collect": "changelog-fragments collect",
+        "ci:test:php:cgl": [
+            "@ci:test:changelog:fragments",
+            "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then php-cs-fixer fix --dry-run --diff \"$@\"; else ./Build/Scripts/runTests.sh -s cgl -n \"$@\"; fi' --"
+        ],
         "ci:test:php:functional": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/FunctionalTests.xml \"$@\"; else ./Build/Scripts/runTests.sh -s functional \"$@\"; fi' --",
         "ci:test:php:fuzzy": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite fuzzy \"$@\"; else ./Build/Scripts/runTests.sh -s fuzzy \"$@\"; fi' --",
         "ci:test:php:integration": "sh -c 'if [ -f /.dockerenv ] || [ -n \"${CI:-}\" ]; then phpunit -c Build/phpunit.xml --testsuite integration \"$@\"; else ./Build/Scripts/runTests.sh -s integration \"$@\"; fi' --",
@@ -153,7 +160,7 @@
         "ci:test:repo": [
             "@ci:test:agent-docs",
             "@ci:test:landing-adrs",
-            "@ci:test:changelog",
+            "@ci:test:changelog:sections",
             "@ci:test:workflows",
             "@ci:test:specs"
         ],
