@@ -6,7 +6,7 @@ title: "partOf"
 description: "The source is a component of the target."
 x-nr-propagates: to-target
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

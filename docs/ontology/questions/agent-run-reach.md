@@ -6,7 +6,7 @@ title: "What an agent run depends on"
 description: "Which concepts decide what an agent run can use and may do?"
 x-nr-query: --needs concepts/agent-run
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Question
@@ -72,6 +72,10 @@ concepts/middleware-pipeline
   test Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php
   test Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php
   test Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php
+concepts/streaming-dispatcher
+  via concepts/agent-run uses concepts/llm-service
+  via concepts/llm-service uses concepts/streaming-dispatcher
+  test Tests/Unit/Service/Streaming/StreamingDispatcherTest.php
 concepts/glossary
   via concepts/agent-run uses concepts/llm-service
   via concepts/llm-service uses concepts/glossary

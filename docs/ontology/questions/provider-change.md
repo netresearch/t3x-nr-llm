@@ -6,7 +6,7 @@ title: "A provider changes"
 description: "Which concepts can a change to a provider affect, and which tests run again?"
 x-nr-query: --impact concepts/provider
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Question

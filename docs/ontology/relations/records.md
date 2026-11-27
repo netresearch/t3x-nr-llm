@@ -6,7 +6,7 @@ title: "records"
 description: "The source is a log of what the target did."
 x-nr-propagates: none
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

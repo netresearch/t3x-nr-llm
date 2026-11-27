@@ -5,7 +5,7 @@ type: Concept
 title: "Skill"
 description: "Instructions for a model, imported from a SKILL.md file of a skill source, in one version."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

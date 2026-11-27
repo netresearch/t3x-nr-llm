@@ -5,4 +5,4 @@
 
 ## 2026-11-27
 
-* **Init**: Created the bundle with 23 concepts, the relation vocabulary, five competency questions and the coverage statement.
+* **Init**: Created the bundle with 24 concepts, the relation vocabulary, five competency questions and the coverage statement.

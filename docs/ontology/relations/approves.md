@@ -6,7 +6,7 @@ title: "approves"
 description: "The source records the consent of a person to one version of the target."
 x-nr-propagates: to-source
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

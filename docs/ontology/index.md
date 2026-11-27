@@ -30,7 +30,7 @@ The check fails when an asserted relation loses its evidence in the code. Fix th
 * [Concepts](concepts/index.md) - The concepts of nr_llm, one file each
 * [Relations](relations/index.md) - The relation vocabulary: what each relation means and in which direction a change propagates
 * [Competency questions](questions/index.md) - The questions this bundle is built to answer, with the answer at the time of writing
-* [Coverage](coverage.md) - What this bundle models, what it leaves out, and how to read its statuses
+* [Coverage](coverage.md) - What the nr_llm ontology models, what it leaves out, and how to read its statuses.
 
 # Format of a concept
 
@@ -41,7 +41,7 @@ Every concept file has the sections `# Definition`, an optional `# Not to be con
 | Relation | A relation of the vocabulary in `relations/` |
 | Target | A link to a concept, a path in this repository in backticks, or an external URL |
 | Evidence file | The file, relative to the repository root, that shows the relation |
-| Evidence text | A literal from one line of that file; the check requires it to be present |
+| Evidence text | A literal of that file; the check requires it exactly once and ignores differences in whitespace |
 | Status | `asserted`: read in the code and checked by the script. `hypothesis`: not yet backed by evidence |
 
 The relation vocabulary is the same in every Netresearch bundle. Netresearch keeps the canonical copy of the vocabulary and of this script, and the relations between repositories, in an internal repository.

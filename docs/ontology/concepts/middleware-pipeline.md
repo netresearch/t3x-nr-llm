@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 type: Concept
 title: "Middleware pipeline"
-description: "The chain of steps every provider call passes: fallback, budget, cache, guardrail, circuit breaker, usage and telemetry."
+description: "The chain of steps every non-streamed provider call passes: budget, cache, circuit breaker, empty answer, fallback, tracing, guardrail, idempotency, telemetry and usage."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition
 
-The middleware pipeline is the chain of steps that every call to a provider adapter passes. The steps check the budget, apply guardrails, answer from the cache, switch to the fallback chain on a failure, open a circuit breaker after repeated failures, and record usage and telemetry.
+The middleware pipeline is the chain of steps that every non-streamed call to a provider adapter passes. `Classes/Provider/Middleware/` holds one class per step: budget, cache, circuit breaker, empty answer, fallback, GenAI tracing, guardrail, idempotency, telemetry and usage. A streamed call cannot pass the pipeline, because a PHP generator is lazy; the streaming dispatcher takes its place.
 
 # Relations
 

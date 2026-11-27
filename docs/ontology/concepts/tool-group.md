@@ -5,7 +5,7 @@ type: Concept
 title: "Tool group"
 description: "A named group of tools that a configuration can allow as a whole."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

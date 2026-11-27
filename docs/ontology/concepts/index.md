@@ -16,9 +16,9 @@
 * [Skill](skill.md) - Instructions for a model, imported from a SKILL.md file of a skill source, in one version.
 * [Skill approval](skill-approval.md) - The record that a person approved one version of one skill from one source.
 * [LLM service](llm-service.md) - The public call surface: the LLM service manager and the feature services for completion, conversation, embedding, tools, translation and vision.
-* [Middleware pipeline](middleware-pipeline.md) - The chain of steps every provider call passes: fallback, budget, cache, guardrail, circuit breaker, usage and telemetry.
+* [Middleware pipeline](middleware-pipeline.md) - The chain of steps every non-streamed provider call passes: budget, cache, circuit breaker, empty answer, fallback, tracing, guardrail, idempotency, telemetry and usage.
 * [Guardrail](guardrail.md) - A check on the input or the output of a call that can redact, annotate or block it.
-* [Term list](term-list.md) - A list of required or forbidden terms that a guardrail checks for the configurations it names.
+* [Term list](term-list.md) - A list of terms that must not appear, or must appear, in the output of the configurations it names.
 * [Glossary](glossary.md) - The term pairs one site uses when it translates from one language into another.
 * [Prompt snippet](prompt-snippet.md) - A small named prompt fragment, for example a persona or a tone of voice, that code selects by tag.
 * [User budget](user-budget.md) - Daily and monthly ceilings for the requests, tokens and cost of one backend user.
@@ -26,3 +26,4 @@
 * [Backend user](backend-user.md) - A TYPO3 backend account; nr-llm budgets, permits and acts on behalf of it.
 * [Backend user group](backend-user-group.md) - A TYPO3 backend group; a configuration names the groups that may use it.
 * [Public API](public-api.md) - The classes and methods marked @api, frozen in a snapshot that a test compares against.
+* [Streaming dispatcher](streaming-dispatcher.md) - The path of a streamed call: it runs the budget check before the stream and records usage and telemetry around it, in place of the middleware pipeline.

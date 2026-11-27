@@ -5,7 +5,7 @@ type: Concept
 title: "Glossary"
 description: "The term pairs one site uses when it translates from one language into another."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

@@ -5,7 +5,7 @@ type: Concept
 title: "Skill source"
 description: "A GitHub location from which nr-llm imports skills: one SKILL.md file, a repository or a marketplace index."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

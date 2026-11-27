@@ -6,7 +6,7 @@ title: "Provider"
 description: "A configured connection to one LLM vendor API: endpoint, credentials and adapter type."
 tags: [three-tier]
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

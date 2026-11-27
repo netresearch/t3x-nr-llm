@@ -5,7 +5,7 @@ type: Concept
 title: "Tool"
 description: "An action that a model can call during an agent run: built-in or imported from an MCP server."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition

@@ -5,7 +5,7 @@ type: Concept
 title: "Agent run"
 description: "One execution of a tool-using agent under one configuration, on behalf of one backend user."
 status: draft
-generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+timestamp: 2026-11-27
 ---
 
 # Definition
