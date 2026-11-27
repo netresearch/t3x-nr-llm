@@ -64,4 +64,4 @@ Scope: only the relations this bundle models; coverage.md names what it leaves o
 
 # Limits
 
-For an installation: a configuration in the mode `fixed` with this `model_uid` loses its model. A configuration in the mode `criteria` loses one candidate and keeps working if another model meets its criteria. A configuration whose fallback chain names an affected configuration loses that fallback step.
+For an installation: a configuration in the mode `fixed` with this `model_uid` loses its model. A configuration in the mode `criteria` loses one candidate and keeps working if another model meets its criteria. A configuration whose fallback chain names an affected configuration loses that fallback step, and a configuration whose rule judge is an affected configuration can have its outputs blocked in block mode.

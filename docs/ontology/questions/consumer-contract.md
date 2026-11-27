@@ -15,7 +15,7 @@ An extension calls nr-llm. Which part of nr-llm may it rely on, and which tests 
 
 # How to answer
 
-Read the public API concept and its tests. A consuming extension relies on the `@api` surface only; everything marked `@internal` can change without notice. Run:
+Read the public API concept and its tests. A consuming extension relies on the `@api` surface only; everything marked `@internal` can change without notice. The contract is the public API and the concepts with a `partOf` row to it: the LLM service and the extension points for tools, guardrails and provider adapters. The rest of the answer lists what the public API depends on internally; its tests guard the implementation, not the contract. Run:
 
 ```bash
 python3 Build/Scripts/check-ontology.py docs/ontology --needs concepts/public-api
@@ -27,9 +27,19 @@ python3 Build/Scripts/check-ontology.py docs/ontology --needs concepts/public-ap
 concepts/public-api
   test Tests/Unit/Api/ApiSurfaceSnapshotTest.php
   test Tests/Unit/Api/DeprecationInventoryTest.php
+concepts/guardrail
+  via concepts/guardrail partOf concepts/public-api
 concepts/llm-service
   via concepts/llm-service partOf concepts/public-api
   test Tests/Unit/Service/LlmServiceManagerTest.php
+concepts/provider-adapter
+  via concepts/provider-adapter partOf concepts/public-api
+  test Tests/Unit/Provider/AbstractProviderTest.php
+concepts/tool
+  via concepts/tool partOf concepts/public-api
+concepts/term-list
+  via concepts/guardrail partOf concepts/public-api
+  via concepts/term-list partOf concepts/guardrail
 concepts/middleware-pipeline
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/middleware-pipeline
@@ -51,29 +61,19 @@ concepts/glossary
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
-concepts/provider-adapter
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline uses concepts/provider-adapter
-  test Tests/Unit/Provider/AbstractProviderTest.php
+concepts/mcp-server
+  via concepts/tool partOf concepts/public-api
+  via concepts/tool derivedFrom concepts/mcp-server
 concepts/user-budget
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/middleware-pipeline
   via concepts/middleware-pipeline constrainedBy concepts/user-budget
   test Tests/Unit/Service/BudgetServiceTest.php
-concepts/guardrail
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline constrainedBy concepts/guardrail
 concepts/model
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/model
   test Tests/Unit/Domain/Model/ModelTest.php
-concepts/term-list
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/configuration
-  via concepts/configuration constrainedBy concepts/term-list
 concepts/backend-user-group
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration
@@ -119,23 +119,12 @@ concepts/skill-approval
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/skill
   via concepts/skill constrainedBy concepts/skill-approval
-concepts/tool
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/configuration
-  via concepts/configuration uses concepts/tool-group
-  via concepts/tool partOf concepts/tool-group
 url:https://github.com/netresearch/t3x-nr-vault
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/model
   via concepts/model uses concepts/provider
   via concepts/provider uses url:https://github.com/netresearch/t3x-nr-vault
-concepts/mcp-server
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/configuration
-  via concepts/configuration uses concepts/tool-group
-  via concepts/tool partOf concepts/tool-group
-  via concepts/tool derivedFrom concepts/mcp-server
 Scope: only the relations this bundle models; coverage.md names what it leaves out.
 ```
 

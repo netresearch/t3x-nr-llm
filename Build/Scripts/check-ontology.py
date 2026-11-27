@@ -206,9 +206,14 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
     for number, line in body_lines(text):
         where = f"{bundle.shown(path)}:{number}"
         if line.startswith("#"):
+            in_section_before = in_section
             in_section = line.strip() == "# Relations"
             has_section = has_section or in_section
-            if re.match(r"^#{2,} Relations\s*$", line):
+            if in_section_before and re.match(r"^#{2,} ", line):
+                bundle.errors.append(
+                    f"{where}: a subheading inside '# Relations' hides the rows below it; keep one table"
+                )
+            elif re.match(r"^#{2,} Relations\s*$", line):
                 bundle.errors.append(
                     f"{where}: the relations heading must be '# Relations'"
                 )
