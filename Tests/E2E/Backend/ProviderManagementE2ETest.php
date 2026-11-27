@@ -751,7 +751,7 @@ final class ProviderManagementE2ETest extends AbstractBackendE2ETestCase
 
         // First element should have highest priority
         $highest = $this->providerRepository->findHighestPriority();
-        if ($highest instanceof Provider && $providers !== []) {
+        if ($highest instanceof Provider) {
             self::assertSame($providers[0]->getUid(), $highest->getUid());
         }
     }
