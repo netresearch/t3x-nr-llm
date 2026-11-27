@@ -1,0 +1,21 @@
+---
+# SPDX-License-Identifier: GPL-2.0-or-later
+# SPDX-FileCopyrightText: Netresearch DTT GmbH
+type: Concept
+title: "Public API"
+description: "The classes and methods marked @api, frozen in a snapshot that a test compares against."
+status: draft
+generated: {by: claude-code/2.1.332, at: 2026-11-27T21:06:57Z}
+---
+
+# Definition
+
+The public API is the set of classes and methods marked `@api`: the feature services, the LLM service manager, the option classes, the response and value objects, and the typed exceptions. Within a major version no `@api` class or method is removed and no signature changes incompatibly. While nr_llm is below 1.0, that promise applies one level down: a minor release (0.N to 0.N+1) may break, and only with a CHANGELOG entry under a BREAKING heading; a patch release does not break. A snapshot file freezes every `@api` signature, and a test fails when a signature changes without an update of the snapshot.
+
+# Relations
+
+| Relation | Target | Evidence file | Evidence text | Status |
+|---|---|---|---|---|
+| `implementedBy` | `Tests/Unit/Api/api-surface.txt` | `Documentation/Api/Stability.rst` | `minor releases (0.N → 0.N+1) may break` | asserted |
+| `verifiedBy` | `Tests/Unit/Api/ApiSurfaceSnapshotTest.php` | `Tests/Unit/Api/ApiSurfaceSnapshotTest.php` | `class ApiSurfaceSnapshotTest` | asserted |
+| `verifiedBy` | `Tests/Unit/Api/DeprecationInventoryTest.php` | `Tests/Unit/Api/DeprecationInventoryTest.php` | `class DeprecationInventoryTest` | asserted |

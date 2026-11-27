@@ -29,7 +29,7 @@ The closest AGENTS.md wins: scoped AGENTS.md files in subdirectories override th
 | `.ddev/AGENTS.md` | Local development environment, seed/demo data |
 | `.github/workflows/AGENTS.md` | CI/CD workflows, release and dependency automation |
 
-Architecture: `docs/ARCHITECTURE.md` · Execution plans: `docs/exec-plans/README.md`
+Architecture: `docs/ARCHITECTURE.md` · Execution plans: `docs/exec-plans/README.md` · Ontology (concepts, typed relations, impact queries): `docs/ontology/index.md`
 <!-- AGENTS-GENERATED:END scope-index -->
 
 <!-- AGENTS-GENERATED:START setup -->
