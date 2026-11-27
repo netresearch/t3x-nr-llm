@@ -166,24 +166,7 @@ final class ApiSurfaceRenderer
     private function extendsOf(ReflectionClass $reflection): string
     {
         if ($reflection->isInterface()) {
-            $all    = $reflection->getInterfaceNames();
-            $direct = [];
-            foreach ($all as $name) {
-                $inherited = false;
-                foreach ($all as $other) {
-                    if ($other !== $name && is_subclass_of($other, $name)) {
-                        $inherited = true;
-
-                        break;
-                    }
-                }
-
-                if (!$inherited) {
-                    $direct[] = $name;
-                }
-            }
-
-            sort($direct);
+            $direct = $this->directParentInterfaces($reflection);
 
             return $direct === [] ? '' : ' extends ' . implode(', ', $direct);
         }
@@ -191,6 +174,29 @@ final class ApiSurfaceRenderer
         $parent = $reflection->getParentClass();
 
         return $parent instanceof ReflectionClass ? ' extends ' . $parent->getName() : '';
+    }
+
+    /**
+     * The interfaces an interface extends itself, sorted: every ancestor that
+     * no other ancestor already extends.
+     *
+     * @param ReflectionClass<object> $reflection
+     *
+     * @return list<string>
+     */
+    private function directParentInterfaces(ReflectionClass $reflection): array
+    {
+        $all    = $reflection->getInterfaceNames();
+        $direct = array_values(array_filter(
+            $all,
+            static fn (string $name): bool => array_filter(
+                $all,
+                static fn (string $other): bool => $other !== $name && is_subclass_of($other, $name),
+            ) === [],
+        ));
+        sort($direct);
+
+        return $direct;
     }
 
     /**

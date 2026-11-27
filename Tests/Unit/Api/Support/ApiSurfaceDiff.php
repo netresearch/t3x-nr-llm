@@ -179,17 +179,7 @@ final readonly class ApiSurfaceDiff
                 . 'run the unit suite twice) and note the addition in a changelog.d/<branch-slug>.added.md '
                 . 'fragment. The release that ships it raises only the last version number.';
         } else {
-            if ($this->removed === [] && $this->changed === []) {
-                $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. ' . $contractSentence;
-            } else {
-                $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. A removed line breaks '
-                    . 'every caller that used it. A changed one may or may not: an added OPTIONAL '
-                    . 'parameter breaks nobody, an added required one breaks every call. Read the '
-                    . 'was/now pair below — the rendering marks an optional parameter with " = …".';
-                if ($contract !== []) {
-                    $sections[] = $contractSentence;
-                }
-            }
+            array_push($sections, ...$this->breakingHeadline($counts, $contractSentence));
 
             $sections[] = 'What to do: this is a decision, not a regeneration. Either revert the '
                 . 'change, or follow Documentation/Api/Deprecation.rst — deprecate first, '
@@ -226,6 +216,29 @@ final readonly class ApiSurfaceDiff
         }
 
         return implode("\n\n", $sections);
+    }
+
+    /**
+     * The opening of a breaking report: a diff that only adds to a contract
+     * leads with that; otherwise the removed/changed explanation comes first.
+     *
+     * @return list<string>
+     */
+    private function breakingHeadline(string $counts, string $contractSentence): array
+    {
+        $lead = strtoupper($this->verdict()) . ' — ' . $counts . '. ';
+        if ($this->removed === [] && $this->changed === []) {
+            return [$lead . $contractSentence];
+        }
+
+        $sections = [$lead . 'A removed line breaks every caller that used it. A changed one may or may '
+            . 'not: an added OPTIONAL parameter breaks nobody, an added required one breaks every call. '
+            . 'Read the was/now pair below — the rendering marks an optional parameter with " = …".'];
+        if ($this->addedToContracts !== []) {
+            $sections[] = $contractSentence;
+        }
+
+        return $sections;
     }
 
     /**
