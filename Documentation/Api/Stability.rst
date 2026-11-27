@@ -146,8 +146,9 @@ number *y* the role of minor and patch together.
 The reason is Composer's caret on a 0.x version: ``^0.54`` admits 0.54.*
 and refuses 0.55.0. Every rise of x therefore forces each extension that
 depends on nr_llm to widen its constraint and publish a release before an
-installation can update. 0.44.0 to 0.55.0 raised x for features alone, and
-each of those releases sent the dependent extensions through that cycle.
+installation can update. 0.45.0 to 0.55.0 raised x eleven times without a
+BREAKING entry; six of their release pull requests named new features or
+additions as the reason.
 
 ``Build/Scripts/check-changelog-version-bump.php`` (part of
 ``composer ci:test:changelog:sections``, run in CI) compares each release

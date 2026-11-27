@@ -13,7 +13,7 @@ declare(strict_types=1);
  *
  * Under 0.x, Composer's `^0.54` admits only 0.54.*, so raising the middle
  * number forces every dependent extension to widen its constraint and release.
- * 0.44.0 to 0.55.0 raised it for features alone. The rule
+ * 0.45.0 to 0.55.0 raised it eleven times without a breaking entry. The rule
  * (Documentation/Api/Stability.rst, "Versioning during 0.x"):
  *
  *   - a release that raises the middle number (0.N.x → 0.N+1.0) carries at

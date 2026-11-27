@@ -17,10 +17,10 @@ use RuntimeException;
  * Drives Build/Scripts/check-changelog-version-bump.php against throwaway
  * CHANGELOG files.
  *
- * The check exists because 0.44.0 to 0.55.0 raised the middle version number
- * for releases without a breaking change. Under 0.x, `^0.54` admits only
- * 0.54.*, so each of those releases made the dependent extensions widen their
- * constraint and release. The rule in Documentation/Api/Stability.rst: the
+ * The check exists because 0.45.0 to 0.55.0 raised the middle version number
+ * eleven times without a breaking entry. Under 0.x, `^0.54` admits only
+ * 0.54.*, so each such release requires the dependent extensions to widen
+ * their constraint and release. The rule in Documentation/Api/Stability.rst: the
  * middle number rises only for a release with a breaking entry, and a patch
  * release has none.
  */
