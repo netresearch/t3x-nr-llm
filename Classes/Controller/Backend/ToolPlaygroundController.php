@@ -660,9 +660,8 @@ final class ToolPlaygroundController extends ActionController implements LoggerA
                 break;
 
             default:
-                // A future outcome from a newer runtime (the enum may grow in
-                // minor releases) must not fall through to the completed
-                // payload.
+                // A future outcome from a newer runtime (the enum may grow)
+                // must not fall through to the completed payload.
                 $this->logger?->error('Unhandled agent run outcome', ['outcome' => $result->outcome->value]);
 
                 return $this->respondJson(['success' => false, 'error' => 'The run ended with an unhandled outcome.'], 500);

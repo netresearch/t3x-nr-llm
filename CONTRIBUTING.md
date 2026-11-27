@@ -58,10 +58,11 @@ is `@internal`.
 
 The rendered `@api` surface — constructors included — is frozen in
 `Tests/Unit/Api/api-surface.txt`. The snapshot test classifies its own
-failure: **additive** (a new class, method, property, constant or enum case)
-means regenerate the file and note it under `### Added`; **breaking**
-(anything removed or changed, a widened constructor included) means stop and
-decide.
+failure: **additive** (a new class, interface or enum, a new method or
+property of a class, a new constant) means regenerate the file and note it in
+an `added` fragment; **breaking** (anything removed or changed, a widened
+constructor included, a new method on an `@api` interface, a new case of an
+`@api` enum) means stop and decide.
 
 Removing or narrowing something `@api` follows
 `Documentation/Api/Deprecation.rst`: deprecate in a minor, keep it working
@@ -153,24 +154,14 @@ PR as soon as one of them merged. `changelog.d/README.md` describes the format;
 into `CHANGELOG.md` with `composer changelog:collect`. Version bumps belong to
 the release commit, never to a feature PR.
 
-A breaking change gets a bullet that opens with `**BREAKING` and says what a
-consumer has to change, in whichever fragment section fits (often `changed`,
-`removed` or `upgrading`). Breaking means a breaking diff of
-`Tests/Unit/Api/api-surface.txt` or a behaviour change consumers have to
-handle, such as a new run status they must know.
-
-### Versioning during 0.x
-
-In 0.x.y the middle number x rises **only** for a breaking change. New
-features, fixes, additive API changes and additive database changes (new
-columns or tables with defaults) raise only y. The reason is the caret:
-`^0.54` admits only 0.54.*, so every rise of x makes each extension that
-depends on nr_llm widen its constraint and release. Before choosing the
-version, read the `[Unreleased]` section for `**BREAKING` bullets and diff
-`Tests/Unit/Api/api-surface.txt` against the last tag. `composer
-ci:test:changelog` refuses a release after 0.55.1 that raises x without a
-`**BREAKING` bullet, or keeps x with one. The full rule is
-`Documentation/Api/Stability.rst`, "Versioning during 0.x".
+A breaking change gets a top-level bullet that opens with `- **BREAKING`
+(exactly, upper case) and says what a consumer has to change, in whichever
+fragment section fits (often `changed`, `removed` or `upgrading`). Other bold
+forms (`**Breaking:**`, the word inside a bullet or in a nested bullet) are
+refused by `composer ci:test:changelog:sections`. Breaking means a breaking
+diff of `Tests/Unit/Api/api-surface.txt` (a new method on an `@api` interface
+and a new case of an `@api` enum included) or a behaviour change consumers
+have to handle, such as a new run status they must know.
 
 A change to the public surface also gets an Architecture Decision Record under
 `Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free
@@ -182,6 +173,22 @@ a consumer builds against: an interface, a DI-tagged extension point, a database
 table, a TCA field, an Extension Configuration key, a console command, or the
 behaviour of any of them. Recording *why* matters more than recording what; the
 diff already shows what.
+
+### Versioning during 0.x
+
+In 0.x.y the middle number x rises **only** for a breaking change, and then by
+one, to 0.x+1.0. New features, fixes, additive API changes (a new class,
+interface or enum, a new method of a class) and additive database changes (new
+columns or tables with defaults) raise only y. A new method on an `@api`
+interface and a new case of an `@api` enum are breaking. The reason is the
+caret: `^0.54` admits only 0.54.*, so every rise of x makes each extension that
+depends on nr_llm widen its constraint and release. Before choosing the
+version, read `[Unreleased]` and the pending `changelog.d/` fragments for
+`- **BREAKING` bullets, and diff `Tests/Unit/Api/api-surface.txt` against the
+last tag. `composer ci:test:changelog` (and `make changelog`) refuses a release
+after 0.55.1 that raises x without a `- **BREAKING` bullet or by more than one,
+or keeps x with one. The full rule is `Documentation/Api/Stability.rst`,
+"Versioning during 0.x".
 
 ## Commit Messages
 

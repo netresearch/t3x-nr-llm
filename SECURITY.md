@@ -17,15 +17,18 @@ an older release line.
   security fixes on the day `0.(N+1).0` is released. From then on, the fix for
   a vulnerability is in the newest release only, and users of an older line
   upgrade to it.
-- **Upgrading within 0.x:** while the extension is pre-1.0, a minor release
-  may contain breaking changes, and each one is marked **BREAKING** in
-  `CHANGELOG.md` ([API stability](Documentation/Api/Stability.rst)).
+- **Upgrading within 0.x:** while the extension is pre-1.0, only a release
+  that raises the middle version number (`0.N.x` to `0.(N+1).0`) may contain
+  breaking changes, and each one opens with `**BREAKING` in `CHANGELOG.md`.
+  Releases that keep the middle number carry features and fixes only
+  ([API stability](Documentation/Api/Stability.rst)).
 - **Getting support:** questions and bug reports go to the
   [issue tracker](https://github.com/netresearch/t3x-nr-llm/issues) or
   [discussions](https://github.com/netresearch/t3x-nr-llm/discussions);
   vulnerabilities are reported privately as described below.
 
-The table is updated by the release commit of every minor release;
+The table is updated by the release commit of every release that raises the
+middle version number;
 `Tests/Unit/VersionConsistencyTest.php` fails when it names a line other than
 the one `ext_emconf.php` is on.
 

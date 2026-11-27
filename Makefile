@@ -46,6 +46,7 @@ help:
 	@echo "  phpstan     Run static analysis"
 	@echo "  rector      Run Rector refactoring (dry-run)"
 	@echo "  rector-fix  Apply Rector refactoring"
+	@echo "  changelog   Check CHANGELOG.md and changelog.d/: duplicates, released sections, 0.x version vs **BREAKING entries"
 	@echo "  ci          Run all CI checks"
 	@echo ""
 	@echo "Documentation:"
@@ -139,9 +140,10 @@ rector: ## Run Rector dry-run
 rector-fix:
 	$(RUNTESTS) -s rector
 
-changelog: ## Refuse a self-repeating [Unreleased] section, released sections that differ from their tag, and malformed or uncollected changelog.d/ fragments
+changelog: ## Refuse a self-repeating [Unreleased] section, released sections that differ from their tag, a 0.x version that disagrees with its **BREAKING entries, and malformed or uncollected changelog.d/ fragments
 	@php Build/Scripts/check-changelog-unreleased.php
 	@php Build/Scripts/check-changelog-released-sections.php
+	@php Build/Scripts/check-changelog-version-bump.php
 	@composer ci:test:changelog:fragments
 
 # The pre-push gate AGENTS.md documents, as one command. `ci` below is a

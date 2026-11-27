@@ -114,11 +114,17 @@ internals by design; the line is still frozen — widening it is a breaking
 diff — but the types on it are not a promise that you may call them.
 
 The failure is classified, because "different" makes a new value object read
-like a deleted method. An **additive** diff (a new class, method, property,
-constant or enum case) is regenerated and noted under ``### Added``. A
-**breaking** one — anything removed or changed, a widened constructor
-included — is a decision, and the failure message says so and points at
-:ref:`api-deprecation`.
+like a deleted method. An **additive** diff (a new class, interface or enum,
+a new method or property of a class, a new constant) is regenerated and
+noted in an ``added`` changelog fragment. A **breaking** one is a decision,
+and the failure message says so and points at :ref:`api-deprecation`:
+
+- anything removed or changed, a widened constructor included,
+- a new method on an existing ``@api`` interface — it breaks every
+  implementation outside this extension, whether or not the interface is
+  marked as an extension point,
+- a new case of an existing ``@api`` enum — it breaks every exhaustive
+  ``match`` without a default arm.
 
 How something leaves the surface again is :ref:`api-deprecation`. Which
 TYPO3 and PHP versions the promise is made on is :ref:`api-support-matrix`.
@@ -130,18 +136,23 @@ While the extension is pre-1.0, the promise applies one level down: in
 0.x.y, the middle number *x* plays the role of the major and the last
 number *y* the role of minor and patch together.
 
-- **x rises only for a breaking change.** A breaking change is either a
-  breaking diff of the frozen ``@api`` surface (the classifier of
-  ``Tests/Unit/Api/api-surface.txt`` reports *breaking*, see
-  `Enforcement`_), or a behaviour change that consumers have to handle —
-  for example 0.44.0 added the run status ``waiting_for_dependency``,
-  which a consumer has to know about.
+- **x rises only for a breaking change, by one, to 0.x+1.0.** A breaking
+  change is either a breaking diff of the frozen ``@api`` surface (the
+  classifier of ``Tests/Unit/Api/api-surface.txt`` reports *breaking*, see
+  `Enforcement`_ — a new method on an ``@api`` interface and a new case of
+  an ``@api`` enum included, as 0.41.0 and 0.36.0 recorded them), or a
+  behaviour change that consumers have to handle — for example 0.44.0 added
+  the run status ``waiting_for_dependency``, which a consumer has to know
+  about.
 - **y rises for everything else**: new features, fixes, an additive
-  ``@api`` diff, and additive database changes (new columns or tables with
-  defaults that need only the schema update).
+  ``@api`` diff (a new class, interface or enum, a new method of a class),
+  and additive database changes (new columns or tables with defaults that
+  need only the schema update).
 - A release that raises x carries at least one CHANGELOG bullet that opens
-  with ``**BREAKING`` and says what a consumer has to change. A release
-  that keeps x carries none.
+  with ``- **BREAKING`` (exactly, upper case) and says what a consumer has
+  to change. A release that keeps x carries none. Other forms of the word
+  in bold (``**Breaking:**``, inside a bullet, in a nested bullet) are not
+  the marker.
 
 The reason is Composer's caret on a 0.x version: ``^0.54`` admits 0.54.*
 and refuses 0.55.0. Every rise of x therefore forces each extension that
@@ -151,10 +162,14 @@ BREAKING entry; six of their release pull requests named new features or
 additions as the reason.
 
 ``Build/Scripts/check-changelog-version-bump.php`` (part of
-``composer ci:test:changelog:sections``, run in CI) compares each release
-after 0.55.1 with the one before it. It refuses a release that raises x
-without a ``**BREAKING`` bullet and a release that keeps x with one. Whether
-a change is breaking stays the release author's decision: the check reads
-the CHANGELOG, not the API diff.
+``composer ci:test:changelog:sections`` and ``make changelog``, run in CI)
+compares each release after 0.55.1 with the highest earlier version. It
+refuses a release that raises x without a ``- **BREAKING`` bullet, one that
+raises it by more than one or to a last number other than 0, one that keeps
+x with such a bullet, and a section whose version is not a plain 0.x.y. It
+also refuses any other bold form of the word in those sections, in
+``[Unreleased]`` and in ``changelog.d/`` fragments. Whether a change is
+breaking stays the release author's decision: the check reads the
+CHANGELOG, not the API diff.
 
 From 1.0.0 on the promise applies as written above.

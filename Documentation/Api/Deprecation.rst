@@ -33,7 +33,7 @@ During 0.x
 
 The notice period starts at 1.0. While the extension is pre-1.0, a release
 that raises the middle number (0.N → 0.N+1) may break, and only such a
-release does; its CHANGELOG bullet opens with ``**BREAKING`` — see
+release does; its CHANGELOG bullet opens with ``- **BREAKING`` — see
 :ref:`api-stability`. Deprecations shipped during 0.x are listed below and
 are the first candidates for removal at 1.0; the ones marked *retained*
 are not, and say why.

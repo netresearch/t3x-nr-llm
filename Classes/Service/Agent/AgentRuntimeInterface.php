@@ -22,8 +22,10 @@ use Netresearch\NrLlm\Service\Agent\Exception\AgentRuntimeException;
  * Playground, CLI, queue workers and editor actions share this lifecycle.
  *
  * CONSUMER interface: call it; do not implement or decorate it outside nr_llm.
- * Methods and AgentRunOutcome cases may be added in minor releases, so
- * exhaustive matches need a default arm. ToolLoopServiceInterface remains
+ * Methods and AgentRunOutcome cases may be added; each is a breaking change
+ * and ships, during 0.x, only in a release that raises the middle version
+ * number with a BREAKING changelog entry (Documentation/Api/Stability.rst).
+ * Exhaustive matches need a default arm. ToolLoopServiceInterface remains
  * public for consumers that need the bare loop without persistence or approval.
  *
  * @api

@@ -9,20 +9,22 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit;
 
+use FilesystemIterator;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use RuntimeException;
 
 /**
  * Drives Build/Scripts/check-changelog-version-bump.php against throwaway
- * CHANGELOG files.
+ * CHANGELOG files and changelog.d/ directories.
  *
  * The check exists because 0.45.0 to 0.55.0 raised the middle version number
  * eleven times without a breaking entry. Under 0.x, `^0.54` admits only
  * 0.54.*, so each such release requires the dependent extensions to widen
- * their constraint and release. The rule in Documentation/Api/Stability.rst: the
- * middle number rises only for a release with a breaking entry, and a patch
- * release has none.
+ * their constraint and release. The rule in Documentation/Api/Stability.rst:
+ * the middle number rises by exactly one, to 0.N+1.0, only for a release with
+ * a `- **BREAKING` bullet, and a release that keeps it has none.
  */
 #[CoversNothing]
 final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
@@ -36,20 +38,27 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
 
     private const BREAKING = "- **BREAKING: `Foo::bar()` is removed.** Call `Foo::baz()` instead.\n";
 
-    private string $file = '';
+    private string $dir = '';
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->file = sys_get_temp_dir() . '/nrllm-version-bump-' . bin2hex(random_bytes(6)) . '.md';
+        $this->dir = sys_get_temp_dir() . '/nrllm-version-bump-' . bin2hex(random_bytes(6));
+        mkdir($this->dir . '/changelog.d', 0o777, true);
     }
 
     protected function tearDown(): void
     {
-        if (is_file($this->file)) {
-            unlink($this->file);
+        foreach (new FilesystemIterator($this->dir . '/changelog.d') as $file) {
+            unlink((string) $file);
         }
 
+        rmdir($this->dir . '/changelog.d');
+        if (is_file($this->dir . '/CHANGELOG.md')) {
+            unlink($this->dir . '/CHANGELOG.md');
+        }
+
+        rmdir($this->dir);
         parent::tearDown();
     }
 
@@ -98,16 +107,107 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function onlyATopLevelBulletOpeningWithTheMarkerCounts(): void
+    public function aMiddleBumpMustBeExactlyOneToAZeroPatch(): void
     {
-        // The word inside a sentence or a nested bullet is not the marker: the
-        // check and the reader have to find the same line.
-        $body = "### Changed\n\n- A change that is **BREAKING** for nobody.\n  - **BREAKING: nested.**\n";
+        [$skipped, $skippedErr] = $this->check($this->withTopmost('0.57.0', "### Changed\n\n" . self::BREAKING));
+        [$patched, $patchedErr] = $this->check($this->withTopmost('0.56.1', "### Changed\n\n" . self::BREAKING));
 
-        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', $body));
+        self::assertSame(1, $skipped);
+        self::assertStringContainsString('[0.57.0]  follows 0.55.1, so a middle bump is 0.56.0', $skippedErr);
+        self::assertSame(1, $patched);
+        self::assertStringContainsString('[0.56.1]  follows 0.55.1, so a middle bump is 0.56.0', $patchedErr);
+    }
+
+    #[Test]
+    public function theHighestEarlierVersionIsThePredecessorNotTheSectionBelow(): void
+    {
+        // A section written out of order: 0.57.0 follows 0.56.0, not the
+        // 0.55.2 that happens to stand below it.
+        $changelog = self::HEAD
+            . "## [0.57.0] - 2026-12-03\n\n### Changed\n\n" . self::BREAKING . "\n"
+            . "## [0.55.2] - 2026-12-01\n\n### Fixed\n\n- A fix.\n\n"
+            . "## [0.56.0] - 2026-12-02\n\n### Changed\n\n" . self::BREAKING . "\n"
+            . self::BASE;
+
+        [$exit, $stderr] = $this->check($changelog);
+
+        self::assertSame(0, $exit, $stderr);
+    }
+
+    #[Test]
+    public function aVersionThatIsNotPlainFailsInsteadOfSwitchingTheCheckOff(): void
+    {
+        // Before, an unparseable version was skipped and the release below it
+        // was compared with nothing.
+        $changelog = self::HEAD
+            . "## [0.56.0-rc.1] - 2026-12-02\n\n### Added\n\n- A new feature.\n\n"
+            . "## [0.56.0] - 2026-12-01\n\n### Added\n\n- A new feature.\n\n"
+            . self::BASE;
+
+        [$exit, $stderr] = $this->check($changelog);
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('[0.56.0]  raises the middle number', $stderr);
+        self::assertStringContainsString('[0.56.0-rc.1]  is not a plain 0.N.y version', $stderr);
+        self::assertStringContainsString('[0.56.0]  raises the middle number over 0.55.1 without a breaking entry', $stderr);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function lookalikes(): array
+    {
+        return [
+            'title case'        => ["- **Breaking:** `Foo::bar()` is removed.\n"],
+            'inside a bullet'   => ["- `WriteKind` gains `DELETED`. **BREAKING for exhaustive matches:** add an arm.\n"],
+            'nested bullet'     => ["- A change.\n  - **BREAKING: nested.**\n"],
+            'continuation line' => ["- A change.\n  **Breaking:** `Foo` takes a third argument.\n"],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('lookalikes')]
+    public function aLookalikeOfTheMarkerFailsWithTheExpectedForm(string $body): void
+    {
+        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', "### Changed\n\n" . self::BREAKING . $body));
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('[0.56.0]  line ', $stderr);
+        self::assertStringContainsString('is not the breaking marker — open a top-level bullet with `- **BREAKING`', $stderr);
+    }
+
+    #[Test]
+    public function theMarkerQuotedAsCodeIsNoLookalike(): void
+    {
+        $body = "### Changed\n\n- Breaking entries open with `**BREAKING` now.\n";
+
+        [$exit, $stderr] = $this->check($this->withTopmost('0.55.2', $body));
+
+        self::assertSame(0, $exit, $stderr);
+    }
+
+    #[Test]
+    public function aLookalikeInUnreleasedOrInAFragmentFailsBeforeTheRelease(): void
+    {
+        $unreleased               = "# Changelog\n\n## [Unreleased]\n\n### Changed\n\n- **Breaking:** `Foo` changed.\n\n" . self::BASE;
+        [$inSection, $sectionErr] = $this->check($unreleased);
+
+        file_put_contents($this->dir . '/changelog.d/a-branch.changed.md', "- **Breaking:** `Foo` changed.\n");
+        [$inFragment, $fragmentErr] = $this->check(self::HEAD . self::BASE);
+
+        self::assertSame(1, $inSection);
+        self::assertStringContainsString('[Unreleased]  line ', $sectionErr);
+        self::assertSame(1, $inFragment);
+        self::assertStringContainsString('changelog.d/a-branch.changed.md  line 1', $fragmentErr);
+    }
+
+    #[Test]
+    public function aFragmentWithTheMarkerPasses(): void
+    {
+        file_put_contents($this->dir . '/changelog.d/a-branch.removed.md', self::BREAKING);
+
+        [$exit, $stderr] = $this->check(self::HEAD . self::BASE);
+
+        self::assertSame(0, $exit, $stderr);
     }
 
     #[Test]
@@ -115,8 +215,10 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
     {
         // 0.55.0 raised the middle number over 0.54.0 without a breaking entry,
         // before the rule existed. Released sections are frozen, so judging
-        // them could never pass.
-        [$exit, $stderr] = $this->check(self::HEAD . self::BASE);
+        // them could never pass. Older lookalikes stay where they are too.
+        $base = str_replace('- Another feature.', "- Another feature.\n  **Breaking:** an old form.", self::BASE);
+
+        [$exit, $stderr] = $this->check(self::HEAD . $base);
 
         self::assertSame(0, $exit, $stderr);
     }
@@ -127,16 +229,17 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
     }
 
     /**
-     * Run the check against $changelog as CI does.
+     * Run the check against $changelog as CI does; changelog.d/ sits beside it.
      *
      * @return array{int, string}
      */
     private function check(string $changelog): array
     {
-        file_put_contents($this->file, $changelog);
+        $path = $this->dir . '/CHANGELOG.md';
+        file_put_contents($path, $changelog);
 
         $script  = dirname(__DIR__, 2) . '/Build/Scripts/check-changelog-version-bump.php';
-        $command = [PHP_BINARY, $script, $this->file];
+        $command = [PHP_BINARY, $script, $path];
         $proc    = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start the check', 1790260001);

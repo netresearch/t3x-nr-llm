@@ -12,8 +12,10 @@ Persisted agent runtime
 Inject :php:`Netresearch\NrLlm\Service\Agent\AgentRuntimeInterface` for runs
 that need persisted status, approval, input or background execution. It is a
 consumer interface: call it rather than implementing or decorating it.
-Methods and outcome cases may be added in minor releases; handle unknown
-outcomes with a default branch.
+Methods and outcome cases may be added. Each is a breaking change: during
+0.x it ships only in a release that raises the middle version number, with a
+BREAKING changelog entry (:ref:`api-stability`). Handle unknown outcomes with
+a default branch.
 
 .. _api-agent-runtime-request:
 

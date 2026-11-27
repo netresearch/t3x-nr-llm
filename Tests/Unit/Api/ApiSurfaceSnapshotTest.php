@@ -56,8 +56,8 @@ use SplFileInfo;
  *
  * The failure message is classified by ApiSurfaceDiff: additive (a new
  * class, method, property) is regenerated and noted; breaking (removed or
- * changed) needs a deliberate decision under
- * `Documentation/Api/Deprecation.rst`.
+ * changed, or a new method on an interface or a new enum case) needs a
+ * deliberate decision under `Documentation/Api/Deprecation.rst`.
  *
  * To update intentionally: delete `api-surface.txt`, run the unit suite
  * twice (first run regenerates the file and fails, second is green), and

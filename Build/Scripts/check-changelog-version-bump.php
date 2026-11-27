@@ -16,27 +16,41 @@ declare(strict_types=1);
  * 0.45.0 to 0.55.0 raised it eleven times without a breaking entry. The rule
  * (Documentation/Api/Stability.rst, "Versioning during 0.x"):
  *
- *   - a release that raises the middle number (0.N.x → 0.N+1.0) carries at
- *     least one breaking entry,
+ *   - a release that raises the middle number carries at least one breaking
+ *     entry, and raises it by exactly one to a last number of 0 (0.N.y →
+ *     0.N+1.0),
  *   - a release that keeps the middle number carries none.
  *
- * A breaking entry is a top-level bullet that opens with `- **BREAKING`. The
- * word anywhere else does not count, so the check and a reader find the same
- * line. What is breaking is decided by the author of the release: a breaking
- * diff of Tests/Unit/Api/api-surface.txt, or a behaviour change consumers have
- * to handle. This script only checks that the version number agrees with what
- * the CHANGELOG says.
+ * A release is compared with the highest plain version below it, wherever that
+ * section stands in the file. A section after RULE_SINCE whose version is not
+ * a plain 0.N.y fails, so it cannot switch the comparison off.
+ *
+ * A breaking entry is a top-level bullet that opens with `- **BREAKING`. Older
+ * sections also wrote `**Breaking:**`, `**BREAKING**` or the word inside a
+ * bullet. Any such lookalike (case-insensitive, outside inline code) fails in a
+ * judged section, in `[Unreleased]` and in a changelog.d/ fragment, so the
+ * author writes the one form the check and a reader both find.
+ *
+ * What is breaking is decided by the author: a breaking diff of
+ * Tests/Unit/Api/api-surface.txt (a new method on an @api interface and a new
+ * case of an @api enum included), or a behaviour change consumers have to
+ * handle. This script checks that the version number agrees with the CHANGELOG.
  *
  * Only releases after RULE_SINCE are judged. Released sections are frozen by
  * check-changelog-released-sections.php, and the older ones break the rule.
  *
  * Usage: check-changelog-version-bump.php [CHANGELOG path]
+ *        (changelog.d/ is read from the CHANGELOG's directory)
  */
+
+require_once __DIR__ . '/changelog-sections.php';
 
 /** The last release before the rule; releases after it are checked. */
 const RULE_SINCE = '0.55.1';
 
-const BREAKING_MARKER = '/^- \*\*BREAKING/m';
+const MARKER = '- **BREAKING';
+
+const PLAIN_VERSION = '/^(\d+)\.(\d+)\.(\d+)$/';
 
 $path = $argv[1] ?? dirname(__DIR__, 2) . '/CHANGELOG.md';
 
@@ -45,42 +59,141 @@ if (!is_readable($path)) {
     exit(2);
 }
 
-require_once __DIR__ . '/changelog-sections.php';
+/**
+ * Line numbers (1-based) of every `**breaking` that is not the marker.
+ *
+ * Inline code is blanked first, so a text that quotes the marker as
+ * `**BREAKING` is no lookalike.
+ *
+ * @return list<int>
+ */
+function lookalikeLines(string $text): array
+{
+    $lines = [];
+    foreach (explode("\n", $text) as $i => $line) {
+        $prose = (string) preg_replace_callback('/`[^`]*`/', static fn (array $m): string => str_repeat(' ', strlen($m[0])), $line);
+        if (preg_match_all('/\*\*\s*breaking/i', $prose, $hits, PREG_OFFSET_CAPTURE) === 0) {
+            continue;
+        }
 
-$sections = releasedSections((string) file_get_contents($path));
-$versions = array_map('strval', array_keys($sections));
+        foreach ($hits[0] as [, $offset]) {
+            if (!(str_starts_with($prose, MARKER) && $offset === 2)) {
+                $lines[] = $i + 1;
 
+                break;
+            }
+        }
+    }
+
+    return $lines;
+}
+
+function hasMarker(string $section): bool
+{
+    foreach (explode("\n", $section) as $line) {
+        if (str_starts_with($line, MARKER)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+$text     = (string) file_get_contents($path);
+$sections = releasedSections($text);
 $problems = [];
-$checked  = 0;
-for ($i = 0; $i < count($versions) - 1; ++$i) {
-    $newer = $versions[$i];
-    $older = $versions[$i + 1];
-    if (preg_match('/^0\.(\d+)\.(\d+)$/', $newer, $n) !== 1 || preg_match('/^0\.(\d+)\.\d+$/', $older, $o) !== 1) {
+
+$lookalike = static function (string $where, string $text) use (&$problems): void {
+    foreach (lookalikeLines($text) as $line) {
+        $problems[] = sprintf(
+            '  %s  line %d: a `**breaking` is not the breaking marker — open a top-level bullet with `%s`'
+            . ' (exactly, upper case) or drop the bold',
+            $where,
+            $line,
+            MARKER,
+        );
+    }
+};
+
+// [Unreleased] and the fragments: caught on the pull request, before a release.
+if (preg_match('/^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]: \S|\z)/ms', $text, $u) === 1) {
+    $lookalike('[Unreleased]', $u[1]);
+}
+
+$fragments = dirname($path) . '/changelog.d';
+foreach (is_dir($fragments) ? (glob($fragments . '/*.md') ?: []) : [] as $fragment) {
+    if (basename($fragment) !== 'README.md') {
+        $lookalike('changelog.d/' . basename($fragment), (string) file_get_contents($fragment));
+    }
+}
+
+/** @var list<string> $plain */
+$plain = array_values(array_filter(
+    array_map('strval', array_keys($sections)),
+    static fn (string $v): bool => preg_match(PLAIN_VERSION, $v) === 1,
+));
+
+$checked = 0;
+foreach ($sections as $version => $section) {
+    $version = (string) $version;
+    if (version_compare($version, RULE_SINCE, '<=')) {
         continue;
     }
 
-    if (version_compare($newer, RULE_SINCE, '<=')) {
+    if (preg_match(PLAIN_VERSION, $version, $n) !== 1) {
+        if (str_starts_with($version, '0.')) {
+            $problems[] = sprintf(
+                '  [%s]  is not a plain 0.N.y version — a CHANGELOG section names a release, and a'
+                . ' pre-release gets none of its own',
+                $version,
+            );
+        }
+
+        continue;
+    }
+
+    if ($n[1] !== '0') {
+        continue;
+    }
+
+    $earlier = array_filter($plain, static fn (string $v): bool => version_compare($v, $version, '<'));
+    if ($earlier === []) {
+        continue;
+    }
+
+    usort($earlier, 'version_compare');
+    $previous = (string) end($earlier);
+    if (preg_match(PLAIN_VERSION, $previous, $p) !== 1 || $p[1] !== '0') {
         continue;
     }
 
     ++$checked;
-    $middleRaised = (int) $n[1] > (int) $o[1];
-    $breaking     = preg_match(BREAKING_MARKER, $sections[$newer]) === 1;
-    if ($middleRaised && !$breaking) {
+    $lookalike('[' . $version . ']', $section);
+    $breaking  = hasMarker($section);
+    $nextMinor = sprintf('0.%d.0', (int) $p[2] + 1);
+
+    if ((int) $n[2] > (int) $p[2]) {
+        if ($version !== $nextMinor) {
+            $problems[] = sprintf('  [%s]  follows %s, so a middle bump is %s', $version, $previous, $nextMinor);
+        }
+
+        if (!$breaking) {
+            $problems[] = sprintf(
+                '  [%s]  raises the middle number over %s without a breaking entry'
+                . ' — release it as 0.%d.%d, or mark the breaking change with `%s`',
+                $version,
+                $previous,
+                (int) $p[2],
+                (int) $p[3] + 1,
+                MARKER,
+            );
+        }
+    } elseif ($breaking) {
         $problems[] = sprintf(
-            '  [%s]  raises the middle number over %s without a breaking entry'
-            . ' — release it as %s, or mark the breaking change with `- **BREAKING`',
-            $newer,
-            $older,
-            preg_replace_callback('/\d+$/', static fn (array $p): string => (string) ((int) $p[0] + 1), $older),
-        );
-    } elseif (!$middleRaised && $breaking) {
-        $problems[] = sprintf(
-            '  [%s]  has a breaking entry but keeps the middle number of %s'
-            . ' — release it as 0.%d.0',
-            $newer,
-            $older,
-            (int) $o[1] + 1,
+            '  [%s]  has a breaking entry but keeps the middle number of %s — release it as %s',
+            $version,
+            $previous,
+            $nextMinor,
         );
     }
 }
@@ -95,10 +208,11 @@ if ($problems === []) {
 }
 
 fwrite(STDERR, sprintf(
-    "Release versions in %s do not match their breaking entries:\n\n%s\n\n"
-    . "During 0.x the middle number rises only for a breaking change, because\n"
+    "Release versions or breaking markers in %s do not follow the 0.x rule:\n\n%s\n\n"
+    . "During 0.x the middle number rises only for a breaking change, by one, because\n"
     . "`^0.N` admits only 0.N.*: every middle bump makes each dependent extension\n"
-    . "widen its constraint and release. See Documentation/Api/Stability.rst,\n"
+    . "widen its constraint and release. A breaking entry is a top-level bullet that\n"
+    . "opens with `- **BREAKING`. See Documentation/Api/Stability.rst,\n"
     . "\"Versioning during 0.x\".\n",
     $path,
     implode("\n", $problems),

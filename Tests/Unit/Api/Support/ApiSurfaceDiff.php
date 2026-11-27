@@ -19,7 +19,11 @@ namespace Netresearch\NrLlm\Tests\Unit\Api\Support;
  * do I have to decide something?
  *
  * - **added** — a class, method, property, constant or enum case that was
- *   not there before. Additive; existing callers keep compiling.
+ *   not there before. Additive; existing callers keep compiling. Two
+ *   additions are breaking all the same and are listed in
+ *   `addedToContracts`: a new method on an existing interface (every
+ *   implementation outside nr_llm lacks it) and a new case of an existing
+ *   enum (every exhaustive `match` without a default arm fails on it).
  * - **removed** — gone. Every caller that used it breaks.
  * - **changed** — same member, different signature. Includes a widened
  *   constructor, which is the case the snapshot missed entirely before it
@@ -47,11 +51,13 @@ final readonly class ApiSurfaceDiff
      * @param list<string>                                         $added
      * @param list<string>                                         $removed
      * @param list<array{entry: string, was: string, now: string}> $changed
+     * @param list<string>                                         $addedToContracts the part of $added that breaks implementations or exhaustive matches
      */
     private function __construct(
         public array $added,
         public array $removed,
         public array $changed,
+        public array $addedToContracts = [],
     ) {}
 
     public static function between(string $expected, string $actual): self
@@ -59,9 +65,10 @@ final readonly class ApiSurfaceDiff
         $before = self::parse($expected);
         $after  = self::parse($actual);
 
-        $added   = [];
-        $removed = [];
-        $changed = [];
+        $added            = [];
+        $removed          = [];
+        $changed          = [];
+        $addedToContracts = [];
 
         foreach ($after as $fqcn => $members) {
             if (!isset($before[$fqcn])) {
@@ -73,6 +80,9 @@ final readonly class ApiSurfaceDiff
             foreach ($members as $key => $line) {
                 if (!isset($before[$fqcn][$key])) {
                     $added[] = $fqcn . ' :: ' . $line;
+                    if (self::breaksWhenAdded($members[self::DECLARATION_KEY] ?? '', $key)) {
+                        $addedToContracts[] = $fqcn . ' :: ' . $line;
+                    }
 
                     continue;
                 }
@@ -103,9 +113,10 @@ final readonly class ApiSurfaceDiff
 
         sort($added);
         sort($removed);
+        sort($addedToContracts);
         usort($changed, static fn (array $a, array $b): int => strcmp($a['entry'], $b['entry']));
 
-        return new self($added, $removed, $changed);
+        return new self($added, $removed, $changed, $addedToContracts);
     }
 
     public function isEmpty(): bool
@@ -114,12 +125,13 @@ final readonly class ApiSurfaceDiff
     }
 
     /**
-     * True when nothing was removed and nothing changed shape — the case an
-     * author may resolve by regenerating the snapshot.
+     * True when nothing was removed, nothing changed shape and no interface or
+     * enum gained a member — the case an author may resolve by regenerating
+     * the snapshot.
      */
     public function isAdditiveOnly(): bool
     {
-        return !$this->isEmpty() && $this->removed === [] && $this->changed === [];
+        return !$this->isEmpty() && $this->removed === [] && $this->changed === [] && $this->addedToContracts === [];
     }
 
     /**
@@ -158,17 +170,27 @@ final readonly class ApiSurfaceDiff
             $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. Nothing was removed '
                 . 'and no existing signature changed, so no caller breaks.';
             $sections[] = 'What to do: regenerate the snapshot (delete Tests/Unit/Api/api-surface.txt, '
-                . 'run the unit suite twice) and note the addition under "### Added" in CHANGELOG.md.';
+                . 'run the unit suite twice) and note the addition in a changelog.d/<branch-slug>.added.md '
+                . 'fragment. The release that ships it raises only the last version number.';
         } else {
             $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. A removed line breaks '
                 . 'every caller that used it. A changed one may or may not: an added OPTIONAL '
                 . 'parameter breaks nobody, an added required one breaks every call. Read the '
                 . 'was/now pair below — the rendering marks an optional parameter with " = …".';
+            if ($this->addedToContracts !== []) {
+                $sections[] = 'An addition below is breaking too: a new method on an @api interface breaks '
+                    . 'every implementation outside nr_llm, and a new case of an @api enum breaks every '
+                    . 'exhaustive match without a default arm.';
+            }
+
             $sections[] = 'What to do: this is a decision, not a regeneration. Either revert the '
-                . 'signature change, or follow Documentation/Api/Deprecation.rst — deprecate first, '
-                . 'remove later — and record it under a BREAKING heading in CHANGELOG.md before you '
-                . 'regenerate the snapshot. A widening that only adds optional parameters is '
-                . 'additive for callers: note it under "### Added" and regenerate. '
+                . 'change, or follow Documentation/Api/Deprecation.rst — deprecate first, '
+                . 'remove later — and write a changelog.d/ fragment whose bullet opens with '
+                . '`**BREAKING` and says what a consumer has to change, before you regenerate the '
+                . 'snapshot. During 0.x the release that ships it raises the middle version number '
+                . '(Documentation/Api/Stability.rst). A widening of a class method that only adds '
+                . 'optional parameters is additive for callers: note it in an `added` fragment and '
+                . 'regenerate; on an interface method it breaks every implementation. '
                 . 'Documentation/Api/Stability.rst lists what is out of '
                 . 'contract; a constructor of a service you only ever obtain from the DI container '
                 . 'is, but it is still recorded here so a widened one cannot land unread.';
@@ -185,6 +207,10 @@ final readonly class ApiSurfaceDiff
             }
 
             $sections[] = $this->bucket('changed', '~', $lines);
+        }
+
+        if ($this->addedToContracts !== []) {
+            $sections[] = $this->bucket('added to an interface or enum (breaking)', '!', $this->addedToContracts);
         }
 
         if ($this->added !== []) {
@@ -239,6 +265,16 @@ final readonly class ApiSurfaceDiff
         }
 
         return $classes;
+    }
+
+    /**
+     * A new method of an interface, or a new case of an enum. A new constant
+     * on either is additive: nothing has to implement or match it.
+     */
+    private static function breaksWhenAdded(string $header, string $memberKey): bool
+    {
+        return (str_ends_with($header, ' (interface)') && str_starts_with($memberKey, 'method '))
+            || (str_ends_with($header, ' (enum)') && str_starts_with($memberKey, 'case '));
     }
 
     /**
