@@ -126,7 +126,34 @@ TYPO3 and PHP versions the promise is made on is :ref:`api-support-matrix`.
 Versioning during 0.x
 =====================
 
-While the extension is pre-1.0, the promise applies one level down, as is
-conventional: **minor releases (0.N → 0.N+1) may break**, and do so only
-with a CHANGELOG entry under a BREAKING heading; patch releases do not
-break. From 1.0.0 on the promise applies as written above.
+While the extension is pre-1.0, the promise applies one level down: in
+0.x.y, the middle number *x* plays the role of the major and the last
+number *y* the role of minor and patch together.
+
+- **x rises only for a breaking change.** A breaking change is either a
+  breaking diff of the frozen ``@api`` surface (the classifier of
+  ``Tests/Unit/Api/api-surface.txt`` reports *breaking*, see
+  `Enforcement`_), or a behaviour change that consumers have to handle —
+  for example 0.44.0 added the run status ``waiting_for_dependency``,
+  which a consumer has to know about.
+- **y rises for everything else**: new features, fixes, an additive
+  ``@api`` diff, and additive database changes (new columns or tables with
+  defaults that need only the schema update).
+- A release that raises x carries at least one CHANGELOG bullet that opens
+  with ``**BREAKING`` and says what a consumer has to change. A release
+  that keeps x carries none.
+
+The reason is Composer's caret on a 0.x version: ``^0.54`` admits 0.54.*
+and refuses 0.55.0. Every rise of x therefore forces each extension that
+depends on nr_llm to widen its constraint and publish a release before an
+installation can update. 0.44.0 to 0.55.0 raised x for features alone, and
+each of those releases sent the dependent extensions through that cycle.
+
+``Build/Scripts/check-changelog-version-bump.php`` (part of
+``composer ci:test:changelog:sections``, run in CI) compares each release
+after 0.55.1 with the one before it. It refuses a release that raises x
+without a ``**BREAKING`` bullet and a release that keeps x with one. Whether
+a change is breaking stays the release author's decision: the check reads
+the CHANGELOG, not the API diff.
+
+From 1.0.0 on the promise applies as written above.

@@ -153,6 +153,25 @@ PR as soon as one of them merged. `changelog.d/README.md` describes the format;
 into `CHANGELOG.md` with `composer changelog:collect`. Version bumps belong to
 the release commit, never to a feature PR.
 
+A breaking change gets a bullet that opens with `**BREAKING` and says what a
+consumer has to change, in whichever fragment section fits (often `changed`,
+`removed` or `upgrading`). Breaking means a breaking diff of
+`Tests/Unit/Api/api-surface.txt` or a behaviour change consumers have to
+handle, such as a new run status they must know.
+
+### Versioning during 0.x
+
+In 0.x.y the middle number x rises **only** for a breaking change. New
+features, fixes, additive API changes and additive database changes (new
+columns or tables with defaults) raise only y. The reason is the caret:
+`^0.54` admits only 0.54.*, so every rise of x makes each extension that
+depends on nr_llm widen its constraint and release. Before choosing the
+version, read the `[Unreleased]` section for `**BREAKING` bullets and diff
+`Tests/Unit/Api/api-surface.txt` against the last tag. `composer
+ci:test:changelog` refuses a release after 0.55.1 that raises x without a
+`**BREAKING` bullet, or keeps x with one. The full rule is
+`Documentation/Api/Stability.rst`, "Versioning during 0.x".
+
 A change to the public surface also gets an Architecture Decision Record under
 `Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free
 number and follow the format of an existing one. Add the file name to the

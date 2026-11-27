@@ -19,8 +19,10 @@ The `complete changelog
 canonical release ledger. The manual's older highlights are selective and
 may omit intermediate versions.
 
-During 0.x, a minor release may introduce breaking changes; patch updates
-remain within the minor series. Review migration notes before upgrading.
+During 0.x, only a release that raises the middle number (0.N → 0.N+1) may
+break, and it says what to change in an entry marked BREAKING; features and
+fixes ship as 0.N.y releases (:ref:`api-stability`). Review migration notes
+before upgrading.
 
 .. toctree::
    :maxdepth: 1
