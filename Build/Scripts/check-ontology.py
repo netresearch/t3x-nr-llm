@@ -38,6 +38,7 @@ from pathlib import Path
 
 RESERVED = {"index.md", "log.md"}
 REPO_TARGET = {"implementedBy", "verifiedBy"}
+NO_RELATIONS = {"Relation", "Competency Question", "Reference"}
 STATUSES = {"asserted", "hypothesis"}
 PROPAGATION = {"to-source", "to-target", "none"}
 LINK = re.compile(r"^\[[^\]]*\]\(([^)\s]+)\)$")
@@ -180,16 +181,27 @@ def check_evidence(bundle: Bundle, where: str, row: list[str]) -> None:
 def read_relations(bundle: Bundle, path: Path, text: str) -> None:
     source = bundle.concept_id(path)
     in_section = False
+    has_section = False
     for number, line in body_lines(text):
+        where = f"{bundle.shown(path)}:{number}"
         if line.startswith("#"):
             in_section = line.strip() == "# Relations"
+            has_section = has_section or in_section
+            if re.match(r"^#{2,} Relations\s*$", line):
+                bundle.errors.append(
+                    f"{where}: the relations heading must be '# Relations'"
+                )
             continue
-        if not in_section or not line.startswith("|"):
+        if not in_section or not line.strip():
+            continue
+        if not line.startswith("|"):
+            bundle.errors.append(
+                f"{where}: a line in '# Relations' that is not a table row"
+            )
             continue
         row = cells(line)
         if row[0] == "Relation" or set(row[0]) <= {"-", ":"}:
             continue
-        where = f"{bundle.shown(path)}:{number}"
         if len(row) != 5:
             bundle.errors.append(
                 f"{where}: a relation row needs 5 cells, found {len(row)}"
@@ -204,21 +216,25 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
             check_evidence(bundle, where, row)
         target = resolve_target(bundle, path, row[1])
         bundle.relations.append(Relation(source, name, target, status, where, row[1]))
+    if not has_section and bundle.types.get(source) not in NO_RELATIONS:
+        bundle.errors.append(
+            f"{bundle.shown(path)}: a concept needs a '# Relations' section"
+        )
 
 
 def check_indexes(bundle: Bundle, files: list[Path]) -> None:
     for directory in sorted({p.parent for p in files}):
         index = directory / "index.md"
+        if not index.is_file():
+            bundle.errors.append(f"{bundle.shown(index)} does not exist")
+            continue
         entries: dict[Path, str] = {}
-        if index.is_file():
-            for _, line in body_lines(read(index)):
-                match = ENTRY.match(line.strip())
-                if match:
-                    href = match.group(1)
-                    base = bundle.root if href.startswith("/") else directory
-                    entries[(base / href.lstrip("/")).resolve()] = match.group(
-                        2
-                    ).strip()
+        for _, line in body_lines(read(index)):
+            match = ENTRY.match(line.strip())
+            if match:
+                href = match.group(1)
+                base = bundle.root if href.startswith("/") else directory
+                entries[(base / href.lstrip("/")).resolve()] = match.group(2).strip()
         for path in sorted(directory.glob("*.md")):
             if path.name in RESERVED or path not in bundle.descriptions:
                 continue
@@ -230,6 +246,11 @@ def check_indexes(bundle: Bundle, files: list[Path]) -> None:
             elif bundle.descriptions[path] and listed != bundle.descriptions[path]:
                 bundle.errors.append(
                     f"{bundle.shown(index)}: the entry for {path.name} does not repeat its description"
+                )
+        for target in sorted(entries):
+            if target != index.resolve() and not target.is_file():
+                bundle.errors.append(
+                    f"{bundle.shown(index)}: an entry points to {bundle.shown(target)}, which does not exist"
                 )
 
 
@@ -326,20 +347,21 @@ def traverse(bundle: Bundle, start: str, needs: bool) -> list[str]:
     return lines
 
 
-def answer(bundle: Bundle, query: str) -> list[str] | None:
+def answer(bundle: Bundle, query: str) -> list[str] | str:
+    """The answer lines of a query, or the reason the query cannot run."""
     match = QUERY.match(query)
-    if not match or match.group(2) not in bundle.types:
-        return None
+    if not match:
+        return "x-nr-query must be '--impact <concept>' or '--needs <concept>'"
+    if match.group(2) not in bundle.types:
+        return f"x-nr-query names {match.group(2)!r}, which is no concept of the bundle"
     return traverse(bundle, match.group(2), needs=match.group(1) == "needs")
 
 
 def check_answers(bundle: Bundle, write: bool) -> None:
     for path, query in sorted(bundle.queries.items()):
         lines = answer(bundle, query)
-        if lines is None:
-            bundle.errors.append(
-                f"{bundle.shown(path)}: x-nr-query {query!r} names no concept of the bundle"
-            )
+        if isinstance(lines, str):
+            bundle.errors.append(f"{bundle.shown(path)}: {lines}")
             continue
         text = read(path)
         stored = ANSWER.search(text)
@@ -396,7 +418,13 @@ def main() -> int:
         "--write-answers", action="store_true", help="rewrite the stored answers"
     )
     args = parser.parse_args()
+    if not args.bundle.is_dir():
+        print(f"{args.bundle}: no such directory", file=sys.stderr)
+        return 2
     bundle = load(args.bundle, args.repo or repository_root(args.bundle))
+    if not bundle.types:
+        print(f"{args.bundle}: holds no concept file", file=sys.stderr)
+        return 2
     if args.impact or args.needs:
         start = args.impact or args.needs
         if start not in bundle.types:
