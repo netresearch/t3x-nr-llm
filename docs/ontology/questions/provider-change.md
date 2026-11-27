@@ -52,6 +52,11 @@ concepts/middleware-pipeline
   test Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php
   test Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php
   test Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php
+concepts/streaming-dispatcher
+  via concepts/model uses concepts/provider
+  via concepts/configuration uses concepts/model
+  via concepts/streaming-dispatcher constrainedBy concepts/configuration
+  test Tests/Unit/Service/Streaming/StreamingDispatcherTest.php
 concepts/task
   via concepts/model uses concepts/provider
   via concepts/configuration uses concepts/model

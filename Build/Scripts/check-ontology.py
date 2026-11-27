@@ -145,9 +145,20 @@ def resolve_target(bundle: Bundle, source: Path, cell: str) -> str:
                 return ""
         return ""
     code = CODE.match(cell)
-    if code and (bundle.repo / code.group(1)).exists():
+    if (
+        code
+        and inside(bundle, code.group(1))
+        and (bundle.repo / code.group(1)).exists()
+    ):
         return "repo:" + code.group(1)
     return ""
+
+
+def inside(bundle: Bundle, relative: str) -> bool:
+    """True when a repository path stays inside the repository."""
+    if relative.startswith("/"):
+        return False
+    return (bundle.repo / relative).resolve().is_relative_to(bundle.repo)
 
 
 def check_evidence(bundle: Bundle, where: str, row: list[str]) -> None:
@@ -158,6 +169,11 @@ def check_evidence(bundle: Bundle, where: str, row: list[str]) -> None:
         )
         return
     path = bundle.repo / evidence.group(1)
+    if not inside(bundle, evidence.group(1)):
+        bundle.errors.append(
+            f"{where}: evidence file {evidence.group(1)} lies outside the repository"
+        )
+        return
     if not path.is_file():
         bundle.errors.append(
             f"{where}: evidence file {evidence.group(1)} does not exist"
@@ -296,6 +312,10 @@ def load(root: Path, repo: Path) -> Bundle:
             bundle.propagates[path.stem] = meta.get("x-nr-propagates", "")
         if meta.get("x-nr-query"):
             bundle.queries[path] = meta["x-nr-query"]
+        elif meta["type"] == "Competency Question":
+            bundle.errors.append(
+                f"{bundle.shown(path)}: a competency question needs an x-nr-query"
+            )
     check_indexes(bundle, files)
     for name, mode in sorted(bundle.propagates.items()):
         if mode not in PROPAGATION:

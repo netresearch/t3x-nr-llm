@@ -15,7 +15,7 @@ Which limits and checks apply to one call through the LLM service?
 
 # How to answer
 
-Follow the relations forwards from the LLM service and keep the `constrainedBy` steps. Run:
+Follow the relations forwards from the LLM service. The limits are the targets of the `constrainedBy` steps, together with the daily limits of the configuration the call uses. Run:
 
 ```bash
 python3 Build/Scripts/check-ontology.py docs/ontology --needs concepts/llm-service

@@ -18,9 +18,10 @@ The streaming dispatcher carries a streamed call. A streamed provider call canno
 |---|---|---|---|---|
 | `uses` | [Provider adapter](provider-adapter.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `wrapping generator, not a replacement of the provider's:` | asserted |
 | `constrainedBy` | [User budget](user-budget.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `1. **Budget pre-flight (eager).**` | asserted |
+| `constrainedBy` | [Configuration](configuration.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `$this->assertWithinBudget($context, $configuration);` | asserted |
 | `implementedBy` | `Classes/Service/Streaming/StreamingDispatcher.php` | `Classes/Service/Streaming/StreamingDispatcher.php` | `final readonly class StreamingDispatcher` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Streaming/StreamingDispatcherTest.php` | `Tests/Unit/Service/Streaming/StreamingDispatcherTest.php` | `class StreamingDispatcherTest` | asserted |
 
 # Notes
 
-- Which middleware steps besides budget, usage and telemetry apply to a stream is not modelled.
+- The dispatcher checks the budget against the user budget and the daily limits of the configuration, and it runs the fallback chain of the configuration. Which other middleware steps apply to a stream is not modelled.
