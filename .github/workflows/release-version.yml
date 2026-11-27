@@ -7,13 +7,15 @@ name: Release version
 # must name the version git-cliff computes from the commits since the last
 # tag: below 1.0.0 a breaking change (a "!" commit or a "BREAKING CHANGE:"
 # footer) raises the middle number, features and fixes raise the last. Other
-# pull requests and merge groups pass with a notice; `merge_group` is in the
-# triggers so the check can be required on the queued branch. `edited` re-runs
-# the check after a title change. When the commits and CHANGELOG.md disagree,
-# align them: a commit with a breaking marker on the release branch, or, for
-# an exception the owner approved, `skip-reason` and `skip-version` in a
-# `with:` block below. The skip is logged, applies only to that version, and
-# fails the next release pull request until it is removed.
+# pull requests pass with a notice. On `merge_group` the check runs again at
+# the queue's commit, so a breaking change queued ahead of a release fails it
+# there; `pull-requests: read` reads the queued pull request's branch and
+# title. `edited` re-runs the check after a title change. When the commits and
+# CHANGELOG.md disagree, align them: a commit with a breaking marker on the
+# release branch, or, for an exception the owner approved (1.0.0 included),
+# `skip-reason` and `skip-version` in a `with:` block below. The skip is
+# logged, applies only to that version, and fails the next release pull
+# request until it is removed.
 
 on:
   pull_request:
@@ -27,3 +29,4 @@ jobs:
     uses: netresearch/.github/.github/workflows/release-version.yml@main # NOSONAR — own-org reusable deliberately tracks main
     permissions:
       contents: read
+      pull-requests: read
