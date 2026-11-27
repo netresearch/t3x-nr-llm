@@ -58,10 +58,11 @@ is `@internal`.
 
 The rendered `@api` surface — constructors included — is frozen in
 `Tests/Unit/Api/api-surface.txt`. The snapshot test classifies its own
-failure: **additive** (a new class, interface or enum, a new method or
-property of a class, a new constant) means regenerate the file and note it in
+failure: **additive** (a new class, interface or enum, a new concrete method or
+a property of a class, a new constant) means regenerate the file and note it in
 an `added` fragment; **breaking** (anything removed or changed, a widened
-constructor included, a new method on an `@api` interface, a new case of an
+constructor and a changed `extends` included, a new method on an `@api`
+interface, a new abstract method on an `@api` abstract class, a new case of an
 `@api` enum) means stop and decide.
 
 Removing or narrowing something `@api` follows
@@ -159,8 +160,9 @@ A breaking change gets a top-level bullet that opens with `- **BREAKING`
 fragment section fits (often `changed`, `removed` or `upgrading`). Other bold
 forms (`**Breaking:**`, the word inside a bullet or in a nested bullet) are
 refused by `composer ci:test:changelog:sections`. Breaking means a breaking
-diff of `Tests/Unit/Api/api-surface.txt` (a new method on an `@api` interface
-and a new case of an `@api` enum included) or a behaviour change consumers
+diff of `Tests/Unit/Api/api-surface.txt` (a new method on an `@api` interface,
+a new abstract method on an `@api` abstract class and a new case of an `@api`
+enum included) or a behaviour change consumers
 have to handle, such as a new run status they must know.
 
 A change to the public surface also gets an Architecture Decision Record under
@@ -178,9 +180,10 @@ diff already shows what.
 
 In 0.x.y the middle number x rises **only** for a breaking change, and then by
 one, to 0.x+1.0. New features, fixes, additive API changes (a new class,
-interface or enum, a new method of a class) and additive database changes (new
+interface or enum, a new concrete method of a class) and additive database changes (new
 columns or tables with defaults) raise only y. A new method on an `@api`
-interface and a new case of an `@api` enum are breaking. The reason is the
+interface, a new abstract method on an `@api` abstract class and a new case of
+an `@api` enum are breaking. The reason is the
 caret: `^0.54` admits only 0.54.*, so every rise of x makes each extension that
 depends on nr_llm widen its constraint and release. Before choosing the
 version, read `[Unreleased]` and the pending `changelog.d/` fragments for

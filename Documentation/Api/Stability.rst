@@ -115,16 +115,22 @@ diff — but the types on it are not a promise that you may call them.
 
 The failure is classified, because "different" makes a new value object read
 like a deleted method. An **additive** diff (a new class, interface or enum,
-a new method or property of a class, a new constant) is regenerated and
-noted in an ``added`` changelog fragment. A **breaking** one is a decision,
-and the failure message says so and points at :ref:`api-deprecation`:
+a new concrete method or a property of a class, a new constant) is
+regenerated and noted in an ``added`` changelog fragment. A **breaking** one
+is a decision, and the failure message says so and points at :ref:`api-deprecation`:
 
 - anything removed or changed, a widened constructor included,
 - a new method on an existing ``@api`` interface — it breaks every
   implementation outside this extension, whether or not the interface is
   marked as an extension point,
+- a new abstract method on an existing ``@api`` abstract class — it breaks
+  every subclass outside this extension (the snapshot marks the class
+  ``abstract class`` and the method ``method abstract``),
 - a new case of an existing ``@api`` enum — it breaks every exhaustive
-  ``match`` without a default arm.
+  ``match`` without a default arm,
+- a changed ``extends`` in the header line — the parent class of a class or
+  the parent interfaces of an interface; an interface that starts to extend
+  another makes every implementation implement that one too.
 
 How something leaves the surface again is :ref:`api-deprecation`. Which
 TYPO3 and PHP versions the promise is made on is :ref:`api-support-matrix`.
@@ -139,13 +145,15 @@ number *y* the role of minor and patch together.
 - **x rises only for a breaking change, by one, to 0.x+1.0.** A breaking
   change is either a breaking diff of the frozen ``@api`` surface (the
   classifier of ``Tests/Unit/Api/api-surface.txt`` reports *breaking*, see
-  `Enforcement`_ — a new method on an ``@api`` interface and a new case of
-  an ``@api`` enum included, as 0.41.0 and 0.36.0 recorded them), or a
+  `Enforcement`_ — a new method on an ``@api`` interface, a new abstract
+  method on an ``@api`` abstract class and a new case of an ``@api`` enum
+  included, as 0.41.0 and 0.36.0 recorded the first and the last), or a
   behaviour change that consumers have to handle — for example 0.44.0 added
   the run status ``waiting_for_dependency``, which a consumer has to know
   about.
 - **y rises for everything else**: new features, fixes, an additive
-  ``@api`` diff (a new class, interface or enum, a new method of a class),
+  ``@api`` diff (a new class, interface or enum, a new concrete method of a
+  class),
   and additive database changes (new columns or tables with defaults that
   need only the schema update).
 - A release that raises x carries at least one CHANGELOG bullet that opens

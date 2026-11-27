@@ -75,7 +75,7 @@ final class ApiSurfaceRenderer
         $blocks = [];
         foreach ($classes as $fqcn) {
             $reflection = new ReflectionClass($fqcn);
-            $lines      = [sprintf('%s (%s)', $fqcn, $this->kindOf($reflection))];
+            $lines      = [sprintf('%s (%s)%s', $fqcn, $this->kindOf($reflection), $this->extendsOf($reflection))];
 
             foreach ($this->declaredLines($reflection) as $line) {
                 $lines[] = '  ' . $line;
@@ -149,8 +149,48 @@ final class ApiSurfaceRenderer
             $reflection->isEnum()      => 'enum',
             $reflection->isInterface() => 'interface',
             $reflection->isTrait()     => 'trait',
+            $reflection->isAbstract()  => 'abstract class',
             default                    => 'class',
         };
+    }
+
+    /**
+     * ` extends …` for the header line: the parent class of a class, the
+     * direct parent interfaces of an interface (sorted). A changed `extends`
+     * is then a changed declaration, which the diff reports as breaking: an
+     * interface that starts to extend another makes every implementation
+     * implement that one too. Interfaces a class implements are not listed.
+     *
+     * @param ReflectionClass<object> $reflection
+     */
+    private function extendsOf(ReflectionClass $reflection): string
+    {
+        if ($reflection->isInterface()) {
+            $all    = $reflection->getInterfaceNames();
+            $direct = [];
+            foreach ($all as $name) {
+                $inherited = false;
+                foreach ($all as $other) {
+                    if ($other !== $name && is_subclass_of($other, $name)) {
+                        $inherited = true;
+
+                        break;
+                    }
+                }
+
+                if (!$inherited) {
+                    $direct[] = $name;
+                }
+            }
+
+            sort($direct);
+
+            return $direct === [] ? '' : ' extends ' . implode(', ', $direct);
+        }
+
+        $parent = $reflection->getParentClass();
+
+        return $parent instanceof ReflectionClass ? ' extends ' . $parent->getName() : '';
     }
 
     /**
@@ -221,7 +261,8 @@ final class ApiSurfaceRenderer
 
         foreach ($this->declaredPublicMethods($reflection) as $method) {
             $lines[] = sprintf(
-                'method %s%s(%s): %s',
+                'method %s%s%s(%s): %s',
+                $method->isAbstract() && !$reflection->isInterface() ? 'abstract ' : '',
                 $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),

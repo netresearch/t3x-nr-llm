@@ -46,6 +46,22 @@ final class ApiSurfaceDiffTest extends TestCase
     }
 
     #[Test]
+    public function aDiffThatOnlyAddsToAContractLeadsWithItAndListsEachAdditionOnce(): void
+    {
+        $after = str_replace(
+            "  method send(string \$text): void\n",
+            "  method close(): void\n  method send(string \$text): void\n",
+            self::BEFORE,
+        ) . "\nAcme\\Extra (class)\n  method x(): void\n";
+
+        $text = ApiSurfaceDiff::between(self::BEFORE, $after)->describe();
+
+        self::assertStringStartsWith('BREAKING — 1 added to an interface, abstract class or enum, 1 other addition', $text);
+        self::assertSame(1, substr_count($text, 'method close(): void'));
+        self::assertStringNotContainsString('A removed line breaks', $text);
+    }
+
+    #[Test]
     public function aNewCaseOfAnEnumIsBreaking(): void
     {
         $diff = ApiSurfaceDiff::between(self::BEFORE, str_replace(

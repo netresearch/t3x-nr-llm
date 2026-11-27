@@ -9,11 +9,16 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Api;
 
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithAbstractMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithConcreteMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AddedMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\BackedFixtureEnum;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ExtendingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\StandalonePort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\WidenedConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceDiff;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceRenderer;
@@ -183,6 +188,42 @@ final class ApiSurfaceRendererTest extends TestCase
         self::assertSame(BackedFixtureEnum::class . ' :: case Read', $diff->changed[0]['entry']);
         self::assertSame('case Read = "read"', $diff->changed[0]['was']);
         self::assertSame('case Read = "reveal"', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aNewAbstractMethodOnAnAbstractClassClassifiesAsBreaking(): void
+    {
+        // A subclass outside the package has to implement it: the
+        // AbstractOptions / AbstractModelDiscoverer case.
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseWithAbstractMethod::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [AbstractBaseWithAbstractMethod::class . ' :: method abstract kind(): string'],
+            $diff->addedToContracts,
+        );
+    }
+
+    #[Test]
+    public function aNewConcreteMethodOnAnAbstractClassStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseWithConcreteMethod::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertStringStartsWith(
+            AbstractBaseWithConcreteMethod::class . ' (abstract class)',
+            (new ApiSurfaceRenderer())->render([AbstractBaseWithConcreteMethod::class]),
+        );
+    }
+
+    #[Test]
+    public function anInterfaceThatStartsToExtendAnotherClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(StandalonePort::class, ExtendingPort::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(ExtendingPort::class . ' :: (declaration)', $diff->changed[0]['entry']);
+        self::assertSame(ExtendingPort::class . ' (interface) extends Countable', $diff->changed[0]['now']);
     }
 
     #[Test]

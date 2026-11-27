@@ -211,6 +211,79 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
     }
 
     #[Test]
+    public function aHeadingThatIsNoPlainVersionFails(): void
+    {
+        // releasedSections() reads only headings that start with a digit, so a
+        // `v` prefix used to drop the section from the check entirely.
+        [$exit, $stderr] = $this->check($this->withTopmost('v0.56.0', "### Added\n\n- A new feature.\n"));
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('[v0.56.0]  is not a plain 0.N.y version', $stderr);
+    }
+
+    #[Test]
+    public function aLookalikeIsReportedAtItsLineInTheFile(): void
+    {
+        // HEAD is four lines, the heading and a blank line two more, then
+        // "### Changed", a blank line, the marker and the lookalike on line 10.
+        $body = "### Changed\n\n" . self::BREAKING . "- **Breaking:** `Foo` changed.\n";
+
+        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', $body));
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('[0.56.0]  line 10:', $stderr);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function fences(): array
+    {
+        return ['backticks' => ['```'], 'tildes' => ['~~~']];
+    }
+
+    #[Test]
+    #[DataProvider('fences')]
+    public function aMarkerInsideAFencedCodeBlockIsNeitherMarkerNorLookalike(string $fence): void
+    {
+        $fenced = "### Changed\n\n- An example of the format:\n\n  " . $fence . "markdown\n  - **Breaking:** x\n"
+            . '  ' . $fence . "\n" . $fence . "\n" . self::BREAKING . $fence . "\n";
+
+        [$patch, $patchErr]   = $this->check($this->withTopmost('0.55.2', $fenced));
+        [$middle, $middleErr] = $this->check($this->withTopmost('0.56.0', $fenced));
+
+        self::assertSame(0, $patch, $patchErr);
+        self::assertSame(1, $middle);
+        self::assertStringContainsString('[0.56.0]  raises the middle number', $middleErr);
+    }
+
+    #[Test]
+    public function aLongerWordIsNeitherMarkerNorLookalike(): void
+    {
+        $body = "### Changed\n\n- **BREAKINGLY fast** parsing.\n- **breakingnews** is a channel name.\n";
+
+        [$patch, $patchErr]   = $this->check($this->withTopmost('0.55.2', $body));
+        [$middle, $middleErr] = $this->check($this->withTopmost('0.56.0', $body));
+
+        self::assertSame(0, $patch, $patchErr);
+        self::assertSame(1, $middle);
+        self::assertStringContainsString('without a breaking entry', $middleErr);
+    }
+
+    #[Test]
+    public function aLargeReportDoesNotBlockTheHelper(): void
+    {
+        // Well over a pipe buffer of stderr: the helper must not wait on one
+        // pipe while the script blocks on the other.
+        $body = "### Changed\n\n" . self::BREAKING . str_repeat("- **Breaking:** `Foo` changed.\n", 3000);
+
+        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', $body));
+
+        self::assertSame(1, $exit);
+        self::assertGreaterThan(65536, strlen($stderr));
+    }
+
+    #[Test]
     public function releasesUpToTheRuleAreNotJudged(): void
     {
         // 0.55.0 raised the middle number over 0.54.0 without a breaking entry,
@@ -240,14 +313,14 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
 
         $script  = dirname(__DIR__, 2) . '/Build/Scripts/check-changelog-version-bump.php';
         $command = [PHP_BINARY, $script, $path];
-        $proc    = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        // stdout goes to /dev/null: reading one pipe to its end while the script
+        // blocks on a full other pipe would hang the test.
+        $proc = proc_open($command, [1 => ['file', '/dev/null', 'w'], 2 => ['pipe', 'w']], $pipes);
         if (!is_resource($proc)) {
             throw new RuntimeException('cannot start the check', 1790260001);
         }
 
-        stream_get_contents($pipes[1]);
         $stderr = (string) stream_get_contents($pipes[2]);
-        fclose($pipes[1]);
         fclose($pipes[2]);
 
         return [proc_close($proc), $stderr];

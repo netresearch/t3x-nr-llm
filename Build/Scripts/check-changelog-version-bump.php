@@ -32,9 +32,9 @@ declare(strict_types=1);
  * author writes the one form the check and a reader both find.
  *
  * What is breaking is decided by the author: a breaking diff of
- * Tests/Unit/Api/api-surface.txt (a new method on an @api interface and a new
- * case of an @api enum included), or a behaviour change consumers have to
- * handle. This script checks that the version number agrees with the CHANGELOG.
+ * Tests/Unit/Api/api-surface.txt (a new method on an @api interface or abstract
+ * class and a new case of an @api enum included), or a behaviour change
+ * consumers have to handle. This script checks that the version number agrees with the CHANGELOG.
  *
  * Only releases after RULE_SINCE are judged. Released sections are frozen by
  * check-changelog-released-sections.php, and the older ones break the rule.
@@ -50,6 +50,9 @@ const RULE_SINCE = '0.55.1';
 
 const MARKER = '- **BREAKING';
 
+/** The marker, followed by anything but a letter (`- **BREAKINGLY` is none). */
+const MARKER_LINE = '/^- \*\*BREAKING(?![A-Za-z])/';
+
 const PLAIN_VERSION = '/^(\d+)\.(\d+)\.(\d+)$/';
 
 $path = $argv[1] ?? dirname(__DIR__, 2) . '/CHANGELOG.md';
@@ -60,25 +63,56 @@ if (!is_readable($path)) {
 }
 
 /**
- * Line numbers (1-based) of every `**breaking` that is not the marker.
+ * The lines of $text outside fenced code blocks (``` or ~~~), keyed by their
+ * 0-based index in $text. An example of the format inside a fence is neither
+ * a marker nor a lookalike.
+ *
+ * @return array<int, string>
+ */
+function proseLines(string $text): array
+{
+    $prose = [];
+    $fence = null;
+    foreach (explode("\n", $text) as $i => $line) {
+        if (preg_match('/^\s*(`{3,}|~{3,})/', $line, $m) === 1) {
+            if ($fence === null) {
+                $fence = $m[1][0];
+            } elseif ($m[1][0] === $fence) {
+                $fence = null;
+            }
+
+            continue;
+        }
+
+        if ($fence === null) {
+            $prose[$i] = $line;
+        }
+    }
+
+    return $prose;
+}
+
+/**
+ * Line numbers (1-based, counted from $firstLine) of every `**breaking` that
+ * is not the marker.
  *
  * Inline code is blanked first, so a text that quotes the marker as
  * `**BREAKING` is no lookalike.
  *
  * @return list<int>
  */
-function lookalikeLines(string $text): array
+function lookalikeLines(string $text, int $firstLine = 1): array
 {
     $lines = [];
-    foreach (explode("\n", $text) as $i => $line) {
+    foreach (proseLines($text) as $i => $line) {
         $prose = (string) preg_replace_callback('/`[^`]*`/', static fn (array $m): string => str_repeat(' ', strlen($m[0])), $line);
-        if (preg_match_all('/\*\*\s*breaking/i', $prose, $hits, PREG_OFFSET_CAPTURE) === 0) {
+        if (preg_match_all('/\*\*\s*breaking\b/i', $prose, $hits, PREG_OFFSET_CAPTURE) === 0) {
             continue;
         }
 
         foreach ($hits[0] as [, $offset]) {
-            if (!(str_starts_with($prose, MARKER) && $offset === 2)) {
-                $lines[] = $i + 1;
+            if (!(preg_match(MARKER_LINE, $prose) === 1 && $offset === 2)) {
+                $lines[] = $firstLine + $i;
 
                 break;
             }
@@ -90,8 +124,8 @@ function lookalikeLines(string $text): array
 
 function hasMarker(string $section): bool
 {
-    foreach (explode("\n", $section) as $line) {
-        if (str_starts_with($line, MARKER)) {
+    foreach (proseLines($section) as $line) {
+        if (preg_match(MARKER_LINE, $line) === 1) {
             return true;
         }
     }
@@ -99,12 +133,20 @@ function hasMarker(string $section): bool
     return false;
 }
 
+/**
+ * 1-based line number of byte $offset in $text.
+ */
+function lineAt(string $text, int $offset): int
+{
+    return substr_count(substr($text, 0, $offset), "\n") + 1;
+}
+
 $text     = (string) file_get_contents($path);
 $sections = releasedSections($text);
 $problems = [];
 
-$lookalike = static function (string $where, string $text) use (&$problems): void {
-    foreach (lookalikeLines($text) as $line) {
+$lookalike = static function (string $where, string $text, int $firstLine = 1) use (&$problems): void {
+    foreach (lookalikeLines($text, $firstLine) as $line) {
         $problems[] = sprintf(
             '  %s  line %d: a `**breaking` is not the breaking marker — open a top-level bullet with `%s`'
             . ' (exactly, upper case) or drop the bold',
@@ -125,7 +167,7 @@ if ($start !== false) {
         $unreleased = substr($unreleased, 0, $end[0][1]);
     }
 
-    $lookalike('[Unreleased]', $unreleased);
+    $lookalike('[Unreleased]', $unreleased, lineAt($text, $start));
 }
 
 $fragments     = dirname($path) . '/changelog.d';
@@ -133,6 +175,21 @@ $fragmentFiles = is_dir($fragments) ? glob($fragments . '/*.md') : [];
 foreach ($fragmentFiles ?: [] as $fragment) {
     if (basename($fragment) !== 'README.md') {
         $lookalike('changelog.d/' . basename($fragment), (string) file_get_contents($fragment));
+    }
+}
+
+// Every release heading names a plain version: releasedSections() reads only
+// headings that start with a digit, so `## [v0.56.0]` would otherwise drop
+// out of every check below.
+if (preg_match_all('/^## \[([^\]]*)\]/m', $text, $headings) > 0) {
+    foreach ($headings[1] as $label) {
+        if ($label !== 'Unreleased' && preg_match(PLAIN_VERSION, $label) !== 1) {
+            $problems[] = sprintf(
+                '  [%s]  is not a plain 0.N.y version — a CHANGELOG section names a release, written'
+                . ' without a `v` and without a pre-release suffix',
+                $label,
+            );
+        }
     }
 }
 
@@ -150,15 +207,7 @@ foreach ($sections as $version => $section) {
     }
 
     if (preg_match(PLAIN_VERSION, $version, $n) !== 1) {
-        if (str_starts_with($version, '0.')) {
-            $problems[] = sprintf(
-                '  [%s]  is not a plain 0.N.y version — a CHANGELOG section names a release, and a'
-                . ' pre-release gets none of its own',
-                $version,
-            );
-        }
-
-        continue;
+        continue; // reported with the headings above
     }
 
     if ($n[1] !== '0') {
@@ -177,7 +226,7 @@ foreach ($sections as $version => $section) {
     }
 
     ++$checked;
-    $lookalike('[' . $version . ']', $section);
+    $lookalike('[' . $version . ']', $section, lineAt($text, (int) strpos($text, '## [' . $version . ']')));
     $breaking  = hasMarker($section);
     $nextMinor = sprintf('0.%d.0', (int) $p[2] + 1);
 

@@ -51,7 +51,7 @@ final readonly class ApiSurfaceDiff
      * @param list<string>                                         $added
      * @param list<string>                                         $removed
      * @param list<array{entry: string, was: string, now: string}> $changed
-     * @param list<string>                                         $addedToContracts the part of $added that breaks implementations or exhaustive matches
+     * @param list<string>                                         $addedToContracts the part of $added that breaks implementations or exhaustive matches (interface methods, abstract methods, enum cases)
      */
     private function __construct(
         public array $added,
@@ -80,7 +80,7 @@ final readonly class ApiSurfaceDiff
             foreach ($members as $key => $line) {
                 if (!isset($before[$fqcn][$key])) {
                     $added[] = $fqcn . ' :: ' . $line;
-                    if (self::breaksWhenAdded($members[self::DECLARATION_KEY] ?? '', $key)) {
+                    if (self::breaksWhenAdded($members[self::DECLARATION_KEY] ?? '', $key, $line)) {
                         $addedToContracts[] = $fqcn . ' :: ' . $line;
                     }
 
@@ -157,30 +157,38 @@ final readonly class ApiSurfaceDiff
             return 'The rendered @api surface matches api-surface.txt.';
         }
 
-        $counts = sprintf(
-            '%d added, %d removed, %d changed',
-            count($this->added),
+        $contract = $this->addedToContracts;
+        $other    = array_values(array_diff($this->added, $contract));
+        $counts   = sprintf(
+            '%d added to an interface, abstract class or enum, %d other addition(s), %d removed, %d changed',
+            count($contract),
+            count($other),
             count($this->removed),
             count($this->changed),
         );
+        $contractSentence = 'A new method on an @api interface or a new abstract method on an @api class '
+            . 'breaks every implementation outside nr_llm, and a new case of an @api enum breaks every '
+            . 'exhaustive match without a default arm.';
 
         $sections = [];
 
         if ($this->isAdditiveOnly()) {
-            $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. Nothing was removed '
-                . 'and no existing signature changed, so no caller breaks.';
+            $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. Nothing was removed, '
+                . 'no existing signature changed and no contract gained a member, so no caller breaks.';
             $sections[] = 'What to do: regenerate the snapshot (delete Tests/Unit/Api/api-surface.txt, '
                 . 'run the unit suite twice) and note the addition in a changelog.d/<branch-slug>.added.md '
                 . 'fragment. The release that ships it raises only the last version number.';
         } else {
-            $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. A removed line breaks '
-                . 'every caller that used it. A changed one may or may not: an added OPTIONAL '
-                . 'parameter breaks nobody, an added required one breaks every call. Read the '
-                . 'was/now pair below — the rendering marks an optional parameter with " = …".';
-            if ($this->addedToContracts !== []) {
-                $sections[] = 'An addition below is breaking too: a new method on an @api interface breaks '
-                    . 'every implementation outside nr_llm, and a new case of an @api enum breaks every '
-                    . 'exhaustive match without a default arm.';
+            if ($this->removed === [] && $this->changed === []) {
+                $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. ' . $contractSentence;
+            } else {
+                $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. A removed line breaks '
+                    . 'every caller that used it. A changed one may or may not: an added OPTIONAL '
+                    . 'parameter breaks nobody, an added required one breaks every call. Read the '
+                    . 'was/now pair below — the rendering marks an optional parameter with " = …".';
+                if ($contract !== []) {
+                    $sections[] = $contractSentence;
+                }
             }
 
             $sections[] = 'What to do: this is a decision, not a regeneration. Either revert the '
@@ -209,12 +217,12 @@ final readonly class ApiSurfaceDiff
             $sections[] = $this->bucket('changed', '~', $lines);
         }
 
-        if ($this->addedToContracts !== []) {
-            $sections[] = $this->bucket('added to an interface or enum (breaking)', '!', $this->addedToContracts);
+        if ($contract !== []) {
+            $sections[] = $this->bucket('added to an interface, abstract class or enum (breaking)', '!', $contract);
         }
 
-        if ($this->added !== []) {
-            $sections[] = $this->bucket('added', '+', $this->added);
+        if ($other !== []) {
+            $sections[] = $this->bucket('added', '+', $other);
         }
 
         return implode("\n\n", $sections);
@@ -268,13 +276,17 @@ final readonly class ApiSurfaceDiff
     }
 
     /**
-     * A new method of an interface, or a new case of an enum. A new constant
-     * on either is additive: nothing has to implement or match it.
+     * A new method of an interface, a new abstract method of a class, or a new
+     * case of an enum. A new constant is additive: nothing has to implement or
+     * match it.
      */
-    private static function breaksWhenAdded(string $header, string $memberKey): bool
+    private static function breaksWhenAdded(string $header, string $memberKey, string $line): bool
     {
-        return (str_ends_with($header, ' (interface)') && str_starts_with($memberKey, 'method '))
-            || (str_ends_with($header, ' (enum)') && str_starts_with($memberKey, 'case '));
+        $kind = preg_match('/^\S+ \(([a-z ]+)\)/', $header, $matches) === 1 ? $matches[1] : '';
+
+        return ($kind === 'interface' && str_starts_with($memberKey, 'method '))
+            || ($kind === 'enum' && str_starts_with($memberKey, 'case '))
+            || str_starts_with($line, 'method abstract ');
     }
 
     /**
@@ -282,7 +294,7 @@ final readonly class ApiSurfaceDiff
      */
     private static function classNameOf(string $header): string
     {
-        return preg_match('/^(\S+) \(\w+\)$/', $header, $matches) === 1 ? $matches[1] : $header;
+        return preg_match('/^(\S+) \([a-z ]+\)/', $header, $matches) === 1 ? $matches[1] : $header;
     }
 
     /**
@@ -298,7 +310,7 @@ final readonly class ApiSurfaceDiff
             return 'constructor';
         }
 
-        if (preg_match('/^(method|property) (?:static |readonly )?(\w+)/', $line, $matches) === 1) {
+        if (preg_match('/^(method|property) (?:abstract )?(?:static |readonly )?(\w+)/', $line, $matches) === 1) {
             return $matches[1] . ' ' . $matches[2];
         }
 
