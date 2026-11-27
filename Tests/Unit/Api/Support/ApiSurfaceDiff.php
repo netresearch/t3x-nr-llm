@@ -80,6 +80,7 @@ final readonly class ApiSurfaceDiff
                 continue;
             }
 
+            $madeConcrete = self::madeConcrete($before[$fqcn], $members);
             foreach ($members as $key => $line) {
                 if (!isset($before[$fqcn][$key])) {
                     $added[] = $fqcn . ' :: ' . $line;
@@ -90,7 +91,8 @@ final readonly class ApiSurfaceDiff
                     continue;
                 }
 
-                if ($before[$fqcn][$key] !== $line && $key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) {
+                $onlyLostAbstract = $madeConcrete && self::withoutAbstract($before[$fqcn][$key]) === $line;
+                if ($before[$fqcn][$key] !== $line && (($key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) || $onlyLostAbstract)) {
                     $widened[] = ['entry' => $fqcn . ' :: ' . $key, 'was' => $before[$fqcn][$key], 'now' => $line];
                 } elseif ($before[$fqcn][$key] !== $line) {
                     $changed[] = [
@@ -109,10 +111,21 @@ final readonly class ApiSurfaceDiff
                 continue;
             }
 
+            $madeConcrete = self::madeConcrete($members, $after[$fqcn]);
             foreach ($members as $key => $line) {
-                if (!isset($after[$fqcn][$key])) {
-                    $removed[] = $fqcn . ' :: ' . $line;
+                if (isset($after[$fqcn][$key])) {
+                    continue;
                 }
+
+                // A class made concrete implements what it left open; a
+                // protected hook is not rendered once it is concrete.
+                if ($madeConcrete && str_starts_with($line, 'method abstract protected ')) {
+                    $widened[] = ['entry' => $fqcn . ' :: ' . $key, 'was' => $line, 'now' => '(implemented)'];
+
+                    continue;
+                }
+
+                $removed[] = $fqcn . ' :: ' . $line;
             }
         }
 
@@ -189,8 +202,8 @@ final readonly class ApiSurfaceDiff
 
             $sections[] = 'What to do: this is a decision, not a regeneration. Either revert the '
                 . 'change, or follow Documentation/Api/Deprecation.rst — deprecate first, '
-                . 'remove later — and write a changelog.d/ fragment whose bullet opens with '
-                . '`**BREAKING` and says what a consumer has to change, before you regenerate the '
+                . 'remove later — and write a changelog.d/ fragment whose top-level bullet opens '
+                . 'with `- **BREAKING` and says what a consumer has to change, before you regenerate the '
                 . 'snapshot. During 0.x the release that ships it raises the middle version number '
                 . '(Documentation/Api/Stability.rst). A widening of a class method that only adds '
                 . 'optional parameters is additive for callers: note it in an `added` fragment and '
@@ -310,6 +323,26 @@ final readonly class ApiSurfaceDiff
     }
 
     /**
+     * True when an abstract class became a concrete one.
+     *
+     * @param array<string, string> $before
+     * @param array<string, string> $after
+     */
+    private static function madeConcrete(array $before, array $after): bool
+    {
+        return self::headerParts($before[self::DECLARATION_KEY] ?? '')['kind'] === 'abstract class'
+            && self::headerParts($after[self::DECLARATION_KEY] ?? '')['kind'] === 'class';
+    }
+
+    /**
+     * `method abstract protected x()` → `method protected x()`.
+     */
+    private static function withoutAbstract(string $line): string
+    {
+        return str_starts_with($line, 'method abstract ') ? 'method ' . substr($line, strlen('method abstract ')) : $line;
+    }
+
+    /**
      * True when a changed header line breaks nobody: the kind stays or an
      * abstract class becomes concrete, the parent stays, and every interface
      * the header listed is still listed. Methods a newly implemented interface
@@ -382,7 +415,7 @@ final readonly class ApiSurfaceDiff
             return 'constructor';
         }
 
-        if (preg_match('/^(method|property) (?:abstract )?(?:static |readonly )?(\w+)/', $line, $matches) === 1) {
+        if (preg_match('/^(method|property) (?:abstract )?(?:protected )?(?:static |readonly )?(\w+)/', $line, $matches) === 1) {
             return $matches[1] . ' ' . $matches[2];
         }
 

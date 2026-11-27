@@ -14,9 +14,12 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithAbstractMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithConcreteMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedAbstract;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithStaticAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AddedMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\BackedFixtureEnum;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithProtectedKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithPublicKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\CountableBase;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ExtendingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
@@ -285,6 +288,34 @@ final class ApiSurfaceRendererTest extends TestCase
 
         self::assertSame('additive', $diff->verdict());
         self::assertSame([], $diff->changed);
+    }
+
+    #[Test]
+    public function anAbstractClassMadeConcreteThatImplementsItsProtectedHookStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, ConcreteBaseWithProtectedKind::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->removed);
+        self::assertSame([], $diff->changed);
+    }
+
+    #[Test]
+    public function anAbstractClassMadeConcreteWhoseMethodOnlyLosesAbstractStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithAbstractMethod::class, ConcreteBaseWithPublicKind::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->changed);
+    }
+
+    #[Test]
+    public function aStaticAbstractMethodIsRenderedStatic(): void
+    {
+        self::assertStringContainsString(
+            '  method abstract protected static make(): string',
+            (new ApiSurfaceRenderer())->render([AbstractBaseWithStaticAbstract::class]),
+        );
     }
 
     #[Test]

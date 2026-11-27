@@ -158,10 +158,14 @@ into `CHANGELOG.md` with `composer changelog:collect`. Version bumps belong to
 the release commit, never to a feature PR.
 
 A breaking change gets a top-level bullet that opens with `- **BREAKING`
-(exactly, upper case) and says what a consumer has to change, in whichever
-fragment section fits (often `changed`, `removed` or `upgrading`). Other bold
-forms (`**Breaking:**`, the word inside a bullet or in a nested bullet) are
-refused by `composer ci:test:changelog:sections`. Breaking means a breaking
+(upper case, then no letter, digit or underscore) and says what a consumer has
+to change, in whichever fragment section fits (often `changed`, `removed` or
+`upgrading`). In a fragment, in `[Unreleased]` and in a release after 0.55.1
+the word `breaking` (any case, outside inline code and fenced code) may stand
+only there, once, as that marker; `composer ci:test:changelog:sections` refuses
+every other occurrence, `**Breaking:**`, a nested bullet and prose such as
+"not a `breaking` change" included. Reword such a line or quote the word as
+inline code. Breaking means a breaking
 diff of `Tests/Unit/Api/api-surface.txt` (a new method on an `@api` interface,
 a new abstract method on an `@api` abstract class and a new case of an `@api`
 enum included) or a behaviour change consumers

@@ -101,7 +101,9 @@ final class ApiSurfaceSnapshotTest extends TestCase
             file_put_contents(self::SNAPSHOT_PATH, $rendered);
             self::fail(sprintf(
                 'Snapshot regenerated at %s — inspect the diff and commit it. '
-                . 'A removed or changed line is a break and needs a CHANGELOG entry.',
+                . 'A removed or changed line is a break, and so is a new method on an @api interface, a new'
+                . ' abstract method on an @api abstract class or a new case of an @api enum; each needs a'
+                . ' changelog.d/ fragment with a top-level bullet that opens with `- **BREAKING`.',
                 self::SNAPSHOT_PATH,
             ));
         }

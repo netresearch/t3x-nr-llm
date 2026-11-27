@@ -19,7 +19,8 @@ an older release line.
   upgrade to it.
 - **Upgrading within 0.x:** while the extension is pre-1.0, only a release
   that raises the middle version number (`0.N.x` to `0.(N+1).0`) may contain
-  breaking changes, and each one opens with `**BREAKING` in `CHANGELOG.md`.
+  breaking changes, and each one is a top-level bullet in `CHANGELOG.md`
+  that opens with `- **BREAKING`.
   Releases that keep the middle number carry features and fixes only
   ([API stability](Documentation/Api/Stability.rst)).
 - **Getting support:** questions and bug reports go to the

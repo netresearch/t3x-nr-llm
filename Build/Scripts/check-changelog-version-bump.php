@@ -22,15 +22,19 @@ declare(strict_types=1);
  *   - a release that keeps the middle number carries none.
  *
  * A release is compared with the highest plain version below it, wherever that
- * section stands in the file. Every release heading, older ones included, must
- * name a plain N.N.N version (no `v`, no pre-release suffix): a heading that
- * does not would drop out of the comparison and switch it off.
+ * section stands in the file. Every `## ` heading, older ones included, must be
+ * `## [Unreleased]` or `## [N.N.N]` (no `v`, no pre-release suffix, brackets
+ * required): any other heading would drop out of the comparison and switch it
+ * off.
  *
- * A breaking entry is a top-level bullet that opens with `- **BREAKING`. Older
- * sections also wrote `**Breaking:**`, `**BREAKING**` or the word inside a
- * bullet. Any such lookalike (case-insensitive, outside inline code) fails in a
- * judged section, in `[Unreleased]` and in a changelog.d/ fragment, so the
- * author writes the one form the check and a reader both find.
+ * A breaking entry is a top-level bullet that opens with `- **BREAKING`,
+ * followed by anything but a letter, digit or underscore. One strict rule keeps
+ * every variant out: in a judged section, in `[Unreleased]` and in a
+ * changelog.d/ fragment the word "breaking" (any case, outside inline code and
+ * fenced code) may stand only there, once, as the marker. Any other occurrence
+ * is refused, prose such as "not a breaking change" included; the author
+ * rewords it or quotes the word as inline code. An earlier net of lookalike
+ * patterns missed a new variant in two review rounds in a row.
  *
  * What is breaking is decided by the author: a breaking diff of
  * Tests/Unit/Api/api-surface.txt (a new method on an @api interface or abstract
@@ -51,8 +55,8 @@ const RULE_SINCE = '0.55.1';
 
 const MARKER = '- **BREAKING';
 
-/** The marker, followed by anything but a letter (`- **BREAKINGLY` is none). */
-const MARKER_LINE = '/^- \*\*BREAKING(?![A-Za-z])/';
+/** The marker, followed by anything but a letter, digit or underscore. */
+const MARKER_LINE = '/^- \*\*BREAKING(?![A-Za-z0-9_])/';
 
 const PLAIN_VERSION = '/^(\d+)\.(\d+)\.(\d+)$/';
 
@@ -94,11 +98,11 @@ function proseLines(string $text): array
 }
 
 /**
- * Line numbers (1-based, counted from $firstLine) of every `**breaking` that
- * is not the marker.
+ * Line numbers (1-based, counted from $firstLine) of every line where the word
+ * "breaking" stands anywhere but as the one marker of a marker line.
  *
- * Inline code is blanked first, so a text that quotes the marker as
- * `**BREAKING` is no lookalike.
+ * Inline code is blanked first, so a text that quotes the word as
+ * `**BREAKING` is allowed.
  *
  * @return list<int>
  */
@@ -107,16 +111,14 @@ function lookalikeLines(string $text, int $firstLine = 1): array
     $lines = [];
     foreach (proseLines($text) as $i => $line) {
         $prose = (string) preg_replace_callback('/`[^`]*`/', static fn (array $m): string => str_repeat(' ', strlen($m[0])), $line);
-        if (preg_match_all('/\*\*\s*breaking\b/i', $prose, $hits, PREG_OFFSET_CAPTURE) === 0) {
+        $count = preg_match_all('/breaking/i', $prose, $hits, PREG_OFFSET_CAPTURE);
+        if ($count === 0) {
             continue;
         }
 
-        foreach ($hits[0] as [, $offset]) {
-            if (!(preg_match(MARKER_LINE, $prose) === 1 && $offset === 2)) {
-                $lines[] = $firstLine + $i;
-
-                break;
-            }
+        $onlyTheMarker = $count === 1 && $hits[0][0][1] === 4 && preg_match(MARKER_LINE, $prose) === 1;
+        if (!$onlyTheMarker) {
+            $lines[] = $firstLine + $i;
         }
     }
 
@@ -149,8 +151,9 @@ $problems = [];
 $lookalike = static function (string $where, string $text, int $firstLine = 1) use (&$problems): void {
     foreach (lookalikeLines($text, $firstLine) as $line) {
         $problems[] = sprintf(
-            '  %s  line %d: a `**breaking` is not the breaking marker — open a top-level bullet with `%s`'
-            . ' (exactly, upper case) or drop the bold',
+            '  %s  line %d: the word "breaking" is only allowed on a marker line: a top-level bullet that'
+            . ' opens with `%s` (upper case, then no letter, digit or underscore), once — reword the'
+            . ' line or quote the word as inline code',
             $where,
             $line,
             MARKER,
@@ -179,18 +182,27 @@ foreach ($fragmentFiles ?: [] as $fragment) {
     }
 }
 
-// Every release heading names a plain version: releasedSections() reads only
-// headings that start with a digit, so `## [v0.56.0]` would otherwise drop
-// out of every check below.
-if (preg_match_all('/^## \[([^\]]*)\]/m', $text, $headings) > 0) {
-    foreach ($headings[1] as $label) {
-        if ($label !== 'Unreleased' && preg_match(PLAIN_VERSION, $label) !== 1) {
-            $problems[] = sprintf(
-                '  [%s]  is not a plain N.N.N version — a CHANGELOG section names a release, written'
-                . ' without a `v` and without a pre-release suffix',
-                $label,
-            );
-        }
+// Every `## ` heading is `## [Unreleased]` or `## [N.N.N]`: releasedSections()
+// reads only bracketed headings that start with a digit, so `## [v0.56.0]` or
+// `## 0.56.0` would otherwise drop out of every check below.
+foreach (proseLines($text) as $i => $line) {
+    if (!str_starts_with($line, '## ')) {
+        continue;
+    }
+
+    if (preg_match('/^## \[([^\]]*)\]/', $line, $heading) !== 1) {
+        $problems[] = sprintf(
+            '  `%s`  line %d: only `## [Unreleased]` and `## [N.N.N] …` headings are allowed; a heading'
+            . ' without brackets is not read as a release',
+            $line,
+            $i + 1,
+        );
+    } elseif ($heading[1] !== 'Unreleased' && preg_match(PLAIN_VERSION, $heading[1]) !== 1) {
+        $problems[] = sprintf(
+            '  [%s]  is not a plain N.N.N version — a CHANGELOG section names a release, written'
+            . ' without a `v` and without a pre-release suffix',
+            $heading[1],
+        );
     }
 }
 

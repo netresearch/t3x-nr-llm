@@ -74,6 +74,21 @@ final class ApiSurfaceDiffTest extends TestCase
     }
 
     #[Test]
+    public function eachProtectedAbstractMethodIsItsOwnMember(): void
+    {
+        // memberKey() once read `protected` as the name, so both methods
+        // shared one key, only the last survived, and a change to the first
+        // one read as an unchanged surface.
+        $before = "Acme\\Base (abstract class)\n  method abstract protected a(): string\n  method abstract protected b(): int\n";
+        $after  = "Acme\\Base (abstract class)\n  method abstract protected a(): int\n  method abstract protected b(): int\n";
+
+        $diff = ApiSurfaceDiff::between($before, $after);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('Acme\\Base :: method a', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
     public function aNewCaseOfAnEnumIsBreaking(): void
     {
         $diff = ApiSurfaceDiff::between(self::BEFORE, str_replace(
@@ -105,7 +120,7 @@ final class ApiSurfaceDiffTest extends TestCase
         $diff = ApiSurfaceDiff::between(self::BEFORE, str_replace("  method text(): string\n", '', self::BEFORE));
 
         self::assertSame('breaking', $diff->verdict());
-        self::assertStringContainsString('`**BREAKING`', $diff->describe());
+        self::assertStringContainsString('`- **BREAKING`', $diff->describe());
         self::assertStringContainsString('changelog.d/', $diff->describe());
         self::assertStringNotContainsString('BREAKING heading', $diff->describe());
     }

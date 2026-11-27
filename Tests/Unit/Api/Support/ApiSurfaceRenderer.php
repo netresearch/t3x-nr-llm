@@ -325,8 +325,9 @@ final class ApiSurfaceRenderer
 
         foreach ($this->abstractMethodsToImplement($reflection) as $method) {
             $lines[] = sprintf(
-                'method abstract %s%s(%s): %s',
+                'method abstract %s%s%s(%s): %s',
                 $method->isProtected() ? 'protected ' : '',
+                $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),
                 $this->renderType($method->getReturnType(), $reflection->getName()),

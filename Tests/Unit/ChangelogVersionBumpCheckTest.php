@@ -161,6 +161,14 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
             'inside a bullet'   => ["- `WriteKind` gains `DELETED`. **BREAKING for exhaustive matches:** add an arm.\n"],
             'nested bullet'     => ["- A change.\n  - **BREAKING: nested.**\n"],
             'continuation line' => ["- A change.\n  **Breaking:** `Foo` takes a third argument.\n"],
+            'heading'           => ["### BREAKING\n\n- `Foo::bar()` is removed.\n"],
+            'plain bullet'      => ["- BREAKING: `Foo::bar()` is removed.\n"],
+            'underscore bold'   => ["- __BREAKING:__ `Foo::bar()` is removed.\n"],
+            'italic'            => ["- *BREAKING* `Foo::bar()` is removed.\n"],
+            'longer word'       => ["- **BREAKING_NOTE:** `Foo::bar()` is removed.\n"],
+            'digit after'       => ["- **BREAKING2:** `Foo::bar()` is removed.\n"],
+            'prose'             => ["- This is not a breaking change for callers.\n"],
+            'twice on a marker' => ["- **BREAKING: `Foo` changed,** breaking for implementers too.\n"],
         ];
     }
 
@@ -172,13 +180,13 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
 
         self::assertSame(1, $exit);
         self::assertStringContainsString('[0.56.0]  line ', $stderr);
-        self::assertStringContainsString('is not the breaking marker — open a top-level bullet with `- **BREAKING`', $stderr);
+        self::assertStringContainsString('is only allowed on a marker line: a top-level bullet that opens with `- **BREAKING`', $stderr);
     }
 
     #[Test]
     public function theMarkerQuotedAsCodeIsNoLookalike(): void
     {
-        $body = "### Changed\n\n- Breaking entries open with `**BREAKING` now.\n";
+        $body = "### Changed\n\n- Entries of that kind open with `**BREAKING` now, and a `breaking` in code is prose.\n";
 
         [$exit, $stderr] = $this->check($this->withTopmost('0.55.2', $body));
 
@@ -258,16 +266,33 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
     }
 
     #[Test]
-    public function aLongerWordIsNeitherMarkerNorLookalike(): void
+    public function aLongerWordIsNoMarkerAndIsRefused(): void
     {
+        // The word may stand on a marker line only, so a longer word is
+        // refused too: the strict rule leaves no variant to slip through.
         $body = "### Changed\n\n- **BREAKINGLY fast** parsing.\n- **breakingnews** is a channel name.\n";
 
         [$patch, $patchErr]   = $this->check($this->withTopmost('0.55.2', $body));
         [$middle, $middleErr] = $this->check($this->withTopmost('0.56.0', $body));
 
-        self::assertSame(0, $patch, $patchErr);
+        self::assertSame(1, $patch);
+        self::assertSame(2, substr_count($patchErr, 'is only allowed on a marker line'));
         self::assertSame(1, $middle);
         self::assertStringContainsString('without a breaking entry', $middleErr);
+    }
+
+    #[Test]
+    public function aReleaseHeadingWithoutBracketsFails(): void
+    {
+        // A heading without brackets is not split off as a section, so it
+        // would hide the release from the check.
+        $changelog = self::HEAD . "## 0.56.0 - 2026-12-01\n\n### Added\n\n- A new feature.\n\n" . self::BASE;
+
+        [$exit, $stderr] = $this->check($changelog);
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('## 0.56.0 - 2026-12-01', $stderr);
+        self::assertStringContainsString('only `## [Unreleased]` and `## [N.N.N]', $stderr);
     }
 
     #[Test]

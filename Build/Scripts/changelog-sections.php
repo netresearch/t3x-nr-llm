@@ -13,7 +13,7 @@ declare(strict_types=1);
  */
 
 /**
- * Split a CHANGELOG into its released sections, keyed by version, newest first.
+ * Split a CHANGELOG into its released sections, keyed by version, in file order.
  *
  * A section runs from its `## [X.Y.Z]` heading to the next `## [` heading, or
  * to the link-reference block, or to the end of the text.

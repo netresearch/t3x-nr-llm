@@ -162,11 +162,13 @@ number *y* the role of minor and patch together.
   class),
   and additive database changes (new columns or tables with defaults that
   need only the schema update).
-- A release that raises x carries at least one CHANGELOG bullet that opens
-  with ``- **BREAKING`` (exactly, upper case) and says what a consumer has
-  to change. A release that keeps x carries none. Other forms of the word
-  in bold (``**Breaking:**``, inside a bullet, in a nested bullet) are not
-  the marker.
+- A release that raises x carries at least one top-level CHANGELOG bullet
+  that opens with ``- **BREAKING`` (upper case, followed by no letter, digit
+  or underscore) and says what a consumer has to change. A release that
+  keeps x carries none. The word may stand only there, once: every other
+  occurrence, in any case and form (``**Breaking:**``, a nested bullet,
+  prose such as "not a breaking change"), is refused unless it is quoted as
+  inline code.
 
 The reason is Composer's caret on a 0.x version: ``^0.54`` admits 0.54.*
 and refuses 0.55.0. Every rise of x therefore forces each extension that
@@ -180,10 +182,12 @@ additions as the reason.
 compares each release after 0.55.1 with the highest earlier version. It
 refuses a release that raises x without a ``- **BREAKING`` bullet, one that
 raises it by more than one or to a last number other than 0, one that keeps
-x with such a bullet, and any release heading (older ones included) that
-is not a plain N.N.N version, such as ``[v0.56.0]`` or ``[0.56.0-rc.1]``. It
-also refuses any other bold form of the word in those sections, in
-``[Unreleased]`` and in ``changelog.d/`` fragments. Whether a change is
+x with such a bullet, and any ``## `` heading (older ones included) other
+than ``## [Unreleased]`` and ``## [N.N.N]``, such as ``## [v0.56.0]``,
+``## [0.56.0-rc.1]`` or ``## 0.56.0``. In those sections, in
+``[Unreleased]`` and in ``changelog.d/`` fragments it refuses every
+occurrence of the word "breaking" outside inline code and fenced code that
+is not the one marker of a marker line. Whether a change is
 breaking stays the release author's decision: the check reads the
 CHANGELOG, not the API diff.
 
