@@ -26,4 +26,4 @@ A provider adapter is the PHP class that sends requests to one vendor API and re
 
 # Notes
 
-- The adapters for OpenAI, Claude, Gemini, Groq, Mistral, Ollama and OpenRouter are in `Classes/Provider/`.
+- `Classes/Provider/` holds one adapter class per vendor API, for example OpenAI, Azure OpenAI, Claude, Gemini, Groq, Mistral, Ollama and OpenRouter, and the decision adapters (`TypeSafeProvider`, `DecisionSidecarProvider`). `ProviderAdapterRegistry` holds the full list at runtime.

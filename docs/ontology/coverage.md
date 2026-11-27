@@ -24,6 +24,7 @@ A missing relation means "not modelled", never "not related". These parts of nr_
 - The approval of a single tool call during a run, the workspace a run writes into, and the worker queue.
 - The specialized services (DeepL, speech, image), the decision service, the editorial text check and the setup wizard.
 - Which middleware steps besides budget, usage and telemetry apply to a streamed call.
+- The backend model test and configuration test, which call a provider adapter without the pipeline.
 - Properties that carry a policy value, for example trust zone, privacy level and data class. They appear in definitions only.
 
 # Statuses

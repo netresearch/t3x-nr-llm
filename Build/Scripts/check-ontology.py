@@ -200,7 +200,7 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
             )
             continue
         row = cells(line)
-        if row[0] == "Relation" or set(row[0]) <= {"-", ":"}:
+        if row[0] == "Relation" or all(re.fullmatch(r":?-+:?", cell) for cell in row):
             continue
         if len(row) != 5:
             bundle.errors.append(
@@ -208,6 +208,9 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
             )
             continue
         name, status = row[0].strip("`"), row[4].strip("`")
+        if not name:
+            bundle.errors.append(f"{where}: a relation row has no relation name")
+            continue
         if status not in STATUSES:
             bundle.errors.append(
                 f"{where}: status {status!r} is not one of {sorted(STATUSES)}"
@@ -296,7 +299,7 @@ def load(root: Path, repo: Path) -> Bundle:
                 f"{relation.where}: {relation.name} needs a path in the repository as its target"
             )
         external = relation.target.startswith(("repo:", "url:"))
-        if not external and relation.target not in bundle.types:
+        if not external and bundle.types.get(relation.target) in (None, *NO_RELATIONS):
             bundle.errors.append(
                 f"{relation.where}: target {relation.target_cell} is no concept of the bundle"
             )
@@ -352,7 +355,7 @@ def answer(bundle: Bundle, query: str) -> list[str] | str:
     match = QUERY.match(query)
     if not match:
         return "x-nr-query must be '--impact <concept>' or '--needs <concept>'"
-    if match.group(2) not in bundle.types:
+    if bundle.types.get(match.group(2)) in (None, *NO_RELATIONS):
         return f"x-nr-query names {match.group(2)!r}, which is no concept of the bundle"
     return traverse(bundle, match.group(2), needs=match.group(1) == "needs")
 
@@ -427,7 +430,7 @@ def main() -> int:
         return 2
     if args.impact or args.needs:
         start = args.impact or args.needs
-        if start not in bundle.types:
+        if bundle.types.get(start) in (None, *NO_RELATIONS):
             print(f"unknown concept {start!r}", file=sys.stderr)
             return 2
         print("\n".join(traverse(bundle, start, needs=bool(args.needs))))

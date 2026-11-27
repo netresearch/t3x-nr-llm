@@ -116,4 +116,4 @@ Scope: only the relations this bundle models; coverage.md names what it leaves o
 
 # Limits
 
-The budget check runs twice: against the daily limits of the configuration and against the user budget of the backend user. Both must pass. A streamed call takes the streaming dispatcher instead of the middleware pipeline; it runs the budget check and records usage and telemetry, and which other steps apply to a stream is not modelled.
+The budget check runs twice: against the daily limits of the configuration and against the user budget of the backend user. Both must pass. The model test and the configuration test of the backend module call the adapter directly and pass neither check. A streamed call takes the streaming dispatcher instead of the middleware pipeline; it runs the budget check and records usage and telemetry, and which other steps apply to a stream is not modelled.

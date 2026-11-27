@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 type: Concept
 title: "Middleware pipeline"
-description: "The chain of steps every non-streamed provider call passes: budget, cache, circuit breaker, empty answer, fallback, tracing, guardrail, idempotency, telemetry and usage."
+description: "The chain of steps a non-streamed call through the LLM service passes: budget, cache, circuit breaker, empty answer, fallback, tracing, guardrail, idempotency, telemetry and usage."
 status: draft
 timestamp: 2026-11-27
 ---
 
 # Definition
 
-The middleware pipeline is the chain of steps that every non-streamed call to a provider adapter passes. `Classes/Provider/Middleware/` holds one class per step: budget, cache, circuit breaker, empty answer, fallback, GenAI tracing, guardrail, idempotency, telemetry and usage. A streamed call cannot pass the pipeline, because a PHP generator is lazy; the streaming dispatcher takes its place.
+The middleware pipeline is the chain of steps that a non-streamed call through the LLM service passes on its way to a provider adapter. `Classes/Provider/Middleware/` holds one class per step: budget, cache, circuit breaker, empty answer, fallback, GenAI tracing, guardrail, idempotency, telemetry and usage. A streamed call cannot pass the pipeline, because a PHP generator is lazy; the streaming dispatcher takes its place.
 
 # Relations
 
@@ -25,3 +25,7 @@ The middleware pipeline is the chain of steps that every non-streamed call to a 
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php` | `class BudgetMiddlewareTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php` | `class GuardrailMiddlewareTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php` | `class FallbackMiddlewareTest` | asserted |
+
+# Notes
+
+- Two backend actions call a provider adapter directly and pass no pipeline step: the model test (`Classes/Controller/Backend/ModelTestController.php`) and the configuration test (`Classes/Controller/Backend/ConfigurationController.php`). They create the adapter with `createAdapterFromModel()`, so no budget, guardrail or usage record applies to them.
