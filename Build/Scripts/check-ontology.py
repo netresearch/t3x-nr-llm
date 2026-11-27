@@ -226,7 +226,23 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
 
 
 def check_indexes(bundle: Bundle, files: list[Path]) -> None:
-    for directory in sorted({p.parent for p in files}):
+    directories = {p.parent for p in bundle.root.rglob("*.md")} | {bundle.root}
+    for directory in sorted(directories):
+        if directory != bundle.root:
+            parent_index = directory.parent / "index.md"
+            linked = parent_index.is_file() and any(
+                match
+                and (directory.parent / match.group(1)).resolve()
+                == (directory / "index.md").resolve()
+                for match in (
+                    ENTRY.match(line.strip())
+                    for _, line in body_lines(read(parent_index))
+                )
+            )
+            if not linked:
+                bundle.errors.append(
+                    f"{bundle.shown(directory / 'index.md')}: not listed in {bundle.shown(parent_index)}"
+                )
         index = directory / "index.md"
         if not index.is_file():
             bundle.errors.append(f"{bundle.shown(index)} does not exist")
