@@ -115,22 +115,28 @@ diff — but the types on it are not a promise that you may call them.
 
 The failure is classified, because "different" makes a new value object read
 like a deleted method. An **additive** diff (a new class, interface or enum,
-a new concrete method or a property of a class, a new constant) is
-regenerated and noted in an ``added`` changelog fragment. A **breaking** one
-is a decision, and the failure message says so and points at :ref:`api-deprecation`:
+a new concrete method or a property of a class, a new constant, an abstract
+class made concrete, an interface a class now implements without leaving
+methods open) is regenerated and noted in an ``added`` changelog fragment.
+A **breaking** one is a decision, and the failure message says so and points
+at :ref:`api-deprecation`:
 
 - anything removed or changed, a widened constructor included,
 - a new method on an existing ``@api`` interface — it breaks every
   implementation outside this extension, whether or not the interface is
   marked as an extension point,
-- a new abstract method on an existing ``@api`` abstract class — it breaks
-  every subclass outside this extension (the snapshot marks the class
+- a new abstract method on an existing ``@api`` abstract class, public or
+  protected, declared there or left open from a parent or an interface — it
+  breaks every subclass outside this extension (the snapshot marks the class
   ``abstract class`` and the method ``method abstract``),
 - a new case of an existing ``@api`` enum — it breaks every exhaustive
   ``match`` without a default arm,
-- a changed ``extends`` in the header line — the parent class of a class or
-  the parent interfaces of an interface; an interface that starts to extend
-  another makes every implementation implement that one too.
+- a changed header line: a class made abstract, a changed parent class, a
+  changed list of parent interfaces of an interface (an interface that starts
+  to extend another makes every implementation implement that one too), or an
+  interface removed from a class's ``implements``. A parent class changed to
+  a subclass of the old one breaks nobody, but the snapshot alone cannot tell,
+  so the message asks the author to check.
 
 How something leaves the surface again is :ref:`api-deprecation`. Which
 TYPO3 and PHP versions the promise is made on is :ref:`api-support-matrix`.
@@ -174,7 +180,8 @@ additions as the reason.
 compares each release after 0.55.1 with the highest earlier version. It
 refuses a release that raises x without a ``- **BREAKING`` bullet, one that
 raises it by more than one or to a last number other than 0, one that keeps
-x with such a bullet, and a section whose version is not a plain 0.x.y. It
+x with such a bullet, and any release heading (older ones included) that
+is not a plain N.N.N version, such as ``[v0.56.0]`` or ``[0.56.0-rc.1]``. It
 also refuses any other bold form of the word in those sections, in
 ``[Unreleased]`` and in ``changelog.d/`` fragments. Whether a change is
 breaking stays the release author's decision: the check reads the

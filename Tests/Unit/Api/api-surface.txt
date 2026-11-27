@@ -26,7 +26,7 @@ Netresearch\NrLlm\Domain\DTO\BudgetCheckResult (class)
   property readonly limit: float
   property readonly reason: string
 
-Netresearch\NrLlm\Domain\DTO\CapabilitySet (class)
+Netresearch\NrLlm\Domain\DTO\CapabilitySet (class) implements Countable, JsonSerializable
   constructor(array $capabilities = …)
   method count(): int
   method has(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): bool
@@ -40,7 +40,7 @@ Netresearch\NrLlm\Domain\DTO\CapabilitySet (class)
   method without(Netresearch\NrLlm\Domain\Enum\ModelCapability|string $capability): self
   property readonly capabilities: array
 
-Netresearch\NrLlm\Domain\DTO\FallbackChain (class)
+Netresearch\NrLlm\Domain\DTO\FallbackChain (class) implements JsonSerializable
   constructor(array $configurationIdentifiers = …)
   method contains(string $identifier): bool
   method count(): int
@@ -54,7 +54,7 @@ Netresearch\NrLlm\Domain\DTO\FallbackChain (class)
   method without(string $identifier): self
   property readonly configurationIdentifiers: array
 
-Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria (class)
+Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria (class) implements JsonSerializable
   constructor(array $capabilities = …, array $adapterTypes = …, int $minContextLength = …, float $maxCostInput = …, bool $preferLowestCost = …)
   method allowsAdapterType(string $adapterType): bool
   method hasCriteria(): bool
@@ -75,7 +75,7 @@ Netresearch\NrLlm\Domain\DTO\ModelSelectionCriteria (class)
   property readonly minContextLength: int
   property readonly preferLowestCost: bool
 
-Netresearch\NrLlm\Domain\DTO\ProviderOptions (class)
+Netresearch\NrLlm\Domain\DTO\ProviderOptions (class) implements JsonSerializable
   constructor(?string $proxy = …, array $customHeaders = …, array $extra = …)
   method get(string $key, mixed $default = …): mixed
   method has(string $key): bool
@@ -1039,7 +1039,7 @@ Netresearch\NrLlm\Domain\ValueObject\CapabilityProvenance (class)
   property readonly confirmedAt: ?DateTimeImmutable
   property readonly source: Netresearch\NrLlm\Domain\Enum\CapabilitySource
 
-Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class)
+Netresearch\NrLlm\Domain\ValueObject\ChatMessage (class) implements JsonSerializable
   constructor(Netresearch\NrLlm\Domain\Enum\MessageRole|string $role, string $content, ?array $toolCalls = …, ?string $toolCallId = …, ?array $providerItems = …)
   method getRole(): Netresearch\NrLlm\Domain\Enum\MessageRole
   method isAssistant(): bool
@@ -1092,7 +1092,7 @@ Netresearch\NrLlm\Domain\ValueObject\ContextFitResult (class)
   property readonly overflowAtFloor: bool
   property readonly pruned: bool
 
-Netresearch\NrLlm\Domain\ValueObject\Decision\ChoiceQuestion (class)
+Netresearch\NrLlm\Domain\ValueObject\Decision\ChoiceQuestion (class) implements Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionQuestion
   const MAX_OPTIONS = 255
   const MIN_OPTIONS = 2
   constructor(string $key, string $instructions, array $options, array $descriptions = …)
@@ -1150,7 +1150,7 @@ Netresearch\NrLlm\Domain\ValueObject\Decision\QuestionType (enum)
   property readonly name: string
   property readonly value: string
 
-Netresearch\NrLlm\Domain\ValueObject\Decision\ScoreQuestion (class)
+Netresearch\NrLlm\Domain\ValueObject\Decision\ScoreQuestion (class) implements Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionQuestion
   const MAX_LEVELS = 10
   const MIN_LEVELS = 2
   constructor(string $key, string $instructions, array $levels)
@@ -1172,7 +1172,7 @@ Netresearch\NrLlm\Domain\ValueObject\Decision\SubjectField (enum)
   property readonly name: string
   property readonly value: string
 
-Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion (class)
+Netresearch\NrLlm\Domain\ValueObject\Decision\YesNoQuestion (class) implements Netresearch\NrLlm\Domain\ValueObject\Decision\DecisionQuestion
   constructor(string $key, string $instructions, string $yesMeans = …, string $noMeans = …)
   method instructions(): string
   method key(): string
@@ -1305,7 +1305,7 @@ Netresearch\NrLlm\Domain\ValueObject\ProviderCallUsage (class)
   property readonly outputTokens: ?int
   property readonly responseModel: string
 
-Netresearch\NrLlm\Domain\ValueObject\RecordReference (class)
+Netresearch\NrLlm\Domain\ValueObject\RecordReference (class) implements Stringable
   constructor(string $table, int $uid)
   method __toString(): string
   method toArray(): array
@@ -1440,7 +1440,7 @@ Netresearch\NrLlm\Domain\ValueObject\ToolArtifact (class)
   property readonly label: string
   property readonly type: Netresearch\NrLlm\Domain\Enum\ArtifactType
 
-Netresearch\NrLlm\Domain\ValueObject\ToolCall (class)
+Netresearch\NrLlm\Domain\ValueObject\ToolCall (class) implements JsonSerializable
   const TYPE_FUNCTION = "function"
   constructor(string $id, string $name, array $arguments, string $type = …)
   method jsonSerialize(): array
@@ -1517,7 +1517,7 @@ Netresearch\NrLlm\Domain\ValueObject\ToolResult (class)
   property readonly writeKind: ?Netresearch\NrLlm\Domain\Enum\WriteKind
   property readonly writeTarget: ?Netresearch\NrLlm\Domain\ValueObject\RecordReference
 
-Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class)
+Netresearch\NrLlm\Domain\ValueObject\ToolSpec (class) implements JsonSerializable
   const TYPE_FUNCTION = "function"
   constructor(string $name, string $description, array $parameters, string $type = …)
   method jsonSerialize(): array
@@ -1543,36 +1543,36 @@ Netresearch\NrLlm\Event\AfterAiRecordWrittenEvent (class)
   property readonly record: Netresearch\NrLlm\Domain\ValueObject\RecordReference
   property readonly workspace: int
 
-Netresearch\NrLlm\Exception\AccessDeniedException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\AccessDeniedException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
-Netresearch\NrLlm\Exception\BudgetExceededException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\BudgetExceededException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
   constructor(Netresearch\NrLlm\Domain\DTO\BudgetCheckResult $result, ?Throwable $previous = …)
   property readonly result: Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
 
-Netresearch\NrLlm\Exception\ConfigurationInactiveException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\ConfigurationInactiveException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
-Netresearch\NrLlm\Exception\ConfigurationNotFoundException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\ConfigurationNotFoundException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
-Netresearch\NrLlm\Exception\ContextTruncatedException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\ContextTruncatedException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
   constructor(Netresearch\NrLlm\Domain\ValueObject\ContextFitResult $fit)
   method static fromFit(Netresearch\NrLlm\Domain\ValueObject\ContextFitResult $fit): self
   property readonly fit: Netresearch\NrLlm\Domain\ValueObject\ContextFitResult
 
-Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\GuardrailApprovalRequiredException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\GuardrailPolicyException
   constructor(string $guardrail, string $reason, ?Throwable $previous = …)
   property readonly guardrail: string
 
 Netresearch\NrLlm\Exception\GuardrailPolicyException (interface) extends Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
-Netresearch\NrLlm\Exception\GuardrailViolationException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\GuardrailViolationException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\GuardrailPolicyException
   constructor(string $guardrail, string $reason, ?Throwable $previous = …, ?string $storableReason = …)
   method storableMessage(): string
   property readonly guardrail: string
   property readonly storableReason: ?string
 
-Netresearch\NrLlm\Exception\InvalidArgumentException (class) extends InvalidArgumentException
+Netresearch\NrLlm\Exception\InvalidArgumentException (class) extends InvalidArgumentException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
-Netresearch\NrLlm\Exception\LogicException (class) extends LogicException
+Netresearch\NrLlm\Exception\LogicException (class) extends LogicException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
 Netresearch\NrLlm\Exception\NrLlmExceptionInterface (interface) extends Throwable
 
@@ -1581,15 +1581,15 @@ Netresearch\NrLlm\Exception\OutputBudgetExhaustedException (class) extends Netre
   property readonly configurationIdentifier: string
   property readonly outputTokens: int
 
-Netresearch\NrLlm\Exception\RuntimeException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\RuntimeException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
-Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\SkillInstructionWithdrawnException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
   constructor(Netresearch\NrLlm\Domain\ValueObject\SkillPin $pin, string $skillName, string $reason)
   property readonly pin: Netresearch\NrLlm\Domain\ValueObject\SkillPin
   property readonly reason: string
   property readonly skillName: string
 
-Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException (class) extends RuntimeException
+Netresearch\NrLlm\Exception\SkillSectionNotAdmittedException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
   constructor(array $skillIdentifiers, int $code = …)
   property readonly skillIdentifiers: array
 
@@ -1661,7 +1661,7 @@ Netresearch\NrLlm\Provider\Exception\ProviderConfigurationException (class) exte
 
 Netresearch\NrLlm\Provider\Exception\ProviderConnectionException (class) extends Netresearch\NrLlm\Provider\Exception\ProviderException
 
-Netresearch\NrLlm\Provider\Exception\ProviderException (class) extends RuntimeException
+Netresearch\NrLlm\Provider\Exception\ProviderException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
 
 Netresearch\NrLlm\Provider\Exception\ProviderRateLimitException (class) extends Netresearch\NrLlm\Provider\Exception\ProviderResponseException
   constructor(string $message, int $httpStatus = …, ?Throwable $previous = …, string $responseBody = …, string $endpoint = …)
@@ -1765,7 +1765,7 @@ Netresearch\NrLlm\Provider\Middleware\Usage\UsageMetricsExtractorInterface (inte
   method extract(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context, mixed $result): ?Netresearch\NrLlm\Provider\Middleware\Usage\ProviderUsageRecord
   method supports(Netresearch\NrLlm\Provider\Middleware\ProviderCallContext $context): bool
 
-Netresearch\NrLlm\Provider\ProviderAdapterRegistry (class)
+Netresearch\NrLlm\Provider\ProviderAdapterRegistry (class) implements Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface, TYPO3\CMS\Core\SingletonInterface
   constructor(Psr\Http\Message\RequestFactoryInterface $requestFactory, Psr\Http\Message\StreamFactoryInterface $streamFactory, Psr\Log\LoggerInterface $logger, Netresearch\NrVault\Service\VaultServiceInterface $vault, Netresearch\NrVault\Http\SecureHttpClientFactory $httpClientFactory, array $adapterOverrides = …, ?Netresearch\NrLlm\Service\Telemetry\ProviderRetryCounter $retryCounter = …)
   method clearCache(?int $providerUid = …): void
   method createAdapterFromModel(Netresearch\NrLlm\Domain\Model\Model $model, bool $useCache = …): Netresearch\NrLlm\Provider\Contract\ProviderInterface
@@ -1904,7 +1904,7 @@ Netresearch\NrLlm\Service\CacheManagerInterface (interface)
   method sanitizeCacheTag(string $value): string
   method set(string $cacheKey, array $data, int $lifetime = …, array $tags = …): void
 
-Netresearch\NrLlm\Service\Decision\DecisionException (class) extends RuntimeException
+Netresearch\NrLlm\Service\Decision\DecisionException (class) extends RuntimeException implements Netresearch\NrLlm\Exception\NrLlmExceptionInterface
   const DATA_CLASS_NOT_PERMITTED = 1795211044
   const FAILED = 1795211046
   const INVALID_ANSWER = 1795211047
@@ -1996,7 +1996,7 @@ Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance (class)
 Netresearch\NrLlm\Service\Evaluation\RetrievalProvenanceProviderInterface (interface)
   method getRetrievalProvenance(): Netresearch\NrLlm\Service\Evaluation\RetrievalProvenance
 
-Netresearch\NrLlm\Service\Feature\CompletionService (class)
+Netresearch\NrLlm\Service\Feature\CompletionService (class) implements Netresearch\NrLlm\Service\Feature\CompletionServiceInterface
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, Netresearch\NrLlm\Service\Schema\JsonSchemaValidator $schemaValidator = …)
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeCreative(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -2025,7 +2025,7 @@ Netresearch\NrLlm\Service\Feature\CompletionServiceInterface (interface)
   method completeStructured(string $prompt, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
   method completeStructuredForConfiguration(string $prompt, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, array $schema, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\StructuredCompletionResponse
 
-Netresearch\NrLlm\Service\Feature\ConversationService (class)
+Netresearch\NrLlm\Service\Feature\ConversationService (class) implements Netresearch\NrLlm\Service\Feature\ConversationServiceInterface
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Service\Session\AiSessionRepositoryInterface $sessions, Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver, ?Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface $contextWindow = …, ?Psr\Log\LoggerInterface $logger = …, ?Netresearch\NrLlm\Service\Skill\SkillComposer $skillComposer = …, ?Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver $snippetResolver = …, ?Netresearch\NrLlm\Service\ModelSelectionServiceInterface $modelSelection = …)
   method send(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $sessionUuid, string $userMessage, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method startSession(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $title = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\ValueObject\AiSession
@@ -2034,7 +2034,7 @@ Netresearch\NrLlm\Service\Feature\ConversationServiceInterface (interface)
   method send(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $sessionUuid, string $userMessage, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method startSession(Netresearch\NrLlm\Domain\ValueObject\AiActorContext $actor, string $title = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\ValueObject\AiSession
 
-Netresearch\NrLlm\Service\Feature\EmbeddingService (class)
+Netresearch\NrLlm\Service\Feature\EmbeddingService (class) implements Netresearch\NrLlm\Service\Feature\EmbeddingServiceInterface
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …)
   method cosineSimilarity(array $vectorA, array $vectorB): float
   method embed(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
@@ -2057,7 +2057,7 @@ Netresearch\NrLlm\Service\Feature\EmbeddingServiceInterface (interface)
   method normalize(array $vector): array
   method pairwiseSimilarities(array $vectors): array
 
-Netresearch\NrLlm\Service\Feature\ToolCallingService (class)
+Netresearch\NrLlm\Service\Feature\ToolCallingService (class) implements Netresearch\NrLlm\Service\Feature\ToolCallingServiceInterface
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …)
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -2069,7 +2069,7 @@ Netresearch\NrLlm\Service\Feature\ToolCallingServiceInterface (interface)
 Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder (class)
   method build(string $text, string $sourceLanguage, string $targetLanguage, array $options): array
 
-Netresearch\NrLlm\Service\Feature\TranslationService (class)
+Netresearch\NrLlm\Service\Feature\TranslationService (class) implements Netresearch\NrLlm\Service\Feature\TranslationServiceInterface
   const CACHE_TAG = "nrllm_translation"
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Specialized\Translation\TranslatorRegistryInterface $translatorRegistry, Netresearch\NrLlm\Service\LlmConfigurationServiceInterface $configurationService, Netresearch\NrLlm\Service\Feature\TranslationPromptBuilder $promptBuilder, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\Glossary\GlossaryResolverInterface $glossaryResolver = …, ?Netresearch\NrLlm\Specialized\Translation\DeepLGlossarySyncInterface $deepLGlossarySync = …, ?Netresearch\NrLlm\Service\CacheManagerInterface $cache = …, ?Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver = …, ?Netresearch\NrLlm\Service\Feature\TranslationPolisher $polisher = …)
   method detectLanguage(string $text, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): string
@@ -2097,7 +2097,7 @@ Netresearch\NrLlm\Service\Feature\TranslationServiceInterface (interface)
   method translateForConfiguration(string $text, string $targetLanguage, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Domain\Model\TranslationResult
   method translateWithTranslator(string $text, string $targetLanguage, ?string $sourceLanguage = …, ?Netresearch\NrLlm\Service\Option\TranslationOptions $options = …): Netresearch\NrLlm\Specialized\Translation\TranslatorResult
 
-Netresearch\NrLlm\Service\Feature\VisionService (class)
+Netresearch\NrLlm\Service\Feature\VisionService (class) implements Netresearch\NrLlm\Service\Feature\VisionServiceInterface
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …)
   method analyzeImage(array|string $imageUrl, string $customPrompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
   method analyzeImageFull(string $imageUrl, string $prompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
@@ -2156,7 +2156,7 @@ Netresearch\NrLlm\Service\LlmConfigurationServiceInterface (interface)
   method toggleActive(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
   method update(Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration): void
 
-Netresearch\NrLlm\Service\LlmServiceManager (class)
+Netresearch\NrLlm\Service\LlmServiceManager (class) implements Netresearch\NrLlm\Service\LlmServiceManagerInterface, TYPO3\CMS\Core\SingletonInterface
   constructor(Netresearch\NrLlm\Provider\ProviderAdapterRegistryInterface $adapterRegistry, Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline $pipeline, Netresearch\NrLlm\Service\KeyedProviderRegistry $providerRegistry, Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver, Netresearch\NrLlm\Service\MessageShaper $messageShaper, Netresearch\NrLlm\Service\EmbedCacheKeyBuilder $embedCacheKeyBuilder, ?Netresearch\NrLlm\Service\Skill\SkillInjectionService $skillInjection = …, ?Netresearch\NrLlm\Service\ModelSelectionServiceInterface $modelSelectionService = …, ?Netresearch\NrLlm\Service\Streaming\StreamingDispatcher $streaming = …, Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener $inputScreener = …, ?Netresearch\NrLlm\Service\Prompt\ConfigurationSnippetResolver $snippetResolver = …, ?Netresearch\NrLlm\Service\Context\ContextWindowManagerInterface $contextWindow = …, ?Psr\Log\LoggerInterface $logger = …, ?Netresearch\NrLlm\Service\Context\InputContextTrustGate $inputContextGate = …, ?Netresearch\NrLlm\Service\Privacy\RunProviderPrivacyInterface $runPrivacy = …)
   method chat(array $messages, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatForConfiguration(array $messages, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …, ?Netresearch\NrLlm\Domain\ValueObject\ModelResolution $resolution = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -2236,7 +2236,7 @@ Netresearch\NrLlm\Service\Option\BudgetFieldsTrait (trait)
   method withBeUserUid(int $beUserUid): static
   method withPlannedCost(float $plannedCost): static
 
-Netresearch\NrLlm\Service\Option\ChatOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Service\Option\ChatOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?float $temperature = …, ?int $maxTokens = …, ?float $topP = …, ?float $frequencyPenalty = …, ?float $presencePenalty = …, ?string $responseFormat = …, ?string $systemPrompt = …, ?array $stopSequences = …, ?string $provider = …, ?string $model = …, ?int $beUserUid = …, ?float $plannedCost = …, ?bool $think = …)
   method getBeUserUid(): ?int
   method getFrequencyPenalty(): ?float
@@ -2279,7 +2279,7 @@ Netresearch\NrLlm\Service\Option\ChatOptions (class) extends Netresearch\NrLlm\S
   method withTopP(float $topP): static
   method withoutAnswerCache(): static
 
-Netresearch\NrLlm\Service\Option\DecisionOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Service\Option\DecisionOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?int $beUserUid = …, ?float $plannedCost = …)
   method getBeUserUid(): ?int
   method getPlannedCost(): ?float
@@ -2287,7 +2287,7 @@ Netresearch\NrLlm\Service\Option\DecisionOptions (class) extends Netresearch\NrL
   method withBeUserUid(int $beUserUid): static
   method withPlannedCost(float $plannedCost): static
 
-Netresearch\NrLlm\Service\Option\EmbeddingOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Service\Option\EmbeddingOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?string $model = …, ?int $dimensions = …, int $cacheTtl = …, ?string $provider = …, ?int $beUserUid = …, ?float $plannedCost = …)
   method getBeUserUid(): ?int
   method getCacheTtl(): int
@@ -2326,7 +2326,7 @@ Netresearch\NrLlm\Service\Option\ToolOptions (class) extends Netresearch\NrLlm\S
   method withTextSink(Closure $sink): static
   method withToolChoice(string $toolChoice): static
 
-Netresearch\NrLlm\Service\Option\TranslationOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Service\Option\TranslationOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?string $formality = …, ?string $domain = …, ?array $glossary = …, ?string $context = …, ?bool $preserveFormatting = …, ?float $temperature = …, ?int $maxTokens = …, ?string $provider = …, ?string $model = …, ?string $configuration = …, ?int $beUserUid = …, ?float $plannedCost = …, ?string $translator = …, ?string $site = …, ?string $tagHandling = …, ?int $cacheTtl = …)
   method getBeUserUid(): ?int
   method getCacheTtl(): ?int
@@ -2371,7 +2371,7 @@ Netresearch\NrLlm\Service\Option\TranslationOptions (class) extends Netresearch\
   method withTemperature(float $temperature): static
   method withTranslator(string $translator): static
 
-Netresearch\NrLlm\Service\Option\VisionOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Service\Option\VisionOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?string $detailLevel = …, ?int $maxTokens = …, ?float $temperature = …, ?string $provider = …, ?string $model = …, ?int $beUserUid = …, ?float $plannedCost = …)
   method getBeUserUid(): ?int
   method getDetailLevel(): ?string
@@ -2610,7 +2610,7 @@ Netresearch\NrLlm\Service\Tool\ToolInvocationContext (class)
   property readonly target: ?Netresearch\NrLlm\Domain\ValueObject\ToolInvocationTarget
   property readonly toolName: string
 
-Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy (class)
+Netresearch\NrLlm\Service\Tool\ToolInvocationPolicy (class) implements Netresearch\NrLlm\Service\Tool\PreApprovalInvocationPolicyInterface, Netresearch\NrLlm\Service\Tool\ToolInvocationPolicyInterface
   constructor(iterable $rules = …, iterable $resolvers = …)
   method decide(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
   method decideBeforeApproval(Netresearch\NrLlm\Service\Tool\ToolInvocationContext $context): Netresearch\NrLlm\Domain\ValueObject\ToolInvocationDecision
@@ -2680,7 +2680,7 @@ Netresearch\NrLlm\Specialized\Document\DocumentAnalysisService (class)
   constructor(Netresearch\NrLlm\Service\LlmServiceManagerInterface $llmManager, Netresearch\NrLlm\Service\Feature\VisionServiceInterface $visionService, Netresearch\NrLlm\Specialized\Document\PdfRasterizerInterface $rasterizer, ?Netresearch\NrLlm\Service\Budget\BackendUserContextResolverInterface $beUserContextResolver = …, ?Netresearch\NrLlm\Service\ConfigurationResolver $configurationResolver = …)
   method analyzeDocument(string $pdf, string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Specialized\Document\DocumentAnalysisResult
 
-Netresearch\NrLlm\Specialized\Image\DallEImageService (class) extends Netresearch\NrLlm\Specialized\AbstractSpecializedService
+Netresearch\NrLlm\Specialized\Image\DallEImageService (class) extends Netresearch\NrLlm\Specialized\AbstractSpecializedService implements Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface
   constructor(Netresearch\NrVault\Service\VaultServiceInterface $vault, Psr\Http\Message\RequestFactoryInterface $requestFactory, Psr\Http\Message\StreamFactoryInterface $streamFactory, TYPO3\CMS\Core\Configuration\ExtensionConfiguration $extensionConfiguration, Netresearch\NrLlm\Service\UsageTrackerServiceInterface $usageTracker, Psr\Log\LoggerInterface $logger, Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface $costCalculator, Netresearch\NrLlm\Service\BudgetServiceInterface $budgetService, Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline $pipeline, Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener $inputGuardrailScreener, ?Netresearch\NrLlm\Domain\Repository\ModelRepository $modelRepository = …, ?Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository $configurationRepository = …)
   method createVariations(string $imagePath, int $count = …, string $size = …, ?int $beUserUid = …): array
   method edit(string $imagePath, string $prompt, ?string $maskPath = …, string $size = …, ?int $beUserUid = …): Netresearch\NrLlm\Specialized\Image\ImageGenerationResult
@@ -2689,7 +2689,7 @@ Netresearch\NrLlm\Specialized\Image\DallEImageService (class) extends Netresearc
   method getAvailableModels(): array
   method getSupportedSizes(string $model = …): array
 
-Netresearch\NrLlm\Specialized\Image\FalImageService (class) extends Netresearch\NrLlm\Specialized\AbstractSpecializedService
+Netresearch\NrLlm\Specialized\Image\FalImageService (class) extends Netresearch\NrLlm\Specialized\AbstractSpecializedService implements Netresearch\NrLlm\Specialized\Image\ImageGeneratorInterface
   constructor(Netresearch\NrVault\Service\VaultServiceInterface $vault, Psr\Http\Message\RequestFactoryInterface $requestFactory, Psr\Http\Message\StreamFactoryInterface $streamFactory, TYPO3\CMS\Core\Configuration\ExtensionConfiguration $extensionConfiguration, Netresearch\NrLlm\Service\UsageTrackerServiceInterface $usageTracker, Psr\Log\LoggerInterface $logger, Netresearch\NrLlm\Specialized\Pricing\SpecializedCostCalculatorInterface $costCalculator, Netresearch\NrLlm\Service\BudgetServiceInterface $budgetService, Netresearch\NrLlm\Provider\Middleware\MiddlewarePipeline $pipeline, Netresearch\NrLlm\Service\Guardrail\InputGuardrailScreener $inputGuardrailScreener, ?Netresearch\NrLlm\Domain\Repository\ModelRepository $modelRepository = …, ?Netresearch\NrLlm\Domain\Repository\LlmConfigurationRepository $configurationRepository = …)
   method generate(string $prompt, string $model = …, array $options = …): Netresearch\NrLlm\Specialized\Image\ImageGenerationResult
   method generateMultiple(string $prompt, int $count = …, string $model = …, array $options = …): array
@@ -2738,7 +2738,7 @@ Netresearch\NrLlm\Specialized\Option\DeepLOptions (class) extends Netresearch\Nr
   property readonly splitSentences: ?bool
   property readonly tagHandling: ?string
 
-Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?string $model = …, ?string $size = …, ?string $quality = …, ?string $style = …, ?string $format = …, ?string $configuration = …, ?int $beUserUid = …, ?float $plannedCost = …)
   method getBeUserUid(): ?int
   method getPlannedCost(): ?float
@@ -2758,7 +2758,7 @@ Netresearch\NrLlm\Specialized\Option\ImageGenerationOptions (class) extends Netr
   property readonly size: ?string
   property readonly style: ?string
 
-Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?string $model = …, ?string $voice = …, ?string $format = …, ?float $speed = …, ?string $configuration = …, ?int $beUserUid = …, ?float $plannedCost = …)
   method getBeUserUid(): ?int
   method getPlannedCost(): ?float
@@ -2775,7 +2775,7 @@ Netresearch\NrLlm\Specialized\Option\SpeechSynthesisOptions (class) extends Netr
   property readonly speed: ?float
   property readonly voice: ?string
 
-Netresearch\NrLlm\Specialized\Option\TranscriptionOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions
+Netresearch\NrLlm\Specialized\Option\TranscriptionOptions (class) extends Netresearch\NrLlm\Service\Option\AbstractOptions implements Netresearch\NrLlm\Service\Option\BudgetAwareOptionsInterface
   constructor(?string $model = …, ?string $language = …, ?string $format = …, ?string $prompt = …, ?float $temperature = …, ?string $configuration = …, ?int $beUserUid = …, ?float $plannedCost = …)
   method getBeUserUid(): ?int
   method getPlannedCost(): ?float
@@ -2879,13 +2879,13 @@ Netresearch\NrLlm\Specialized\Translation\TranslatorResult (class)
   property readonly translatedText: string
   property readonly translator: string
 
-Netresearch\NrLlm\Testing\FakeBudgetService (class)
+Netresearch\NrLlm\Testing\FakeBudgetService (class) implements Netresearch\NrLlm\Service\BudgetServiceInterface
   method check(int $beUserUid, float $plannedCost = …, ?Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration = …): Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
   property checkCalls: array
   property checkResult: ?Netresearch\NrLlm\Domain\DTO\BudgetCheckResult
   property throwable: ?Throwable
 
-Netresearch\NrLlm\Testing\FakeCompletionService (class)
+Netresearch\NrLlm\Testing\FakeCompletionService (class) implements Netresearch\NrLlm\Service\Feature\CompletionServiceInterface
   const STRUCTURED_MODEL = "fake-structured"
   method complete(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method completeCreative(string $prompt, ?Netresearch\NrLlm\Service\Option\ChatOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
@@ -2917,7 +2917,7 @@ Netresearch\NrLlm\Testing\FakeCompletionService (class)
   property structuredResult: array
   property throwable: ?Throwable
 
-Netresearch\NrLlm\Testing\FakeDecisionService (class)
+Netresearch\NrLlm\Testing\FakeDecisionService (class) implements Netresearch\NrLlm\Service\Decision\DecisionServiceInterface
   method assertAvailable(string $profile, ?string $configuration = …): void
   method evaluate(Netresearch\NrLlm\Service\Decision\DecisionRequest $request): Netresearch\NrLlm\Service\Decision\DecisionResult
   property requests: array
@@ -2925,7 +2925,7 @@ Netresearch\NrLlm\Testing\FakeDecisionService (class)
   property throwable: ?Throwable
   property unavailable: ?Throwable
 
-Netresearch\NrLlm\Testing\FakeEmbeddingService (class)
+Netresearch\NrLlm\Testing\FakeEmbeddingService (class) implements Netresearch\NrLlm\Service\Feature\EmbeddingServiceInterface
   method cosineSimilarity(array $vectorA, array $vectorB): float
   method embed(string $text, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
   method embedBatch(array $texts, ?Netresearch\NrLlm\Service\Option\EmbeddingOptions $options = …): array
@@ -2949,7 +2949,7 @@ Netresearch\NrLlm\Testing\FakeEmbeddingService (class)
   property pairwiseSimilaritiesResult: array
   property throwable: ?Throwable
 
-Netresearch\NrLlm\Testing\FakeToolCallingService (class)
+Netresearch\NrLlm\Testing\FakeToolCallingService (class) implements Netresearch\NrLlm\Service\Feature\ToolCallingServiceInterface
   method chatWithTools(array $messages, array $tools, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   method chatWithToolsForConfiguration(array $messages, array $tools, Netresearch\NrLlm\Domain\Model\LlmConfiguration $configuration, ?Netresearch\NrLlm\Service\Option\ToolOptions $options = …): Netresearch\NrLlm\Domain\Model\CompletionResponse
   property chatWithToolsCalls: array
@@ -2957,7 +2957,7 @@ Netresearch\NrLlm\Testing\FakeToolCallingService (class)
   property responses: array
   property throwable: ?Throwable
 
-Netresearch\NrLlm\Testing\FakeVisionService (class)
+Netresearch\NrLlm\Testing\FakeVisionService (class) implements Netresearch\NrLlm\Service\Feature\VisionServiceInterface
   method analyzeImage(array|string $imageUrl, string $customPrompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string
   method analyzeImageFull(string $imageUrl, string $prompt, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): Netresearch\NrLlm\Domain\Model\VisionResponse
   method generateAltText(array|string $imageUrl, ?Netresearch\NrLlm\Service\Option\VisionOptions $options = …): array|string

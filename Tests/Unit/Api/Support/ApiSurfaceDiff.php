@@ -52,12 +52,14 @@ final readonly class ApiSurfaceDiff
      * @param list<string>                                         $removed
      * @param list<array{entry: string, was: string, now: string}> $changed
      * @param list<string>                                         $addedToContracts the part of $added that breaks implementations or exhaustive matches (interface methods, abstract methods, enum cases)
+     * @param list<array{entry: string, was: string, now: string}> $widened          header changes that break nobody: an abstract class made concrete, an interface added to `implements`
      */
     private function __construct(
         public array $added,
         public array $removed,
         public array $changed,
         public array $addedToContracts = [],
+        public array $widened = [],
     ) {}
 
     public static function between(string $expected, string $actual): self
@@ -69,6 +71,7 @@ final readonly class ApiSurfaceDiff
         $removed          = [];
         $changed          = [];
         $addedToContracts = [];
+        $widened          = [];
 
         foreach ($after as $fqcn => $members) {
             if (!isset($before[$fqcn])) {
@@ -87,7 +90,9 @@ final readonly class ApiSurfaceDiff
                     continue;
                 }
 
-                if ($before[$fqcn][$key] !== $line) {
+                if ($before[$fqcn][$key] !== $line && $key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) {
+                    $widened[] = ['entry' => $fqcn . ' :: ' . $key, 'was' => $before[$fqcn][$key], 'now' => $line];
+                } elseif ($before[$fqcn][$key] !== $line) {
                     $changed[] = [
                         'entry' => $fqcn . ' :: ' . $key,
                         'was'   => $before[$fqcn][$key],
@@ -116,12 +121,12 @@ final readonly class ApiSurfaceDiff
         sort($addedToContracts);
         usort($changed, static fn (array $a, array $b): int => strcmp($a['entry'], $b['entry']));
 
-        return new self($added, $removed, $changed, $addedToContracts);
+        return new self($added, $removed, $changed, $addedToContracts, $widened);
     }
 
     public function isEmpty(): bool
     {
-        return $this->added === [] && $this->removed === [] && $this->changed === [];
+        return $this->added === [] && $this->removed === [] && $this->changed === [] && $this->widened === [];
     }
 
     /**
@@ -160,11 +165,12 @@ final readonly class ApiSurfaceDiff
         $contract = $this->addedToContracts;
         $other    = array_values(array_diff($this->added, $contract));
         $counts   = sprintf(
-            '%d added to an interface, abstract class or enum, %d other addition(s), %d removed, %d changed',
+            '%d added to an interface, abstract class or enum, %d other addition(s), %d removed, %d changed, %d widened',
             count($contract),
             count($other),
             count($this->removed),
             count($this->changed),
+            count($this->widened),
         );
         $contractSentence = 'A new method on an @api interface or a new abstract method on an @api class '
             . 'breaks every implementation outside nr_llm, and a new case of an @api enum breaks every '
@@ -215,6 +221,15 @@ final readonly class ApiSurfaceDiff
             $sections[] = $this->bucket('added', '+', $other);
         }
 
+        if ($this->widened !== []) {
+            $lines = [];
+            foreach ($this->widened as $entry) {
+                $lines[] = $entry['entry'] . "\n        was: " . $entry['was'] . "\n        now: " . $entry['now'];
+            }
+
+            $sections[] = $this->bucket('widened header (additive)', '+', $lines);
+        }
+
         return implode("\n\n", $sections);
     }
 
@@ -236,6 +251,12 @@ final readonly class ApiSurfaceDiff
             . 'Read the was/now pair below — the rendering marks an optional parameter with " = …".'];
         if ($this->addedToContracts !== []) {
             $sections[] = $contractSentence;
+        }
+
+        if (array_filter($this->changed, static fn (array $c): bool => str_ends_with($c['entry'], ' :: ' . self::DECLARATION_KEY)) !== []) {
+            $sections[] = 'A changed header line is breaking unless it only moves the parent class to a '
+                . 'subclass of the old one, which keeps every member a subclass or caller relied on; the '
+                . 'snapshot cannot tell, so check the new parent before deciding.';
         }
 
         return $sections;
@@ -286,6 +307,44 @@ final readonly class ApiSurfaceDiff
         }
 
         return $classes;
+    }
+
+    /**
+     * True when a changed header line breaks nobody: the kind stays or an
+     * abstract class becomes concrete, the parent stays, and every interface
+     * the header listed is still listed. Methods a newly implemented interface
+     * leaves open show up as `method abstract` lines and are judged there.
+     * A changed parent is never a widening here: a subclass of the old parent
+     * would break nobody, but the snapshot alone cannot tell.
+     */
+    private static function isWidening(string $was, string $now): bool
+    {
+        $before = self::headerParts($was);
+        $after  = self::headerParts($now);
+
+        $kindOk = $before['kind'] === $after['kind']
+            || ($before['kind'] === 'abstract class' && $after['kind'] === 'class');
+
+        return $kindOk
+            && $before['extends'] === $after['extends']
+            && array_diff($before['implements'], $after['implements']) === [];
+    }
+
+    /**
+     * `Foo (class) extends Bar implements A, B` → kind, extends, implements.
+     * An interface's parents are its `extends` list and must stay identical.
+     *
+     * @return array{kind: string, extends: string, implements: list<string>}
+     */
+    private static function headerParts(string $header): array
+    {
+        preg_match('/^\S+ \(([a-z ]+)\)(?: extends ([^ ]+(?:, [^ ]+)*?))?(?: implements (.+))?$/', $header, $m);
+
+        return [
+            'kind'       => $m[1] ?? $header,
+            'extends'    => $m[2] ?? '',
+            'implements' => isset($m[3]) && $m[3] !== '' ? explode(', ', $m[3]) : [],
+        ];
     }
 
     /**

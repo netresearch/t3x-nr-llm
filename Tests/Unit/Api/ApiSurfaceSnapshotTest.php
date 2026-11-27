@@ -54,10 +54,14 @@ use SplFileInfo;
  * fixture classes in ApiSurfaceRendererTest — a snapshot can only show that
  * today equals yesterday, never that a given break would be caught.
  *
- * The failure message is classified by ApiSurfaceDiff: additive (a new
- * class, method, property) is regenerated and noted; breaking (removed or
- * changed, or a new method on an interface or a new enum case) needs a
- * deliberate decision under `Documentation/Api/Deprecation.rst`.
+ * The failure message is classified by ApiSurfaceDiff, by the rules of
+ * `Documentation/Api/Stability.rst` ("Enforcement"): additive (a new class,
+ * a new concrete method or property, an abstract class made concrete) is
+ * regenerated and noted in an `added` changelog.d fragment; breaking
+ * (removed or changed, a new method on an interface, a new abstract method,
+ * a new enum case, a changed `extends` or a removed `implements`) needs a
+ * deliberate decision under `Documentation/Api/Deprecation.rst` and a
+ * `- **BREAKING` fragment.
  *
  * To update intentionally: delete `api-surface.txt`, run the unit suite
  * twice (first run regenerates the file and fails, second is green), and

@@ -22,8 +22,9 @@ declare(strict_types=1);
  *   - a release that keeps the middle number carries none.
  *
  * A release is compared with the highest plain version below it, wherever that
- * section stands in the file. A section after RULE_SINCE whose version is not
- * a plain 0.N.y fails, so it cannot switch the comparison off.
+ * section stands in the file. Every release heading, older ones included, must
+ * name a plain N.N.N version (no `v`, no pre-release suffix): a heading that
+ * does not would drop out of the comparison and switch it off.
  *
  * A breaking entry is a top-level bullet that opens with `- **BREAKING`. Older
  * sections also wrote `**Breaking:**`, `**BREAKING**` or the word inside a
@@ -185,7 +186,7 @@ if (preg_match_all('/^## \[([^\]]*)\]/m', $text, $headings) > 0) {
     foreach ($headings[1] as $label) {
         if ($label !== 'Unreleased' && preg_match(PLAIN_VERSION, $label) !== 1) {
             $problems[] = sprintf(
-                '  [%s]  is not a plain 0.N.y version — a CHANGELOG section names a release, written'
+                '  [%s]  is not a plain N.N.N version — a CHANGELOG section names a release, written'
                 . ' without a `v` and without a pre-release suffix',
                 $label,
             );

@@ -103,7 +103,7 @@ See `Tests/Architecture/` for enforcement tests.
 
 ### Touching the public surface (`@api`)
 - Add an ADR under `Documentation/Adr/` (format `Adr<N>Description.rst`) — it lands **before** the implementation PR, not inside it. `AdrReferenceIntegrityTest` refuses a reference to a record that does not exist; that the record arrived first is not machine-checked.
-- `Tests/Unit/Api/api-surface.txt` freezes every `@api` signature, constructors included — the class's own, or one inherited from a base inside `Netresearch\NrLlm` (bases from TYPO3 core or the SPL are left out because they differ across the version matrix). The failure says whether the diff is additive (regenerate + `### Added`) or breaking (decide first).
+- `Tests/Unit/Api/api-surface.txt` freezes every `@api` signature, constructors included — the class's own, or one inherited from a base inside `Netresearch\NrLlm` (bases from TYPO3 core or the SPL are left out because they differ across the version matrix). The failure says whether the diff is additive (regenerate + an `added` fragment in `changelog.d/`) or breaking (decide first, then a fragment bullet opening with `- **BREAKING`; during 0.x the release raises the middle version number). A new method on an `@api` interface, a new public or protected abstract method on an `@api` abstract class, a new `@api` enum case, a changed `extends` and a removed `implements` are breaking; the rules are in `Documentation/Api/Stability.rst`.
 - Removals follow `Documentation/Api/Deprecation.rst`, whose inventory is asserted against the `@deprecated` docblocks in both directions.
 
 ### Early returns and refusals

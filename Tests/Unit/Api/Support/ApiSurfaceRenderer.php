@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Api\Support;
 
+use BackedEnum;
 use ReflectionClass;
 use ReflectionClassConstant;
 use ReflectionEnum;
@@ -165,28 +166,74 @@ final class ApiSurfaceRenderer
      */
     private function extendsOf(ReflectionClass $reflection): string
     {
+        $direct = $this->directInterfaces($reflection);
         if ($reflection->isInterface()) {
-            $direct = $this->directParentInterfaces($reflection);
-
             return $direct === [] ? '' : ' extends ' . implode(', ', $direct);
         }
 
         $parent = $reflection->getParentClass();
 
-        return $parent instanceof ReflectionClass ? ' extends ' . $parent->getName() : '';
+        return ($parent instanceof ReflectionClass ? ' extends ' . $parent->getName() : '')
+            . ($direct === [] ? '' : ' implements ' . implode(', ', $direct));
     }
 
     /**
-     * The interfaces an interface extends itself, sorted: every ancestor that
-     * no other ancestor already extends.
+     * What a subclass of an abstract class has to implement beyond the public
+     * methods the class declares itself (those are rendered with them): its
+     * protected abstract methods, and abstract methods it inherits from a
+     * parent or an interface it leaves open. Only declarations inside
+     * `Netresearch\NrLlm` or PHP itself count, as with constructors, so the
+     * snapshot does not depend on the TYPO3 version.
+     *
+     * @param ReflectionClass<object> $reflection
+     *
+     * @return list<ReflectionMethod>
+     */
+    private function abstractMethodsToImplement(ReflectionClass $reflection): array
+    {
+        if (!$reflection->isAbstract() || $reflection->isInterface() || $reflection->isTrait()) {
+            return [];
+        }
+
+        $methods = [];
+        foreach ($reflection->getMethods() as $method) {
+            $declaring = $method->getDeclaringClass();
+            if (!$method->isAbstract() || $method->isPrivate()) {
+                continue;
+            }
+
+            if ($method->isPublic() && $declaring->getName() === $reflection->getName()) {
+                continue; // rendered with the declared public methods
+            }
+
+            if (!$declaring->isInternal() && !str_starts_with($declaring->getName(), self::OWN_NAMESPACE_PREFIX)) {
+                continue;
+            }
+
+            $methods[] = $method;
+        }
+
+        return $methods;
+    }
+
+    /**
+     * The interfaces a class implements or an interface extends itself,
+     * sorted: every interface that neither the parent class nor another of
+     * them already brings in. An enum's UnitEnum/BackedEnum are left out,
+     * since every enum has them.
      *
      * @param ReflectionClass<object> $reflection
      *
      * @return list<string>
      */
-    private function directParentInterfaces(ReflectionClass $reflection): array
+    private function directInterfaces(ReflectionClass $reflection): array
     {
-        $all    = $reflection->getInterfaceNames();
+        $parent = $reflection->getParentClass();
+        $all    = array_values(array_diff(
+            $reflection->getInterfaceNames(),
+            $parent instanceof ReflectionClass ? $parent->getInterfaceNames() : [],
+            $reflection->isEnum() ? [UnitEnum::class, BackedEnum::class] : [],
+        ));
         $direct = array_values(array_filter(
             $all,
             static fn (string $name): bool => array_filter(
@@ -270,6 +317,16 @@ final class ApiSurfaceRenderer
                 'method %s%s%s(%s): %s',
                 $method->isAbstract() && !$reflection->isInterface() ? 'abstract ' : '',
                 $method->isStatic() ? 'static ' : '',
+                $method->getName(),
+                $this->renderParameters($method, $reflection->getName()),
+                $this->renderType($method->getReturnType(), $reflection->getName()),
+            );
+        }
+
+        foreach ($this->abstractMethodsToImplement($reflection) as $method) {
+            $lines[] = sprintf(
+                'method abstract %s%s(%s): %s',
+                $method->isProtected() ? 'protected ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),
                 $this->renderType($method->getReturnType(), $reflection->getName()),

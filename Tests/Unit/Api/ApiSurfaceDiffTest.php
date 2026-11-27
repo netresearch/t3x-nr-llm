@@ -62,6 +62,18 @@ final class ApiSurfaceDiffTest extends TestCase
     }
 
     #[Test]
+    public function aChangedParentIsBreakingAndTheMessageSaysWhenItIsNot(): void
+    {
+        $before = "Acme\\Result (class) extends Acme\\Base\n  method text(): string\n";
+        $after  = "Acme\\Result (class) extends Acme\\Child\n  method text(): string\n";
+
+        $diff = ApiSurfaceDiff::between($before, $after);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertStringContainsString('subclass of the old one', $diff->describe());
+    }
+
+    #[Test]
     public function aNewCaseOfAnEnumIsBreaking(): void
     {
         $diff = ApiSurfaceDiff::between(self::BEFORE, str_replace(

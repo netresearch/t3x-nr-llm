@@ -147,7 +147,7 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
         [$exit, $stderr] = $this->check($changelog);
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('[0.56.0-rc.1]  is not a plain 0.N.y version', $stderr);
+        self::assertStringContainsString('[0.56.0-rc.1]  is not a plain N.N.N version', $stderr);
         self::assertStringContainsString('[0.56.0]  raises the middle number over 0.55.1 without a breaking entry', $stderr);
     }
 
@@ -218,7 +218,7 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
         [$exit, $stderr] = $this->check($this->withTopmost('v0.56.0', "### Added\n\n- A new feature.\n"));
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('[v0.56.0]  is not a plain 0.N.y version', $stderr);
+        self::assertStringContainsString('[v0.56.0]  is not a plain N.N.N version', $stderr);
     }
 
     #[Test]

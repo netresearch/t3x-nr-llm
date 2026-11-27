@@ -10,10 +10,14 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Api;
 
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithAbstractMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithConcreteMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AddedMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\BackedFixtureEnum;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\CountableBase;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ExtendingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
@@ -224,6 +228,71 @@ final class ApiSurfaceRendererTest extends TestCase
         self::assertSame('breaking', $diff->verdict());
         self::assertSame(ExtendingPort::class . ' :: (declaration)', $diff->changed[0]['entry']);
         self::assertSame(ExtendingPort::class . ' (interface) extends Countable', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aNewProtectedAbstractMethodClassifiesAsBreaking(): void
+    {
+        // The AbstractSpecializedService pattern: subclasses implement
+        // protected hooks, so a new one breaks every subclass outside nr_llm.
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseWithProtectedAbstract::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [AbstractBaseWithProtectedAbstract::class . ' :: method abstract protected kind(): string'],
+            $diff->addedToContracts,
+        );
+    }
+
+    #[Test]
+    public function anAbstractClassThatImplementsAnInterfaceItLeavesOpenClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseImplementingPort::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [AbstractBaseImplementingPort::class . ' :: method abstract send(string $text): void'],
+            $diff->addedToContracts,
+        );
+        self::assertStringContainsString(
+            ' implements ' . StandalonePort::class,
+            (new ApiSurfaceRenderer())->render([AbstractBaseImplementingPort::class]),
+        );
+    }
+
+    #[Test]
+    public function aConcreteClassThatAddsAnImplementedInterfaceStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(ConcreteBase::class, CountableBase::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame(CountableBase::class . ' (class) implements Countable', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function aClassThatDropsAnImplementedInterfaceClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(CountableBase::class, ConcreteBase::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(ConcreteBase::class . ' :: (declaration)', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
+    public function anAbstractClassThatBecomesConcreteStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBase::class, ConcreteBase::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->changed);
+    }
+
+    #[Test]
+    public function aConcreteClassThatBecomesAbstractClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(ConcreteBase::class, AbstractBase::class);
+
+        self::assertSame('breaking', $diff->verdict());
     }
 
     #[Test]
