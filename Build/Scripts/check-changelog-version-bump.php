@@ -116,12 +116,21 @@ $lookalike = static function (string $where, string $text) use (&$problems): voi
 };
 
 // [Unreleased] and the fragments: caught on the pull request, before a release.
-if (preg_match('/^## \[Unreleased\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]: \S|\z)/ms', $text, $u) === 1) {
-    $lookalike('[Unreleased]', $u[1]);
+// The section runs from its heading to the next `## [` heading or the
+// link-reference block, as in changelog-sections.php.
+$start = strpos($text, '## [Unreleased]');
+if ($start !== false) {
+    $unreleased = substr($text, $start);
+    if (preg_match('/^(?:## \[(?!Unreleased)|\[[^\]]+\]: \S)/m', $unreleased, $end, PREG_OFFSET_CAPTURE) === 1) {
+        $unreleased = substr($unreleased, 0, $end[0][1]);
+    }
+
+    $lookalike('[Unreleased]', $unreleased);
 }
 
-$fragments = dirname($path) . '/changelog.d';
-foreach (is_dir($fragments) ? (glob($fragments . '/*.md') ?: []) : [] as $fragment) {
+$fragments     = dirname($path) . '/changelog.d';
+$fragmentFiles = is_dir($fragments) ? glob($fragments . '/*.md') : [];
+foreach ($fragmentFiles ?: [] as $fragment) {
     if (basename($fragment) !== 'README.md') {
         $lookalike('changelog.d/' . basename($fragment), (string) file_get_contents($fragment));
     }
