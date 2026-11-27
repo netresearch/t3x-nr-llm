@@ -15,7 +15,7 @@ An extension calls nr-llm. Which part of nr-llm may it rely on, and which tests 
 
 # How to answer
 
-Read the public API concept and its tests. A consuming extension relies on the `@api` surface only; everything marked `@internal` can change without notice. The contract is the public API and the concepts with a `partOf` row to it: the LLM service and the extension points for tools, guardrails and provider adapters. The rest of the answer lists what the public API depends on internally; its tests guard the implementation, not the contract. Run:
+Read the public API concept and its tests. A consuming extension relies on the `@api` surface only; everything marked `@internal` can change without notice. The contract is the public API and the concepts with a `partOf` row to it: the LLM service and the extension points for tools, guardrails, provider adapters and middleware. The rest of the answer lists what the public API depends on internally; its tests guard the implementation, not the contract. Run:
 
 ```bash
 python3 Build/Scripts/check-ontology.py docs/ontology --needs concepts/public-api
@@ -32,6 +32,12 @@ concepts/guardrail
 concepts/llm-service
   via concepts/llm-service partOf concepts/public-api
   test Tests/Unit/Service/LlmServiceManagerTest.php
+concepts/middleware-pipeline
+  via concepts/middleware-pipeline partOf concepts/public-api
+  test Tests/Unit/Provider/Middleware/MiddlewarePipelineTest.php
+  test Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php
+  test Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php
+  test Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php
 concepts/provider-adapter
   via concepts/provider-adapter partOf concepts/public-api
   test Tests/Unit/Provider/AbstractProviderTest.php
@@ -40,13 +46,6 @@ concepts/tool
 concepts/term-list
   via concepts/guardrail partOf concepts/public-api
   via concepts/term-list partOf concepts/guardrail
-concepts/middleware-pipeline
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/middleware-pipeline
-  test Tests/Unit/Provider/Middleware/MiddlewarePipelineTest.php
-  test Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php
-  test Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php
-  test Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php
 concepts/streaming-dispatcher
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/streaming-dispatcher
@@ -61,14 +60,13 @@ concepts/glossary
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
+concepts/user-budget
+  via concepts/middleware-pipeline partOf concepts/public-api
+  via concepts/middleware-pipeline constrainedBy concepts/user-budget
+  test Tests/Unit/Service/BudgetServiceTest.php
 concepts/mcp-server
   via concepts/tool partOf concepts/public-api
   via concepts/tool derivedFrom concepts/mcp-server
-concepts/user-budget
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline constrainedBy concepts/user-budget
-  test Tests/Unit/Service/BudgetServiceTest.php
 concepts/model
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration
@@ -93,8 +91,7 @@ concepts/prompt-snippet
   via concepts/configuration uses concepts/prompt-snippet
   test Tests/Unit/Domain/Model/PromptSnippetTest.php
 concepts/usage-record
-  via concepts/llm-service partOf concepts/public-api
-  via concepts/llm-service uses concepts/middleware-pipeline
+  via concepts/middleware-pipeline partOf concepts/public-api
   via concepts/middleware-pipeline constrainedBy concepts/user-budget
   via concepts/user-budget uses concepts/usage-record
   test Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php
