@@ -174,6 +174,11 @@ def check_evidence(bundle: Bundle, where: str, row: list[str]) -> None:
             f"{where}: evidence file {evidence.group(1)} lies outside the repository"
         )
         return
+    if path.resolve().is_relative_to(bundle.root):
+        bundle.errors.append(
+            f"{where}: evidence file {evidence.group(1)} lies inside the bundle and proves nothing"
+        )
+        return
     if not path.is_file():
         bundle.errors.append(
             f"{where}: evidence file {evidence.group(1)} does not exist"
