@@ -5,12 +5,12 @@ type: Concept
 title: "User budget"
 description: "Daily and monthly ceilings for the requests, tokens and cost of one backend user."
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
 
-A user budget sets daily and monthly ceilings for the requests, the tokens and the cost of one backend user. A request must stay under both windows. The value `0` means no limit on that axis. The budget is a ceiling, not a counter: the usage is summed from the usage records. The check runs before the call. Requests and cost include the planned call; tokens count only the recorded usage, so a call can take the token total past the ceiling, and concurrent calls can pass before their usage is recorded.
+A user budget sets daily and monthly ceilings for the requests, the tokens and the cost of one backend user. A request must stay under both windows. The value `0` means no limit on that axis. The budget is a ceiling, not a counter: the usage is summed from the usage records. The check runs before the call. Requests and cost include the planned call; tokens count only the recorded usage, so a call can take the token total past the ceiling, and concurrent calls can pass before their usage is recorded. A call without a backend user (user ID 0, for example on the command line or in the scheduler) skips the user budget; the daily limits of its configuration still apply.
 
 # Neighbours
 

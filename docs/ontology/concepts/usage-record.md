@@ -21,10 +21,12 @@ flowchart LR
   c["Usage record"]
   n1["LLM service"]
   n2[/"Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php"/]
-  n3["User budget"]
+  n3["Configuration"]
+  n4["User budget"]
   c -->|"records"| n1
   c -->|"verifiedBy"| n2
   n3 -->|"uses"| c
+  n4 -->|"uses"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```

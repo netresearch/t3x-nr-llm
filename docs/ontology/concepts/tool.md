@@ -28,11 +28,13 @@ flowchart LR
   n3["Public API"]
   n4["Tool group"]
   n5["Agent run"]
+  n6["Tool enable state"]
   c -->|"derivedFrom"| n1
   c -->|"implementedBy"| n2
   c -->|"partOf"| n3
   c -->|"partOf"| n4
   n5 -->|"uses"| c
+  n6 -->|"uses"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```

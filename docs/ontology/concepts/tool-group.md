@@ -23,10 +23,12 @@ flowchart LR
   n2[/"Tests/Unit/Domain/Enum/ToolGroupTest.php"/]
   n3["Tool"]
   n4["Configuration"]
+  n5["Tool enable state"]
   c -->|"implementedBy"| n1
   c -->|"verifiedBy"| n2
   n3 -->|"partOf"| c
   n4 -->|"uses"| c
+  n5 -->|"uses"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```

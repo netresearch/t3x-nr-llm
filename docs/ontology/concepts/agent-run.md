@@ -5,7 +5,7 @@ type: Concept
 title: "Agent run"
 description: "One execution of a tool-using agent under one configuration, on behalf of one backend user."
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
@@ -25,15 +25,21 @@ Generated from the relation tables by `check-ontology.py --write-diagrams`. A so
 flowchart LR
   c["Agent run"]
   n1["Backend user"]
-  n2[/"Classes/Service/Agent/AgentRunExecutor.php"/]
-  n3["Configuration"]
-  n4["LLM service"]
-  n5["Tool"]
+  n2["Skill"]
+  n3["Tool enable state"]
+  n4[/"Classes/Service/Agent/AgentRunExecutor.php"/]
+  n5["Configuration"]
+  n6["LLM service"]
+  n7["Tool"]
+  n8["AI-written record"]
   c -->|"constrainedBy"| n1
-  c -->|"implementedBy"| n2
-  c -->|"uses"| n3
-  c -->|"uses"| n4
+  c -->|"constrainedBy"| n2
+  c -->|"constrainedBy"| n3
+  c -->|"implementedBy"| n4
   c -->|"uses"| n5
+  c -->|"uses"| n6
+  c -->|"uses"| n7
+  n8 -->|"records"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```
@@ -46,9 +52,13 @@ flowchart LR
 | `constrainedBy` | [Backend user](backend-user.md) | `Classes/Service/Agent/AgentRunExecutor.php` | `private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null` | asserted |
 | `uses` | [LLM service](llm-service.md) | `Classes/Service/Tool/ToolLoopService.php` | `Each round calls {@see LlmServiceManagerInterface::chatWithToolsForConfiguration()}` | asserted |
 | `uses` | [Tool](tool.md) | `Classes/Service/Agent/AgentRunExecutor.php` | `private ToolLoopServiceInterface $toolLoop` | asserted |
+| `constrainedBy` | [Tool enable state](tool-enable-state.md) | `Classes/Service/Tool/ToolCallPolicy.php` | `private ToolAvailabilityServiceInterface $availability,` | asserted |
+| `constrainedBy` | [Skill](skill.md) | `Classes/Service/Tool/ToolCallPolicy.php` | `return $this->allowedTools->resolveForRun($configuration, $forcedSkills);` | asserted |
 | `implementedBy` | `Classes/Service/Agent/AgentRunExecutor.php` | `Classes/Service/Agent/AgentRunExecutor.php` | `class AgentRunExecutor` | asserted |
 
 # Notes
 
 - The run stores both the configuration record ID and its identifier.
-- Which tools a run may call is set by its configuration (tool groups, excluded tools) and by the permissions of its backend user.
+- Which tools a run may call is decided by the tool call policy (`Classes/Service/Tool/ToolCallPolicy.php`), which the tool loop asks for every call. Its gates, in order: the tool is registered; the tool enable state has the tool and its group switched on; a tool that requires an administrator runs only for an admin backend user; the skill allow-list of the run, with the tool groups the configuration allows applied on top; the tools the configuration excludes, now and at the start of the run; the trust zone of the configuration. The backend user enters only through the admin check.
+- The skill allow-list is the union of the `allowed-tools` lists of the skills the run carries (from the configuration and the run's forced skills), resolved once at the start of the run. A skill without the key adds no restriction; when no skill declares one, every tool passes this gate. A skill that declares an empty list blocks every tool except the skill load tool (`Classes/Service/Tool/AllowedToolsResolver.php`).
+- A skill that a configuration or a task still has attached cannot be deleted, because its deletion would lift such a restriction (`Classes/Hook/SkillDeletionGuardHook.php`).

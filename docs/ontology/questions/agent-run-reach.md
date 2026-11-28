@@ -37,6 +37,12 @@ concepts/llm-service
   test Tests/Unit/Service/LlmServiceManagerTest.php
 concepts/tool
   via concepts/agent-run uses concepts/tool
+concepts/tool-enable-state
+  via concepts/agent-run constrainedBy concepts/tool-enable-state
+  test Tests/Functional/Service/Tool/ToolAvailabilityServiceTest.php
+concepts/skill
+  via concepts/agent-run constrainedBy concepts/skill
+  test Tests/Unit/Domain/Model/SkillAllowedToolsTest.php
 concepts/model
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/model
@@ -52,10 +58,6 @@ concepts/term-list
 concepts/backend-user-group
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration constrainedBy concepts/backend-user-group
-concepts/skill
-  via concepts/agent-run uses concepts/configuration
-  via concepts/configuration uses concepts/skill
-  test Tests/Unit/Domain/Model/SkillAllowedToolsTest.php
 concepts/tool-group
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/tool-group
@@ -64,6 +66,14 @@ concepts/prompt-snippet
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/prompt-snippet
   test Tests/Unit/Domain/Model/PromptSnippetTest.php
+concepts/configuration-preset
+  via concepts/agent-run uses concepts/configuration
+  via concepts/configuration derivedFrom concepts/configuration-preset
+  test Tests/Unit/Service/Preset/ConfigurationPresetImportServiceTest.php
+concepts/usage-record
+  via concepts/agent-run uses concepts/configuration
+  via concepts/configuration uses concepts/usage-record
+  test Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php
 concepts/user-budget
   via concepts/agent-run constrainedBy concepts/backend-user
   via concepts/backend-user constrainedBy concepts/user-budget
@@ -84,28 +94,26 @@ concepts/glossary
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
   test Tests/Unit/Service/Glossary/GlossaryResolverTest.php
+concepts/site-llm-settings
+  via concepts/agent-run uses concepts/llm-service
+  via concepts/llm-service uses concepts/site-llm-settings
+  test Tests/Unit/Service/Site/SiteLlmSettingsTest.php
+  test Tests/Unit/Service/ConfigurationResolverSiteTest.php
 concepts/mcp-server
   via concepts/agent-run uses concepts/tool
   via concepts/tool derivedFrom concepts/mcp-server
   test Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php
+concepts/skill-source
+  via concepts/agent-run constrainedBy concepts/skill
+  via concepts/skill derivedFrom concepts/skill-source
+concepts/skill-approval
+  via concepts/agent-run constrainedBy concepts/skill
+  via concepts/skill constrainedBy concepts/skill-approval
 concepts/provider
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/model
   via concepts/model uses concepts/provider
   test Tests/Unit/Domain/Model/ProviderTest.php
-concepts/skill-source
-  via concepts/agent-run uses concepts/configuration
-  via concepts/configuration uses concepts/skill
-  via concepts/skill derivedFrom concepts/skill-source
-concepts/skill-approval
-  via concepts/agent-run uses concepts/configuration
-  via concepts/configuration uses concepts/skill
-  via concepts/skill constrainedBy concepts/skill-approval
-concepts/usage-record
-  via concepts/agent-run constrainedBy concepts/backend-user
-  via concepts/backend-user constrainedBy concepts/user-budget
-  via concepts/user-budget uses concepts/usage-record
-  test Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php
 concepts/provider-adapter
   via concepts/agent-run uses concepts/llm-service
   via concepts/llm-service uses concepts/middleware-pipeline

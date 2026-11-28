@@ -5,12 +5,12 @@ type: Reference
 title: Coverage
 description: What the nr_llm ontology models, what it leaves out, and how to read its statuses.
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Scope
 
-The bundle models the concepts needed for the questions in [questions](questions/index.md): the three-tier configuration (provider, model, configuration), tasks, agent runs with their tools and skills, the middleware pipeline with budgets and guardrails, usage records, and the public API.
+The bundle models the concepts needed for the questions in [questions](questions/index.md): the three-tier configuration (provider, model, configuration), tasks, agent runs with their tools and skills, the middleware pipeline with budgets and guardrails, usage records, and the public API. It also models the global tool enable state, the site LLM settings, configuration presets, keyword search, the reranker, AI-written records and the autotranslate integration.
 
 It describes concepts, not the records of one installation. Which providers, models and configurations exist is data in the database of each installation. The questions say which tables and fields hold that data.
 
@@ -25,6 +25,7 @@ A missing relation means "not modelled", never "not related". These parts of nr_
 - The specialized services (DeepL, speech, image), the decision service, the editorial text check and the setup wizard.
 - Which middleware steps besides budget, usage and telemetry apply to a streamed call.
 - The backend model test and configuration test, which call a provider adapter without the pipeline.
+- The backend modules (`Configuration/Backend/Modules.php`) and the console commands (`Classes/Command/`). They are entry points to the concepts above, not concepts of their own; a module or a command that only calls a modelled service adds no relation. The notes of [Provider](concepts/provider.md) and [MCP server](concepts/mcp-server.md) name the commands `nrllm:provider:set-key` and `nrllm:mcp:import`. Use-case packs and their command `nrllm:usecasepack:install` are not modelled.
 - Properties that carry a policy value, for example trust zone, privacy level and data class. They appear in definitions only.
 
 # Statuses

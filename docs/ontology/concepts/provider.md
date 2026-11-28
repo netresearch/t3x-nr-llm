@@ -6,7 +6,7 @@ title: "Provider"
 description: "A configured connection to one LLM vendor API: endpoint, credentials and adapter type."
 tags: [three-tier]
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
@@ -51,3 +51,4 @@ flowchart LR
 # Notes
 
 - The API key is stored in nr-vault (the extension `netresearch/nr-vault`). The provider holds only the vault identifier.
+- Besides the setup wizard, the console command `nrllm:provider:set-key` stores a key for a provider from an unattended context; it reads the key from standard input (`Classes/Command/SetProviderApiKeyCommand.php`).

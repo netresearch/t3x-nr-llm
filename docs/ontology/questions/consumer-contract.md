@@ -27,9 +27,22 @@ python3 Build/Scripts/check-ontology.py docs/ontology --needs concepts/public-ap
 concepts/public-api
   test Tests/Unit/Api/ApiSurfaceSnapshotTest.php
   test Tests/Unit/Api/DeprecationInventoryTest.php
+concepts/ai-written-record
+  via concepts/ai-written-record partOf concepts/public-api
+  test Tests/Functional/EventListener/MarkAiWrittenRecordTest.php
+concepts/autotranslate-integration
+  via concepts/autotranslate-integration partOf concepts/public-api
+  test Tests/Unit/Integration/Autotranslate/AutotranslateTranslatorTest.php
+concepts/configuration-preset
+  via concepts/configuration-preset partOf concepts/public-api
+  test Tests/Unit/Service/Preset/ConfigurationPresetImportServiceTest.php
 concepts/guardrail
   via concepts/guardrail partOf concepts/public-api
   test Tests/Unit/Service/Guardrail/GuardrailPolicyResolverTest.php
+concepts/keyword-search
+  via concepts/keyword-search partOf concepts/public-api
+  test Tests/Unit/Service/Retrieval/KeywordSearchServiceTest.php
+  test Tests/Unit/Service/Retrieval/RetrievalServiceTest.php
 concepts/llm-service
   via concepts/llm-service partOf concepts/public-api
   test Tests/Unit/Service/LlmServiceManagerTest.php
@@ -42,6 +55,9 @@ concepts/middleware-pipeline
 concepts/provider-adapter
   via concepts/provider-adapter partOf concepts/public-api
   test Tests/Unit/Provider/AbstractProviderTest.php
+concepts/reranker
+  via concepts/reranker partOf concepts/public-api
+  test Tests/Unit/Service/Rerank/HttpRerankerTest.php
 concepts/tool
   via concepts/tool partOf concepts/public-api
 concepts/term-list
@@ -63,6 +79,11 @@ concepts/glossary
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
   test Tests/Unit/Service/Glossary/GlossaryResolverTest.php
+concepts/site-llm-settings
+  via concepts/llm-service partOf concepts/public-api
+  via concepts/llm-service uses concepts/site-llm-settings
+  test Tests/Unit/Service/Site/SiteLlmSettingsTest.php
+  test Tests/Unit/Service/ConfigurationResolverSiteTest.php
 concepts/user-budget
   via concepts/middleware-pipeline partOf concepts/public-api
   via concepts/middleware-pipeline constrainedBy concepts/user-budget
@@ -96,9 +117,9 @@ concepts/prompt-snippet
   via concepts/configuration uses concepts/prompt-snippet
   test Tests/Unit/Domain/Model/PromptSnippetTest.php
 concepts/usage-record
-  via concepts/middleware-pipeline partOf concepts/public-api
-  via concepts/middleware-pipeline constrainedBy concepts/user-budget
-  via concepts/user-budget uses concepts/usage-record
+  via concepts/llm-service partOf concepts/public-api
+  via concepts/llm-service uses concepts/configuration
+  via concepts/configuration uses concepts/usage-record
   test Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php
 concepts/provider
   via concepts/llm-service partOf concepts/public-api
