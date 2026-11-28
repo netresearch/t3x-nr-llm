@@ -5,7 +5,7 @@ type: Concept
 title: "Glossary"
 description: "The term pairs one site uses when it translates from one language into another."
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
@@ -25,13 +25,15 @@ Generated from the relation tables by `check-ontology.py --write-diagrams`. A so
 flowchart LR
   c["Glossary"]
   n1[/"Classes/Domain/Model/Glossary.php"/]
-  n2[/"Tests/Functional/Domain/GlossaryStorageTest.php"/]
-  n3[/"Tests/Unit/Service/Glossary/GlossaryResolverTest.php"/]
-  n4["LLM service"]
+  n2[/"Classes/Service/Glossary/GlossaryResolver.php"/]
+  n3[/"Tests/Functional/Domain/GlossaryStorageTest.php"/]
+  n4[/"Tests/Unit/Service/Glossary/GlossaryResolverTest.php"/]
+  n5["LLM service"]
   c -->|"implementedBy"| n1
-  c -->|"verifiedBy"| n2
+  c -->|"implementedBy"| n2
   c -->|"verifiedBy"| n3
-  n4 -->|"uses"| c
+  c -->|"verifiedBy"| n4
+  n5 -->|"uses"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```
@@ -41,5 +43,6 @@ flowchart LR
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
 | `implementedBy` | `Classes/Domain/Model/Glossary.php` | `Classes/Domain/Model/Glossary.php` | `class Glossary extends AbstractEntity` | asserted |
+| `implementedBy` | `Classes/Service/Glossary/GlossaryResolver.php` | `Classes/Service/Glossary/GlossaryResolver.php` | `private const TABLE = 'tx_nrllm_glossary';` | asserted |
 | `verifiedBy` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `class GlossaryStorageTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `final class GlossaryResolverTest extends TestCase` | asserted |

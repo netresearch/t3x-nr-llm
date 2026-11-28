@@ -10,7 +10,7 @@ timestamp: 2026-11-28
 
 # Definition
 
-Keyword search is the public facade for a keyword search over the site. It asks the registered search backends in the order of their priority, and the first available backend answers; results are never merged across backends. The hits are filtered to what an anonymous visitor may read. The facade never throws: a failure yields an empty list. A search backend is an extension point: a third party adds one by implementing the search backend interface, which carries the tag `nr_llm.retrieval_backend`.
+Keyword search is the public facade for a keyword search over the site. It asks the registered search backends in the order of their priority, and the first available backend answers; results are never merged across backends. The facade passes a public-only access context to the backends and returns their hits without a check of its own; by the contract of the search backend interface, each backend returns only what an anonymous visitor may read. The facade never throws: a failure yields an empty list. A search backend is an extension point: a third party adds one by implementing the search backend interface, which carries the tag `nr_llm.retrieval_backend`.
 
 # Not to be confused with
 
