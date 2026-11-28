@@ -23,3 +23,4 @@ A glossary holds the term pairs that one site uses when it translates from one l
 |---|---|---|---|---|
 | `implementedBy` | `Classes/Service/Glossary/GlossaryResolver.php` | `Classes/Domain/Model/Glossary.php` | `One glossary holds the term pairs one site uses` | asserted |
 | `verifiedBy` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `class GlossaryStorageTest` | asserted |
+| `verifiedBy` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `final class GlossaryResolverTest extends TestCase` | asserted |

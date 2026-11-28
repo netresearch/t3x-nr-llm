@@ -18,3 +18,4 @@ An MCP server is a remote server that speaks the Model Context Protocol (MCP). A
 |---|---|---|---|---|
 | `implementedBy` | `Classes/Service/Tool/Mcp/McpImportService.php` | `Classes/Service/Tool/Mcp/McpImportService.php` | `class McpImportService` | asserted |
 | `implementedBy` | `Configuration/TCA/tx_nrllm_mcp_server.php` | `Configuration/TCA/tx_nrllm_mcp_server.php` | `'requires_approval' =>` | asserted |
+| `verifiedBy` | `Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php` | `Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php` | `final class McpImportServiceTest extends AbstractFunctionalTestCase` | asserted |

@@ -43,6 +43,7 @@ concepts/configuration
 concepts/glossary
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
+  test Tests/Unit/Service/Glossary/GlossaryResolverTest.php
 concepts/provider-adapter
   via concepts/llm-service uses concepts/middleware-pipeline
   via concepts/middleware-pipeline uses concepts/provider-adapter
@@ -54,6 +55,7 @@ concepts/user-budget
 concepts/guardrail
   via concepts/llm-service uses concepts/middleware-pipeline
   via concepts/middleware-pipeline constrainedBy concepts/guardrail
+  test Tests/Unit/Service/Guardrail/GuardrailPolicyResolverTest.php
 concepts/model
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/model
@@ -61,6 +63,7 @@ concepts/model
 concepts/term-list
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration constrainedBy concepts/term-list
+  test Tests/Unit/Service/Guardrail/Term/TermListGuardrailTest.php
 concepts/backend-user-group
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration constrainedBy concepts/backend-user-group
@@ -71,6 +74,7 @@ concepts/skill
 concepts/tool-group
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/tool-group
+  test Tests/Unit/Domain/Enum/ToolGroupTest.php
 concepts/prompt-snippet
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/prompt-snippet
@@ -111,6 +115,7 @@ concepts/mcp-server
   via concepts/configuration uses concepts/tool-group
   via concepts/tool partOf concepts/tool-group
   via concepts/tool derivedFrom concepts/mcp-server
+  test Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php
 Scope: only the relations this bundle models; coverage.md names what it leaves out.
 ```
 

@@ -22,3 +22,4 @@ A term list names terms that must not appear, or must appear, in an output. The 
 |---|---|---|---|---|
 | `partOf` | [Guardrail](guardrail.md) | `Classes/Service/Guardrail/Term/TermListGuardrail.php` | `final readonly class TermListGuardrail implements ContextualGuardrailInterface` | asserted |
 | `implementedBy` | `Classes/Service/Guardrail/Term/TermListGuardrail.php` | `Classes/Service/Guardrail/Term/TermListGuardrail.php` | `final readonly class TermListGuardrail` | asserted |
+| `verifiedBy` | `Tests/Unit/Service/Guardrail/Term/TermListGuardrailTest.php` | `Tests/Unit/Service/Guardrail/Term/TermListGuardrailTest.php` | `final class TermListGuardrailTest extends AbstractUnitTestCase` | asserted |

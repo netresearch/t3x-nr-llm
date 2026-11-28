@@ -29,6 +29,7 @@ concepts/public-api
   test Tests/Unit/Api/DeprecationInventoryTest.php
 concepts/guardrail
   via concepts/guardrail partOf concepts/public-api
+  test Tests/Unit/Service/Guardrail/GuardrailPolicyResolverTest.php
 concepts/llm-service
   via concepts/llm-service partOf concepts/public-api
   test Tests/Unit/Service/LlmServiceManagerTest.php
@@ -46,6 +47,7 @@ concepts/tool
 concepts/term-list
   via concepts/guardrail partOf concepts/public-api
   via concepts/term-list partOf concepts/guardrail
+  test Tests/Unit/Service/Guardrail/Term/TermListGuardrailTest.php
 concepts/streaming-dispatcher
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/streaming-dispatcher
@@ -60,6 +62,7 @@ concepts/glossary
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
+  test Tests/Unit/Service/Glossary/GlossaryResolverTest.php
 concepts/user-budget
   via concepts/middleware-pipeline partOf concepts/public-api
   via concepts/middleware-pipeline constrainedBy concepts/user-budget
@@ -67,6 +70,7 @@ concepts/user-budget
 concepts/mcp-server
   via concepts/tool partOf concepts/public-api
   via concepts/tool derivedFrom concepts/mcp-server
+  test Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php
 concepts/model
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration
@@ -85,6 +89,7 @@ concepts/tool-group
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/tool-group
+  test Tests/Unit/Domain/Enum/ToolGroupTest.php
 concepts/prompt-snippet
   via concepts/llm-service partOf concepts/public-api
   via concepts/llm-service uses concepts/configuration

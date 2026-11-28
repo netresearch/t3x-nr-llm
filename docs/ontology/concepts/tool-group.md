@@ -17,3 +17,4 @@ A tool group is a named group of tools, for example `content`, `editing` or `sys
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
 | `implementedBy` | `Classes/Domain/Enum/ToolGroup.php` | `Classes/Domain/Enum/ToolGroup.php` | `A group is an OPEN set` | asserted |
+| `verifiedBy` | `Tests/Unit/Domain/Enum/ToolGroupTest.php` | `Tests/Unit/Domain/Enum/ToolGroupTest.php` | `final class ToolGroupTest extends TestCase` | asserted |

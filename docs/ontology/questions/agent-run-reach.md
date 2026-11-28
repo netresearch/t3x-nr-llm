@@ -44,9 +44,11 @@ concepts/model
 concepts/guardrail
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration constrainedBy concepts/guardrail
+  test Tests/Unit/Service/Guardrail/GuardrailPolicyResolverTest.php
 concepts/term-list
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration constrainedBy concepts/term-list
+  test Tests/Unit/Service/Guardrail/Term/TermListGuardrailTest.php
 concepts/backend-user-group
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration constrainedBy concepts/backend-user-group
@@ -57,6 +59,7 @@ concepts/skill
 concepts/tool-group
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/tool-group
+  test Tests/Unit/Domain/Enum/ToolGroupTest.php
 concepts/prompt-snippet
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/prompt-snippet
@@ -80,9 +83,11 @@ concepts/glossary
   via concepts/agent-run uses concepts/llm-service
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
+  test Tests/Unit/Service/Glossary/GlossaryResolverTest.php
 concepts/mcp-server
   via concepts/agent-run uses concepts/tool
   via concepts/tool derivedFrom concepts/mcp-server
+  test Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php
 concepts/provider
   via concepts/agent-run uses concepts/configuration
   via concepts/configuration uses concepts/model
