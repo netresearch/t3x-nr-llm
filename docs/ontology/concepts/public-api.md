@@ -16,6 +16,6 @@ The public API is the set of classes and methods marked `@api`: the feature serv
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `implementedBy` | `Tests/Unit/Api/api-surface.txt` | `Documentation/Api/Stability.rst` | `minor releases (0.N → 0.N+1) may break` | asserted |
+| `implementedBy` | `Tests/Unit/Api/api-surface.txt` | `Tests/Unit/Api/ApiSurfaceSnapshotTest.php` | `private const SNAPSHOT_PATH = __DIR__ . '/api-surface.txt';` | asserted |
 | `verifiedBy` | `Tests/Unit/Api/ApiSurfaceSnapshotTest.php` | `Tests/Unit/Api/ApiSurfaceSnapshotTest.php` | `class ApiSurfaceSnapshotTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Api/DeprecationInventoryTest.php` | `Tests/Unit/Api/DeprecationInventoryTest.php` | `class DeprecationInventoryTest` | asserted |

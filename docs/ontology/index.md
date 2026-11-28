@@ -9,7 +9,7 @@ license: GPL-2.0-or-later
 
 # nr_llm ontology
 
-This bundle defines the concepts of nr_llm (providers, models, configurations, agent runs, skills, tools, budgets) and states how they relate. Every relation names the file in this repository that shows it, so the bundle can answer questions such as "a provider changes: which concepts can that affect, and which tests run again?" without reading the whole code base.
+This bundle defines the concepts of nr_llm (providers, models, configurations, agent runs, skills, tools, budgets) and states how they relate. Every asserted relation names the file in this repository that shows it, and a relation without such a file has the status `hypothesis`, so the bundle can answer questions such as "a provider changes: which concepts can that affect, and which tests run again?" without reading the whole code base.
 
 This bundle follows the Open Knowledge Format 0.3 (https://okf.md): one Markdown file per concept, with a YAML frontmatter block that names its `type`.
 
