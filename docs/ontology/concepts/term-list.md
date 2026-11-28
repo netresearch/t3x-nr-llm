@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 type: Concept
 title: "Term list"
-description: "A list of terms that must not appear, or must appear, in the output of the configurations it names."
+description: "A list of terms that must not appear, or must appear, in the output of the configurations it names, optionally for one site and one language."
 status: draft
 timestamp: 2026-11-27
 ---
 
 # Definition
 
-A term list names terms that must not appear, or must appear, in an output. The term list guardrail checks the output of every configuration the list names, and a violation blocks the output with the reason. ADR-238 records the decision.
+A term list names terms that must not appear, or must appear, in an output. The term list guardrail checks the output of every configuration the list names. A list can be limited to one site and one language; an empty site or language means every site or every language, and required terms apply only to text outputs of a call whose site and language match. A violation blocks the output with the reason. ADR-238 records the decision.
 
 # Not to be confused with
 

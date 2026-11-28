@@ -18,7 +18,7 @@
 * [LLM service](llm-service.md) - The public call surface: the LLM service manager and the feature services for completion, conversation, embedding, tools, translation and vision.
 * [Middleware pipeline](middleware-pipeline.md) - The chain of steps a non-streamed call through the LLM service passes: budget, cache, circuit breaker, empty answer, fallback, tracing, guardrail, idempotency, telemetry and usage.
 * [Guardrail](guardrail.md) - A check on the input or the output of a call that can redact, annotate or block it.
-* [Term list](term-list.md) - A list of terms that must not appear, or must appear, in the output of the configurations it names.
+* [Term list](term-list.md) - A list of terms that must not appear, or must appear, in the output of the configurations it names, optionally for one site and one language.
 * [Glossary](glossary.md) - The term pairs one site uses when it translates from one language into another.
 * [Prompt snippet](prompt-snippet.md) - A small named prompt fragment, for example a persona or a tone of voice, that code selects by tag.
 * [User budget](user-budget.md) - Daily and monthly ceilings for the requests, tokens and cost of one backend user.
