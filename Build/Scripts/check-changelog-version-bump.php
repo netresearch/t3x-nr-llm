@@ -156,29 +156,22 @@ function blankedProseLines(string $text): array
  * Line numbers (1-based, counted from $firstLine) of every line where the word
  * "breaking" stands anywhere but as the one marker of a marker line.
  *
- * Inline code is blanked first, so a text that quotes the word as
- * `**BREAKING` is allowed. The opening bold run of a bullet is read before
- * that: `- **`BREAKING`:**` puts the word in bold, but is not the marker.
+ * Inline code is blanked first, also inside the opening bold run, so a text
+ * that quotes the word as `breaking` is allowed. `- **`BREAKING`:**` is then
+ * no lookalike, but no marker either: hasMarker() reads the raw line.
  *
  * @return list<int>
  */
 function lookalikeLines(string $text, int $firstLine = 1): array
 {
-    $raw   = proseLines($text);
     $lines = [];
     foreach (blankedProseLines($text) as $i => $prose) {
         $count = preg_match_all(WORD, $prose, $hits, PREG_OFFSET_CAPTURE);
-
-        $boldIsMarker = true;
-        if (preg_match('/^- \*\*(.*?)\*\*/', $raw[$i], $bold) === 1 && preg_match(WORD, $bold[1]) === 1) {
-            $boldIsMarker = preg_match(MARKER_LINE, $raw[$i]) === 1 && preg_match_all(WORD, $bold[1]) === 1;
-        }
-
-        if ($count === 0 && $boldIsMarker) {
+        if ($count === 0) {
             continue;
         }
 
-        $onlyTheMarker = $boldIsMarker && $count === 1 && $hits[0][0][1] === 4 && preg_match(MARKER_LINE, $prose) === 1;
+        $onlyTheMarker = $count === 1 && $hits[0][0][1] === 4 && preg_match(MARKER_LINE, $prose) === 1;
         if (!$onlyTheMarker) {
             $lines[] = $firstLine + $i;
         }

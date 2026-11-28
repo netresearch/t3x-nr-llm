@@ -122,7 +122,8 @@ now implements without leaving methods open) is regenerated and noted in an
 A **breaking** one is a decision, and the failure message says so and points
 at :ref:`api-deprecation`:
 
-- anything removed or changed, a widened constructor included,
+- anything removed or changed, a widened constructor and a method made
+  ``final`` included,
 - a new method on an existing ``@api`` interface — it breaks every
   implementation outside this extension, whether or not the interface is
   marked as an extension point,
@@ -140,9 +141,9 @@ at :ref:`api-deprecation`:
   so the message asks the author to check.
 
 Two diffs are reported as **check by hand**, because the snapshot cannot
-classify them: a ``method abstract protected`` line that vanished (the
-snapshot does not render concrete protected methods, so a hook given a body
-and a deleted one look the same), and a third-party interface added to an
+classify them: a ``method abstract protected`` or ``method abstract private``
+line that vanished (the snapshot does not render concrete protected or
+private methods, so a hook given a body and a deleted one look the same), and a third-party interface added to an
 abstract class (methods declared outside this extension and PHP are not
 rendered, so the ones a subclass now has to implement are invisible). Read
 the class; a deleted hook or a newly open method is breaking.

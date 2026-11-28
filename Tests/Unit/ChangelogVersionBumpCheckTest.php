@@ -169,8 +169,6 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
             'digit after'       => ["- **BREAKING2:** `Foo::bar()` is removed.\n"],
             'prose'             => ["- This is not a breaking change for callers.\n"],
             'twice on a marker' => ["- **BREAKING: `Foo` changed,** breaking for implementers too.\n"],
-            'marker as code'    => ["- **`BREAKING`:** `Foo::bar()` is removed.\n"],
-            'word as code bold' => ["- **Note, `breaking`:** `Foo::bar()` is removed.\n"],
             'span over a break' => ["- Start `a\n  b` breaking `c` end.\n"],
         ];
     }
@@ -301,13 +299,32 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
     #[Test]
     public function theMarkerQuotedAsCodeInTheOpeningBoldIsNoMarker(): void
     {
-        // Inline code is blanked before the word is searched, so the bold run
-        // of a bullet is read before that.
+        // `- **`BREAKING`:**` puts the word in code, so it is no marker: a
+        // middle bump with only that bullet has no breaking entry.
         [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', "### Changed\n\n- **`BREAKING`:** `Foo::bar()` is removed.\n"));
 
         self::assertSame(1, $exit);
         self::assertStringContainsString('without a breaking entry', $stderr);
-        self::assertStringContainsString('is only allowed on a marker line', $stderr);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function wordAsCodeInBold(): array
+    {
+        return [
+            'on a marker'    => ['0.56.0', "- **BREAKING: the `breaking` verdict is renamed.** Use `blocking`.\n"],
+            'on a plain one' => ['0.55.2', "- **Note, `breaking`:** the verdict is renamed.\n"],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('wordAsCodeInBold')]
+    public function theWordAsCodeInsideTheOpeningBoldIsAllowed(string $version, string $bullet): void
+    {
+        [$exit, $stderr] = $this->check($this->withTopmost($version, "### Changed\n\n" . $bullet));
+
+        self::assertSame(0, $exit, $stderr);
     }
 
     #[Test]

@@ -56,12 +56,17 @@ use SplFileInfo;
  *
  * The failure message is classified by ApiSurfaceDiff, by the rules of
  * `Documentation/Api/Stability.rst` ("Enforcement"): additive (a new class,
- * a new concrete method or property, an abstract class made concrete) is
+ * a new concrete method or property, an abstract method given a body, an
+ * abstract class made concrete as long as no protected hook vanishes) is
  * regenerated and noted in an `added` changelog.d fragment; breaking
- * (removed or changed, a new method on an interface, a new abstract method,
- * a new enum case, a changed `extends` or a removed `implements`) needs a
- * deliberate decision under `Documentation/Api/Deprecation.rst` and a
- * `- **BREAKING` fragment.
+ * (removed or changed, a method made `final`, a new method on an interface, a
+ * new abstract method, a new enum case, a changed `extends` or a removed
+ * `implements`) needs a deliberate decision under
+ * `Documentation/Api/Deprecation.rst` and a `- **BREAKING` fragment. The
+ * verdict `check by hand` covers what the snapshot cannot classify: a
+ * vanished protected or private abstract method (a body and a deletion look
+ * the same) and an interface from outside nr_llm and PHP added to an abstract
+ * class (its open methods are not rendered). It is not additive.
  *
  * To update intentionally: delete `api-surface.txt`, run the unit suite
  * twice (first run regenerates the file and fails, second is green), and

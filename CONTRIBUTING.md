@@ -63,11 +63,12 @@ a property of a class, a new constant, an abstract class made concrete, an
 abstract method given a body, an interface a class now implements without
 leaving methods open) means
 regenerate the file and note it in an `added` fragment; **breaking** (anything
-removed or changed, a widened constructor and a changed `extends` or a removed
+removed or changed, a widened constructor, a method made `final` and a changed
+`extends` or a removed
 `implements` included, a new method on an `@api` interface, a new public or
 protected abstract method on an `@api` abstract class, a new case of an `@api`
-enum) means stop and decide; **check by hand** (a vanished protected abstract
-method, a third-party interface added to an abstract class) means read the
+enum) means stop and decide; **check by hand** (a vanished protected or private
+abstract method, a third-party interface added to an abstract class) means read the
 class, since the snapshot cannot tell a body from a deletion or see the
 methods such an interface leaves open.
 

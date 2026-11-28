@@ -14,6 +14,7 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingLoggerAwar
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithAbstractMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithConcreteMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithFinalKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithPublicKind;
@@ -21,6 +22,7 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithStaticAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AddedMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\BackedFixtureEnum;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithFinalKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithProtectedKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithPublicKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\CountableBase;
@@ -29,6 +31,8 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\StandalonePort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithoutPrivateAbstract;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithPrivateAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithProtectedAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\WidenedConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceDiff;
@@ -357,6 +361,43 @@ final class ApiSurfaceRendererTest extends TestCase
         self::assertFalse($diff->isAdditiveOnly());
         self::assertSame([], $diff->widened);
         self::assertStringContainsString(LoggerAwareInterface::class, $diff->checkByHand[0]);
+    }
+
+    #[Test]
+    public function anAbstractMethodMadeFinalClassifiesAsBreaking(): void
+    {
+        // A final body breaks every subclass that implemented the method.
+        $diff = $this->diffBetween(AbstractBaseWithAbstractMethod::class, AbstractBaseWithFinalKind::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('method final kind(): string', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aConcreteMethodMadeFinalClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(ConcreteBaseWithPublicKind::class, ConcreteBaseWithFinalKind::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('method kind(): string', $diff->changed[0]['was']);
+        self::assertSame('method final kind(): string', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aNewPrivateAbstractMethodOfATraitClassifiesAsBreaking(): void
+    {
+        self::assertStringContainsString(
+            '  method abstract private secret(): string',
+            (new ApiSurfaceRenderer())->render([TraitWithPrivateAbstract::class]),
+        );
+
+        $diff = $this->diffBetween(TraitWithoutPrivateAbstract::class, TraitWithPrivateAbstract::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [TraitWithPrivateAbstract::class . ' :: method abstract private secret(): string'],
+            $diff->addedToContracts,
+        );
     }
 
     #[Test]

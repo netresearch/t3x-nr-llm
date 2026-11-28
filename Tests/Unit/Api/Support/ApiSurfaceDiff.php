@@ -16,9 +16,9 @@ use ReflectionClass;
  *
  * A snapshot assertion that only reports "different" makes a new value
  * object look exactly like a deleted method, so every diff gets read with
- * the same shrug. This splits the difference into three buckets and answers
- * the only question the author actually has: may I regenerate the file, or
- * do I have to decide something?
+ * the same shrug. This splits the difference into buckets and answers the
+ * only question the author actually has: may I regenerate the file, do I have
+ * to decide something, or does the snapshot not know?
  *
  * - **added** — a class, method, property, constant or enum case that was
  *   not there before. Additive; existing callers keep compiling. Two
@@ -29,7 +29,15 @@ use ReflectionClass;
  * - **removed** — gone. Every caller that used it breaks.
  * - **changed** — same member, different signature. Includes a widened
  *   constructor, which is the case the snapshot missed entirely before it
- *   recorded constructors at all.
+ *   recorded constructors at all, and a method made `final`.
+ * - **widened** — a change that breaks nobody: an abstract class made
+ *   concrete, an abstract method given a body, an interface added to
+ *   `implements` whose methods are rendered.
+ * - **check by hand** — what the snapshot cannot classify: a vanished
+ *   protected or private abstract method (concrete ones are not rendered, so a
+ *   body and a deletion look the same) and an interface from outside nr_llm
+ *   and PHP added to an abstract class (its open methods are not rendered).
+ *   Not additive; the verdict is `check by hand`.
  *
  * Members are matched by NAME, not by rendered line, so a signature change
  * lands in `changed` instead of showing up as an unrelated removal plus an
@@ -127,9 +135,9 @@ final readonly class ApiSurfaceDiff
                     continue;
                 }
 
-                // Concrete protected methods are not rendered, so a protected
-                // hook given a body and a deleted one look the same.
-                if (str_starts_with($line, 'method abstract protected ')) {
+                // Concrete protected and private methods are not rendered, so
+                // a hook given a body and a deleted one look the same.
+                if (str_starts_with($line, 'method abstract protected ') || str_starts_with($line, 'method abstract private ')) {
                     $checkByHand[] = $fqcn . ' :: ' . $line;
 
                     continue;
@@ -461,7 +469,7 @@ final readonly class ApiSurfaceDiff
             return 'constructor';
         }
 
-        if (preg_match('/^(method|property) (?:abstract )?(?:protected )?(?:static |readonly )?(\w+)/', $line, $matches) === 1) {
+        if (preg_match('/^(method|property) (?:abstract |final )?(?:protected |private )?(?:static |readonly )?(\w+)/', $line, $matches) === 1) {
             return $matches[1] . ' ' . $matches[2];
         }
 

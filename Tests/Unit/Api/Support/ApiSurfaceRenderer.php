@@ -181,8 +181,9 @@ final class ApiSurfaceRenderer
      * What a subclass of an abstract class has to implement beyond the public
      * methods the class declares itself (those are rendered with them): its
      * protected abstract methods, and abstract methods it inherits from a
-     * parent or an interface it leaves open. A trait's protected abstract
-     * methods count too: every class that uses it has to implement them.
+     * parent or an interface it leaves open. A trait's protected and private
+     * abstract methods count too: every class that uses it has to implement
+     * them.
      * Only declarations inside
      * `Netresearch\NrLlm` or PHP itself count, as with constructors, so the
      * snapshot does not depend on the TYPO3 version.
@@ -200,7 +201,7 @@ final class ApiSurfaceRenderer
         $methods = [];
         foreach ($reflection->getMethods() as $method) {
             $declaring = $method->getDeclaringClass();
-            if (!$method->isAbstract() || $method->isPrivate()) {
+            if (!$method->isAbstract() || ($method->isPrivate() && !$reflection->isTrait())) {
                 continue;
             }
 
@@ -316,8 +317,11 @@ final class ApiSurfaceRenderer
 
         foreach ($this->declaredPublicMethods($reflection) as $method) {
             $lines[] = sprintf(
-                'method %s%s%s(%s): %s',
+                'method %s%s%s%s(%s): %s',
                 $method->isAbstract() && !$reflection->isInterface() ? 'abstract ' : '',
+                // A final method may not be overridden: making one final
+                // breaks every subclass that does.
+                $method->isFinal() ? 'final ' : '',
                 $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),
@@ -328,7 +332,7 @@ final class ApiSurfaceRenderer
         foreach ($this->abstractMethodsToImplement($reflection) as $method) {
             $lines[] = sprintf(
                 'method abstract %s%s%s(%s): %s',
-                $method->isProtected() ? 'protected ' : '',
+                $method->isProtected() ? 'protected ' : ($method->isPrivate() ? 'private ' : ''),
                 $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),
