@@ -32,6 +32,8 @@ The closest AGENTS.md wins: scoped AGENTS.md files in subdirectories override th
 Architecture: `docs/ARCHITECTURE.md` · Execution plans: `docs/exec-plans/README.md`
 <!-- AGENTS-GENERATED:END scope-index -->
 
+Ontology (concepts of nr_llm, typed relations, impact queries): `docs/ontology/index.md`. `composer ci:test:ontology` checks it against the code; `python3 Build/Scripts/check-ontology.py docs/ontology --impact concepts/<name>` lists what a change can affect.
+
 <!-- AGENTS-GENERATED:START setup -->
 ## Setup
 ```bash
