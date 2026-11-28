@@ -46,7 +46,7 @@ flowchart LR
 | `partOf` | [Tool group](tool-group.md) | `Classes/Service/Tool/ToolInterface.php` | `public function getGroup(): string;` | asserted |
 | `derivedFrom` | [MCP server](mcp-server.md) | `ext_tables.sql` | `server int(11) unsigned DEFAULT '0' NOT NULL` | asserted |
 | `implementedBy` | `Classes/Service/Tool/ToolInterface.php` | `Classes/Service/Tool/ToolInterface.php` | `interface ToolInterface` | asserted |
-| `partOf` | [Public API](public-api.md) | `Classes/Service/Tool/ToolInterface.php` | `@api Extension point` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Service\Tool\ToolInterface (interface)` | asserted |
 
 # Notes
 

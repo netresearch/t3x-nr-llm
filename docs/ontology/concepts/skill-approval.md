@@ -30,4 +30,4 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `approves` | [Skill](skill.md) | `ext_tables.sql` | `Approvals of skill versions (ADR-214 item 2)` | asserted |
+| `approves` | [Skill](skill.md) | `ext_tables.sql` | `KEY skill_source_digest (skill_uid, source_uid, version_digest)` | asserted |

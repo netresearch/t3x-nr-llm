@@ -35,5 +35,5 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `records` | [LLM service](llm-service.md) | `Classes/Provider/Middleware/UsageMiddleware.php` | `Records usage to tx_nrllm_service_usage after a successful provider call.` | asserted |
+| `records` | [LLM service](llm-service.md) | `Classes/Provider/Middleware/UsageMiddleware.php` | `private UsageTrackerServiceInterface $usageTracker,` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php` | `class UsageMiddlewareTest` | asserted |

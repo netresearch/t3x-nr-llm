@@ -39,8 +39,8 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `uses` | [Provider adapter](provider-adapter.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `wrapping generator, not a replacement of the provider's:` | asserted |
-| `constrainedBy` | [User budget](user-budget.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `1. **Budget pre-flight (eager).**` | asserted |
+| `uses` | [Provider adapter](provider-adapter.md) | `Classes/Service/LlmServiceManager.php` | `return $adapter->streamChatCompletion(` | asserted |
+| `constrainedBy` | [User budget](user-budget.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `private BudgetServiceInterface $budgetService,` | asserted |
 | `constrainedBy` | [Configuration](configuration.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `$this->assertWithinBudget($context, $configuration);` | asserted |
 | `implementedBy` | `Classes/Service/Streaming/StreamingDispatcher.php` | `Classes/Service/Streaming/StreamingDispatcher.php` | `final readonly class StreamingDispatcher` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Streaming/StreamingDispatcherTest.php` | `Tests/Unit/Service/Streaming/StreamingDispatcherTest.php` | `class StreamingDispatcherTest` | asserted |
@@ -48,3 +48,4 @@ flowchart LR
 # Notes
 
 - The dispatcher checks the budget against the user budget and the daily limits of the configuration, and it runs the fallback chain of the configuration. Which other middleware steps apply to a stream is not modelled.
+- The dispatcher takes an opener callable that starts the stream. The `uses` row to Provider adapter cites the opener the LLM service manager passes in, which calls `streamChatCompletion()` on the adapter.

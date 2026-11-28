@@ -56,7 +56,7 @@ flowchart LR
 | `uses` | [Configuration](configuration.md) | `Classes/Service/LlmServiceManager.php` | `public function chatWithConfiguration(` | asserted |
 | `uses` | [Glossary](glossary.md) | `Classes/Service/Feature/TranslationService.php` | `GlossaryResolverInterface $glossaryResolver` | asserted |
 | `uses` | [Site LLM settings](site-llm-settings.md) | `Classes/Service/ConfigurationResolver.php` | `$this->siteSettings?->configurationIdentifier($siteIdentifier)` | asserted |
-| `partOf` | [Public API](public-api.md) | `Documentation/Api/Stability.rst` | `Classes and interfaces you *call*: the feature services` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Service\LlmServiceManagerInterface (interface)` | asserted |
 | `implementedBy` | `Classes/Service/LlmServiceManager.php` | `Classes/Service/LlmServiceManager.php` | `class LlmServiceManager` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/LlmServiceManagerTest.php` | `Tests/Unit/Service/LlmServiceManagerTest.php` | `class LlmServiceManagerTest` | asserted |
 

@@ -75,7 +75,7 @@ flowchart LR
 |---|---|---|---|---|
 | `uses` | [Model](model.md) | `Configuration/TCA/tx_nrllm_configuration.php` | `'model_uid' =>` | asserted |
 | `uses` | [Model](model.md) | `Configuration/TCA/tx_nrllm_configuration.php` | `'model_selection_criteria' =>` | asserted |
-| `fallsBackTo` | [Configuration](configuration.md) | `Classes/Domain/DTO/FallbackChain.php` | `Ordered list of LlmConfiguration identifiers to try when the primary` | asserted |
+| `fallsBackTo` | [Configuration](configuration.md) | `Configuration/TCA/tx_nrllm_configuration.php` | `'fallback_chain' =>` | asserted |
 | `constrainedBy` | [Guardrail](guardrail.md) | `Configuration/TCA/tx_nrllm_configuration.php` | `'allowed_guardrails' =>` | asserted |
 | `constrainedBy` | [Term list](term-list.md) | `Configuration/TCA/tx_nrllm_term_list.php` | `'foreign_table' => 'tx_nrllm_configuration'` | asserted |
 | `constrainedBy` | [Configuration](configuration.md) | `Configuration/TCA/tx_nrllm_configuration.php` | `'rule_judge_configuration' =>` | asserted |

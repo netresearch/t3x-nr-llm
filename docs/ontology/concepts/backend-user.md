@@ -34,7 +34,7 @@ flowchart LR
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
 | `constrainedBy` | [User budget](user-budget.md) | `Configuration/TCA/tx_nrllm_user_budget.php` | `'foreign_table' => 'be_users'` | asserted |
-| `partOf` | [Backend user group](backend-user-group.md) | `Classes/Domain/Model/BackendUserGroup.php` | `BackendUserGroup` | hypothesis |
+| `partOf` | [Backend user group](backend-user-group.md) |  |  | hypothesis |
 
 # Notes
 

@@ -9,6 +9,7 @@
 * **Concepts**: Added Tool enable state, Site LLM settings, Keyword search, Reranker, Configuration preset, AI-written record and Autotranslate integration.
 * **Relations**: An agent run is constrained by the tool enable state and by its skills; a configuration is derived from a configuration preset and uses usage records; the LLM service uses the site LLM settings.
 * **Notes**: Corrected which gates decide the tools of an agent run, the user-less call in the user budget, and how a call without a configuration gets one; listed backend modules and console commands as not modelled.
+* **Evidence**: Replaced the evidence of 22 asserted relations that quoted a comment, a docblock, an SQL comment or prose with code or configuration literals; the snapshot `Tests/Unit/Api/api-surface.txt` now evidences membership in the public API.
 
 ## 2026-11-27
 

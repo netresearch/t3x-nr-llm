@@ -48,7 +48,7 @@ flowchart LR
 | `implementedBy` | `Classes/Provider/AbstractProvider.php` | `Classes/Provider/AbstractProvider.php` | `abstract class AbstractProvider implements ProviderInterface` | asserted |
 | `implementedBy` | `Classes/Provider/Contract/ProviderInterface.php` | `Classes/Provider/Contract/ProviderInterface.php` | `interface ProviderInterface` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/AbstractProviderTest.php` | `Tests/Unit/Provider/AbstractProviderTest.php` | `class AbstractProviderTest` | asserted |
-| `partOf` | [Public API](public-api.md) | `Classes/Provider/Contract/ProviderInterface.php` | `@api Extension point` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Provider\Contract\ProviderInterface (interface)` | asserted |
 
 # Notes
 

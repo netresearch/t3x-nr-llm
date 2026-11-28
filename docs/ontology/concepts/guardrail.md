@@ -43,5 +43,5 @@ flowchart LR
 |---|---|---|---|---|
 | `implementedBy` | `Classes/Service/Guardrail/GuardrailInterface.php` | `Classes/Service/Guardrail/GuardrailInterface.php` | `interface GuardrailInterface` | asserted |
 | `implementedBy` | `Classes/Service/Guardrail/GuardrailPolicyResolver.php` | `Classes/Service/Guardrail/GuardrailPolicyResolver.php` | `class GuardrailPolicyResolver` | asserted |
-| `partOf` | [Public API](public-api.md) | `Classes/Service/Guardrail/GuardrailInterface.php` | `@api Extension point` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Service\Guardrail\GuardrailInterface (interface)` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Guardrail/GuardrailPolicyResolverTest.php` | `Tests/Unit/Service/Guardrail/GuardrailPolicyResolverTest.php` | `final class GuardrailPolicyResolverTest extends TestCase` | asserted |

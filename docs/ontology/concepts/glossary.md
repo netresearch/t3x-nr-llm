@@ -40,6 +40,6 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `implementedBy` | `Classes/Service/Glossary/GlossaryResolver.php` | `Classes/Domain/Model/Glossary.php` | `One glossary holds the term pairs one site uses` | asserted |
+| `implementedBy` | `Classes/Service/Glossary/GlossaryResolver.php` | `Classes/Domain/Model/Glossary.php` | `class Glossary extends AbstractEntity` | asserted |
 | `verifiedBy` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `class GlossaryStorageTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `final class GlossaryResolverTest extends TestCase` | asserted |

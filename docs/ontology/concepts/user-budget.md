@@ -39,6 +39,6 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `uses` | [Usage record](usage-record.md) | `Classes/Domain/Model/UserBudget.php` | `demand from tx_nrllm_service_usage` | asserted |
+| `uses` | [Usage record](usage-record.md) | `Classes/Service/Budget/UserBudgetUsageWindows.php` | `private const USAGE_TABLE = 'tx_nrllm_service_usage';` | asserted |
 | `implementedBy` | `Classes/Service/BudgetService.php` | `Classes/Service/BudgetService.php` | `private UserBudgetRepository $repository` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/BudgetServiceTest.php` | `Tests/Unit/Service/BudgetServiceTest.php` | `class BudgetServiceTest` | asserted |

@@ -47,8 +47,8 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `derivedFrom` | [Skill source](skill-source.md) | `ext_tables.sql` | `Parsed SKILL.md records materialized from a skill source` | asserted |
-| `constrainedBy` | [Skill approval](skill-approval.md) | `Classes/Service/Skill/SkillInstructionPolicy.php` | `an unrevoked approval names the skill, its current source and the digest` | asserted |
+| `derivedFrom` | [Skill source](skill-source.md) | `Configuration/TCA/tx_nrllm_skill.php` | `'foreign_table' => 'tx_nrllm_skill_source',` | asserted |
+| `constrainedBy` | [Skill approval](skill-approval.md) | `Classes/Service/Skill/SkillInstructionPolicy.php` | `return $this->approvals->hasUnrevokedApproval($uid, $skill->getSource(), $versionDigest);` | asserted |
 | `implementedBy` | `Classes/Domain/Model/Skill.php` | `Classes/Domain/Model/Skill.php` | `class Skill` | asserted |
 | `verifiedBy` | `Tests/Unit/Domain/Model/SkillAllowedToolsTest.php` | `Tests/Unit/Domain/Model/SkillAllowedToolsTest.php` | `class SkillAllowedToolsTest` | asserted |
 

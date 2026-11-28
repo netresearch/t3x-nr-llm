@@ -50,7 +50,7 @@ flowchart LR
 |---|---|---|---|---|
 | `uses` | [Configuration](configuration.md) | `Classes/Service/Agent/AgentRunRequest.php` | `public LlmConfiguration $configuration,` | asserted |
 | `constrainedBy` | [Backend user](backend-user.md) | `Classes/Service/Agent/AgentRunExecutor.php` | `private ?ActingBackendUserResolverInterface $actingBackendUserResolver = null` | asserted |
-| `uses` | [LLM service](llm-service.md) | `Classes/Service/Tool/ToolLoopService.php` | `Each round calls {@see LlmServiceManagerInterface::chatWithToolsForConfiguration()}` | asserted |
+| `uses` | [LLM service](llm-service.md) | `Classes/Service/Tool/ToolLoopService.php` | `$resp = $this->mgr->chatWithToolsForConfiguration(` | asserted |
 | `uses` | [Tool](tool.md) | `Classes/Service/Agent/AgentRunExecutor.php` | `private ToolLoopServiceInterface $toolLoop` | asserted |
 | `constrainedBy` | [Tool enable state](tool-enable-state.md) | `Classes/Service/Tool/ToolCallPolicy.php` | `private ToolAvailabilityServiceInterface $availability,` | asserted |
 | `constrainedBy` | [Skill](skill.md) | `Classes/Service/Tool/ToolCallPolicy.php` | `return $this->allowedTools->resolveForRun($configuration, $forcedSkills);` | asserted |

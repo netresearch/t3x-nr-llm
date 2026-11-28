@@ -37,5 +37,5 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `implementedBy` | `Classes/Domain/Enum/ToolGroup.php` | `Classes/Domain/Enum/ToolGroup.php` | `A group is an OPEN set` | asserted |
+| `implementedBy` | `Classes/Domain/Enum/ToolGroup.php` | `Classes/Domain/Enum/ToolGroup.php` | `enum ToolGroup: string` | asserted |
 | `verifiedBy` | `Tests/Unit/Domain/Enum/ToolGroupTest.php` | `Tests/Unit/Domain/Enum/ToolGroupTest.php` | `final class ToolGroupTest extends TestCase` | asserted |
