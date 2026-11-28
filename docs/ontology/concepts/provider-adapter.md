@@ -34,9 +34,9 @@ flowchart LR
   c -->|"implementedBy"| n2
   c -->|"partOf"| n3
   c -->|"verifiedBy"| n4
-  n5 -->|"uses"| c
+  n5 -.->|"uses (hypothesis)"| c
   n6 -->|"uses"| c
-  n7 -->|"uses"| c
+  n7 -.->|"uses (hypothesis)"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```

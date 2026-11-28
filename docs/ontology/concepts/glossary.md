@@ -24,7 +24,7 @@ Generated from the relation tables by `check-ontology.py --write-diagrams`. A so
 ```mermaid
 flowchart LR
   c["Glossary"]
-  n1[/"Classes/Service/Glossary/GlossaryResolver.php"/]
+  n1[/"Classes/Domain/Model/Glossary.php"/]
   n2[/"Tests/Functional/Domain/GlossaryStorageTest.php"/]
   n3[/"Tests/Unit/Service/Glossary/GlossaryResolverTest.php"/]
   n4["LLM service"]
@@ -40,6 +40,6 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `implementedBy` | `Classes/Service/Glossary/GlossaryResolver.php` | `Classes/Domain/Model/Glossary.php` | `class Glossary extends AbstractEntity` | asserted |
+| `implementedBy` | `Classes/Domain/Model/Glossary.php` | `Classes/Domain/Model/Glossary.php` | `class Glossary extends AbstractEntity` | asserted |
 | `verifiedBy` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `Tests/Functional/Domain/GlossaryStorageTest.php` | `class GlossaryStorageTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `Tests/Unit/Service/Glossary/GlossaryResolverTest.php` | `final class GlossaryResolverTest extends TestCase` | asserted |

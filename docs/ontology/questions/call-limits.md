@@ -50,7 +50,7 @@ concepts/site-llm-settings
   test Tests/Unit/Service/ConfigurationResolverSiteTest.php
 concepts/provider-adapter
   via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline uses concepts/provider-adapter
+  via concepts/middleware-pipeline uses concepts/provider-adapter (hypothesis)
   test Tests/Unit/Provider/AbstractProviderTest.php
 concepts/user-budget
   via concepts/llm-service uses concepts/middleware-pipeline

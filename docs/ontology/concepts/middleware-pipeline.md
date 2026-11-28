@@ -35,7 +35,7 @@ flowchart LR
   c -->|"constrainedBy"| n3
   c -->|"implementedBy"| n4
   c -->|"partOf"| n5
-  c -->|"uses"| n6
+  c -.->|"uses (hypothesis)"| n6
   c -->|"verifiedBy"| n7
   c -->|"verifiedBy"| n8
   c -->|"verifiedBy"| n9
@@ -49,7 +49,7 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `uses` | [Provider adapter](provider-adapter.md) | `Classes/Service/LlmServiceManager.php` | `return $provider->embeddings($input, $optionsArray)->toArray();` | asserted |
+| `uses` | [Provider adapter](provider-adapter.md) |  |  | hypothesis |
 | `constrainedBy` | [User budget](user-budget.md) | `Classes/Provider/Middleware/BudgetMiddleware.php` | `private BudgetServiceInterface $budgetService` | asserted |
 | `constrainedBy` | [Configuration](configuration.md) | `Classes/Provider/Middleware/BudgetMiddleware.php` | `$result = $this->budgetService->check($beUserUid, $plannedCost, $context->configuration);` | asserted |
 | `constrainedBy` | [Guardrail](guardrail.md) | `Classes/Provider/Middleware/GuardrailMiddleware.php` | `final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface` | asserted |
@@ -63,4 +63,4 @@ flowchart LR
 # Notes
 
 - Two backend actions call a provider adapter directly and pass no pipeline step: the model test (`Classes/Controller/Backend/ModelTestController.php`) and the configuration test (`Classes/Controller/Backend/ConfigurationController.php`). They create the adapter with `createAdapterFromModel()`, so no budget, guardrail or usage record applies to them.
-- The pipeline itself takes the provider call as a terminal callable. The `uses` row to Provider adapter therefore cites the terminal the LLM service manager passes in (`Classes/Service/LlmServiceManager.php`); the other operations pass terminals of the same kind.
+- The `uses` row to Provider adapter is a hypothesis: the pipeline takes the provider call as a terminal callable and names no adapter itself. The terminals the LLM service manager passes in (`Classes/Service/LlmServiceManager.php`) show the manager's call to the adapter, not the pipeline's, so no literal of the pipeline would disappear with the relation.

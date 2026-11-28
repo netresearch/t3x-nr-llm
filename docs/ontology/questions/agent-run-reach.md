@@ -117,7 +117,7 @@ concepts/provider
 concepts/provider-adapter
   via concepts/agent-run uses concepts/llm-service
   via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline uses concepts/provider-adapter
+  via concepts/middleware-pipeline uses concepts/provider-adapter (hypothesis)
   test Tests/Unit/Provider/AbstractProviderTest.php
 url:https://github.com/netresearch/t3x-nr-vault
   via concepts/agent-run uses concepts/configuration
