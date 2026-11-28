@@ -80,30 +80,7 @@ if (!is_readable($path)) {
     exit(2);
 }
 
-/**
- * Split a CHANGELOG into its released sections, keyed by version.
- *
- * A section runs from its `## [X.Y.Z]` heading to the next `## [` heading, or
- * to the link-reference block, or to the end of the text.
- *
- * @return array<string, string>
- */
-function releasedSections(string $text): array
-{
-    if (preg_match('/^\[[^\]]+\]: \S+/m', $text, $m, PREG_OFFSET_CAPTURE) === 1) {
-        $text = substr($text, 0, $m[0][1]);
-    }
-
-    $parts    = preg_split('/^(?=## \[)/m', $text) ?: [];
-    $sections = [];
-    foreach ($parts as $part) {
-        if (preg_match('/^## \[(\d[^\]]*)\]/', $part, $h) === 1) {
-            $sections[$h[1]] = $part;
-        }
-    }
-
-    return $sections;
-}
+require_once __DIR__ . '/changelog-sections.php';
 
 /**
  * Run git in the work tree; return stdout, or null when git fails.

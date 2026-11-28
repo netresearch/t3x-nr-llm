@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Api\Support;
 
+use BackedEnum;
 use ReflectionClass;
 use ReflectionClassConstant;
 use ReflectionEnum;
@@ -75,7 +76,7 @@ final class ApiSurfaceRenderer
         $blocks = [];
         foreach ($classes as $fqcn) {
             $reflection = new ReflectionClass($fqcn);
-            $lines      = [sprintf('%s (%s)', $fqcn, $this->kindOf($reflection))];
+            $lines      = [sprintf('%s (%s)%s', $fqcn, $this->kindOf($reflection), $this->extendsOf($reflection))];
 
             foreach ($this->declaredLines($reflection) as $line) {
                 $lines[] = '  ' . $line;
@@ -149,8 +150,106 @@ final class ApiSurfaceRenderer
             $reflection->isEnum()      => 'enum',
             $reflection->isInterface() => 'interface',
             $reflection->isTrait()     => 'trait',
-            default                    => 'class',
+            $reflection->isAbstract()  => 'abstract class',
+            // A final class may not be extended: making one final breaks
+            // every subclass outside nr_llm.
+            $reflection->isFinal() => 'final class',
+            default                => 'class',
         };
+    }
+
+    /**
+     * ` extends …` for the header line: the parent class of a class, the
+     * direct parent interfaces of an interface (sorted). A changed `extends`
+     * is then a changed declaration, which the diff reports as breaking: an
+     * interface that starts to extend another makes every implementation
+     * implement that one too. Interfaces a class implements are not listed.
+     *
+     * @param ReflectionClass<object> $reflection
+     */
+    private function extendsOf(ReflectionClass $reflection): string
+    {
+        $direct = $this->directInterfaces($reflection);
+        if ($reflection->isInterface()) {
+            return $direct === [] ? '' : ' extends ' . implode(', ', $direct);
+        }
+
+        $parent = $reflection->getParentClass();
+
+        return ($parent instanceof ReflectionClass ? ' extends ' . $parent->getName() : '')
+            . ($direct === [] ? '' : ' implements ' . implode(', ', $direct));
+    }
+
+    /**
+     * What a subclass of an abstract class has to implement beyond the public
+     * methods the class declares itself (those are rendered with them): its
+     * protected abstract methods, and abstract methods it inherits from a
+     * parent or an interface it leaves open. A trait's protected and private
+     * abstract methods count too: every class that uses it has to implement
+     * them.
+     * Only declarations inside
+     * `Netresearch\NrLlm` or PHP itself count, as with constructors, so the
+     * snapshot does not depend on the TYPO3 version.
+     *
+     * @param ReflectionClass<object> $reflection
+     *
+     * @return list<ReflectionMethod>
+     */
+    private function abstractMethodsToImplement(ReflectionClass $reflection): array
+    {
+        if ($reflection->isInterface() || (!$reflection->isAbstract() && !$reflection->isTrait())) {
+            return [];
+        }
+
+        $methods = [];
+        foreach ($reflection->getMethods() as $method) {
+            $declaring = $method->getDeclaringClass();
+            if (!$method->isAbstract() || ($method->isPrivate() && !$reflection->isTrait())) {
+                continue;
+            }
+
+            if ($method->isPublic() && $declaring->getName() === $reflection->getName()) {
+                continue; // rendered with the declared public methods
+            }
+
+            if (!$declaring->isInternal() && !str_starts_with($declaring->getName(), self::OWN_NAMESPACE_PREFIX)) {
+                continue;
+            }
+
+            $methods[] = $method;
+        }
+
+        return $methods;
+    }
+
+    /**
+     * The interfaces a class implements or an interface extends itself,
+     * sorted: every interface that neither the parent class nor another of
+     * them already brings in. An enum's UnitEnum/BackedEnum are left out,
+     * since every enum has them.
+     *
+     * @param ReflectionClass<object> $reflection
+     *
+     * @return list<string>
+     */
+    private function directInterfaces(ReflectionClass $reflection): array
+    {
+        $parent = $reflection->getParentClass();
+        $all    = array_values(array_diff(
+            $reflection->getInterfaceNames(),
+            $parent instanceof ReflectionClass ? $parent->getInterfaceNames() : [],
+            $reflection->isEnum() ? [UnitEnum::class, BackedEnum::class] : [],
+        ));
+        $direct = array_values(array_filter(
+            $all,
+            static fn (string $name): bool => array_filter(
+                $all,
+                static fn (string $other): bool => $other !== $name && is_subclass_of($other, $name),
+            ) === [],
+        ));
+        sort($direct);
+
+        return $direct;
     }
 
     /**
@@ -221,7 +320,22 @@ final class ApiSurfaceRenderer
 
         foreach ($this->declaredPublicMethods($reflection) as $method) {
             $lines[] = sprintf(
-                'method %s%s(%s): %s',
+                'method %s%s%s%s(%s): %s',
+                $method->isAbstract() && !$reflection->isInterface() ? 'abstract ' : '',
+                // A final method may not be overridden: making one final
+                // breaks every subclass that does.
+                $method->isFinal() ? 'final ' : '',
+                $method->isStatic() ? 'static ' : '',
+                $method->getName(),
+                $this->renderParameters($method, $reflection->getName()),
+                $this->renderType($method->getReturnType(), $reflection->getName()),
+            );
+        }
+
+        foreach ($this->abstractMethodsToImplement($reflection) as $method) {
+            $lines[] = sprintf(
+                'method abstract %s%s%s(%s): %s',
+                $this->hookVisibility($method),
                 $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),
@@ -232,6 +346,19 @@ final class ApiSurfaceRenderer
         sort($lines);
 
         return $lines;
+    }
+
+    /**
+     * `protected ` or `private ` for an abstract method a subclass or trait
+     * user implements; nothing for a public one.
+     */
+    private function hookVisibility(ReflectionMethod $method): string
+    {
+        return match (true) {
+            $method->isProtected() => 'protected ',
+            $method->isPrivate()   => 'private ',
+            default                => '',
+        };
     }
 
     /**

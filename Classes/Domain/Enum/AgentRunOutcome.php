@@ -21,9 +21,11 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * was required but could not be stored (fail-closed, ADR-092), so no resume
  * must be offered.
  *
- * More cases may be added in minor releases (the queue epic will add
- * queue-related outcomes); consumers must not match exhaustively without a
- * default arm.
+ * More cases may be added (the queue epic will add queue-related
+ * outcomes). A new case breaks every exhaustive match, so during 0.x it ships
+ * only in a release that raises the middle version number, with a BREAKING
+ * changelog entry (Documentation/Api/Stability.rst). Consumers must not match
+ * exhaustively without a default arm.
  *
  * @api
  */

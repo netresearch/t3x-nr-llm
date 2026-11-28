@@ -47,17 +47,26 @@ use SplFileInfo;
  *    constructor names internals by design (`InputGuardrailScreener`,
  *    `JsonSchemaValidator`, `MiddlewarePipeline`, `KeyedProviderRegistry` do
  *    appear on constructor lines today and are not `@api`). The lines are
- *    still frozen — a widened constructor is a breaking diff — they are just
+ *    still frozen — a new required parameter is a breaking diff — they are just
  *    not a promise that the types on them are callable API.
  *
  * The rendering rules live in ApiSurfaceRenderer and are tested against
  * fixture classes in ApiSurfaceRendererTest — a snapshot can only show that
  * today equals yesterday, never that a given break would be caught.
  *
- * The failure message is classified by ApiSurfaceDiff: additive (a new
- * class, method, property) is regenerated and noted; breaking (removed or
- * changed) needs a deliberate decision under
- * `Documentation/Api/Deprecation.rst`.
+ * The failure message is classified by ApiSurfaceDiff, by the rules of
+ * `Documentation/Api/Stability.rst` ("Enforcement"): additive (a new class,
+ * a new concrete method or property, an abstract method given a body, an
+ * abstract class made concrete as long as no protected hook vanishes) is
+ * regenerated and noted in an `added` changelog.d fragment; breaking
+ * (removed or changed, a class or method made `final`, a new method on an interface, a
+ * new abstract method, a new enum case, a changed `extends` or a removed
+ * `implements`) needs a deliberate decision under
+ * `Documentation/Api/Deprecation.rst` and a `- **BREAKING` fragment. The
+ * verdict `check by hand` covers what the snapshot cannot classify: a
+ * vanished protected or private abstract method (a body and a deletion look
+ * the same) and an interface from outside nr_llm and PHP added to an abstract
+ * class (its open methods are not rendered). It is not additive.
  *
  * To update intentionally: delete `api-surface.txt`, run the unit suite
  * twice (first run regenerates the file and fails, second is green), and
@@ -97,7 +106,9 @@ final class ApiSurfaceSnapshotTest extends TestCase
             file_put_contents(self::SNAPSHOT_PATH, $rendered);
             self::fail(sprintf(
                 'Snapshot regenerated at %s — inspect the diff and commit it. '
-                . 'A removed or changed line is a break and needs a CHANGELOG entry.',
+                . 'A removed or changed line is a break, and so is a new method on an @api interface, a new'
+                . ' abstract method on an @api abstract class or a new case of an @api enum; each needs a'
+                . ' changelog.d/ fragment with a top-level bullet that opens with `- **BREAKING`.',
                 self::SNAPSHOT_PATH,
             ));
         }

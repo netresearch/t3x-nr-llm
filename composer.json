@@ -140,7 +140,8 @@
         "ci:test:changelog:fragments": "changelog-fragments check @no_additional_args",
         "ci:test:changelog:sections": [
             "php Build/Scripts/check-changelog-unreleased.php",
-            "php Build/Scripts/check-changelog-released-sections.php"
+            "php Build/Scripts/check-changelog-released-sections.php",
+            "php Build/Scripts/check-changelog-version-bump.php"
         ],
         "changelog:collect": "changelog-fragments collect",
         "ci:test:php:cgl": [

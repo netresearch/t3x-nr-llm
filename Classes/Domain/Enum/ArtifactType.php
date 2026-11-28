@@ -20,9 +20,12 @@ namespace Netresearch\NrLlm\Domain\Enum;
  * - TEXT: a plain string payload {text: string}. The fallback for an unknown
  *   shape and the carrier for the fail-closed "artifacts omitted" marker.
  *
- * Additive by design: TREE, LIST, KEY_VALUE, LINK, CODE land later as a new
- * enum case plus one JS branch — no consumer migration, no persisted-data
- * migration. TREE specifically is a documented follow-up (a page-tree emitter),
+ * Extensible by design: TREE, LIST, KEY_VALUE, LINK, CODE land later as a new
+ * enum case plus one JS branch, with no persisted-data migration. A new case
+ * still breaks a consumer that matches this enum exhaustively without a
+ * default arm, so during 0.x it ships in a release that raises the middle
+ * version number, with a BREAKING changelog entry
+ * (Documentation/Api/Stability.rst). TREE specifically is a documented follow-up (a page-tree emitter),
  * intentionally NOT shipped in v1 so no enum case exists without a committed
  * producer.
  *

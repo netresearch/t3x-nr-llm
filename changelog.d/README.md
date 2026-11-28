@@ -12,7 +12,7 @@ that section conflict as soon as one of them merges; two fragment files do not.
 
   | Section      | Heading in `CHANGELOG.md`                         |
   |--------------|---------------------------------------------------|
-  | `upgrading`  | `### Upgrading from X.Y` (the last minor release) |
+  | `upgrading`  | `### Upgrading from X.Y` (the previous 0.N line)  |
   | `added`      | `### Added`                                       |
   | `changed`    | `### Changed`                                     |
   | `deprecated` | `### Deprecated`                                  |
@@ -23,6 +23,16 @@ that section conflict as soon as one of them merges; two fragment files do not.
 - Content: one or more top-level bullets (`-` and a space), written as they will appear in
   `CHANGELOG.md`. No heading; the file name selects it. A change that belongs
   under two headings gets two files.
+- A breaking change opens its top-level bullet with `- **BREAKING`, in upper
+  case and followed by no letter, digit or underscore (for example
+  `- **BREAKING: Foo::bar() is removed.** Call Foo::baz() instead.`). During 0.x that bullet
+  is what lets a release raise the middle version number, and
+  `composer ci:test:changelog:sections` refuses a release whose middle number
+  disagrees with it (`Documentation/Api/Stability.rst`). Anywhere else in a
+  fragment the word `breaking` (any case, outside inline code and fenced code)
+  is refused, `**Breaking:**`, a nested bullet, a second occurrence on the
+  marker line and prose such as "not a `breaking` change" included: reword the
+  line or quote the word as inline code.
 
 `composer ci:test:changelog` checks the names and contents.
 

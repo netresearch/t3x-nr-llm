@@ -58,10 +58,22 @@ is `@internal`.
 
 The rendered `@api` surface — constructors included — is frozen in
 `Tests/Unit/Api/api-surface.txt`. The snapshot test classifies its own
-failure: **additive** (a new class, method, property, constant or enum case)
-means regenerate the file and note it under `### Added`; **breaking**
-(anything removed or changed, a widened constructor included) means stop and
-decide.
+failure: **additive** (a new class, interface or enum, a new concrete method or
+a property of a class, a new constant, an abstract class made concrete, a
+final class made non-final, an abstract method given a body, trailing
+parameters with a default value on a constructor, a method of a `final` class
+or a `final` method, an interface a class now implements without
+leaving methods open) means
+regenerate the file and note it in an `added` fragment; **breaking** (anything
+removed or changed, a new required parameter, a new optional one on an
+overridable, interface or abstract method, a class or method made `final` and a changed
+`extends` or a removed
+`implements` included, a new method on an `@api` interface, a new public or
+protected abstract method on an `@api` abstract class, a new case of an `@api`
+enum) means stop and decide; **check by hand** (a vanished protected or private
+abstract method, a third-party interface added to an abstract class) means read the
+class, since the snapshot cannot tell a body from a deletion or see the
+methods such an interface leaves open.
 
 Removing or narrowing something `@api` follows
 `Documentation/Api/Deprecation.rst`: deprecate in a minor, keep it working
@@ -153,6 +165,20 @@ PR as soon as one of them merged. `changelog.d/README.md` describes the format;
 into `CHANGELOG.md` with `composer changelog:collect`. Version bumps belong to
 the release commit, never to a feature PR.
 
+A breaking change gets a top-level bullet that opens with `- **BREAKING`
+(upper case, then no letter, digit or underscore) and says what a consumer has
+to change, in whichever fragment section fits (often `changed`, `removed` or
+`upgrading`). In a fragment, in `[Unreleased]` and in a release after 0.55.1
+the word `breaking` (any case, outside inline code and fenced code) may stand
+only there, once, as that marker; `composer ci:test:changelog:sections` refuses
+every other occurrence, `**Breaking:**`, a nested bullet and prose such as
+"not a `breaking` change" included. Reword such a line or quote the word as
+inline code. Breaking means a breaking
+diff of `Tests/Unit/Api/api-surface.txt` (a new method on an `@api` interface,
+a new abstract method on an `@api` abstract class and a new case of an `@api`
+enum included) or a behaviour change consumers
+have to handle, such as a new run status they must know.
+
 A change to the public surface also gets an Architecture Decision Record under
 `Documentation/Adr/`, named `Adr<N><Description>.rst` — take the next free
 number and follow the format of an existing one. Add the file name to the
@@ -163,6 +189,23 @@ a consumer builds against: an interface, a DI-tagged extension point, a database
 table, a TCA field, an Extension Configuration key, a console command, or the
 behaviour of any of them. Recording *why* matters more than recording what; the
 diff already shows what.
+
+### Versioning during 0.x
+
+In 0.x.y the middle number x rises **only** for a breaking change, and then by
+one, to 0.x+1.0. New features, fixes, additive API changes (a new class,
+interface or enum, a new concrete method of a class) and additive database changes (new
+columns or tables with defaults) raise only y. A new method on an `@api`
+interface, a new abstract method on an `@api` abstract class and a new case of
+an `@api` enum are breaking. The reason is the
+caret: `^0.54` admits only 0.54.*, so every rise of x makes each extension that
+depends on nr_llm widen its constraint and release. Before choosing the
+version, read `[Unreleased]` and the pending `changelog.d/` fragments for
+`- **BREAKING` bullets, and diff `Tests/Unit/Api/api-surface.txt` against the
+last tag. `composer ci:test:changelog` (and `make changelog`) refuses a release
+after 0.55.1 that raises x without a `- **BREAKING` bullet or by more than one,
+or keeps x with one. The full rule is `Documentation/Api/Stability.rst`,
+"Versioning during 0.x".
 
 ## Commit Messages
 

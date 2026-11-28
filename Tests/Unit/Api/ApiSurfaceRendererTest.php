@@ -9,17 +9,50 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Api;
 
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingLoggerAware;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingPort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithAbstractMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithConcreteMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithFinalKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedAbstract;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithPublicKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithStaticAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AddedMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\BackedFixtureEnum;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithFinalKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithProtectedKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithPublicKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\CountableBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ExtendingPort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalConcreteBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalRunner;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalRunnerWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalRunnerWithRequired;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenConstructor;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenConstructorWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunner;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunnerFinalMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunnerFinalMethodWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunnerWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\RunnerPort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\RunnerPortWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\StandalonePort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithoutPrivateAbstract;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithPrivateAbstract;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithProtectedAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\WidenedConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceDiff;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceRenderer;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerAwareInterface;
 
 /**
  * Proves what ApiSurfaceSnapshotTest cannot prove about itself.
@@ -183,6 +216,306 @@ final class ApiSurfaceRendererTest extends TestCase
         self::assertSame(BackedFixtureEnum::class . ' :: case Read', $diff->changed[0]['entry']);
         self::assertSame('case Read = "read"', $diff->changed[0]['was']);
         self::assertSame('case Read = "reveal"', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aNewAbstractMethodOnAnAbstractClassClassifiesAsBreaking(): void
+    {
+        // A subclass outside the package has to implement it: the
+        // AbstractOptions / AbstractModelDiscoverer case.
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseWithAbstractMethod::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [AbstractBaseWithAbstractMethod::class . ' :: method abstract kind(): string'],
+            $diff->addedToContracts,
+        );
+    }
+
+    #[Test]
+    public function aNewConcreteMethodOnAnAbstractClassStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseWithConcreteMethod::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertStringStartsWith(
+            AbstractBaseWithConcreteMethod::class . ' (abstract class)',
+            (new ApiSurfaceRenderer())->render([AbstractBaseWithConcreteMethod::class]),
+        );
+    }
+
+    #[Test]
+    public function anInterfaceThatStartsToExtendAnotherClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(StandalonePort::class, ExtendingPort::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(ExtendingPort::class . ' :: (declaration)', $diff->changed[0]['entry']);
+        self::assertSame(ExtendingPort::class . ' (interface) extends Countable', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aNewProtectedAbstractMethodClassifiesAsBreaking(): void
+    {
+        // The AbstractSpecializedService pattern: subclasses implement
+        // protected hooks, so a new one breaks every subclass outside nr_llm.
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseWithProtectedAbstract::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [AbstractBaseWithProtectedAbstract::class . ' :: method abstract protected kind(): string'],
+            $diff->addedToContracts,
+        );
+    }
+
+    #[Test]
+    public function anAbstractClassThatImplementsAnInterfaceItLeavesOpenClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseImplementingPort::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [AbstractBaseImplementingPort::class . ' :: method abstract send(string $text): void'],
+            $diff->addedToContracts,
+        );
+        self::assertStringContainsString(
+            ' implements ' . StandalonePort::class,
+            (new ApiSurfaceRenderer())->render([AbstractBaseImplementingPort::class]),
+        );
+    }
+
+    #[Test]
+    public function aConcreteClassThatAddsAnImplementedInterfaceStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(ConcreteBase::class, CountableBase::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame(CountableBase::class . ' (class) implements Countable', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function aClassThatDropsAnImplementedInterfaceClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(CountableBase::class, ConcreteBase::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(ConcreteBase::class . ' :: (declaration)', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
+    public function anAbstractClassThatBecomesConcreteStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBase::class, ConcreteBase::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->changed);
+    }
+
+    #[Test]
+    public function anAbstractClassMadeConcreteThatImplementsItsProtectedHookNeedsACheckByHand(): void
+    {
+        // A concrete class's protected methods are not rendered, so an
+        // implemented hook and a deleted one look the same.
+        $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, ConcreteBaseWithProtectedKind::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertFalse($diff->isAdditiveOnly());
+        self::assertSame([], $diff->removed);
+        self::assertSame([], $diff->changed);
+        self::assertSame(
+            [ConcreteBaseWithProtectedKind::class . ' :: method abstract protected kind(): string'],
+            $diff->checkByHand,
+        );
+    }
+
+    #[Test]
+    public function anAbstractClassMadeConcreteThatDeletedItsProtectedHookIsNotAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, ConcreteBase::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertFalse($diff->isAdditiveOnly());
+        self::assertStringContainsString('cannot tell given a body from deleted', $diff->describe());
+    }
+
+    #[Test]
+    public function anAbstractClassThatGivesAnAbstractMethodABodyStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithAbstractMethod::class, AbstractBaseWithPublicKind::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->changed);
+        self::assertSame('method kind(): string', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function anAbstractClassThatGivesItsProtectedHookABodyNeedsACheckByHand(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, AbstractBaseWithProtectedKind::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertSame([], $diff->removed);
+        self::assertSame(
+            [AbstractBaseWithProtectedKind::class . ' :: method abstract protected kind(): string'],
+            $diff->checkByHand,
+        );
+        self::assertStringContainsString('cannot tell given a body from deleted', $diff->describe());
+    }
+
+    #[Test]
+    public function anAbstractClassThatAddsAThirdPartyInterfaceNeedsACheckByHand(): void
+    {
+        // Methods declared outside nr_llm or PHP are not rendered, so the
+        // setLogger() every subclass now has to implement is invisible.
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseImplementingLoggerAware::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertFalse($diff->isAdditiveOnly());
+        self::assertSame([], $diff->widened);
+        self::assertStringContainsString(LoggerAwareInterface::class, $diff->checkByHand[0]);
+    }
+
+    #[Test]
+    public function anAbstractMethodMadeFinalClassifiesAsBreaking(): void
+    {
+        // A final body breaks every subclass that implemented the method.
+        $diff = $this->diffBetween(AbstractBaseWithAbstractMethod::class, AbstractBaseWithFinalKind::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('method final kind(): string', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aConcreteMethodMadeFinalClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(ConcreteBaseWithPublicKind::class, ConcreteBaseWithFinalKind::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('method kind(): string', $diff->changed[0]['was']);
+        self::assertSame('method final kind(): string', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aNewPrivateAbstractMethodOfATraitClassifiesAsBreaking(): void
+    {
+        self::assertStringContainsString(
+            '  method abstract private secret(): string',
+            (new ApiSurfaceRenderer())->render([TraitWithPrivateAbstract::class]),
+        );
+
+        $diff = $this->diffBetween(TraitWithoutPrivateAbstract::class, TraitWithPrivateAbstract::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(
+            [TraitWithPrivateAbstract::class . ' :: method abstract private secret(): string'],
+            $diff->addedToContracts,
+        );
+    }
+
+    #[Test]
+    public function aProtectedAbstractMethodOfATraitIsRendered(): void
+    {
+        self::assertStringContainsString(
+            '  method abstract protected kind(): string',
+            (new ApiSurfaceRenderer())->render([TraitWithProtectedAbstract::class]),
+        );
+    }
+
+    #[Test]
+    public function anAbstractClassMadeConcreteWhoseMethodOnlyLosesAbstractStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithAbstractMethod::class, ConcreteBaseWithPublicKind::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->changed);
+    }
+
+    #[Test]
+    public function aStaticAbstractMethodIsRenderedStatic(): void
+    {
+        self::assertStringContainsString(
+            '  method abstract protected static make(): string',
+            (new ApiSurfaceRenderer())->render([AbstractBaseWithStaticAbstract::class]),
+        );
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAFinalClassMethodIsAdditive(): void
+    {
+        $diff = $this->diffBetween(FinalRunner::class, FinalRunnerWithOption::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame('method run(string $a, int $limit = …): string', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAFinalMethodIsAdditive(): void
+    {
+        $diff = $this->diffBetween(OpenRunnerFinalMethod::class, OpenRunnerFinalMethodWithOption::class);
+
+        self::assertSame('additive', $diff->verdict());
+    }
+
+    #[Test]
+    public function anOptionalConstructorParameterIsAdditive(): void
+    {
+        $diff = $this->diffBetween(OpenConstructor::class, OpenConstructorWithOption::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame(OpenConstructorWithOption::class . ' :: constructor', $diff->widened[0]['entry']);
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAnOverridableMethodIsBreaking(): void
+    {
+        $diff = $this->diffBetween(OpenRunner::class, OpenRunnerWithOption::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(OpenRunnerWithOption::class . ' :: method run', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAnInterfaceMethodIsBreaking(): void
+    {
+        $diff = $this->diffBetween(RunnerPort::class, RunnerPortWithOption::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(RunnerPortWithOption::class . ' :: method run', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
+    public function aRequiredParameterOnAFinalClassMethodIsBreaking(): void
+    {
+        $diff = $this->diffBetween(FinalRunner::class, FinalRunnerWithRequired::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('method run(string $a, int $limit): string', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aClassMadeFinalClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(ConcreteBase::class, FinalConcreteBase::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(FinalConcreteBase::class . ' (final class)', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aFinalClassMadeNonFinalStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(FinalConcreteBase::class, ConcreteBase::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame(ConcreteBase::class . ' (class)', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function aConcreteClassThatBecomesAbstractClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(ConcreteBase::class, AbstractBase::class);
+
+        self::assertSame('breaking', $diff->verdict());
     }
 
     #[Test]
