@@ -40,6 +40,7 @@ RESERVED = {"index.md", "log.md"}
 REPO_TARGET = {"implementedBy", "verifiedBy"}
 NO_RELATIONS = {"Relation", "Competency Question", "Reference"}
 STATUSES = {"asserted", "hypothesis"}
+HEADER = ["Relation", "Target", "Evidence file", "Evidence text", "Status"]
 PROPAGATION = {"to-source", "to-target", "none"}
 LINK = re.compile(r"^\[[^\]]*\]\(([^)\s]+)\)$")
 CODE = re.compile(r"^`([^`]+)`$")
@@ -243,17 +244,23 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
         row = cells(line)
         rows_seen += 1
         if rows_seen == 1:
+            if row == HEADER:
+                continue
+            bundle.errors.append(
+                f"{where}: the relations table needs the header row {' | '.join(HEADER)} first"
+            )
             if row[0] == "Relation":
                 continue
-            bundle.errors.append(
-                f"{where}: the relations table needs its header row first"
-            )
         elif rows_seen == 2:
-            if all(re.fullmatch(r":?-+:?", cell) for cell in row):
+            if len(row) == len(HEADER) and all(
+                re.fullmatch(r":?-+:?", cell) for cell in row
+            ):
                 continue
             bundle.errors.append(
-                f"{where}: the relations table needs its separator row second"
+                f"{where}: the relations table needs a separator row of {len(HEADER)} cells second"
             )
+            if all(re.fullmatch(r":?-+:?", cell) for cell in row):
+                continue
         if len(row) != 5:
             bundle.errors.append(
                 f"{where}: a relation row needs 5 cells, found {len(row)}"
