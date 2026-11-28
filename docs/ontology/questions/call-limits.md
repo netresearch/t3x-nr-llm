@@ -44,9 +44,13 @@ concepts/glossary
   via concepts/llm-service uses concepts/glossary
   test Tests/Functional/Domain/GlossaryStorageTest.php
   test Tests/Unit/Service/Glossary/GlossaryResolverTest.php
+concepts/site-llm-settings
+  via concepts/llm-service uses concepts/site-llm-settings
+  test Tests/Unit/Service/Site/SiteLlmSettingsTest.php
+  test Tests/Unit/Service/ConfigurationResolverSiteTest.php
 concepts/provider-adapter
   via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline uses concepts/provider-adapter
+  via concepts/middleware-pipeline uses concepts/provider-adapter (hypothesis)
   test Tests/Unit/Provider/AbstractProviderTest.php
 concepts/user-budget
   via concepts/llm-service uses concepts/middleware-pipeline
@@ -79,10 +83,13 @@ concepts/prompt-snippet
   via concepts/llm-service uses concepts/configuration
   via concepts/configuration uses concepts/prompt-snippet
   test Tests/Unit/Domain/Model/PromptSnippetTest.php
+concepts/configuration-preset
+  via concepts/llm-service uses concepts/configuration
+  via concepts/configuration derivedFrom concepts/configuration-preset
+  test Tests/Unit/Service/Preset/ConfigurationPresetImportServiceTest.php
 concepts/usage-record
-  via concepts/llm-service uses concepts/middleware-pipeline
-  via concepts/middleware-pipeline constrainedBy concepts/user-budget
-  via concepts/user-budget uses concepts/usage-record
+  via concepts/llm-service uses concepts/configuration
+  via concepts/configuration uses concepts/usage-record
   test Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php
 concepts/provider
   via concepts/llm-service uses concepts/configuration
@@ -122,4 +129,4 @@ A test line names a test file that covers the concept; it does not show that the
 
 # Limits
 
-The budget check runs twice: against the daily limits of the configuration and against the user budget of the backend user. Both must pass. The model test and the configuration test of the backend module call the adapter directly and pass neither check. A streamed call takes the streaming dispatcher instead of the middleware pipeline; it runs the budget check and records usage and telemetry, and which other steps apply to a stream is not modelled.
+The budget check runs twice: against the daily limits of the configuration and against the user budget of the backend user. Both must pass. A call without a backend user skips the user budget and passes the daily limits of its configuration only. The model test and the configuration test of the backend module call the adapter directly and pass neither check. A streamed call takes the streaming dispatcher instead of the middleware pipeline; it runs the budget check and records usage and telemetry, and which other steps apply to a stream is not modelled.

@@ -37,5 +37,5 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `implementedBy` | `Classes/Domain/Model/PromptSnippet.php` | `Classes/Domain/Model/PromptSnippet.php` | `Deliberately NOT a PromptTemplate` | asserted |
+| `implementedBy` | `Classes/Domain/Model/PromptSnippet.php` | `Classes/Domain/Model/PromptSnippet.php` | `class PromptSnippet extends AbstractEntity` | asserted |
 | `verifiedBy` | `Tests/Unit/Domain/Model/PromptSnippetTest.php` | `Tests/Unit/Domain/Model/PromptSnippetTest.php` | `class PromptSnippetTest` | asserted |

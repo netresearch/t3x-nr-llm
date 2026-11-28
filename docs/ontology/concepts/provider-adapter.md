@@ -34,9 +34,9 @@ flowchart LR
   c -->|"implementedBy"| n2
   c -->|"partOf"| n3
   c -->|"verifiedBy"| n4
-  n5 -->|"uses"| c
+  n5 -.->|"uses (hypothesis)"| c
   n6 -->|"uses"| c
-  n7 -->|"uses"| c
+  n7 -.->|"uses (hypothesis)"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```
@@ -48,7 +48,7 @@ flowchart LR
 | `implementedBy` | `Classes/Provider/AbstractProvider.php` | `Classes/Provider/AbstractProvider.php` | `abstract class AbstractProvider implements ProviderInterface` | asserted |
 | `implementedBy` | `Classes/Provider/Contract/ProviderInterface.php` | `Classes/Provider/Contract/ProviderInterface.php` | `interface ProviderInterface` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/AbstractProviderTest.php` | `Tests/Unit/Provider/AbstractProviderTest.php` | `class AbstractProviderTest` | asserted |
-| `partOf` | [Public API](public-api.md) | `Classes/Provider/Contract/ProviderInterface.php` | `@api Extension point` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Provider\Contract\ProviderInterface (interface)` | asserted |
 
 # Notes
 

@@ -6,7 +6,7 @@ title: "Provider"
 description: "A configured connection to one LLM vendor API: endpoint, credentials and adapter type."
 tags: [three-tier]
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
@@ -44,10 +44,11 @@ flowchart LR
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
 | `uses` | [Provider adapter](provider-adapter.md) | `Configuration/TCA/tx_nrllm_provider.php` | `'adapter_type' =>` | asserted |
-| `uses` | [nr-vault secret](https://github.com/netresearch/t3x-nr-vault) | `Classes/Domain/Model/Provider.php` | `This method retrieves the API key from nr-vault using the stored identifier.` | asserted |
+| `uses` | [nr-vault secret](https://github.com/netresearch/t3x-nr-vault) | `Classes/Domain/Model/Provider.php` | `$result = $vault->retrieve($this->apiKey) ?? '';` | asserted |
 | `implementedBy` | `Classes/Domain/Model/Provider.php` | `Classes/Domain/Model/Provider.php` | `class Provider extends AbstractEntity` | asserted |
 | `verifiedBy` | `Tests/Unit/Domain/Model/ProviderTest.php` | `Tests/Unit/Domain/Model/ProviderTest.php` | `class ProviderTest` | asserted |
 
 # Notes
 
 - The API key is stored in nr-vault (the extension `netresearch/nr-vault`). The provider holds only the vault identifier.
+- Besides the setup wizard, the console command `nrllm:provider:set-key` stores a key for a provider from an unattended context; it reads the key from standard input (`Classes/Command/SetProviderApiKeyCommand.php`).

@@ -35,7 +35,7 @@ flowchart LR
   c -->|"constrainedBy"| n3
   c -->|"implementedBy"| n4
   c -->|"partOf"| n5
-  c -->|"uses"| n6
+  c -.->|"uses (hypothesis)"| n6
   c -->|"verifiedBy"| n7
   c -->|"verifiedBy"| n8
   c -->|"verifiedBy"| n9
@@ -49,17 +49,18 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `uses` | [Provider adapter](provider-adapter.md) | `Classes/Provider/Middleware/MiddlewarePipeline.php` | `a terminal provider call.` | asserted |
+| `uses` | [Provider adapter](provider-adapter.md) |  |  | hypothesis |
 | `constrainedBy` | [User budget](user-budget.md) | `Classes/Provider/Middleware/BudgetMiddleware.php` | `private BudgetServiceInterface $budgetService` | asserted |
-| `constrainedBy` | [Configuration](configuration.md) | `Classes/Provider/Middleware/BudgetMiddleware.php` | `they are configuration-scoped, not user-scoped` | asserted |
+| `constrainedBy` | [Configuration](configuration.md) | `Classes/Provider/Middleware/BudgetMiddleware.php` | `$result = $this->budgetService->check($beUserUid, $plannedCost, $context->configuration);` | asserted |
 | `constrainedBy` | [Guardrail](guardrail.md) | `Classes/Provider/Middleware/GuardrailMiddleware.php` | `final readonly class GuardrailMiddleware implements ProviderMiddlewareInterface` | asserted |
 | `implementedBy` | `Classes/Provider/Middleware/MiddlewarePipeline.php` | `Classes/Provider/Middleware/MiddlewarePipeline.php` | `class MiddlewarePipeline` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/MiddlewarePipelineTest.php` | `Tests/Unit/Provider/Middleware/MiddlewarePipelineTest.php` | `class MiddlewarePipelineTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php` | `class BudgetMiddlewareTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php` | `class GuardrailMiddlewareTest` | asserted |
 | `verifiedBy` | `Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php` | `Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php` | `class FallbackMiddlewareTest` | asserted |
-| `partOf` | [Public API](public-api.md) | `Classes/Provider/Middleware/ProviderMiddlewareInterface.php` | `@api Extension point` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Provider\Middleware\ProviderMiddlewareInterface (interface)` | asserted |
 
 # Notes
 
 - Two backend actions call a provider adapter directly and pass no pipeline step: the model test (`Classes/Controller/Backend/ModelTestController.php`) and the configuration test (`Classes/Controller/Backend/ConfigurationController.php`). They create the adapter with `createAdapterFromModel()`, so no budget, guardrail or usage record applies to them.
+- The `uses` row to Provider adapter is a hypothesis: the pipeline takes the provider call as a terminal callable and names no adapter itself. The terminals the LLM service manager passes in (`Classes/Service/LlmServiceManager.php`) show the manager's call to the adapter, not the pipeline's, so no literal of the pipeline would disappear with the relation.

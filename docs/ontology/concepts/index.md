@@ -27,3 +27,10 @@
 * [Backend user group](backend-user-group.md) - A TYPO3 backend group; a configuration names the groups that may use it.
 * [Public API](public-api.md) - The classes and methods marked @api, frozen in a snapshot that a test compares against.
 * [Streaming dispatcher](streaming-dispatcher.md) - The path of a streamed call: it runs the budget check before the stream and records usage and telemetry around it, in place of the middleware pipeline.
+* [Tool enable state](tool-enable-state.md) - The global switch per tool and per tool group with which an administrator turns tools off for every run.
+* [Site LLM settings](site-llm-settings.md) - The site settings with which a TYPO3 site names the configuration its calls use and the vault identifier of its DeepL key.
+* [Keyword search](keyword-search.md) - The public keyword search over the site search: a facade over a cascade of search backends that third parties can add.
+* [Reranker](reranker.md) - The public interface that scores retrieval candidates against a query with a cross-encoder.
+* [Configuration preset](configuration-preset.md) - A configuration that a consuming extension declares by identifier and model requirements, for an administrator to import.
+* [AI-written record](ai-written-record.md) - A page or content element that an agent run created or changed, marked on the row.
+* [Autotranslate integration](autotranslate-integration.md) - The translator class that lets EXT:autotranslate translate through the LLM service instead of DeepL.

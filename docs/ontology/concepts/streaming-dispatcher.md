@@ -28,7 +28,7 @@ flowchart LR
   c -->|"constrainedBy"| n1
   c -->|"constrainedBy"| n2
   c -->|"implementedBy"| n3
-  c -->|"uses"| n4
+  c -.->|"uses (hypothesis)"| n4
   c -->|"verifiedBy"| n5
   n6 -->|"uses"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
@@ -39,8 +39,8 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `uses` | [Provider adapter](provider-adapter.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `wrapping generator, not a replacement of the provider's:` | asserted |
-| `constrainedBy` | [User budget](user-budget.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `1. **Budget pre-flight (eager).**` | asserted |
+| `uses` | [Provider adapter](provider-adapter.md) |  |  | hypothesis |
+| `constrainedBy` | [User budget](user-budget.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `private BudgetServiceInterface $budgetService,` | asserted |
 | `constrainedBy` | [Configuration](configuration.md) | `Classes/Service/Streaming/StreamingDispatcher.php` | `$this->assertWithinBudget($context, $configuration);` | asserted |
 | `implementedBy` | `Classes/Service/Streaming/StreamingDispatcher.php` | `Classes/Service/Streaming/StreamingDispatcher.php` | `final readonly class StreamingDispatcher` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/Streaming/StreamingDispatcherTest.php` | `Tests/Unit/Service/Streaming/StreamingDispatcherTest.php` | `class StreamingDispatcherTest` | asserted |
@@ -48,3 +48,4 @@ flowchart LR
 # Notes
 
 - The dispatcher checks the budget against the user budget and the daily limits of the configuration, and it runs the fallback chain of the configuration. Which other middleware steps apply to a stream is not modelled.
+- The `uses` row to Provider adapter is a hypothesis: the dispatcher takes an opener callable that starts the stream and names no adapter itself. The opener the LLM service manager passes in calls `streamChatCompletion()` on the adapter; that line shows the manager's call, not the dispatcher's.

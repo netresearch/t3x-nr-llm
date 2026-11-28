@@ -46,5 +46,5 @@ flowchart LR
 | `uses` | [Configuration](configuration.md) | `Configuration/TCA/tx_nrllm_task.php` | `'foreign_table' => 'tx_nrllm_configuration'` | asserted |
 | `uses` | [Skill](skill.md) | `ext_tables.sql` | `CREATE TABLE tx_nrllm_task_skill_mm` | asserted |
 | `uses` | [LLM service](llm-service.md) | `Classes/Service/Task/TaskExecutionService.php` | `private LlmServiceManagerInterface $llmServiceManager` | asserted |
-| `implementedBy` | `Classes/Domain/Model/Task.php` | `Classes/Domain/Model/Task.php` | `They are NOT AI agents` | asserted |
+| `implementedBy` | `Classes/Domain/Model/Task.php` | `Classes/Domain/Model/Task.php` | `class Task extends AbstractEntity` | asserted |
 | `verifiedBy` | `Tests/Unit/Domain/Model/TaskTest.php` | `Tests/Unit/Domain/Model/TaskTest.php` | `class TaskTest` | asserted |

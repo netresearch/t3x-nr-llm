@@ -31,4 +31,4 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `implementedBy` | `ext_tables.sql` | `ext_tables.sql` | `GitHub-hosted skill sources (single SKILL.md, repo, or marketplace index)` | asserted |
+| `implementedBy` | `ext_tables.sql` | `ext_tables.sql` | `CREATE TABLE tx_nrllm_skill_source (` | asserted |

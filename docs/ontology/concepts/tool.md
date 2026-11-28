@@ -28,11 +28,13 @@ flowchart LR
   n3["Public API"]
   n4["Tool group"]
   n5["Agent run"]
+  n6["Tool enable state"]
   c -->|"derivedFrom"| n1
   c -->|"implementedBy"| n2
   c -->|"partOf"| n3
   c -->|"partOf"| n4
   n5 -->|"uses"| c
+  n6 -->|"uses"| c
   classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
   class c focus
 ```
@@ -44,7 +46,7 @@ flowchart LR
 | `partOf` | [Tool group](tool-group.md) | `Classes/Service/Tool/ToolInterface.php` | `public function getGroup(): string;` | asserted |
 | `derivedFrom` | [MCP server](mcp-server.md) | `ext_tables.sql` | `server int(11) unsigned DEFAULT '0' NOT NULL` | asserted |
 | `implementedBy` | `Classes/Service/Tool/ToolInterface.php` | `Classes/Service/Tool/ToolInterface.php` | `interface ToolInterface` | asserted |
-| `partOf` | [Public API](public-api.md) | `Classes/Service/Tool/ToolInterface.php` | `@api Extension point` | asserted |
+| `partOf` | [Public API](public-api.md) | `Tests/Unit/Api/api-surface.txt` | `Netresearch\NrLlm\Service\Tool\ToolInterface (interface)` | asserted |
 
 # Notes
 

@@ -5,7 +5,7 @@ type: Concept
 title: "MCP server"
 description: "A registered remote Model Context Protocol server whose tools nr-llm imports."
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
@@ -38,3 +38,7 @@ flowchart LR
 | `implementedBy` | `Classes/Service/Tool/Mcp/McpImportService.php` | `Classes/Service/Tool/Mcp/McpImportService.php` | `class McpImportService` | asserted |
 | `implementedBy` | `Configuration/TCA/tx_nrllm_mcp_server.php` | `Configuration/TCA/tx_nrllm_mcp_server.php` | `'requires_approval' =>` | asserted |
 | `verifiedBy` | `Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php` | `Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php` | `final class McpImportServiceTest extends AbstractFunctionalTestCase` | asserted |
+
+# Notes
+
+- The catalogue of a server is imported in the MCP servers backend module or with the console command `nrllm:mcp:import`, which calls the same import service (`Classes/Command/ImportMcpCatalogueCommand.php`).

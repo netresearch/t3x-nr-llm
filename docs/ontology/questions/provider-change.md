@@ -52,6 +52,12 @@ concepts/middleware-pipeline
   test Tests/Unit/Provider/Middleware/BudgetMiddlewareTest.php
   test Tests/Unit/Provider/Middleware/GuardrailMiddlewareTest.php
   test Tests/Unit/Provider/Middleware/FallbackMiddlewareTest.php
+concepts/site-llm-settings
+  via concepts/model uses concepts/provider
+  via concepts/configuration uses concepts/model
+  via concepts/site-llm-settings uses concepts/configuration
+  test Tests/Unit/Service/Site/SiteLlmSettingsTest.php
+  test Tests/Unit/Service/ConfigurationResolverSiteTest.php
 concepts/streaming-dispatcher
   via concepts/model uses concepts/provider
   via concepts/configuration uses concepts/model
@@ -62,6 +68,12 @@ concepts/task
   via concepts/configuration uses concepts/model
   via concepts/task uses concepts/configuration
   test Tests/Unit/Domain/Model/TaskTest.php
+concepts/autotranslate-integration
+  via concepts/model uses concepts/provider
+  via concepts/configuration uses concepts/model
+  via concepts/llm-service uses concepts/configuration
+  via concepts/autotranslate-integration uses concepts/llm-service
+  test Tests/Unit/Integration/Autotranslate/AutotranslateTranslatorTest.php
 concepts/public-api
   via concepts/model uses concepts/provider
   via concepts/configuration uses concepts/model

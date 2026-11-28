@@ -5,12 +5,12 @@ type: Concept
 title: "User budget"
 description: "Daily and monthly ceilings for the requests, tokens and cost of one backend user."
 status: draft
-timestamp: 2026-11-27
+timestamp: 2026-11-28
 ---
 
 # Definition
 
-A user budget sets daily and monthly ceilings for the requests, the tokens and the cost of one backend user. A request must stay under both windows. The value `0` means no limit on that axis. The budget is a ceiling, not a counter: the usage is summed from the usage records. The check runs before the call. Requests and cost include the planned call; tokens count only the recorded usage, so a call can take the token total past the ceiling, and concurrent calls can pass before their usage is recorded.
+A user budget sets daily and monthly ceilings for the requests, the tokens and the cost of one backend user. A request must stay under both windows. The value `0` means no limit on that axis. The budget is a ceiling, not a counter: the usage is summed from the usage records. The check runs before the call. Requests and cost include the planned call; tokens count only the recorded usage, so a call can take the token total past the ceiling, and concurrent calls can pass before their usage is recorded. A call without a backend user (user ID 0, for example on the command line or in the scheduler) skips the user budget; the daily limits of its configuration still apply when the configuration is persisted and has limits. A transient configuration without a record ID skips them as well.
 
 # Neighbours
 
@@ -39,6 +39,6 @@ flowchart LR
 
 | Relation | Target | Evidence file | Evidence text | Status |
 |---|---|---|---|---|
-| `uses` | [Usage record](usage-record.md) | `Classes/Domain/Model/UserBudget.php` | `demand from tx_nrllm_service_usage` | asserted |
+| `uses` | [Usage record](usage-record.md) | `Classes/Service/Budget/UserBudgetUsageWindows.php` | `private const USAGE_TABLE = 'tx_nrllm_service_usage';` | asserted |
 | `implementedBy` | `Classes/Service/BudgetService.php` | `Classes/Service/BudgetService.php` | `private UserBudgetRepository $repository` | asserted |
 | `verifiedBy` | `Tests/Unit/Service/BudgetServiceTest.php` | `Tests/Unit/Service/BudgetServiceTest.php` | `class BudgetServiceTest` | asserted |
