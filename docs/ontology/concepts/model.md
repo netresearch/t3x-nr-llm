@@ -17,6 +17,25 @@ A model is one LLM model that one provider offers. It holds the model ID at the 
 
 - The model ID string at the vendor (for example `gpt-5`). The model record holds that string in `model_id`, and adds capabilities and prices.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Model"]
+  n1[/"Classes/Domain/Model/Model.php"/]
+  n2["Provider"]
+  n3[/"Tests/Unit/Domain/Model/ModelTest.php"/]
+  n4["Configuration"]
+  c -->|"implementedBy"| n1
+  c -->|"uses"| n2
+  c -->|"verifiedBy"| n3
+  n4 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

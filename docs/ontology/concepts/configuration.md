@@ -18,6 +18,51 @@ A configuration is a named bundle for one use case. It names a model, or criteri
 - The extension configuration of TYPO3 (`ext_conf_template.txt`). That configures nr-llm as a whole.
 - A configuration preset: a consuming extension declares the configurations it needs as presets, and an administrator imports one. A preset states requirements (model capabilities and constraints), never a concrete provider or model; the imported configuration runs in the mode `criteria` (`Documentation/Developer/ConfigurationPresets.rst`).
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Configuration"]
+  n1["Backend user group"]
+  n2["Guardrail"]
+  n3["Term list"]
+  n4[/"Classes/Domain/Model/LlmConfiguration.php"/]
+  n5["Model"]
+  n6["Prompt snippet"]
+  n7["Skill"]
+  n8["Tool group"]
+  n9[/"Tests/Unit/Domain/DTO/FallbackChainTest.php"/]
+  n10[/"Tests/Unit/Domain/Model/LlmConfigurationTest.php"/]
+  n11[/"Tests/Unit/Service/ModelSelectionServiceTest.php"/]
+  n12["Middleware pipeline"]
+  n13["Streaming dispatcher"]
+  n14["Agent run"]
+  n15["LLM service"]
+  n16["Task"]
+  c -->|"constrainedBy"| n1
+  c -->|"constrainedBy"| c
+  c -->|"constrainedBy"| n2
+  c -->|"constrainedBy"| n3
+  c -->|"fallsBackTo"| c
+  c -->|"implementedBy"| n4
+  c -->|"uses"| n5
+  c -->|"uses"| n6
+  c -->|"uses"| n7
+  c -->|"uses"| n8
+  c -->|"verifiedBy"| n9
+  c -->|"verifiedBy"| n10
+  c -->|"verifiedBy"| n11
+  n12 -->|"constrainedBy"| c
+  n13 -->|"constrainedBy"| c
+  n14 -->|"uses"| c
+  n15 -->|"uses"| c
+  n16 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

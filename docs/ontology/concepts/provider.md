@@ -18,6 +18,27 @@ A provider is a configured connection to the API of one LLM vendor. It holds the
 - The vendor company (OpenAI, Anthropic). One vendor can have several providers.
 - The provider adapter: the PHP class that speaks the vendor API. A provider selects an adapter through its adapter type.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Provider"]
+  n1[/"Classes/Domain/Model/Provider.php"/]
+  n2["Provider adapter"]
+  n3(["https://github.com/netresearch/t3x-nr-vault"])
+  n4[/"Tests/Unit/Domain/Model/ProviderTest.php"/]
+  n5["Model"]
+  c -->|"implementedBy"| n1
+  c -->|"uses"| n2
+  c -->|"uses"| n3
+  c -->|"verifiedBy"| n4
+  n5 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

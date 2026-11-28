@@ -17,6 +17,30 @@ A skill is a set of instructions for a model, parsed from one `SKILL.md` file of
 - The skill ID of an A2A profile (`skill_id`): that names a capability an agent offers to remote agents.
 - A tool.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Skill"]
+  n1["Skill approval"]
+  n2["Skill source"]
+  n3[/"Classes/Domain/Model/Skill.php"/]
+  n4[/"Tests/Unit/Domain/Model/SkillAllowedToolsTest.php"/]
+  n5["Configuration"]
+  n6["Task"]
+  c -->|"constrainedBy"| n1
+  c -->|"derivedFrom"| n2
+  c -->|"implementedBy"| n3
+  c -->|"verifiedBy"| n4
+  n1 -->|"approves"| c
+  n5 -->|"uses"| c
+  n6 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

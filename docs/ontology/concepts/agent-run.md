@@ -17,6 +17,27 @@ An agent run is one execution of a tool-using agent. It runs under one configura
 - A task. A task is one prompt, an agent run is a loop with tools.
 - An AI session: a stored conversation (`tx_nrllm_ai_session`). That is not modelled here.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Agent run"]
+  n1["Backend user"]
+  n2[/"Classes/Service/Agent/AgentRunExecutor.php"/]
+  n3["Configuration"]
+  n4["LLM service"]
+  n5["Tool"]
+  c -->|"constrainedBy"| n1
+  c -->|"implementedBy"| n2
+  c -->|"uses"| n3
+  c -->|"uses"| n4
+  c -->|"uses"| n5
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

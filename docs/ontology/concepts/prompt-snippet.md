@@ -16,6 +16,23 @@ A prompt snippet is a small named prompt fragment, for example a persona, a tone
 
 - A prompt template: a complete prompt with model parameters.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Prompt snippet"]
+  n1[/"Classes/Domain/Model/PromptSnippet.php"/]
+  n2[/"Tests/Unit/Domain/Model/PromptSnippetTest.php"/]
+  n3["Configuration"]
+  c -->|"implementedBy"| n1
+  c -->|"verifiedBy"| n2
+  n3 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

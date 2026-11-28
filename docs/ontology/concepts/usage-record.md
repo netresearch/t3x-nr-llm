@@ -12,6 +12,23 @@ timestamp: 2026-11-27
 
 A usage record holds the counted usage of one kind of service on one day: requests, tokens, characters, audio seconds, images and the estimated cost. It names the configuration, the model, the task, the backend user and the calling extension.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Usage record"]
+  n1["LLM service"]
+  n2[/"Tests/Unit/Provider/Middleware/UsageMiddlewareTest.php"/]
+  n3["User budget"]
+  c -->|"records"| n1
+  c -->|"verifiedBy"| n2
+  n3 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

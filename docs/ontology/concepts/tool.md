@@ -16,6 +16,27 @@ A tool is an action that a model can call during an agent run, for example read 
 
 - A skill. A skill is instructions in text; a tool is an action with an effect.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Tool"]
+  n1["MCP server"]
+  n2[/"Classes/Service/Tool/ToolInterface.php"/]
+  n3["Public API"]
+  n4["Tool group"]
+  n5["Agent run"]
+  c -->|"derivedFrom"| n1
+  c -->|"implementedBy"| n2
+  c -->|"partOf"| n3
+  c -->|"partOf"| n4
+  n5 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

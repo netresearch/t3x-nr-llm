@@ -16,6 +16,25 @@ A term list names terms that must not appear, or must appear, in an output. The 
 
 - A glossary. A glossary maps a term of one language to a term of another language for translation.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Term list"]
+  n1[/"Classes/Service/Guardrail/Term/TermListGuardrail.php"/]
+  n2["Guardrail"]
+  n3[/"Tests/Unit/Service/Guardrail/Term/TermListGuardrailTest.php"/]
+  n4["Configuration"]
+  c -->|"implementedBy"| n1
+  c -->|"partOf"| n2
+  c -->|"verifiedBy"| n3
+  n4 -->|"constrainedBy"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |
