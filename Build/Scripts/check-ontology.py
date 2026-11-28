@@ -319,7 +319,11 @@ def check_indexes(bundle: Bundle) -> None:
             parent_index = directory.parent / "index.md"
             linked = parent_index.is_file() and any(
                 match
-                and (directory.parent / match.group(1)).resolve()
+                and (
+                    bundle.root / match.group(1).lstrip("/")
+                    if match.group(1).startswith("/")
+                    else directory.parent / match.group(1)
+                ).resolve()
                 == (directory / "index.md").resolve()
                 for match in (
                     ENTRY.match(line.strip())
