@@ -58,6 +58,9 @@ const MARKER = '- **BREAKING';
 /** The marker, followed by anything but a letter, digit or underscore. */
 const MARKER_LINE = '/^- \*\*BREAKING(?![A-Za-z0-9_])/';
 
+/** An inline code span. */
+const CODE_SPAN = '/`[^`]*`/';
+
 /** The word the strict rule looks for, in any case. */
 const WORD = '/breaking/i';
 
@@ -137,7 +140,7 @@ function blankedProseLines(string $text): array
     $blanked = [];
     foreach ($blocks as $block) {
         $joined = (string) preg_replace_callback(
-            '/`[^`]*`/',
+            CODE_SPAN,
             static fn (array $m): string => (string) preg_replace('/[^\n]/', ' ', $m[0]),
             implode("\n", $block),
         );
@@ -195,11 +198,11 @@ function lookalikeLines(string $text, int $firstLine = 1): array
  */
 function isQuotedMarker(string $line): bool
 {
-    if (preg_match('/^- \*\*(.*?)\*\*/', $line, $bold) !== 1 || preg_match_all('/`[^`]*`/', $bold[1], $spans) === 0) {
+    if (preg_match('/^- \*\*(.*?)\*\*/', $line, $bold) !== 1 || preg_match_all(CODE_SPAN, $bold[1], $spans) === 0) {
         return false;
     }
 
-    $outside = (string) preg_replace('/`[^`]*`/', '', $bold[1]);
+    $outside = (string) preg_replace(CODE_SPAN, '', $bold[1]);
 
     return preg_match('/^[\p{P}\s]*$/u', $outside) === 1 && preg_match(WORD, implode(' ', $spans[0])) === 1;
 }
