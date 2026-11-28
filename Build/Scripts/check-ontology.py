@@ -203,11 +203,13 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
     source = bundle.concept_id(path)
     in_section = False
     has_section = False
+    rows_seen = 0
     for number, line in body_lines(text):
         where = f"{bundle.shown(path)}:{number}"
-        if line.startswith("#"):
+        if re.match(r"^#{1,6}(\s|$)", line):
             in_section_before = in_section
             in_section = line.strip() == "# Relations"
+            rows_seen = 0
             has_section = has_section or in_section
             if in_section_before and re.match(r"^#{2,} ", line):
                 bundle.errors.append(
@@ -226,7 +228,10 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
             )
             continue
         row = cells(line)
-        if row[0] == "Relation" or all(re.fullmatch(r":?-+:?", cell) for cell in row):
+        rows_seen += 1
+        if (rows_seen == 1 and row[0] == "Relation") or (
+            rows_seen == 2 and all(re.fullmatch(r":?-+:?", cell) for cell in row)
+        ):
             continue
         if len(row) != 5:
             bundle.errors.append(
@@ -249,6 +254,26 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
         bundle.errors.append(
             f"{bundle.shown(path)}: a concept needs a '# Relations' section"
         )
+
+
+LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def check_links(bundle: Bundle, files: list[Path]) -> None:
+    """Report a Markdown link to a file that does not exist, outside tables and index entries."""
+    for path in files:
+        for number, line in body_lines(read(path)):
+            if line.startswith("|") or ENTRY.match(line.strip()):
+                continue
+            for href in LINK.findall(re.sub(r"`[^`]*`", "", line)):
+                if re.match(r"^[a-z][a-z0-9+.-]*:", href) or href.startswith("#"):
+                    continue
+                relative = href.split("#", 1)[0]
+                base = bundle.root if relative.startswith("/") else path.parent
+                if not (base / relative.lstrip("/")).exists():
+                    bundle.errors.append(
+                        f"{bundle.shown(path)}:{number}: the link {href} points to a file that does not exist"
+                    )
 
 
 def check_indexes(bundle: Bundle, files: list[Path]) -> None:
@@ -327,6 +352,7 @@ def load(root: Path, repo: Path) -> Bundle:
                 f"{bundle.shown(path)}: a competency question needs an x-nr-query"
             )
     check_indexes(bundle, files)
+    check_links(bundle, files)
     for name, mode in sorted(bundle.propagates.items()):
         if mode not in PROPAGATION:
             bundle.errors.append(

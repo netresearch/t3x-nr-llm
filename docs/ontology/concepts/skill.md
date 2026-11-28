@@ -10,7 +10,7 @@ timestamp: 2026-11-27
 
 # Definition
 
-A skill is a set of instructions for a model, parsed from one `SKILL.md` file of a skill source. Each skill version has a digest. A configuration or a task attaches skills, and the skills then enter the prompt. A skill also declares its trust level and how sensitive its content is.
+A skill is a set of instructions for a model, parsed from one `SKILL.md` file of a skill source. Each skill version has a digest. A configuration or a task attaches skills, and the skills then enter the prompt. A skill carries the trust level of its source and a sensitivity ceiling that an operator declares.
 
 # Not to be confused with
 
