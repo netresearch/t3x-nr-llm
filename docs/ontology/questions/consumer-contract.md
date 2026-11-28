@@ -128,6 +128,7 @@ url:https://github.com/netresearch/t3x-nr-vault
   via concepts/model uses concepts/provider
   via concepts/provider uses url:https://github.com/netresearch/t3x-nr-vault
 Scope: only the relations this bundle models; coverage.md names what it leaves out.
+A test line names a test file that covers the concept; it does not show that the test ran.
 ```
 
 # Limits

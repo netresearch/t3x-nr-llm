@@ -70,6 +70,7 @@ concepts/public-api
   test Tests/Unit/Api/ApiSurfaceSnapshotTest.php
   test Tests/Unit/Api/DeprecationInventoryTest.php
 Scope: only the relations this bundle models; coverage.md names what it leaves out.
+A test line names a test file that covers the concept; it does not show that the test ran.
 ```
 
 # Limits

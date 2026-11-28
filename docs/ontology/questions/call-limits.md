@@ -117,6 +117,7 @@ concepts/mcp-server
   via concepts/tool derivedFrom concepts/mcp-server
   test Tests/Functional/Service/Tool/Mcp/McpImportServiceTest.php
 Scope: only the relations this bundle models; coverage.md names what it leaves out.
+A test line names a test file that covers the concept; it does not show that the test ran.
 ```
 
 # Limits

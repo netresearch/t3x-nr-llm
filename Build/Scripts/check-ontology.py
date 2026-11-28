@@ -387,11 +387,15 @@ def traverse(bundle: Bundle, start: str, needs: bool) -> list[str]:
         lines.extend(f"  via {step}" for step in steps)
         lines.extend(
             f"  test {r.target.removeprefix('repo:')}"
+            + ("" if r.status == "asserted" else " (hypothesis)")
             for r in bundle.relations
             if r.source == concept and r.name == "verifiedBy"
         )
     lines.append(
         "Scope: only the relations this bundle models; coverage.md names what it leaves out."
+    )
+    lines.append(
+        "A test line names a test file that covers the concept; it does not show that the test ran."
     )
     return lines
 
