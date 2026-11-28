@@ -116,14 +116,14 @@ diff — but the types on it are not a promise that you may call them.
 The failure is classified, because "different" makes a new value object read
 like a deleted method. An **additive** diff (a new class, interface or enum,
 a new concrete method or a property of a class, a new constant, an abstract
-class made concrete, an abstract method given a body, an interface a class
-now implements without leaving methods open) is regenerated and noted in an
+class made concrete, a final class made non-final, an abstract method given
+a body, an interface a class now implements without leaving methods open) is regenerated and noted in an
 ``added`` changelog fragment.
 A **breaking** one is a decision, and the failure message says so and points
 at :ref:`api-deprecation`:
 
-- anything removed or changed, a widened constructor and a method made
-  ``final`` included,
+- anything removed or changed, a widened constructor and a class or method
+  made ``final`` included,
 - a new method on an existing ``@api`` interface — it breaks every
   implementation outside this extension, whether or not the interface is
   marked as an extension point,

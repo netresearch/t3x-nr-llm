@@ -29,9 +29,9 @@ use ReflectionClass;
  * - **removed** — gone. Every caller that used it breaks.
  * - **changed** — same member, different signature. Includes a widened
  *   constructor, which is the case the snapshot missed entirely before it
- *   recorded constructors at all, and a method made `final`.
+ *   recorded constructors at all, and a class or method made `final`.
  * - **widened** — a change that breaks nobody: an abstract class made
- *   concrete, an abstract method given a body, an interface added to
+ *   concrete, a final class made non-final, an abstract method given a body, an interface added to
  *   `implements` whose methods are rendered.
  * - **check by hand** — what the snapshot cannot classify: a vanished
  *   protected or private abstract method (concrete ones are not rendered, so a
@@ -397,8 +397,9 @@ final readonly class ApiSurfaceDiff
     }
 
     /**
-     * True when a changed header line breaks nobody: the kind stays or an
-     * abstract class becomes concrete, the parent stays, and every interface
+     * True when a changed header line breaks nobody: the kind stays, an
+     * abstract class becomes concrete or a final class stops being final, the
+     * parent stays, and every interface
      * the header listed is still listed. Methods a newly implemented interface
      * leaves open show up as `method abstract` lines and are judged there.
      * A changed parent is never a widening here: a subclass of the old parent
@@ -410,7 +411,8 @@ final readonly class ApiSurfaceDiff
         $after  = self::headerParts($now);
 
         $kindOk = $before['kind'] === $after['kind']
-            || ($before['kind'] === 'abstract class' && $after['kind'] === 'class');
+            || ($before['kind'] === 'abstract class' && $after['kind'] === 'class')
+            || ($before['kind'] === 'final class' && $after['kind'] === 'class');
 
         return $kindOk
             && $before['extends'] === $after['extends']

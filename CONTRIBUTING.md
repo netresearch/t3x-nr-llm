@@ -59,11 +59,11 @@ is `@internal`.
 The rendered `@api` surface — constructors included — is frozen in
 `Tests/Unit/Api/api-surface.txt`. The snapshot test classifies its own
 failure: **additive** (a new class, interface or enum, a new concrete method or
-a property of a class, a new constant, an abstract class made concrete, an
-abstract method given a body, an interface a class now implements without
+a property of a class, a new constant, an abstract class made concrete, a
+final class made non-final, an abstract method given a body, an interface a class now implements without
 leaving methods open) means
 regenerate the file and note it in an `added` fragment; **breaking** (anything
-removed or changed, a widened constructor, a method made `final` and a changed
+removed or changed, a widened constructor, a class or method made `final` and a changed
 `extends` or a removed
 `implements` included, a new method on an `@api` interface, a new public or
 protected abstract method on an `@api` abstract class, a new case of an `@api`

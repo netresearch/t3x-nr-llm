@@ -157,15 +157,24 @@ function blankedProseLines(string $text): array
  * "breaking" stands anywhere but as the one marker of a marker line.
  *
  * Inline code is blanked first, also inside the opening bold run, so a text
- * that quotes the word as `breaking` is allowed. `- **`BREAKING`:**` is then
- * no lookalike, but no marker either: hasMarker() reads the raw line.
+ * that quotes the word as `breaking` is allowed. One exception: a top-level
+ * bullet whose opening bold run holds nothing but that quoted word and
+ * punctuation (`- **`BREAKING`:**`) is a quoted marker and refused, since its
+ * author meant to mark a break.
  *
  * @return list<int>
  */
 function lookalikeLines(string $text, int $firstLine = 1): array
 {
+    $raw   = proseLines($text);
     $lines = [];
     foreach (blankedProseLines($text) as $i => $prose) {
+        if (isQuotedMarker($raw[$i])) {
+            $lines[] = $firstLine + $i;
+
+            continue;
+        }
+
         $count = preg_match_all(WORD, $prose, $hits, PREG_OFFSET_CAPTURE);
         if ($count === 0) {
             continue;
@@ -178,6 +187,21 @@ function lookalikeLines(string $text, int $firstLine = 1): array
     }
 
     return $lines;
+}
+
+/**
+ * True for a top-level bullet whose opening bold run is only code spans, at
+ * least one of them holding the word, and punctuation or whitespace.
+ */
+function isQuotedMarker(string $line): bool
+{
+    if (preg_match('/^- \*\*(.*?)\*\*/', $line, $bold) !== 1 || preg_match_all('/`[^`]*`/', $bold[1], $spans) === 0) {
+        return false;
+    }
+
+    $outside = (string) preg_replace('/`[^`]*`/', '', $bold[1]);
+
+    return preg_match('/^[\p{P}\s]*$/u', $outside) === 1 && preg_match(WORD, implode(' ', $spans[0])) === 1;
 }
 
 function hasMarker(string $section): bool

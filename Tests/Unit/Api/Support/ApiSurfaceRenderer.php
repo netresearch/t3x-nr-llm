@@ -151,7 +151,10 @@ final class ApiSurfaceRenderer
             $reflection->isInterface() => 'interface',
             $reflection->isTrait()     => 'trait',
             $reflection->isAbstract()  => 'abstract class',
-            default                    => 'class',
+            // A final class may not be extended: making one final breaks
+            // every subclass outside nr_llm.
+            $reflection->isFinal() => 'final class',
+            default                => 'class',
         };
     }
 

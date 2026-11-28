@@ -27,6 +27,7 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithProtectedKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithPublicKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\CountableBase;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ExtendingPort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalConcreteBase;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
@@ -425,6 +426,24 @@ final class ApiSurfaceRendererTest extends TestCase
             '  method abstract protected static make(): string',
             (new ApiSurfaceRenderer())->render([AbstractBaseWithStaticAbstract::class]),
         );
+    }
+
+    #[Test]
+    public function aClassMadeFinalClassifiesAsBreaking(): void
+    {
+        $diff = $this->diffBetween(ConcreteBase::class, FinalConcreteBase::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(FinalConcreteBase::class . ' (final class)', $diff->changed[0]['now']);
+    }
+
+    #[Test]
+    public function aFinalClassMadeNonFinalStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(FinalConcreteBase::class, ConcreteBase::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame(ConcreteBase::class . ' (class)', $diff->widened[0]['now']);
     }
 
     #[Test]

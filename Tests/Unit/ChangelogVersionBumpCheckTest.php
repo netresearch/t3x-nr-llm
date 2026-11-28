@@ -296,15 +296,24 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
         self::assertStringContainsString('only `## [Unreleased]` and `## [N.N.N]', $stderr);
     }
 
-    #[Test]
-    public function theMarkerQuotedAsCodeInTheOpeningBoldIsNoMarker(): void
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function releases(): array
     {
-        // `- **`BREAKING`:**` puts the word in code, so it is no marker: a
-        // middle bump with only that bullet has no breaking entry.
-        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', "### Changed\n\n- **`BREAKING`:** `Foo::bar()` is removed.\n"));
+        return ['patch release' => ['0.55.2'], 'middle bump' => ['0.56.0']];
+    }
+
+    #[Test]
+    #[DataProvider('releases')]
+    public function theMarkerQuotedAsCodeInTheOpeningBoldIsRefused(string $version): void
+    {
+        // `- **`BREAKING`:**` means to mark a break, but is no marker: the bold
+        // run holds nothing but the quoted word and punctuation.
+        [$exit, $stderr] = $this->check($this->withTopmost($version, "### Changed\n\n- **`BREAKING`:** `Foo::bar()` is removed.\n"));
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('without a breaking entry', $stderr);
+        self::assertStringContainsString('[' . $version . ']  line 9: the word "breaking" is only allowed on a marker line', $stderr);
     }
 
     /**

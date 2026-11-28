@@ -59,7 +59,7 @@ use SplFileInfo;
  * a new concrete method or property, an abstract method given a body, an
  * abstract class made concrete as long as no protected hook vanishes) is
  * regenerated and noted in an `added` changelog.d fragment; breaking
- * (removed or changed, a method made `final`, a new method on an interface, a
+ * (removed or changed, a class or method made `final`, a new method on an interface, a
  * new abstract method, a new enum case, a changed `extends` or a removed
  * `implements`) needs a deliberate decision under
  * `Documentation/Api/Deprecation.rst` and a `- **BREAKING` fragment. The
