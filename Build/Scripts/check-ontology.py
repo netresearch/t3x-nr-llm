@@ -122,7 +122,10 @@ def body_lines(text: str):
 
 
 def cells(row: str) -> list[str]:
-    parts = re.split(r"(?<!\\)\|", row.strip().strip("|"))
+    row = row.strip()
+    row = row.removeprefix("|")
+    row = row[:-1] if row.endswith("|") and not row.endswith("\\|") else row
+    parts = re.split(r"(?<!\\)\|", row)
     return [part.strip().replace("\\|", "|") for part in parts]
 
 
@@ -204,8 +207,18 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
     in_section = False
     has_section = False
     rows_seen = 0
-    for number, line in body_lines(text):
+    fenced = False
+    for number, line in enumerate(text.split("\n"), start=1):
         where = f"{bundle.shown(path)}:{number}"
+        if FENCE.match(line):
+            if in_section and not fenced:
+                bundle.errors.append(
+                    f"{where}: a code fence inside '# Relations' hides the rows below it"
+                )
+            fenced = not fenced
+            continue
+        if fenced:
+            continue
         if re.match(r"^#{1,6}(\s|$)", line):
             in_section_before = in_section
             in_section = line.strip() == "# Relations"
@@ -229,10 +242,18 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
             continue
         row = cells(line)
         rows_seen += 1
-        if (rows_seen == 1 and row[0] == "Relation") or (
-            rows_seen == 2 and all(re.fullmatch(r":?-+:?", cell) for cell in row)
-        ):
-            continue
+        if rows_seen == 1:
+            if row[0] == "Relation":
+                continue
+            bundle.errors.append(
+                f"{where}: the relations table needs its header row first"
+            )
+        elif rows_seen == 2:
+            if all(re.fullmatch(r":?-+:?", cell) for cell in row):
+                continue
+            bundle.errors.append(
+                f"{where}: the relations table needs its separator row second"
+            )
         if len(row) != 5:
             bundle.errors.append(
                 f"{where}: a relation row needs 5 cells, found {len(row)}"
@@ -256,16 +277,26 @@ def read_relations(bundle: Bundle, path: Path, text: str) -> None:
         )
 
 
-LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+LINKS = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 
 
-def check_links(bundle: Bundle, files: list[Path]) -> None:
-    """Report a Markdown link to a file that does not exist, outside tables and index entries."""
-    for path in files:
+def check_links(bundle: Bundle) -> None:
+    """Report a Markdown link to a missing file in any file of the bundle.
+
+    Relation targets and index entries have checks of their own, so the rows
+    under '# Relations' and the entry lines of an index.md are skipped here.
+    """
+    for path in sorted(bundle.root.rglob("*.md")):
+        in_relations = False
         for number, line in body_lines(read(path)):
-            if line.startswith("|") or ENTRY.match(line.strip()):
+            if re.match(r"^#{1,6}(\s|$)", line):
+                in_relations = line.strip() == "# Relations"
                 continue
-            for href in LINK.findall(re.sub(r"`[^`]*`", "", line)):
+            if in_relations and line.startswith("|"):
+                continue
+            if path.name == "index.md" and ENTRY.match(line.strip()):
+                continue
+            for href in LINKS.findall(re.sub(r"`[^`]*`", "", line)):
                 if re.match(r"^[a-z][a-z0-9+.-]*:", href) or href.startswith("#"):
                     continue
                 relative = href.split("#", 1)[0]
@@ -352,7 +383,7 @@ def load(root: Path, repo: Path) -> Bundle:
                 f"{bundle.shown(path)}: a competency question needs an x-nr-query"
             )
     check_indexes(bundle, files)
-    check_links(bundle, files)
+    check_links(bundle)
     for name, mode in sorted(bundle.propagates.items()):
         if mode not in PROPAGATION:
             bundle.errors.append(
