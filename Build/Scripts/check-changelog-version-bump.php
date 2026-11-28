@@ -58,6 +58,9 @@ const MARKER = '- **BREAKING';
 /** The marker, followed by anything but a letter, digit or underscore. */
 const MARKER_LINE = '/^- \*\*BREAKING(?![A-Za-z0-9_])/';
 
+/** The word the strict rule looks for, in any case. */
+const WORD = '/breaking/i';
+
 const PLAIN_VERSION = '/^(\d+)\.(\d+)\.(\d+)$/';
 
 $path = $argv[1] ?? dirname(__DIR__, 2) . '/CHANGELOG.md';
@@ -164,11 +167,11 @@ function lookalikeLines(string $text, int $firstLine = 1): array
     $raw   = proseLines($text);
     $lines = [];
     foreach (blankedProseLines($text) as $i => $prose) {
-        $count = preg_match_all('/breaking/i', $prose, $hits, PREG_OFFSET_CAPTURE);
+        $count = preg_match_all(WORD, $prose, $hits, PREG_OFFSET_CAPTURE);
 
         $boldIsMarker = true;
-        if (preg_match('/^- \*\*(.*?)\*\*/', $raw[$i], $bold) === 1 && preg_match('/breaking/i', $bold[1]) === 1) {
-            $boldIsMarker = preg_match(MARKER_LINE, $raw[$i]) === 1 && preg_match_all('/breaking/i', $bold[1]) === 1;
+        if (preg_match('/^- \*\*(.*?)\*\*/', $raw[$i], $bold) === 1 && preg_match(WORD, $bold[1]) === 1) {
+            $boldIsMarker = preg_match(MARKER_LINE, $raw[$i]) === 1 && preg_match_all(WORD, $bold[1]) === 1;
         }
 
         if ($count === 0 && $boldIsMarker) {
