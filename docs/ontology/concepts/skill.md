@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 type: Concept
 title: "Skill"
-description: "Instructions for a model, imported from a SKILL.md file of a skill source, in one version."
+description: "Instructions for a model in one version, imported from a SKILL.md file of a skill source or written in the backend."
 status: draft
 timestamp: 2026-11-27
 ---
 
 # Definition
 
-A skill is a set of instructions for a model, parsed from one `SKILL.md` file of a skill source. Each skill version has a digest. A configuration or a task attaches skills, and the skills then enter the prompt. A skill carries the trust level of its source and a sensitivity ceiling that an operator declares.
+A skill is a set of instructions for a model, parsed from one `SKILL.md` file of a skill source, or written in the backend for a source of the type `backend`. Each skill version has a digest. A configuration or a task attaches skills, and the skills then enter the prompt. A skill carries the trust level of its source and a sensitivity ceiling that an operator declares.
 
 # Not to be confused with
 

@@ -3,14 +3,14 @@
 # SPDX-FileCopyrightText: Netresearch DTT GmbH
 type: Concept
 title: "Skill source"
-description: "A GitHub location from which nr-llm imports skills: one SKILL.md file, a repository or a marketplace index."
+description: "A place skills come from: one SKILL.md file, a repository or a marketplace index on GitHub, or the TYPO3 backend for skills written there."
 status: draft
 timestamp: 2026-11-27
 ---
 
 # Definition
 
-A skill source is a location on GitHub from which nr-llm imports skills. It is one `SKILL.md` file, a repository, or a marketplace index that lists several skills.
+A skill source is a place from which nr-llm takes skills. Three types import from GitHub: one `SKILL.md` file, a repository, or a marketplace index that lists several skills. The fourth type, `backend`, holds skills that an administrator writes in the TYPO3 backend; nothing is fetched for it, and the version digest comes from the current fields (ADR-214).
 
 # Relations
 

@@ -12,8 +12,8 @@
 * [Tool](tool.md) - An action that a model can call during an agent run: built-in or imported from an MCP server.
 * [Tool group](tool-group.md) - A named group of tools that a configuration can allow as a whole.
 * [MCP server](mcp-server.md) - A registered remote Model Context Protocol server whose tools nr-llm imports.
-* [Skill source](skill-source.md) - A GitHub location from which nr-llm imports skills: one SKILL.md file, a repository or a marketplace index.
-* [Skill](skill.md) - Instructions for a model, imported from a SKILL.md file of a skill source, in one version.
+* [Skill source](skill-source.md) - A place skills come from: one SKILL.md file, a repository or a marketplace index on GitHub, or the TYPO3 backend for skills written there.
+* [Skill](skill.md) - Instructions for a model in one version, imported from a SKILL.md file of a skill source or written in the backend.
 * [Skill approval](skill-approval.md) - The record that a person approved one version of one skill from one source.
 * [LLM service](llm-service.md) - The public call surface: the LLM service manager and the feature services for completion, conversation, embedding, tools, translation and vision.
 * [Middleware pipeline](middleware-pipeline.md) - The chain of steps a non-streamed call through the LLM service passes: budget, cache, circuit breaker, empty answer, fallback, tracing, guardrail, idempotency, telemetry and usage.

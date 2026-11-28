@@ -104,9 +104,9 @@ def frontmatter(text: str) -> dict[str, str] | None:
     for line in lines[1:]:
         if line.strip() == "---":
             return keys
-        match = re.match(r"^([A-Za-z_][\w-]*):\s*(.*)$", line)
+        match = re.match(r"^([A-Za-z_][\w-]*):(.*)$", line)
         if match:
-            keys[match.group(1)] = unquote(match.group(2))
+            keys[match.group(1)] = unquote(match.group(2).strip())
     return None
 
 
@@ -285,6 +285,11 @@ def check_links(bundle: Bundle) -> None:
 
     Relation targets and index entries have checks of their own, so the rows
     under '# Relations' and the entry lines of an index.md are skipped here.
+    It reads inline links of the form [text](path) within one line. Links with
+    a title or angle brackets, reference-style links, links across two lines,
+    links in headings and HTML links are not checked. A Markdown parser such
+    as markdown-it-py would cover them; the script uses the standard library
+    only, so that every CI image runs it without an install step.
     """
     for path in sorted(bundle.root.rglob("*.md")):
         in_relations = False
@@ -307,7 +312,7 @@ def check_links(bundle: Bundle) -> None:
                     )
 
 
-def check_indexes(bundle: Bundle, files: list[Path]) -> None:
+def check_indexes(bundle: Bundle) -> None:
     directories = {p.parent for p in bundle.root.rglob("*.md")} | {bundle.root}
     for directory in sorted(directories):
         if directory != bundle.root:
@@ -382,7 +387,7 @@ def load(root: Path, repo: Path) -> Bundle:
             bundle.errors.append(
                 f"{bundle.shown(path)}: a competency question needs an x-nr-query"
             )
-    check_indexes(bundle, files)
+    check_indexes(bundle)
     check_links(bundle)
     for name, mode in sorted(bundle.propagates.items()):
         if mode not in PROPAGATION:
