@@ -31,6 +31,7 @@ GitHub Actions workflows and CI/CD automation. **This repository defines no work
 | `labeler.yml` | PR auto-labelling |
 | `pages.yml` | Landing page (GitHub Pages) |
 | `release.yml` | Release with SBOM, Cosign signing, SLSA attestation; publishes TER + Packagist |
+| `release-version.yml` | On a release PR (`release/vX.Y.Z`, `chore(release): X.Y.Z`): branch, title and the version git-cliff computes from the commits must agree; below 1.0.0 only a breaking commit raises the middle number |
 | `republish.yml` | Re-publish an existing tag (`workflow_dispatch` fallback) |
 <!-- AGENTS-GENERATED:END filemap -->
 
