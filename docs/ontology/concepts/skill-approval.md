@@ -12,6 +12,20 @@ timestamp: 2026-11-27
 
 A skill approval records that a person approved one version of one skill, identified by its digest and its source. A revocation marks every approval of that skill and digest.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Skill approval"]
+  n1["Skill"]
+  c -->|"approves"| n1
+  n1 -->|"constrainedBy"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

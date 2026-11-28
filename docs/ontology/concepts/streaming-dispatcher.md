@@ -12,6 +12,29 @@ timestamp: 2026-11-27
 
 The streaming dispatcher carries a streamed call. A streamed provider call cannot pass the middleware pipeline, because a PHP generator is lazy: wrapped as the pipeline terminal, every step would run before the stream starts. The dispatcher therefore runs the budget check before the stream and records usage and telemetry around it, as a wrapping generator (ADR-062). Without a dispatcher, the LLM service manager calls the provider directly.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Streaming dispatcher"]
+  n1["Configuration"]
+  n2["User budget"]
+  n3[/"Classes/Service/Streaming/StreamingDispatcher.php"/]
+  n4["Provider adapter"]
+  n5[/"Tests/Unit/Service/Streaming/StreamingDispatcherTest.php"/]
+  n6["LLM service"]
+  c -->|"constrainedBy"| n1
+  c -->|"constrainedBy"| n2
+  c -->|"implementedBy"| n3
+  c -->|"uses"| n4
+  c -->|"verifiedBy"| n5
+  n6 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

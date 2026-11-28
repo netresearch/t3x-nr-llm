@@ -12,6 +12,37 @@ timestamp: 2026-11-27
 
 The LLM service is the surface that consuming code calls. Its entry point is the LLM service manager. Behind it, one feature service exists for each kind of call: completion, conversation, embedding, tool calling, translation and vision. A call that returns its answer at once runs through the middleware pipeline; a streamed call runs through the streaming dispatcher instead.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["LLM service"]
+  n1[/"Classes/Service/LlmServiceManager.php"/]
+  n2["Public API"]
+  n3["Configuration"]
+  n4["Glossary"]
+  n5["Middleware pipeline"]
+  n6["Streaming dispatcher"]
+  n7[/"Tests/Unit/Service/LlmServiceManagerTest.php"/]
+  n8["Usage record"]
+  n9["Agent run"]
+  n10["Task"]
+  c -->|"implementedBy"| n1
+  c -->|"partOf"| n2
+  c -->|"uses"| n3
+  c -->|"uses"| n4
+  c -->|"uses"| n5
+  c -->|"uses"| n6
+  c -->|"verifiedBy"| n7
+  n8 -->|"records"| c
+  n9 -->|"uses"| c
+  n10 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

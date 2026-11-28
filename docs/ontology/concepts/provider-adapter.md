@@ -16,6 +16,31 @@ A provider adapter is the PHP class that sends requests to one vendor API and re
 
 - A provider record. The adapter is code; the provider is configuration in the database.
 
+# Neighbours
+
+Generated from the relation tables by `check-ontology.py --write-diagrams`. A solid arrow is an asserted relation, a dotted arrow a hypothesis; a slanted box is a file of the repository.
+
+```mermaid
+flowchart LR
+  c["Provider adapter"]
+  n1[/"Classes/Provider/AbstractProvider.php"/]
+  n2[/"Classes/Provider/Contract/ProviderInterface.php"/]
+  n3["Public API"]
+  n4[/"Tests/Unit/Provider/AbstractProviderTest.php"/]
+  n5["Middleware pipeline"]
+  n6["Provider"]
+  n7["Streaming dispatcher"]
+  c -->|"implementedBy"| n1
+  c -->|"implementedBy"| n2
+  c -->|"partOf"| n3
+  c -->|"verifiedBy"| n4
+  n5 -->|"uses"| c
+  n6 -->|"uses"| c
+  n7 -->|"uses"| c
+  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff
+  class c focus
+```
+
 # Relations
 
 | Relation | Target | Evidence file | Evidence text | Status |

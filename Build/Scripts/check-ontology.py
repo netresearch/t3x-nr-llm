@@ -15,13 +15,18 @@ state their typed relations in a "# Relations" table. This script checks:
   contains the evidence text exactly once (whitespace differences ignored), so
   a code change that removes the evidence fails this check in the same change;
 - every competency question with an `x-nr-query` shows the answer that
-  query gives now.
+  query gives now;
+- every concept with relations shows a current "# Neighbours" diagram: a
+  Mermaid flowchart of its relations in both directions, generated from the
+  tables of the whole bundle, so a new relation also changes the diagram of
+  its target.
 
 `--impact <concept>` prints the concepts a change to that concept can affect,
 following the relations whose vocabulary entry declares how a change
 propagates, and the tests that check each affected concept. `--needs
 <concept>` prints what the concept depends on, including the parts it is made
-of. `--write-answers` rewrites the stored answers of the competency questions.
+of. `--write-answers` rewrites the stored answers of the competency questions,
+and `--write-diagrams` rewrites the "# Neighbours" diagrams.
 
 Standard library only, because the repository-check jobs that run it install
 no dependencies. The frontmatter is therefore checked for a "type:" line only;
@@ -68,6 +73,7 @@ class Bundle:
     repo: Path
     types: dict[str, str] = field(default_factory=dict)
     descriptions: dict[Path, str] = field(default_factory=dict)
+    titles: dict[str, str] = field(default_factory=dict)
     queries: dict[Path, str] = field(default_factory=dict)
     propagates: dict[str, str] = field(default_factory=dict)
     relations: list[Relation] = field(default_factory=list)
@@ -389,6 +395,7 @@ def load(root: Path, repo: Path) -> Bundle:
             bundle.errors.append(f"{bundle.shown(path)}: frontmatter has no type")
             continue
         bundle.types[bundle.concept_id(path)] = meta["type"]
+        bundle.titles[bundle.concept_id(path)] = meta.get("title", "")
         bundle.descriptions[path] = meta.get("description", "")
         if meta["type"] == "Relation":
             bundle.propagates[path.stem] = meta.get("x-nr-propagates", "")
@@ -509,6 +516,124 @@ def check_answers(bundle: Bundle, write: bool) -> None:
             )
 
 
+NEIGHBOURS = "# Neighbours"
+NEIGHBOURS_NOTE = (
+    "Generated from the relation tables by `check-ontology.py --write-diagrams`."
+    " A solid arrow is an asserted relation, a dotted arrow a hypothesis; a"
+    " slanted box is a file of the repository."
+)
+
+
+def mermaid_text(text: str) -> str:
+    """Text for a quoted Mermaid label: quotes and angle brackets as entities."""
+    return (
+        text.replace("#", "#35;")
+        .replace('"', "#quot;")
+        .replace("<", "#lt;")
+        .replace(">", "#gt;")
+    )
+
+
+def mermaid_node(bundle: Bundle, target: str) -> str:
+    if target.startswith("repo:"):
+        return f'[/"{mermaid_text(target[5:])}"/]'
+    if target.startswith("url:"):
+        return f'(["{mermaid_text(target[4:])}"])'
+    return f'["{mermaid_text(bundle.titles.get(target) or target)}"]'
+
+
+def mermaid_arrow(relation: Relation) -> str:
+    if relation.status == "hypothesis":
+        return f'-.->|"{relation.name} (hypothesis)"|'
+    return f'-->|"{relation.name}"|'
+
+
+def diagram(bundle: Bundle, concept: str) -> list[str] | None:
+    """The Mermaid lines of a concept's relations in both directions, or None."""
+    outgoing = sorted(
+        (r for r in bundle.relations if r.source == concept and r.target),
+        key=lambda r: (r.name, r.target, r.status),
+    )
+    incoming = sorted(
+        (r for r in bundle.relations if r.target == concept and r.source != concept),
+        key=lambda r: (r.name, r.source, r.status),
+    )
+    if not outgoing and not incoming:
+        return None
+    ids = {concept: "c"}
+    nodes = [f"  c{mermaid_node(bundle, concept)}"]
+
+    def node_id(target: str) -> str:
+        if target not in ids:
+            ids[target] = f"n{len(ids)}"
+            nodes.append(f"  {ids[target]}{mermaid_node(bundle, target)}")
+        return ids[target]
+
+    edges = [f"  c {mermaid_arrow(r)} {node_id(r.target)}" for r in outgoing]
+    edges += [f"  {node_id(r.source)} {mermaid_arrow(r)} c" for r in incoming]
+    # Two rows with the same relation, target and status (two evidence
+    # literals for one statement) draw one arrow.
+    edges = list(dict.fromkeys(edges))
+    return [
+        "flowchart LR",
+        *nodes,
+        *edges,
+        "  classDef focus fill:#2F99A4,stroke:#15585E,color:#ffffff",
+        "  class c focus",
+    ]
+
+
+def neighbours_section(lines: list[str]) -> list[str]:
+    return [NEIGHBOURS, "", NEIGHBOURS_NOTE, "", "```mermaid", *lines, "```", ""]
+
+
+def heading_lines(lines: list[str]) -> list[int]:
+    """Indexes of the ATX headings outside fenced code blocks."""
+    found = []
+    fenced = False
+    for index, line in enumerate(lines):
+        if FENCE.match(line):
+            fenced = not fenced
+        elif not fenced and re.match(r"^#{1,6}(\s|$)", line):
+            found.append(index)
+    return found
+
+
+def with_diagram(text: str, lines: list[str] | None) -> str:
+    """The text with its '# Neighbours' section set to the diagram, or removed."""
+    rows = text.split("\n")
+    headings = heading_lines(rows)
+    starts = [i for i in headings if rows[i].strip() == NEIGHBOURS]
+    for start in reversed(starts):
+        after = [i for i in headings if i > start]
+        end = after[0] if after else len(rows)
+        del rows[start:end]
+        headings = heading_lines(rows)
+    if lines is not None:
+        relations = [i for i in headings if rows[i].strip() == "# Relations"]
+        at = relations[0] if relations else len(rows)
+        rows[at:at] = neighbours_section(lines)
+    return "\n".join(rows)
+
+
+def check_diagrams(bundle: Bundle, write: bool) -> None:
+    for concept, kind in sorted(bundle.types.items()):
+        if kind in NO_RELATIONS:
+            continue
+        path = bundle.root / (concept + ".md")
+        text = read(path)
+        new = with_diagram(text, diagram(bundle, concept))
+        if new == text:
+            continue
+        if write:
+            path.write_text(new, encoding="utf-8")
+        else:
+            bundle.errors.append(
+                f"{bundle.shown(path)}: the '# Neighbours' diagram is missing or stale;"
+                " run with --write-diagrams"
+            )
+
+
 def repository_root(bundle: Path) -> Path:
     """The nearest ancestor of the bundle that holds a .git entry, else the cwd."""
     for directory in [bundle.resolve(), *bundle.resolve().parents]:
@@ -543,6 +668,11 @@ def main() -> int:
     mode.add_argument(
         "--write-answers", action="store_true", help="rewrite the stored answers"
     )
+    mode.add_argument(
+        "--write-diagrams",
+        action="store_true",
+        help="rewrite the '# Neighbours' diagrams",
+    )
     args = parser.parse_args()
     if not args.bundle.is_dir():
         print(f"{args.bundle}: no such directory", file=sys.stderr)
@@ -560,6 +690,7 @@ def main() -> int:
         report(bundle)
         return 1 if bundle.errors else 0
     check_answers(bundle, write=args.write_answers)
+    check_diagrams(bundle, write=args.write_diagrams)
     report(bundle)
     if bundle.errors:
         return 1
