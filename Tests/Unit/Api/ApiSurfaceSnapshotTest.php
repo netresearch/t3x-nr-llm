@@ -47,7 +47,7 @@ use SplFileInfo;
  *    constructor names internals by design (`InputGuardrailScreener`,
  *    `JsonSchemaValidator`, `MiddlewarePipeline`, `KeyedProviderRegistry` do
  *    appear on constructor lines today and are not `@api`). The lines are
- *    still frozen — a widened constructor is a breaking diff — they are just
+ *    still frozen — a new required parameter is a breaking diff — they are just
  *    not a promise that the types on them are callable API.
  *
  * The rendering rules live in ApiSurfaceRenderer and are tested against

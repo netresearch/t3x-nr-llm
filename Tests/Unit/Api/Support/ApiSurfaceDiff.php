@@ -31,7 +31,8 @@ use ReflectionClass;
  *   constructor, which is the case the snapshot missed entirely before it
  *   recorded constructors at all, and a class or method made `final`.
  * - **widened** — a change that breaks nobody: an abstract class made
- *   concrete, a final class made non-final, an abstract method given a body, an interface added to
+ *   concrete, a final class made non-final, trailing optional parameters on
+ *   a constructor, a method of a final class or a final method, an abstract method given a body, an interface added to
  *   `implements` whose methods are rendered.
  * - **check by hand** — what the snapshot cannot classify: a vanished
  *   protected or private abstract method (concrete ones are not rendered, so a
@@ -111,7 +112,8 @@ final readonly class ApiSurfaceDiff
                     $checkByHand[] = $fqcn . ' :: ' . $key . ' now implements ' . implode(', ', $thirdParty)
                         . ' — an abstract class leaves the methods of an interface from outside nr_llm or PHP'
                         . ' unrendered, so the snapshot cannot tell whether subclasses now have to implement any';
-                } elseif ($before[$fqcn][$key] !== $line && (($key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) || $onlyLostAbstract)) {
+                } elseif ($before[$fqcn][$key] !== $line && (($key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) || $onlyLostAbstract
+                    || self::isOptionalParameterWidening($members[self::DECLARATION_KEY] ?? '', $key, $before[$fqcn][$key], $line))) {
                     $widened[] = ['entry' => $fqcn . ' :: ' . $key, 'was' => $before[$fqcn][$key], 'now' => $line];
                 } elseif ($before[$fqcn][$key] !== $line) {
                     $changed[] = [
@@ -244,9 +246,10 @@ final readonly class ApiSurfaceDiff
                 . 'remove later — and write a changelog.d/ fragment whose top-level bullet opens '
                 . 'with `- **BREAKING` and says what a consumer has to change, before you regenerate the '
                 . 'snapshot. During 0.x the release that ships it raises the middle version number '
-                . '(Documentation/Api/Stability.rst). A widening of a class method that only adds '
-                . 'optional parameters is additive for callers: note it in an `added` fragment and '
-                . 'regenerate; on an interface method it breaks every implementation. '
+                . '(Documentation/Api/Stability.rst). Trailing optional parameters on a constructor, '
+                . 'a method of a final class or a final method are already reported as widened; on '
+                . 'any other method they break every override, and on an interface method every '
+                . 'implementation. '
                 . 'Documentation/Api/Stability.rst lists what is out of '
                 . 'contract; a constructor of a service you only ever obtain from the DI container '
                 . 'is, but it is still recorded here so a widened one cannot land unread.';
@@ -363,6 +366,73 @@ final readonly class ApiSurfaceDiff
         }
 
         return $classes;
+    }
+
+    /**
+     * True when a member only gained trailing parameters with a default value
+     * and nothing can override it: a constructor, a method of a final class
+     * or a final method. No call breaks, and no override or implementation
+     * can have the old signature. On an overridable method, an interface
+     * method or an abstract one the same change breaks every override.
+     */
+    private static function isOptionalParameterWidening(string $header, string $key, string $was, string $now): bool
+    {
+        $overridable = $key !== 'constructor'
+            && self::headerParts($header)['kind'] !== 'final class'
+            && !str_starts_with($now, 'method final ');
+        if ($overridable) {
+            return false;
+        }
+
+        $before = self::splitSignature($was);
+        $after  = self::splitSignature($now);
+        if ($before === null || $after === null || $before['head'] !== $after['head'] || $before['tail'] !== $after['tail']) {
+            return false;
+        }
+
+        $added = array_slice($after['parameters'], count($before['parameters']));
+
+        return $added !== []
+            && array_slice($after['parameters'], 0, count($before['parameters'])) === $before['parameters']
+            && array_filter($added, static fn (string $p): bool => !str_ends_with($p, ' = …')) === [];
+    }
+
+    /**
+     * `method run(string $a, int $b = …): string` → head `method run`, the
+     * parameters, tail `: string`. Parentheses inside types are skipped.
+     *
+     * @return array{head: string, parameters: list<string>, tail: string}|null
+     */
+    private static function splitSignature(string $line): ?array
+    {
+        $open = strpos($line, '(');
+        if ($open === false) {
+            return null;
+        }
+
+        $depth = 0;
+        $close = null;
+        for ($i = $open, $n = strlen($line); $i < $n; ++$i) {
+            if ($line[$i] === '(') {
+                ++$depth;
+            } elseif ($line[$i] === ')' && --$depth === 0) {
+                $close = $i;
+
+                break;
+            }
+        }
+
+        if ($close === null) {
+            return null;
+        }
+
+        $inner = substr($line, $open + 1, $close - $open - 1);
+
+        return [
+            'head'       => substr($line, 0, $open),
+            'parameters' => $inner === '' ? [] : explode(', ', $inner),
+            'tail'       => substr($line, $close + 1),
+        ];
     }
 
     /**

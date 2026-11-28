@@ -110,20 +110,27 @@ same PR — the diff is the review artifact.
 
 Constructor parameter types are outside the closure rule. A DI-built service
 is handed its collaborators by the container, so its constructor names
-internals by design; the line is still frozen — widening it is a breaking
-diff — but the types on it are not a promise that you may call them.
+internals by design; the line is still frozen — a new required parameter on it is a
+breaking diff — but the types on it are not a promise that you may call them.
 
 The failure is classified, because "different" makes a new value object read
 like a deleted method. An **additive** diff (a new class, interface or enum,
 a new concrete method or a property of a class, a new constant, an abstract
 class made concrete, a final class made non-final, an abstract method given
-a body, an interface a class now implements without leaving methods open) is regenerated and noted in an
-``added`` changelog fragment.
+a body, an interface a class now implements without leaving methods open,
+trailing parameters with a default value on a constructor, on a method of a
+``final`` class or on a ``final`` method) is regenerated and noted in an
+``added`` changelog fragment. The rule for optional parameters follows
+roave/backward-compatibility-check: no caller breaks, and nothing can
+override such a member with the old signature. On any other method an added
+optional parameter breaks every override, on an interface method every
+implementation, and an added required parameter breaks every call.
 A **breaking** one is a decision, and the failure message says so and points
 at :ref:`api-deprecation`:
 
-- anything removed or changed, a widened constructor and a class or method
-  made ``final`` included,
+- anything removed or changed, a new required parameter, a new optional one
+  on an overridable, interface or abstract method, and a class or method made
+  ``final`` included,
 - a new method on an existing ``@api`` interface — it breaks every
   implementation outside this extension, whether or not the interface is
   marked as an extension point,

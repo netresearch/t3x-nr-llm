@@ -28,9 +28,20 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ConcreteBaseWithPublicKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\CountableBase;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\ExtendingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalConcreteBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalRunner;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalRunnerWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\FinalRunnerWithRequired;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenConstructor;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenConstructorWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunner;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunnerFinalMethod;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunnerFinalMethodWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\OpenRunnerWithOption;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\RunnerPort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\RunnerPortWithOption;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\StandalonePort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithoutPrivateAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithPrivateAbstract;
@@ -426,6 +437,59 @@ final class ApiSurfaceRendererTest extends TestCase
             '  method abstract protected static make(): string',
             (new ApiSurfaceRenderer())->render([AbstractBaseWithStaticAbstract::class]),
         );
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAFinalClassMethodIsAdditive(): void
+    {
+        $diff = $this->diffBetween(FinalRunner::class, FinalRunnerWithOption::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame('method run(string $a, int $limit = …): string', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAFinalMethodIsAdditive(): void
+    {
+        $diff = $this->diffBetween(OpenRunnerFinalMethod::class, OpenRunnerFinalMethodWithOption::class);
+
+        self::assertSame('additive', $diff->verdict());
+    }
+
+    #[Test]
+    public function anOptionalConstructorParameterIsAdditive(): void
+    {
+        $diff = $this->diffBetween(OpenConstructor::class, OpenConstructorWithOption::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame(OpenConstructorWithOption::class . ' :: constructor', $diff->widened[0]['entry']);
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAnOverridableMethodIsBreaking(): void
+    {
+        $diff = $this->diffBetween(OpenRunner::class, OpenRunnerWithOption::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(OpenRunnerWithOption::class . ' :: method run', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
+    public function anOptionalParameterOnAnInterfaceMethodIsBreaking(): void
+    {
+        $diff = $this->diffBetween(RunnerPort::class, RunnerPortWithOption::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame(RunnerPortWithOption::class . ' :: method run', $diff->changed[0]['entry']);
+    }
+
+    #[Test]
+    public function aRequiredParameterOnAFinalClassMethodIsBreaking(): void
+    {
+        $diff = $this->diffBetween(FinalRunner::class, FinalRunnerWithRequired::class);
+
+        self::assertSame('breaking', $diff->verdict());
+        self::assertSame('method run(string $a, int $limit): string', $diff->changed[0]['now']);
     }
 
     #[Test]
