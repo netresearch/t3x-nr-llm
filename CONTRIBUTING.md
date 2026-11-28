@@ -60,12 +60,16 @@ The rendered `@api` surface — constructors included — is frozen in
 `Tests/Unit/Api/api-surface.txt`. The snapshot test classifies its own
 failure: **additive** (a new class, interface or enum, a new concrete method or
 a property of a class, a new constant, an abstract class made concrete, an
-interface a class now implements without leaving methods open) means
+abstract method given a body, an interface a class now implements without
+leaving methods open) means
 regenerate the file and note it in an `added` fragment; **breaking** (anything
 removed or changed, a widened constructor and a changed `extends` or a removed
 `implements` included, a new method on an `@api` interface, a new public or
 protected abstract method on an `@api` abstract class, a new case of an `@api`
-enum) means stop and decide.
+enum) means stop and decide; **check by hand** (a vanished protected abstract
+method, a third-party interface added to an abstract class) means read the
+class, since the snapshot cannot tell a body from a deletion or see the
+methods such an interface leaves open.
 
 Removing or narrowing something `@api` follows
 `Documentation/Api/Deprecation.rst`: deprecate in a minor, keep it working

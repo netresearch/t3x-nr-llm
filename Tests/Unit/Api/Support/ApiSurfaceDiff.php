@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 namespace Netresearch\NrLlm\Tests\Unit\Api\Support;
 
+use ReflectionClass;
+
 /**
  * Classifies the difference between two rendered API surfaces.
  *
@@ -52,7 +54,8 @@ final readonly class ApiSurfaceDiff
      * @param list<string>                                         $removed
      * @param list<array{entry: string, was: string, now: string}> $changed
      * @param list<string>                                         $addedToContracts the part of $added that breaks implementations or exhaustive matches (interface methods, abstract methods, enum cases)
-     * @param list<array{entry: string, was: string, now: string}> $widened          header changes that break nobody: an abstract class made concrete, an interface added to `implements`
+     * @param list<array{entry: string, was: string, now: string}> $widened          changes that break nobody: an abstract class made concrete, an interface added to `implements`, an abstract method given a body
+     * @param list<string>                                         $checkByHand      changes the snapshot cannot classify: a vanished protected abstract method (given a body or deleted), a third-party interface added to an abstract class (its open methods are not rendered)
      */
     private function __construct(
         public array $added,
@@ -60,6 +63,7 @@ final readonly class ApiSurfaceDiff
         public array $changed,
         public array $addedToContracts = [],
         public array $widened = [],
+        public array $checkByHand = [],
     ) {}
 
     public static function between(string $expected, string $actual): self
@@ -72,6 +76,7 @@ final readonly class ApiSurfaceDiff
         $changed          = [];
         $addedToContracts = [];
         $widened          = [];
+        $checkByHand      = [];
 
         foreach ($after as $fqcn => $members) {
             if (!isset($before[$fqcn])) {
@@ -80,7 +85,6 @@ final readonly class ApiSurfaceDiff
                 continue;
             }
 
-            $madeConcrete = self::madeConcrete($before[$fqcn], $members);
             foreach ($members as $key => $line) {
                 if (!isset($before[$fqcn][$key])) {
                     $added[] = $fqcn . ' :: ' . $line;
@@ -91,8 +95,15 @@ final readonly class ApiSurfaceDiff
                     continue;
                 }
 
-                $onlyLostAbstract = $madeConcrete && self::withoutAbstract($before[$fqcn][$key]) === $line;
-                if ($before[$fqcn][$key] !== $line && (($key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) || $onlyLostAbstract)) {
+                // An abstract method given a body breaks nobody, whether or
+                // not the class itself stays abstract.
+                $onlyLostAbstract = self::withoutAbstract($before[$fqcn][$key]) === $line;
+                $thirdParty       = $key === self::DECLARATION_KEY ? self::addedThirdPartyInterfaces($before[$fqcn][$key], $line) : [];
+                if ($thirdParty !== [] && self::isWidening($before[$fqcn][$key], $line)) {
+                    $checkByHand[] = $fqcn . ' :: ' . $key . ' now implements ' . implode(', ', $thirdParty)
+                        . ' — an abstract class leaves the methods of an interface from outside nr_llm or PHP'
+                        . ' unrendered, so the snapshot cannot tell whether subclasses now have to implement any';
+                } elseif ($before[$fqcn][$key] !== $line && (($key === self::DECLARATION_KEY && self::isWidening($before[$fqcn][$key], $line)) || $onlyLostAbstract)) {
                     $widened[] = ['entry' => $fqcn . ' :: ' . $key, 'was' => $before[$fqcn][$key], 'now' => $line];
                 } elseif ($before[$fqcn][$key] !== $line) {
                     $changed[] = [
@@ -111,16 +122,15 @@ final readonly class ApiSurfaceDiff
                 continue;
             }
 
-            $madeConcrete = self::madeConcrete($members, $after[$fqcn]);
             foreach ($members as $key => $line) {
                 if (isset($after[$fqcn][$key])) {
                     continue;
                 }
 
-                // A class made concrete implements what it left open; a
-                // protected hook is not rendered once it is concrete.
-                if ($madeConcrete && str_starts_with($line, 'method abstract protected ')) {
-                    $widened[] = ['entry' => $fqcn . ' :: ' . $key, 'was' => $line, 'now' => '(implemented)'];
+                // Concrete protected methods are not rendered, so a protected
+                // hook given a body and a deleted one look the same.
+                if (str_starts_with($line, 'method abstract protected ')) {
+                    $checkByHand[] = $fqcn . ' :: ' . $line;
 
                     continue;
                 }
@@ -132,14 +142,16 @@ final readonly class ApiSurfaceDiff
         sort($added);
         sort($removed);
         sort($addedToContracts);
+        sort($checkByHand);
         usort($changed, static fn (array $a, array $b): int => strcmp($a['entry'], $b['entry']));
 
-        return new self($added, $removed, $changed, $addedToContracts, $widened);
+        return new self($added, $removed, $changed, $addedToContracts, $widened, $checkByHand);
     }
 
     public function isEmpty(): bool
     {
-        return $this->added === [] && $this->removed === [] && $this->changed === [] && $this->widened === [];
+        return $this->added === [] && $this->removed === [] && $this->changed === [] && $this->widened === []
+            && $this->checkByHand === [];
     }
 
     /**
@@ -149,19 +161,30 @@ final readonly class ApiSurfaceDiff
      */
     public function isAdditiveOnly(): bool
     {
-        return !$this->isEmpty() && $this->removed === [] && $this->changed === [] && $this->addedToContracts === [];
+        return !$this->isEmpty() && $this->removed === [] && $this->changed === [] && $this->addedToContracts === []
+            && $this->checkByHand === [];
     }
 
     /**
-     * `identical`, `additive` or `breaking` — the word the failure message
-     * leads with.
+     * True when the only entries that are not additive are ones the snapshot
+     * cannot classify.
+     */
+    private function needsCheckByHand(): bool
+    {
+        return $this->checkByHand !== [] && $this->removed === [] && $this->changed === [] && $this->addedToContracts === [];
+    }
+
+    /**
+     * `identical`, `additive`, `check by hand` or `breaking` — the word the
+     * failure message leads with.
      */
     public function verdict(): string
     {
         return match (true) {
-            $this->isEmpty()        => 'identical',
-            $this->isAdditiveOnly() => 'additive',
-            default                 => 'breaking',
+            $this->isEmpty()          => 'identical',
+            $this->isAdditiveOnly()   => 'additive',
+            $this->needsCheckByHand() => 'check by hand',
+            default                   => 'breaking',
         };
     }
 
@@ -178,12 +201,13 @@ final readonly class ApiSurfaceDiff
         $contract = $this->addedToContracts;
         $other    = array_values(array_diff($this->added, $contract));
         $counts   = sprintf(
-            '%d added to an interface, abstract class or enum, %d other addition(s), %d removed, %d changed, %d widened',
+            '%d added to an interface, abstract class or enum, %d other addition(s), %d removed, %d changed, %d widened, %d to check by hand',
             count($contract),
             count($other),
             count($this->removed),
             count($this->changed),
             count($this->widened),
+            count($this->checkByHand),
         );
         $contractSentence = 'A new method on an @api interface or a new abstract method on an @api class '
             . 'breaks every implementation outside nr_llm, and a new case of an @api enum breaks every '
@@ -191,7 +215,14 @@ final readonly class ApiSurfaceDiff
 
         $sections = [];
 
-        if ($this->isAdditiveOnly()) {
+        if ($this->needsCheckByHand()) {
+            $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. The snapshot cannot tell '
+                . 'whether the entries below break a subclass.';
+            $sections[] = 'What to do: read the class. A protected abstract method that now has a body breaks '
+                . 'nobody; a deleted one, or an interface whose methods a subclass now has to implement, is '
+                . 'breaking and needs a changelog.d/ fragment whose top-level bullet opens with `- **BREAKING`. '
+                . 'Then regenerate the snapshot.';
+        } elseif ($this->isAdditiveOnly()) {
             $sections[] = strtoupper($this->verdict()) . ' — ' . $counts . '. Nothing was removed, '
                 . 'no existing signature changed and no contract gained a member, so no caller breaks.';
             $sections[] = 'What to do: regenerate the snapshot (delete Tests/Unit/Api/api-surface.txt, '
@@ -232,6 +263,10 @@ final readonly class ApiSurfaceDiff
 
         if ($other !== []) {
             $sections[] = $this->bucket('added', '+', $other);
+        }
+
+        if ($this->checkByHand !== []) {
+            $sections[] = $this->bucket('cannot tell given a body from deleted, or open methods not rendered (check by hand)', '?', $this->checkByHand);
         }
 
         if ($this->widened !== []) {
@@ -323,15 +358,26 @@ final readonly class ApiSurfaceDiff
     }
 
     /**
-     * True when an abstract class became a concrete one.
+     * Interfaces from outside nr_llm and PHP that an abstract class lists in
+     * `implements` now and did not before. The renderer leaves their methods
+     * out, so the snapshot cannot show what a subclass has to implement.
      *
-     * @param array<string, string> $before
-     * @param array<string, string> $after
+     * @return list<string>
      */
-    private static function madeConcrete(array $before, array $after): bool
+    private static function addedThirdPartyInterfaces(string $was, string $now): array
     {
-        return self::headerParts($before[self::DECLARATION_KEY] ?? '')['kind'] === 'abstract class'
-            && self::headerParts($after[self::DECLARATION_KEY] ?? '')['kind'] === 'class';
+        $after = self::headerParts($now);
+        if ($after['kind'] !== 'abstract class') {
+            return [];
+        }
+
+        $added = array_diff($after['implements'], self::headerParts($was)['implements']);
+
+        return array_values(array_filter(
+            $added,
+            static fn (string $name): bool => !str_starts_with($name, 'Netresearch\\NrLlm\\')
+                && (!interface_exists($name) || !(new ReflectionClass($name))->isInternal()),
+        ));
     }
 
     /**

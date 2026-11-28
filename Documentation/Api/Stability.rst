@@ -116,8 +116,9 @@ diff — but the types on it are not a promise that you may call them.
 The failure is classified, because "different" makes a new value object read
 like a deleted method. An **additive** diff (a new class, interface or enum,
 a new concrete method or a property of a class, a new constant, an abstract
-class made concrete, an interface a class now implements without leaving
-methods open) is regenerated and noted in an ``added`` changelog fragment.
+class made concrete, an abstract method given a body, an interface a class
+now implements without leaving methods open) is regenerated and noted in an
+``added`` changelog fragment.
 A **breaking** one is a decision, and the failure message says so and points
 at :ref:`api-deprecation`:
 
@@ -137,6 +138,14 @@ at :ref:`api-deprecation`:
   interface removed from a class's ``implements``. A parent class changed to
   a subclass of the old one breaks nobody, but the snapshot alone cannot tell,
   so the message asks the author to check.
+
+Two diffs are reported as **check by hand**, because the snapshot cannot
+classify them: a ``method abstract protected`` line that vanished (the
+snapshot does not render concrete protected methods, so a hook given a body
+and a deleted one look the same), and a third-party interface added to an
+abstract class (methods declared outside this extension and PHP are not
+rendered, so the ones a subclass now has to implement are invisible). Read
+the class; a deleted hook or a newly open method is breaking.
 
 How something leaves the surface again is :ref:`api-deprecation`. Which
 TYPO3 and PHP versions the promise is made on is :ref:`api-support-matrix`.

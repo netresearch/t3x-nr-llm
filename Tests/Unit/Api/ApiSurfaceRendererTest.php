@@ -10,10 +10,13 @@ declare(strict_types=1);
 namespace Netresearch\NrLlm\Tests\Unit\Api;
 
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBase;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingLoggerAware;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseImplementingPort;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithAbstractMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithConcreteMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedAbstract;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithProtectedKind;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithPublicKind;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AbstractBaseWithStaticAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\AddedMethod;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\BackedFixtureEnum;
@@ -26,12 +29,14 @@ use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsForeignConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\InheritsOwnConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\NarrowConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\StandalonePort;
+use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\TraitWithProtectedAbstract;
 use Netresearch\NrLlm\Tests\Unit\Api\Fixtures\WidenedConstructor;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceDiff;
 use Netresearch\NrLlm\Tests\Unit\Api\Support\ApiSurfaceRenderer;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerAwareInterface;
 
 /**
  * Proves what ApiSurfaceSnapshotTest cannot prove about itself.
@@ -291,13 +296,76 @@ final class ApiSurfaceRendererTest extends TestCase
     }
 
     #[Test]
-    public function anAbstractClassMadeConcreteThatImplementsItsProtectedHookStaysAdditive(): void
+    public function anAbstractClassMadeConcreteThatImplementsItsProtectedHookNeedsACheckByHand(): void
     {
+        // A concrete class's protected methods are not rendered, so an
+        // implemented hook and a deleted one look the same.
         $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, ConcreteBaseWithProtectedKind::class);
 
-        self::assertSame('additive', $diff->verdict());
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertFalse($diff->isAdditiveOnly());
         self::assertSame([], $diff->removed);
         self::assertSame([], $diff->changed);
+        self::assertSame(
+            [ConcreteBaseWithProtectedKind::class . ' :: method abstract protected kind(): string'],
+            $diff->checkByHand,
+        );
+    }
+
+    #[Test]
+    public function anAbstractClassMadeConcreteThatDeletedItsProtectedHookIsNotAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, ConcreteBase::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertFalse($diff->isAdditiveOnly());
+        self::assertStringContainsString('cannot tell given a body from deleted', $diff->describe());
+    }
+
+    #[Test]
+    public function anAbstractClassThatGivesAnAbstractMethodABodyStaysAdditive(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithAbstractMethod::class, AbstractBaseWithPublicKind::class);
+
+        self::assertSame('additive', $diff->verdict());
+        self::assertSame([], $diff->changed);
+        self::assertSame('method kind(): string', $diff->widened[0]['now']);
+    }
+
+    #[Test]
+    public function anAbstractClassThatGivesItsProtectedHookABodyNeedsACheckByHand(): void
+    {
+        $diff = $this->diffBetween(AbstractBaseWithProtectedAbstract::class, AbstractBaseWithProtectedKind::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertSame([], $diff->removed);
+        self::assertSame(
+            [AbstractBaseWithProtectedKind::class . ' :: method abstract protected kind(): string'],
+            $diff->checkByHand,
+        );
+        self::assertStringContainsString('cannot tell given a body from deleted', $diff->describe());
+    }
+
+    #[Test]
+    public function anAbstractClassThatAddsAThirdPartyInterfaceNeedsACheckByHand(): void
+    {
+        // Methods declared outside nr_llm or PHP are not rendered, so the
+        // setLogger() every subclass now has to implement is invisible.
+        $diff = $this->diffBetween(AbstractBase::class, AbstractBaseImplementingLoggerAware::class);
+
+        self::assertSame('check by hand', $diff->verdict());
+        self::assertFalse($diff->isAdditiveOnly());
+        self::assertSame([], $diff->widened);
+        self::assertStringContainsString(LoggerAwareInterface::class, $diff->checkByHand[0]);
+    }
+
+    #[Test]
+    public function aProtectedAbstractMethodOfATraitIsRendered(): void
+    {
+        self::assertStringContainsString(
+            '  method abstract protected kind(): string',
+            (new ApiSurfaceRenderer())->render([TraitWithProtectedAbstract::class]),
+        );
     }
 
     #[Test]

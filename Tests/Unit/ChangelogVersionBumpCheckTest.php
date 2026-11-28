@@ -147,7 +147,7 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
         [$exit, $stderr] = $this->check($changelog);
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('[0.56.0-rc.1]  is not a plain N.N.N version', $stderr);
+        self::assertStringContainsString('[0.56.0-rc.1]  line 5: is not a plain N.N.N version', $stderr);
         self::assertStringContainsString('[0.56.0]  raises the middle number over 0.55.1 without a breaking entry', $stderr);
     }
 
@@ -169,6 +169,9 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
             'digit after'       => ["- **BREAKING2:** `Foo::bar()` is removed.\n"],
             'prose'             => ["- This is not a breaking change for callers.\n"],
             'twice on a marker' => ["- **BREAKING: `Foo` changed,** breaking for implementers too.\n"],
+            'marker as code'    => ["- **`BREAKING`:** `Foo::bar()` is removed.\n"],
+            'word as code bold' => ["- **Note, `breaking`:** `Foo::bar()` is removed.\n"],
+            'span over a break' => ["- Start `a\n  b` breaking `c` end.\n"],
         ];
     }
 
@@ -226,7 +229,7 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
         [$exit, $stderr] = $this->check($this->withTopmost('v0.56.0', "### Added\n\n- A new feature.\n"));
 
         self::assertSame(1, $exit);
-        self::assertStringContainsString('[v0.56.0]  is not a plain N.N.N version', $stderr);
+        self::assertStringContainsString('is not a plain N.N.N version', $stderr);
     }
 
     #[Test]
@@ -293,6 +296,50 @@ final class ChangelogVersionBumpCheckTest extends AbstractUnitTestCase
         self::assertSame(1, $exit);
         self::assertStringContainsString('## 0.56.0 - 2026-12-01', $stderr);
         self::assertStringContainsString('only `## [Unreleased]` and `## [N.N.N]', $stderr);
+    }
+
+    #[Test]
+    public function theMarkerQuotedAsCodeInTheOpeningBoldIsNoMarker(): void
+    {
+        // Inline code is blanked before the word is searched, so the bold run
+        // of a bullet is read before that.
+        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', "### Changed\n\n- **`BREAKING`:** `Foo::bar()` is removed.\n"));
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('without a breaking entry', $stderr);
+        self::assertStringContainsString('is only allowed on a marker line', $stderr);
+    }
+
+    #[Test]
+    public function aCodeSpanOverALineBreakIsCode(): void
+    {
+        $body = "### Changed\n\n- Entries quote the `old\n  breaking` word as code.\n";
+
+        [$exit, $stderr] = $this->check($this->withTopmost('0.55.2', $body));
+
+        self::assertSame(0, $exit, $stderr);
+    }
+
+    #[Test]
+    public function aLinkDefinitionInsideASectionDoesNotCutTheLaterReleases(): void
+    {
+        // The text used to be cut at the first link definition, so every
+        // release below it dropped out and 0.56.0 had no predecessor.
+        $body = "### Added\n\n- A new feature, see [the guide].\n\n[the guide]: https://example.org/guide\n";
+
+        [$exit, $stderr] = $this->check($this->withTopmost('0.56.0', $body));
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('[0.56.0]  raises the middle number over 0.55.1 without a breaking entry', $stderr);
+    }
+
+    #[Test]
+    public function aBracketedHeadingThatIsNoPlainVersionNamesItsLine(): void
+    {
+        [$exit, $stderr] = $this->check($this->withTopmost('v0.56.0', "### Added\n\n- A new feature.\n"));
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('[v0.56.0]  line 5: is not a plain N.N.N version', $stderr);
     }
 
     #[Test]

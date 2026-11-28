@@ -181,7 +181,9 @@ final class ApiSurfaceRenderer
      * What a subclass of an abstract class has to implement beyond the public
      * methods the class declares itself (those are rendered with them): its
      * protected abstract methods, and abstract methods it inherits from a
-     * parent or an interface it leaves open. Only declarations inside
+     * parent or an interface it leaves open. A trait's protected abstract
+     * methods count too: every class that uses it has to implement them.
+     * Only declarations inside
      * `Netresearch\NrLlm` or PHP itself count, as with constructors, so the
      * snapshot does not depend on the TYPO3 version.
      *
@@ -191,7 +193,7 @@ final class ApiSurfaceRenderer
      */
     private function abstractMethodsToImplement(ReflectionClass $reflection): array
     {
-        if (!$reflection->isAbstract() || $reflection->isInterface() || $reflection->isTrait()) {
+        if ($reflection->isInterface() || (!$reflection->isAbstract() && !$reflection->isTrait())) {
             return [];
         }
 

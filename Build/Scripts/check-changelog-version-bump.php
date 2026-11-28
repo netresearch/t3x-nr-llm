@@ -98,25 +98,84 @@ function proseLines(string $text): array
 }
 
 /**
+ * The prose lines of $text with inline code blanked, keyed like proseLines().
+ *
+ * A code span may cross a line break, so the lines of each bullet or
+ * paragraph are joined before the spans are blanked; a blanked span keeps its
+ * line breaks, so every line keeps its number.
+ *
+ * @return array<int, string>
+ */
+function blankedProseLines(string $text): array
+{
+    $blocks  = [];
+    $current = [];
+    $last    = null;
+    foreach (proseLines($text) as $i => $line) {
+        $startsBlock = trim($line) === ''
+            || preg_match('/^\s*(?:[-*+]|\d+\.)\s|^#/', $line) === 1
+            || ($last !== null && $i !== $last + 1);
+        if ($startsBlock && $current !== []) {
+            $blocks[] = $current;
+            $current  = [];
+        }
+
+        if (trim($line) !== '') {
+            $current[$i] = $line;
+        }
+
+        $last = $i;
+    }
+
+    if ($current !== []) {
+        $blocks[] = $current;
+    }
+
+    $blanked = [];
+    foreach ($blocks as $block) {
+        $joined = (string) preg_replace_callback(
+            '/`[^`]*`/',
+            static fn (array $m): string => (string) preg_replace('/[^\n]/', ' ', $m[0]),
+            implode("\n", $block),
+        );
+        $lines = explode("\n", $joined);
+        foreach (array_keys($block) as $n => $i) {
+            $blanked[$i] = $lines[$n];
+        }
+    }
+
+    ksort($blanked);
+
+    return $blanked;
+}
+
+/**
  * Line numbers (1-based, counted from $firstLine) of every line where the word
  * "breaking" stands anywhere but as the one marker of a marker line.
  *
  * Inline code is blanked first, so a text that quotes the word as
- * `**BREAKING` is allowed.
+ * `**BREAKING` is allowed. The opening bold run of a bullet is read before
+ * that: `- **`BREAKING`:**` puts the word in bold, but is not the marker.
  *
  * @return list<int>
  */
 function lookalikeLines(string $text, int $firstLine = 1): array
 {
+    $raw   = proseLines($text);
     $lines = [];
-    foreach (proseLines($text) as $i => $line) {
-        $prose = (string) preg_replace_callback('/`[^`]*`/', static fn (array $m): string => str_repeat(' ', strlen($m[0])), $line);
+    foreach (blankedProseLines($text) as $i => $prose) {
         $count = preg_match_all('/breaking/i', $prose, $hits, PREG_OFFSET_CAPTURE);
-        if ($count === 0) {
+
+        $boldIsMarker = true;
+        if (preg_match('/^- \*\*(.*?)\*\*/', $raw[$i], $bold) === 1 && preg_match('/breaking/i', $bold[1]) === 1) {
+            $boldIsMarker = preg_match(MARKER_LINE, $raw[$i]) === 1 && preg_match_all('/breaking/i', $bold[1]) === 1;
+        }
+
+        if ($count === 0 && $boldIsMarker) {
             continue;
         }
 
-        $onlyTheMarker = $count === 1 && $hits[0][0][1] === 4 && preg_match(MARKER_LINE, $prose) === 1;
+        $onlyTheMarker = $boldIsMarker && $count === 1 && $hits[0][0][1] === 4 && preg_match(MARKER_LINE, $prose) === 1;
         if (!$onlyTheMarker) {
             $lines[] = $firstLine + $i;
         }
@@ -163,11 +222,11 @@ $lookalike = static function (string $where, string $text, int $firstLine = 1) u
 
 // [Unreleased] and the fragments: caught on the pull request, before a release.
 // The section runs from its heading to the next `## [` heading or the
-// link-reference block, as in changelog-sections.php.
+// trailing link-reference block, as in changelog-sections.php.
 $start = strpos($text, '## [Unreleased]');
 if ($start !== false) {
-    $unreleased = substr($text, $start);
-    if (preg_match('/^(?:## \[(?!Unreleased)|\[[^\]]+\]: \S)/m', $unreleased, $end, PREG_OFFSET_CAPTURE) === 1) {
+    $unreleased = substr($text, $start, max(0, linkBlockStart($text) - $start));
+    if (preg_match('/^## \[(?!Unreleased)/m', $unreleased, $end, PREG_OFFSET_CAPTURE) === 1) {
         $unreleased = substr($unreleased, 0, $end[0][1]);
     }
 
@@ -199,9 +258,10 @@ foreach (proseLines($text) as $i => $line) {
         );
     } elseif ($heading[1] !== 'Unreleased' && preg_match(PLAIN_VERSION, $heading[1]) !== 1) {
         $problems[] = sprintf(
-            '  [%s]  is not a plain N.N.N version — a CHANGELOG section names a release, written'
+            '  [%s]  line %d: is not a plain N.N.N version — a CHANGELOG section names a release, written'
             . ' without a `v` and without a pre-release suffix',
             $heading[1],
+            $i + 1,
         );
     }
 }
