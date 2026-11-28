@@ -332,7 +332,7 @@ final class ApiSurfaceRenderer
         foreach ($this->abstractMethodsToImplement($reflection) as $method) {
             $lines[] = sprintf(
                 'method abstract %s%s%s(%s): %s',
-                $method->isProtected() ? 'protected ' : ($method->isPrivate() ? 'private ' : ''),
+                $this->hookVisibility($method),
                 $method->isStatic() ? 'static ' : '',
                 $method->getName(),
                 $this->renderParameters($method, $reflection->getName()),
@@ -343,6 +343,19 @@ final class ApiSurfaceRenderer
         sort($lines);
 
         return $lines;
+    }
+
+    /**
+     * `protected ` or `private ` for an abstract method a subclass or trait
+     * user implements; nothing for a public one.
+     */
+    private function hookVisibility(ReflectionMethod $method): string
+    {
+        return match (true) {
+            $method->isProtected() => 'protected ',
+            $method->isPrivate()   => 'private ',
+            default                => '',
+        };
     }
 
     /**

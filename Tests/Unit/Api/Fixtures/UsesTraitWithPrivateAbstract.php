@@ -19,6 +19,11 @@ final class UsesTraitWithPrivateAbstract
         TraitWithoutPrivateAbstract::label insteadof TraitWithPrivateAbstract;
     }
 
+    public function reveal(): string
+    {
+        return $this->secret();
+    }
+
     private function secret(): string
     {
         return 'base';
